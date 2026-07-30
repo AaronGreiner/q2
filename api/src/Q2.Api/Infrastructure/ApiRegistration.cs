@@ -67,6 +67,19 @@ public static class ApiRegistration
                     Version = "v1",
                     Description = "Kudos (q2) — shared self-care goals. Reference API for the initial version.",
                 };
+
+                // The generator fills Servers from the address the host happens
+                // to be listening on. The exporter starts the host on port 0, so
+                // that address is a different ephemeral port on every run, and a
+                // committed contract could never match a freshly exported one —
+                // CI's contract check would fail on nothing but the port.
+                //
+                // Dropping it is also the honest contract: the base address is
+                // configuration on both sides (ASPNETCORE_URLS for the server,
+                // NUXT_PUBLIC_API_BASE_URL for the client), never something a
+                // client should read out of this document.
+                document.Servers?.Clear();
+
                 return Task.CompletedTask;
             });
         });

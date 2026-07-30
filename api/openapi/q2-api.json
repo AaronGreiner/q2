@@ -5,11 +5,6 @@
     "description": "Kudos (q2) — shared self-care goals. Reference API for the initial version.",
     "version": "v1"
   },
-  "servers": [
-    {
-      "url": "http://127.0.0.1:52204"
-    }
-  ],
   "paths": {
     "/api/goals": {
       "get": {
