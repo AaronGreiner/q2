@@ -109,9 +109,10 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
     return null
   }
 
-  // No accounts yet, so there is no legitimate identity to report — and the
-  // SDK would otherwise attach an IP address.
-  delete event.user
+  // event.user is deliberately *not* removed: sendDefaultPii is on, so the IP
+  // address the SDK attaches is wanted. Deleting it here would silently undo
+  // that option. There are still no accounts, so the only thing this carries
+  // today is the address. See docs/privacy.md.
 
   // Never the machine or container the code ran on.
   delete event.server_name
@@ -208,13 +209,22 @@ export function resolveSentryOptions(config: SentryRuntimeConfig) {
     release: config.release || undefined,
     tracesSampleRate: config.tracesSampleRate,
 
-    // Never attach IP addresses or other automatic personal data.
-    sendDefaultPii: false,
-
-    // Session Replay records the screen. It is not enabled here, and enabling
-    // it later needs its own privacy review — see docs/privacy.md.
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0,
+    /*
+     * Both of these send personal data on purpose. They are switched on for
+     * the Staging host, where the point is to be able to reconstruct exactly
+     * what a user did before something broke.
+     *
+     * sendDefaultPii attaches the IP address and request headers.
+     * Session Replay records the screen — every session, not only the ones
+     * that fail — which is the most privacy-invasive thing q2 does.
+     *
+     * What still protects the user: beforeSend and beforeBreadcrumb below run
+     * on every event, ui.input breadcrumbs are dropped, and the replay
+     * integration is configured to mask text and inputs. See docs/privacy.md.
+     */
+    sendDefaultPii: true,
+    replaysSessionSampleRate: 1,
+    replaysOnErrorSampleRate: 1,
 
     beforeSend: scrubEvent,
     beforeBreadcrumb: scrubBreadcrumb,

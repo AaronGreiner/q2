@@ -147,7 +147,7 @@ test.describe('error handling', () => {
 })
 
 test.describe('frontend Sentry', () => {
-  test('a client error is sent with the e2e environment and no sensitive data', async ({ page }) => {
+  test('a client error is sent with the e2e environment, identity and replay, and no secrets', async ({ page }) => {
     const envelopes: string[] = []
 
     // Intercepted in the browser, so nothing leaves the machine even though a
@@ -167,8 +167,19 @@ test.describe('frontend Sentry', () => {
     expect(payload).toContain('"environment":"e2e"')
     expect(payload).toContain('Synthetic q2 frontend diagnostics error')
 
-    // The browser SDK must not attach identity either.
-    expect(payload).not.toContain('"ip_address"')
+    /*
+     * The two deliberate privacy exceptions, asserted on the wire rather than
+     * on the configuration — see docs/privacy.md section 4. Both were
+     * previously off, and both are easy to disable again by accident:
+     * reinstating `delete event.user` in scrubEvent silently undoes
+     * sendDefaultPii, and dropping replayIntegration() from
+     * sentry.client.config.ts leaves the sample rates recording nothing.
+     */
+    expect(payload).toContain('"ip_address"')
+    expect(payload).toContain('"Replay"')
+    expect(payload).toContain('"replay_id"')
+
+    // What must still never be attached.
     expect(payload).not.toContain('"cookies"')
   })
 })

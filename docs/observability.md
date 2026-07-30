@@ -148,7 +148,10 @@ rather than a copy of it.
   `Content-Type`, `User-Agent`, `traceparent`, `tracestate`, `X-Request-Id`)
 - query strings, replaced with `[redacted]`; URLs keep only their path
 - request and response bodies
-- user identity: id, email, username, IP address
+- user identity — **backend only**: `ScrubUser` clears id, email, username and
+  IP address. The frontend keeps `event.user`, because `sendDefaultPii` is on
+  there and deleting it would silently undo that; see
+  [privacy.md](privacy.md#4-sentry-rules)
 - `server_name`, and the device name from the device context
 - any key matching a credential, session, connection-string or location pattern
 - any key carrying goal content
@@ -187,8 +190,8 @@ server process.
 
 Covered: initialisation, exactly one event per failure, environment and release,
 no event for validation errors / 404s / health checks, no credentials, no
-location data, no goal content, no user identity or machine name, and a failing
-transport not taking the API down.
+location data, no goal content, no user identity (backend) or machine name, and
+a failing transport not taking the API down.
 
 ```bash
 bun run test:sentry
@@ -217,9 +220,21 @@ it the upload is skipped so local builds and fork pull requests still succeed.
 
 ## Session Replay
 
-**Off**, and explicitly configured to 0 rather than left to a default.
+**On for every session** — `replaysSessionSampleRate` and
+`replaysOnErrorSampleRate` are both `1`, so a failure can be replayed rather
+than reconstructed from a stack trace.
 
-Introducing it later needs its own privacy assessment and a restrictive
-configuration: all text input masked, personal content and location blocked,
-sensitive regions excluded, and a documented retention decision. See
-[privacy.md](privacy.md).
+Two things are easy to get wrong here:
+
+- **The sample rates alone do nothing.** `Sentry.replayIntegration()` has to be
+  in the `integrations` array in `sentry.client.config.ts`. Without it the
+  configuration looks complete and records nothing.
+- **Masking is part of the configuration, not a default to be tidied away.**
+  `maskAllText`, `maskAllInputs` and `blockAllMedia` are set explicitly. A goal
+  title is personal content and must not reach Sentry through a screen
+  recording any more than through an event payload.
+
+Replay is browser-only; there is no server-side equivalent.
+
+The retention decision and the privacy notice this needs before real users are
+involved are listed in [privacy.md](privacy.md) section 8.

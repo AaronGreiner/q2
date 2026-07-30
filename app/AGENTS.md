@@ -135,7 +135,14 @@ and capturing again would duplicate the issue.
   not send; with one, it reports tagged with the local environment.
 - `ui.input` breadcrumbs are dropped entirely — they record what was typed into
   a goal title.
-- Session Replay is off and stays off until it has had its own privacy review.
+- Session Replay records **every** session, and `sendDefaultPii` is on, so the
+  browser SDK attaches the IP address. Both are deliberate; both are frontend
+  only. Two consequences when touching this code: the sample rates do nothing
+  without `Sentry.replayIntegration()` in `sentry.client.config.ts`, and the
+  masking options (`maskAllText`, `maskAllInputs`, `blockAllMedia`) are what
+  keeps goal content out of a recording — do not remove them to "see more".
+- Do not reinstate `delete event.user` in `scrubEvent`. It would silently undo
+  `sendDefaultPii` while the configuration still claims to be on.
 - `useErrorReporter` decides what deserves an issue: expected failures never do;
   a 5xx that already carries an `errorId` becomes a breadcrumb rather than a
   second issue for one incident.

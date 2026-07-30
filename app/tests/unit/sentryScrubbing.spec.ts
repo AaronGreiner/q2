@@ -60,13 +60,17 @@ describe('isSensitiveKey', () => {
 })
 
 describe('scrubEvent', () => {
-  it('removes user identity and machine name', () => {
+  it('removes the machine name but keeps the user, because sendDefaultPii is on', () => {
     const event = scrubEvent(errorEvent({
       user: { id: '42', email: 'robin.sample@example.com', ip_address: '203.0.113.9' },
       server_name: 'build-agent-7',
     }))
 
-    expect(event?.user).toBeUndefined()
+    // Deleting event.user here would silently undo sendDefaultPii: true.
+    expect(event?.user).toBeDefined()
+    expect(event?.user?.ip_address).toBe('203.0.113.9')
+
+    // The host the code ran on is still never reported.
     expect(event?.server_name).toBeUndefined()
   })
 
@@ -183,15 +187,15 @@ describe('resolveSentryOptions', () => {
       .toThrow(/DSN/i)
   })
 
-  it('never enables session replay by default', () => {
+  it('records every session with replay', () => {
     const options = resolveSentryOptions(base)
 
-    expect(options.replaysSessionSampleRate).toBe(0)
-    expect(options.replaysOnErrorSampleRate).toBe(0)
+    expect(options.replaysSessionSampleRate).toBe(1)
+    expect(options.replaysOnErrorSampleRate).toBe(1)
   })
 
-  it('never sends default PII', () => {
-    expect(resolveSentryOptions(base).sendDefaultPii).toBe(false)
+  it('sends default PII', () => {
+    expect(resolveSentryOptions(base).sendDefaultPii).toBe(true)
   })
 
   it('wires the shared filters', () => {

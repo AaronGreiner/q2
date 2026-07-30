@@ -176,8 +176,11 @@ item 5).
 - **Error normalisation** — every status to every kind, field errors, the
   backend `detail` never reaching the user, immutability, malformed payloads.
 - **Sentry filters** — the exact functions wired into `Sentry.init`: URL query
-  stripping, tokens, JWTs, emails, coordinates, user identity, request data,
-  `ui.input` breadcrumbs, ignored browser noise, and that replay stays off.
+  stripping, tokens, JWTs, emails, coordinates, request data, `ui.input`
+  breadcrumbs, ignored browser noise, and that the two deliberate privacy
+  exceptions stay as configured — `sendDefaultPii` on and replay recording
+  every session ([privacy.md](privacy.md) section 4). Those assertions exist so
+  the switches cannot be flipped back silently in either direction.
 - **Components** — `GoalCard` (content, link, progress semantics, overdue,
   absent optional fields, heading level), `GoalList` (the four states, mutually
   exclusive, retry), `GoalCreateForm` (emitted payload, trimming, participant

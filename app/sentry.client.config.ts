@@ -21,6 +21,24 @@ Sentry.init({
 
   integrations: [
     Sentry.browserTracingIntegration(),
+
+    /*
+     * Session Replay. The sample rates live in resolveSentryOptions; without
+     * this integration they would do nothing at all, which is the trap here —
+     * a replay rate of 1 and no integration looks configured and records
+     * nothing.
+     *
+     * Masking stays on. AGENTS.md section 9 is unambiguous that a goal title is
+     * personal and must never be reported, and a replay of the screen would
+     * otherwise carry exactly that — in a form far harder to audit than an
+     * event payload. So the replay shows layout, navigation and interaction,
+     * with text and inputs masked.
+     */
+    Sentry.replayIntegration({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+    }),
   ],
 
   initialScope: {

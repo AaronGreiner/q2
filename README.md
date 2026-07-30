@@ -345,13 +345,18 @@ builds and fork pull requests still succeed.
 - database connection strings and any other secret
 - full request or response bodies
 - goal titles and descriptions, and any other user-authored content
-- email addresses, user names, IP addresses
+- email addresses and user names
 - exact location data, in events, breadcrumbs, tags or traces
 - machine names, developer names and local file paths
 
 This is enforced centrally — `SentryEventScrubber` on the backend,
-`sentry.shared.ts` on the frontend — and covered by tests in both. The full
-rules are in [docs/privacy.md](docs/privacy.md).
+`sentry.shared.ts` on the frontend — and covered by tests in both.
+
+**Two deliberate exceptions, in the frontend only:** `sendDefaultPii` is on, so
+the browser SDK attaches the IP address, and Session Replay records every
+session with text and inputs masked. The backend still reports no user identity
+at all. The reasoning, and what has to be decided before real users are
+involved, is in [docs/privacy.md](docs/privacy.md) section 4.
 
 ---
 

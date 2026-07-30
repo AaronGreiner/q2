@@ -23,7 +23,7 @@ aspirational.
 | Transparency (Art. 5(1)(a)) | The environment is visible in the UI; the diagnostics page states plainly what reporting is active. |
 | Storage limitation (Art. 5(1)(e)) | Local and test databases are throwaway by design. Production retention is an open decision — section 8. |
 | Integrity and confidentiality (Art. 5(1)(f)) | Secrets never in source; internal detail never in responses; central scrubbing before anything leaves the process. |
-| Data protection by default (Art. 25) | Every switch defaults to the private option: no PII to Sentry, no session replay, no request-body logging, no location. |
+| Data protection by default (Art. 25) | No request-body logging, no location, no analytics. **Two switches are deliberately not on the private setting in the frontend** — `sendDefaultPii` and Session Replay — see section 4. |
 
 ## 2. What is processed
 
@@ -72,7 +72,7 @@ The complete filtering behaviour is in
 - database connection strings, DSNs, any secret
 - full request or response bodies
 - goal titles and descriptions, participant names — any user-authored content
-- email addresses, user names, IP addresses
+- email addresses and user names
 - exact location data, in events, breadcrumbs, tags, contexts or traces
 - machine names, developer names, local file paths
 - keystrokes (`ui.input` breadcrumbs are dropped entirely)
@@ -81,8 +81,35 @@ The complete filtering behaviour is in
 environment, release, service name, a correlation id, and — in test runs — the
 run id and seed profile.
 
-`SendDefaultPii` is `false` on both sides, explicitly rather than by default.
-Session Replay is `0`, explicitly.
+### IP addresses and Session Replay — frontend only
+
+These two were previously off and are now on, **in the frontend**, so that a
+failure on the Staging host can be reconstructed rather than guessed at.
+
+| | Frontend | Backend |
+| --- | --- | --- |
+| `sendDefaultPii` | `true` — the SDK attaches the IP address | `false`, and `ScrubUser` clears id, email, username and IP |
+| Session Replay | every session (`replaysSessionSampleRate: 1`) | not applicable |
+
+An IP address is personal data under the GDPR. Recording it, and recording the
+screen, are the two most intrusive things q2 does, and they are switched on
+deliberately rather than by oversight.
+
+What still limits the damage:
+
+- **Replay masks text and inputs** (`maskAllText`, `maskAllInputs`,
+  `blockAllMedia`). A goal title is personal — AGENTS.md section 9 — and must
+  not reach Sentry through a screen recording any more than through an event.
+  The replay therefore shows layout, navigation and interaction, not content.
+- **`beforeSend` and `beforeBreadcrumb` still run on every event.** Everything
+  in the "never sent" list above is still removed.
+- **`ui.input` breadcrumbs are still dropped**, so keystrokes are not captured.
+- **The backend is unchanged.** It still reports no user identity at all.
+
+Before real users' data is processed, this needs what section 8 lists: a
+retention decision, a lawful basis, and a privacy notice that says the screen
+is recorded. It is not a decision that should survive unexamined into
+production.
 
 Enforced by `SentryEventScrubber` (backend) and `sentry.shared.ts` (frontend),
 both covered by unit tests, plus integration and E2E tests that assert on the
@@ -167,6 +194,11 @@ Technical preparation is not compliance. Before q2 processes real users' data:
 11. **Third-country transfers** (Art. 44 ff.) if Sentry or hosting are outside
     the EEA.
 12. **Deletion and export must be tested**, not merely documented.
+13. **Re-decide `sendDefaultPii` and Session Replay** (section 4). Both are on
+    in the frontend for the Staging host. Recording every session of a real
+    user, plus their IP address, needs a lawful basis, a retention period, a
+    line in the privacy notice, and almost certainly a DPIA — and it is a
+    strong argument for masking staying on permanently.
 
 ## 9. When adding a feature
 
