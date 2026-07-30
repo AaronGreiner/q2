@@ -188,7 +188,44 @@ Prepare the host from scratch, or repair it — the script is idempotent:
 bash deploy/bootstrap.sh
 ```
 
-## 7. Sentry on this host
+**The A record has to exist before that runs.** The script refuses to configure
+Caddy without it, and proves a certificate was issued before it reports
+success — see the next section for why.
+
+## 7. When the release deploys but the URL does not answer
+
+The deploy job's last step requests `$PUBLIC_URL` from GitHub's runner. When it
+is the *only* failing step, both services are already running and healthy on
+loopback — `deploy.sh` proved that before it exited — and the fault is in front
+of them. The curl exit code says which one:
+
+| Exit | Meaning | Fix |
+| --- | --- | --- |
+| 6 | `q2.aarongreiner.dev` does not resolve | Create the A record |
+| 35 | Resolves, but Caddy has no certificate for it | Reload Caddy, below |
+
+Exit 35 (`tlsv1 alert internal error`) is Caddy answering a handshake for a
+domain it holds no certificate for. Almost always this means DNS was still
+missing at the moment the site block was first loaded: **Caddy requests the
+certificate then, not on the first request**, and once that request fails it
+backs off for hours rather than noticing that DNS has since appeared. The site
+stays unreachable in the meantime, with nothing wrong on the host.
+
+Confirm, then force a fresh attempt:
+
+```bash
+journalctl -u caddy --no-pager | grep -iE 'tls\.obtain|acme_client' | tail -20
+```
+
+```bash
+systemctl reload caddy
+```
+
+Issuance takes a few seconds. `bootstrap.sh` now checks DNS before it touches
+Caddy and waits for the certificate afterwards, so a host prepared with it
+cannot end up in this state without saying so.
+
+## 8. Sentry on this host
 
 Both services report to Sentry with environment `staging` and the release id of
 the running deployment. Error and trace sampling are both `1.0`: this host
@@ -214,7 +251,7 @@ Two things are deliberately **not** available here:
 
 Real errors report normally; that is what the environment is for.
 
-## 8. What this deliberately is not
+## 9. What this deliberately is not
 
 - **No zero-downtime deployment.** Services stop, files swap, services start —
   a few seconds. Two SSR processes behind a load balancer would be a different

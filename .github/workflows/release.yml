@@ -330,8 +330,24 @@ jobs:
       # The script already proved both services answer on localhost. This
       # proves the public path — DNS, TLS and the Caddy routing — works too.
       #
-      # If this is the only failing step, the release is deployed and healthy
-      # and the problem is the A record for q2.aarongreiner.dev.
+      # If this is the only failing step, the release is deployed and healthy;
+      # the fault is in front of it, on the host. Two different causes, and the
+      # curl exit code tells them apart:
+      #
+      #   exit 6  — DNS. q2.aarongreiner.dev has no A record.
+      #   exit 35 — TLS. DNS resolves and Caddy answers, but has no certificate
+      #             for this domain, so it fails the handshake with an internal
+      #             error. Usually because DNS was still missing when the site
+      #             block was first loaded: Caddy asks for the certificate at
+      #             that moment, and after it fails it backs off for hours
+      #             rather than retrying when DNS appears. Fix DNS if it is
+      #             still wrong, then 'systemctl reload caddy' on the host to
+      #             force a fresh attempt, and check with:
+      #               journalctl -u caddy | grep -i 'tls.obtain\|acme'
+      #
+      # deploy/bootstrap.sh now checks both before it touches Caddy and proves
+      # the certificate afterwards, so a host prepared with it cannot reach the
+      # second case silently.
       - name: Smoke test the public URL
         run: |
           set -euo pipefail

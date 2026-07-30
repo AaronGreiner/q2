@@ -136,7 +136,55 @@ systemctl enable q2-api.service q2-app.service >/dev/null
 info "q2-api.service and q2-app.service installed and enabled"
 
 # ---------------------------------------------------------------------------
-# 5. Caddy.
+# 5. DNS, checked before Caddy is touched.
+#
+#    Caddy asks for a certificate the moment it loads a site block, not on the
+#    first request. If the A record does not exist yet, Let's Encrypt answers
+#    NXDOMAIN, Caddy backs off for hours, and until something makes it retry
+#    every TLS handshake for this domain fails with an internal error — while
+#    both services sit there perfectly healthy on loopback. That looks like a
+#    broken release and is not one.
+#
+#    So this is checked here rather than mentioned at the end. Everything above
+#    is local and worth having regardless, which is why the check sits at this
+#    point and not at the top: preparing the host before DNS exists is fine,
+#    asking a CA to validate it is not.
+# ---------------------------------------------------------------------------
+log "Checking DNS for $DOMAIN"
+
+# Public DNS is what the CA resolves, so ask a public resolver when dig is
+# available; getent would also be satisfied by an /etc/hosts entry the CA
+# cannot see.
+resolve_a() {
+  if command -v dig >/dev/null; then
+    dig +short A "$1" @1.1.1.1 2>/dev/null | grep -E '^[0-9.]+$' | head -1
+  else
+    getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}'
+  fi
+}
+
+RESOLVED="$(resolve_a "$DOMAIN")"
+
+if [ -z "$RESOLVED" ]; then
+  fail "$DOMAIN does not resolve. Create the A record pointing at this host,
+       wait for it to propagate, then run this script again — it is idempotent,
+       and everything above is already done. Adding the Caddy site now would
+       burn the certificate request and leave the domain unreachable over TLS
+       until Caddy is reloaded again."
+fi
+
+LOCAL_IPS="$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]}')"
+
+if printf '%s\n' "$LOCAL_IPS" | grep -qxF "$RESOLVED"; then
+  info "$DOMAIN -> $RESOLVED (this host)"
+else
+  info "WARNING: $DOMAIN -> $RESOLVED, which is not an address of this host."
+  info "         Legitimate behind NAT or a proxy; otherwise the certificate"
+  info "         request below will fail. The check at the end will say which."
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Caddy.
 #
 #    Appended to the existing Caddyfile in the same style as the tram and
 #    tcg_home blocks, and only when the domain is not already configured.
@@ -178,6 +226,38 @@ caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 \
 systemctl reload caddy
 info "Caddy validated and reloaded"
 
+# ---------------------------------------------------------------------------
+# 7. Prove the certificate exists.
+#
+#    The reload above is what triggers issuance, so this is the moment it can
+#    be observed. Without this the script reports success and the failure
+#    surfaces much later, as a curl exit 35 in the release smoke test, with the
+#    explanation already scrolled out of the Caddy journal.
+# ---------------------------------------------------------------------------
+log "Waiting for the TLS certificate"
+
+# Deliberately not -f: no backend is running yet at bootstrap time, so a 502 is
+# the expected answer and any HTTP status means the handshake succeeded. That
+# handshake is the whole assertion.
+for ((i = 1; i <= 60; i++)); do
+  if curl -sS -o /dev/null --max-time 5 "https://$DOMAIN/" 2>/dev/null; then
+    CERT_OK=1
+    info "Certificate obtained and served after ${i}s"
+    break
+  fi
+  sleep 1
+done
+
+if [ -z "${CERT_OK:-}" ]; then
+  printf '\n--- caddy, recent certificate log lines ---\n' >&2
+  journalctl -u caddy --no-pager -n 300 2>/dev/null \
+    | grep -iE 'acme|tls\.obtain|certificate' | tail -20 >&2 || true
+  fail "Caddy did not obtain a certificate for $DOMAIN — see the lines above.
+       The site block is installed and the services are set up; nothing needs
+       undoing. Fix what those lines report, then 'systemctl reload caddy' to
+       make Caddy retry. It will not retry promptly on its own."
+fi
+
 log "Server prepared"
+info "$DOMAIN resolves, and Caddy is serving a certificate for it"
 info "Deploy with: .github/workflows/release.yml (tag v<version>)"
-info "DNS still required: A record $DOMAIN -> this host"
