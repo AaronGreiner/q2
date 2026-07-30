@@ -81,15 +81,17 @@ The complete filtering behaviour is in
 environment, release, service name, a correlation id, and — in test runs — the
 run id and seed profile.
 
-### IP addresses and Session Replay — frontend only
+### IP addresses and Session Replay
 
-These two were previously off and are now on, **in the frontend**, so that a
-failure on the Staging host can be reconstructed rather than guessed at.
+These were previously off and are now on, so that a failure on the Staging host
+can be reconstructed rather than guessed at.
 
 | | Frontend | Backend |
 | --- | --- | --- |
-| `sendDefaultPii` | `true` — the SDK attaches the IP address | `false`, and `ScrubUser` clears id, email, username and IP |
-| Session Replay | every session (`replaysSessionSampleRate: 1`) | not applicable |
+| `sendDefaultPii` | `true` — the SDK attaches the IP address | `true` — same |
+| User id, email, username | no accounts exist, so nothing is set | cleared by `ScrubUser`; the SDK would otherwise fill the id with an installation identifier that identifies *our host* |
+| Session Replay | every session (`replaysSessionSampleRate: 1`) | not applicable — replay is browser-only |
+| Request bodies | never attached | never attached (`MaxRequestBodySize.None`, unaffected by `SendDefaultPii`) |
 
 An IP address is personal data under the GDPR. Recording it, and recording the
 screen, are the two most intrusive things q2 does, and they are switched on
@@ -104,7 +106,14 @@ What still limits the damage:
 - **`beforeSend` and `beforeBreadcrumb` still run on every event.** Everything
   in the "never sent" list above is still removed.
 - **`ui.input` breadcrumbs are still dropped**, so keystrokes are not captured.
-- **The backend is unchanged.** It still reports no user identity at all.
+- **Cookies and all but a handful of headers are still stripped**, on both
+  sides, and request bodies never leave the process.
+
+Both halves also upload their build artefacts to Sentry so a stack trace has
+line numbers — source maps from the frontend, debug symbols and **sources**
+from the backend. That means the application's source code is held by Sentry.
+It contains no secrets (none are committed), but it is a disclosure to a
+processor and belongs in the Art. 28 agreement listed in section 8.
 
 Before real users' data is processed, this needs what section 8 lists: a
 retention decision, a lawful basis, and a privacy notice that says the screen

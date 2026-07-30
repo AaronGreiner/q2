@@ -48,7 +48,11 @@ were free and are now q2's.
 git tag v1.2.3 && git push origin v1.2.3
 ```
 
-That is the whole procedure. The tag is the only place the version is written
+That is the whole procedure — and it is a person's action, not an agent's:
+tagging is a release decision, and [AGENTS.md](../AGENTS.md) section 11 keeps
+git out of an agent's hands unless it was asked for explicitly.
+
+The tag is the only place the version is written
 down; [`.github/workflows/release.yml`](../.github/workflows/release.yml) turns
 `v1.2.3` into:
 
@@ -140,13 +144,17 @@ server.
 | `DEPLOY_KNOWN_HOSTS` | The host key, so the connection is verified |
 | `SENTRY_DSN_API` | Backend reporting |
 | `SENTRY_DSN_APP` | Frontend reporting |
-| `SENTRY_ORG`, `SENTRY_PROJECT_APP`, `SENTRY_AUTH_TOKEN` | Source map upload |
+| `SENTRY_ORG`, `SENTRY_AUTH_TOKEN` | Both uploads below |
+| `SENTRY_PROJECT_APP` | Frontend source map upload |
+| `SENTRY_PROJECT_API` | Backend debug symbol and source upload |
 | `SENTRY_TEST_DSN` | Optional canary |
 
-Without `SENTRY_AUTH_TOKEN` the build still succeeds: no maps are uploaded, the
-workflow says so loudly, and the maps are deleted from the artefact so they are
-never served. Everything under `.output/public` is publicly fetchable, so a map
-that reached the server would be readable by anyone.
+Without `SENTRY_AUTH_TOKEN` both builds still succeed and the workflow says so
+loudly in each job: no source maps and no debug symbols are uploaded, so stack
+traces in Sentry have no line numbers. The frontend maps are additionally
+deleted from the artefact in that case — everything under `.output/public` is
+publicly fetchable, so a map that reached the server would be readable by
+anyone.
 
 ## 6. Operating it
 

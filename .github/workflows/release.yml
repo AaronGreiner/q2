@@ -106,10 +106,18 @@ jobs:
       # Framework-dependent: the server carries aspnetcore-runtime-10.0 from
       # apt and gets its security updates from there, the same arrangement the
       # Node services on that host already use.
+      #
+      # SENTRY_* are read by the MSBuild targets in Q2.Api.csproj, which upload
+      # the debug symbols and sources so a .NET stack trace in Sentry has line
+      # numbers. Without the token the upload is skipped and the publish still
+      # succeeds — see the "Report symbol upload" step below.
       - name: Publish
         env:
           Q2_RELEASE: ${{ needs.version.outputs.release }}
           GIT_COMMIT_SHA: ${{ github.sha }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT_API: ${{ secrets.SENTRY_PROJECT_API }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           dotnet restore api/q2.slnx
           dotnet publish api/src/Q2.Api \
@@ -118,6 +126,18 @@ jobs:
             --no-restore \
             -p:Version=${{ needs.version.outputs.version }} \
             -p:InformationalVersion=${{ needs.version.outputs.version }}
+
+      # Says plainly which of the two happened, so "no line numbers in Sentry"
+      # is answered by the build log rather than by guessing.
+      - name: Report symbol upload
+        env:
+          HAS_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" = "true" ]; then
+            echo "Debug symbols and sources were uploaded to Sentry."
+          else
+            echo "::warning::SENTRY_AUTH_TOKEN is not set. No debug symbols were uploaded, so backend stack traces in Sentry will have no line numbers."
+          fi
 
       - name: Package
         run: tar -czf api.tar.gz -C artifacts/api .

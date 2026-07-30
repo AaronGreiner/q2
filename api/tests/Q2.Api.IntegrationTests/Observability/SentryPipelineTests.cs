@@ -112,17 +112,31 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.False(recorded.Contains("11.5756"), "Location data reached Sentry.");
     }
 
+    /// <summary>
+    /// The IP address is deliberately reported; nothing else about the user is.
+    /// </summary>
+    /// <remarks>
+    /// Asserted on the serialised payload rather than on the options, because
+    /// the two ways to break this are both invisible in configuration:
+    /// <c>SendDefaultPii</c> going back to false, and
+    /// <see cref="SentryEventScrubber"/> clearing <c>User.IpAddress</c> again.
+    /// See docs/privacy.md section 4.
+    /// </remarks>
     [Fact]
-    public async Task NoUserIdentityOrMachineNameIsAttached()
+    public async Task OnlyTheIpAddressIdentifiesTheCaller()
     {
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
         var recorded = Factory.SentryEvents.Events.Single();
 
+        Assert.True(recorded.Contains("\"ip_address\""), "The IP address did not reach Sentry.");
+
+        // The host the code runs on is still never reported.
         Assert.Null(recorded.ServerName);
         Assert.False(recorded.Contains(Environment.MachineName));
+
         Assert.False(recorded.Contains("\"email\""));
-        Assert.False(recorded.Contains("\"ip_address\""));
+        Assert.False(recorded.Contains("\"username\""));
     }
 
     [Fact]

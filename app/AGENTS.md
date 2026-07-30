@@ -242,7 +242,7 @@ From the repository root, `bun run dev`, `bun run validate` and
 3. `bun run test`
 4. `bun run build`
 5. `bun run test:e2e` if a user-visible flow changed
-6. if the API surface changed: `bun run api:openapi` and commit both artefacts
+6. if the API surface changed: `bun run api:openapi`, keeping both artefacts
 7. check the loading, empty and error states, not just the happy path
 8. look at the change at 390 × 844 — E2E runs there too, but it never asserts
    layout (section 8)

@@ -147,8 +147,8 @@ fixtures hold one for their lifetime (`SqliteTestDatabase`, `Q2ApiFactory`).
 ## 7. API contract and DTOs
 
 - `GoalResponse` is the contract. Changing it changes the OpenAPI document and
-  the generated frontend types — regenerate with `bun run api:openapi` and
-  commit both.
+  the generated frontend types — regenerate with `bun run api:openapi`; both
+  belong to the same change.
 - Request DTOs have nullable properties with defaults, so a missing field
   produces our own field-level message instead of a model-binding failure.
 - Enums travel as names; `JsonNumberHandling.Strict` is set so numeric fields
@@ -209,8 +209,19 @@ before **every** test, so any test can run alone, repeatedly, in any order.
   protected environment).
 - `SentryEventScrubber` is the single `BeforeSend`/`BeforeBreadcrumb`. It drops
   health checks, aborted requests and expected failures, and removes cookies,
-  headers, query strings, bodies, user identity, machine name and anything
-  matching a credential or coordinate pattern.
+  headers, query strings, bodies, user id/email/username, machine name and
+  anything matching a credential or coordinate pattern.
+- **`SendDefaultPii` is `true`, so the IP address is reported on purpose.** Do
+  not reinstate `User.IpAddress = null` in `ScrubUser`: it would silently undo
+  the option while the configuration still reads true. Everything else about
+  the user is still cleared. See [../docs/privacy.md](../docs/privacy.md).
+- **Debug symbols and sources are uploaded to Sentry** by the MSBuild targets
+  configured in `Q2.Api.csproj`, gated on `SENTRY_AUTH_TOKEN` being present, so
+  a build without secrets never invokes `sentry-cli`. If a stack trace in Sentry
+  has no line numbers, that gate is the first thing to check. A *wrong* token
+  behaves differently from a missing one: the build fails with
+  `sentry reported an error: Invalid org token`, which is a credential problem,
+  not a compilation one.
 - `RecordingTransport` replaces only the network call, so tests exercise the
   real SDK end to end. It refuses to be enabled in Staging or Production.
 - Structured logging: single-line console locally, JSON elsewhere. Request
@@ -254,8 +265,8 @@ environment you set.
 2. `dotnet build api/q2.slnx -c Release`
 3. `dotnet test api/tests/Q2.Api.UnitTests`
 4. `dotnet test api/tests/Q2.Api.IntegrationTests`
-5. if the EF model changed: `bun run db:add-migration <Name>` and commit it
-6. if the API surface changed: `bun run api:openapi` and commit both artefacts
+5. if the EF model changed: `bun run db:add-migration <Name>`, keeping the migration
+6. if the API surface changed: `bun run api:openapi`, keeping both artefacts
 7. confirm no expected failure creates a Sentry issue, and no sensitive data
    reaches one
 

@@ -103,13 +103,19 @@ test.describe('error handling', () => {
       event => event.exception?.values?.some(v => v.type?.includes('DiagnosticsTestException')) ?? false,
     )
 
-    // Nothing that identifies a machine, a person or a credential.
+    // No credential, no machine, and nothing that names a person.
     //
     // The checks are deliberately shaped like JSON keys and value prefixes:
     // a bare `Authorization` also matches the assembly name
     // `Microsoft.AspNetCore.Authorization` in the event's module list, which is
     // a version number, not a header.
-    expect(raw).not.toContain('"ip_address"')
+    //
+    // The IP address is the deliberate exception — SendDefaultPii is on for the
+    // backend too (docs/privacy.md section 4) — so it is asserted present
+    // rather than absent, and the identity fields around it still are not.
+    expect(raw).toContain('"ip_address"')
+    expect(raw).not.toContain('"email"')
+    expect(raw).not.toContain('"username"')
     expect(raw).not.toContain('"cookies"')
     expect(raw).not.toContain('"Authorization"')
     expect(raw).not.toContain('Bearer ')

@@ -65,8 +65,15 @@ public static class ObservabilityRegistration
             options.SampleRate = settings.SampleRate;
             options.TracesSampleRate = settings.TracesSampleRate;
 
-            // Never attach IP addresses, cookies or user identity automatically.
-            options.SendDefaultPii = false;
+            // Attach the client IP address. Deliberate, and the frontend does
+            // the same — see docs/privacy.md section 4. Note that this only
+            // works because SentryEventScrubber no longer clears
+            // User.IpAddress; clearing it there would silently undo this.
+            //
+            // Cookies and all but a few headers are still removed by the
+            // scrubber, and request bodies never leave the process at all —
+            // RequestSize.None below is unaffected by SendDefaultPii.
+            options.SendDefaultPii = true;
             options.MaxRequestBodySize = RequestSize.None;
             options.AutoSessionTracking = false;
 

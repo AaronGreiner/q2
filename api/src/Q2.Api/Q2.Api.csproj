@@ -5,6 +5,32 @@
     <UserSecretsId>q2-api</UserSecretsId>
   </PropertyGroup>
 
+  <!--
+    Debug symbol and source upload to Sentry, the backend counterpart to the
+    frontend's source maps. Without it a .NET stack trace in Sentry has no line
+    numbers and no surrounding source.
+
+    The Sentry package ships MSBuild targets that call sentry-cli after a build.
+    MSBuild exposes environment variables as properties, so the three values
+    come from the same environment the release workflow already sets — they are
+    never written down here.
+
+    Both uploads stay off unless an auth token is present, exactly like
+    app/nuxt.config.ts. That is what keeps a local build, a fork pull request
+    and the CI Release build working with no secrets at all: sentry-cli is not
+    invoked, rather than invoked and failing.
+  -->
+  <PropertyGroup>
+    <SentryOrg>$(SENTRY_ORG)</SentryOrg>
+    <SentryProject>$(SENTRY_PROJECT_API)</SentryProject>
+    <SentryAuthToken>$(SENTRY_AUTH_TOKEN)</SentryAuthToken>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(SentryAuthToken)' != '' And '$(Configuration)' == 'Release'">
+    <SentryUploadSymbols>true</SentryUploadSymbols>
+    <SentryUploadSources>true</SentryUploadSources>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />

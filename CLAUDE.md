@@ -25,8 +25,8 @@ to working in Claude Code.
   `pathPrefix: false` is set. File names must therefore be unique across the
   component tree.
 - **`app/app/api/generated/schema.d.ts` is generated.** Never edit it. Run
-  `bun run api:openapi` after changing an endpoint or DTO, and commit both the
-  contract and the types.
+  `bun run api:openapi` after changing an endpoint or DTO; the regenerated
+  contract and types are part of the same change.
 - **The Development database is never reset automatically**, and
   `bun run db:reset` refuses to run in Development. That is deliberate; do not
   "fix" it.
@@ -64,9 +64,21 @@ Long-running commands worth backgrounding: `bun run dev`,
 API and frontend, so do not have `bun run dev` running expectations of it — it
 uses separate ports (5081/3001) precisely so both can coexist.
 
+## Do not commit
+
+Leave your work in the working tree. No `git commit`, no `git push`, no tag, no
+new branch — unless the user asks for it in that conversation, in those words.
+"Do it properly", "finish it" and "make it production-ready" are not that ask.
+
+Finishing a task means the change is on disk, verified, and described. See
+[AGENTS.md](AGENTS.md) section 11 for why.
+
 ## Reporting
 
 State the commands you ran and their real results. If a step failed or could
 not be run in this environment, say which one and give the exact command to
 reproduce it. Never present unrun checks as passing — see
 [AGENTS.md](AGENTS.md) section 15.
+
+When you finish, say what is uncommitted and what it touches, so the author can
+review and commit it themselves.

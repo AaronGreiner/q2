@@ -329,15 +329,22 @@ does not take the API down.
 bun run test:sentry
 ```
 
-## 16. Source maps
+## 16. Symbols and source maps
+
+Both halves upload what Sentry needs to resolve a stack trace back to source.
 
 The frontend build emits hidden source maps — referenced by the Sentry upload,
 not by the shipped bundles. The release workflow uploads them under the same
 release id as the build and deletes them from the deployed artefact afterwards.
 
+The backend uploads debug symbols and sources through the Sentry MSBuild targets
+configured in `api/src/Q2.Api/Q2.Api.csproj`, so a .NET stack trace has line
+numbers and surrounding code. Each half uploads into its own Sentry project,
+which is why there are two project slugs.
+
 `SENTRY_AUTH_TOKEN` is a CI secret only. It is never prefixed `NUXT_PUBLIC_`,
-never committed, and never printed. Without it the upload is skipped, so local
-builds and fork pull requests still succeed.
+never committed, and never printed. Without it **both** uploads are skipped, so
+local builds and fork pull requests still succeed.
 
 ## 17. What must never be sent to Sentry
 
@@ -352,11 +359,11 @@ builds and fork pull requests still succeed.
 This is enforced centrally — `SentryEventScrubber` on the backend,
 `sentry.shared.ts` on the frontend — and covered by tests in both.
 
-**Two deliberate exceptions, in the frontend only:** `sendDefaultPii` is on, so
-the browser SDK attaches the IP address, and Session Replay records every
-session with text and inputs masked. The backend still reports no user identity
-at all. The reasoning, and what has to be decided before real users are
-involved, is in [docs/privacy.md](docs/privacy.md) section 4.
+**Two deliberate exceptions:** `sendDefaultPii` is on for both halves, so the IP
+address is attached, and Session Replay records every frontend session with text
+and inputs masked. Everything else about a user — id, email, username — is still
+removed on both sides. The reasoning, and what has to be decided before real
+users are involved, is in [docs/privacy.md](docs/privacy.md) section 4.
 
 ---
 

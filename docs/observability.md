@@ -148,10 +148,9 @@ rather than a copy of it.
   `Content-Type`, `User-Agent`, `traceparent`, `tracestate`, `X-Request-Id`)
 - query strings, replaced with `[redacted]`; URLs keep only their path
 - request and response bodies
-- user identity — **backend only**: `ScrubUser` clears id, email, username and
-  IP address. The frontend keeps `event.user`, because `sendDefaultPii` is on
-  there and deleting it would silently undo that; see
-  [privacy.md](privacy.md#4-sentry-rules)
+- user id, email and username — but **not the IP address**, on either side.
+  `sendDefaultPii` is on, and removing the address in a scrubber would silently
+  undo it; see [privacy.md](privacy.md#4-sentry-rules)
 - `server_name`, and the device name from the device context
 - any key matching a credential, session, connection-string or location pattern
 - any key carrying goal content
@@ -208,15 +207,45 @@ synthetic event to a dedicated non-production test DSN, tagged with the CI run
 id and commit sha. It is never a prerequisite for a local test run, and it must
 not reach a production project or trigger production alerting.
 
-## Source maps
+## Symbols and source maps
 
-The frontend build emits `hidden` client source maps: generated for the upload,
-not referenced by the shipped bundles, so browsers are not served them.
+Both halves upload what Sentry needs to turn a minified or compiled stack trace
+back into readable source. Without it an issue shows a frame like
+`at n (CFLG7f9j.js:1:7975)` — technically an error report, practically useless.
 
-The release workflow uploads them under the same release id as the build and
-deletes them from the artefact afterwards. `SENTRY_AUTH_TOKEN` is a CI secret
-only — never prefixed `NUXT_PUBLIC_`, never committed, never printed. Without
-it the upload is skipped so local builds and fork pull requests still succeed.
+**Frontend.** The build emits `hidden` client source maps: generated for the
+upload, not referenced by the shipped bundles, so browsers are never served
+them. The release workflow uploads them under the same release id as the build
+and then deletes them from the artefact — everything under `.output/public` is
+publicly fetchable, so a map left behind would be readable by anyone.
+
+**Backend.** `Q2.Api.csproj` sets `SentryUploadSymbols` and
+`SentryUploadSources`, and the MSBuild targets that ship with the Sentry package
+call `sentry-cli` after the build. Debug symbols give line numbers; the sources
+give the surrounding code in the issue view. MSBuild reads environment variables
+as properties, which is how `SENTRY_ORG`, `SENTRY_PROJECT_API` and
+`SENTRY_AUTH_TOKEN` reach it without being written into the project file.
+
+Each half uploads into its own project, hence two project slugs.
+
+`SENTRY_AUTH_TOKEN` is a CI secret only — never prefixed `NUXT_PUBLIC_`, never
+committed, never printed. **Both uploads are gated on it being present**, which
+is what keeps local builds and fork pull requests working with no secrets: the
+tooling is not invoked at all, rather than invoked and failing.
+
+Note the asymmetry, because the two failure modes look nothing alike:
+
+| Token | Backend build |
+| --- | --- |
+| absent | succeeds, no upload, workflow warns |
+| present but wrong | **fails** — `sentry-cli` returns `401 Invalid org token` and MSBuild reports it as an error |
+
+So a release that dies in `Publish` with a Sentry 401 is a bad token, not a bad
+build. An expired token stops releases; it does not degrade them quietly.
+
+Uploading sources means Sentry holds a copy of the backend source code. Nothing
+secret is in it, but it is a disclosure to a processor — see
+[privacy.md](privacy.md) section 8.
 
 ## Session Replay
 

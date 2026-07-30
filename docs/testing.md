@@ -166,8 +166,11 @@ item 5).
   no pending model changes.
 - **Sentry** — SDK initialised, exactly one event per failure, environment and
   release present, no event for validation errors / 404s / health checks, no
-  credentials or location data or goal content, no user identity or machine
-  name, and a broken transport not breaking the API.
+  credentials or location data or goal content, no machine name, no user id,
+  email or username — but the IP address *present*, because `SendDefaultPii` is
+  deliberately on ([privacy.md](privacy.md) section 4) and the assertion exists
+  so it cannot be turned off again unnoticed — and a broken transport not
+  breaking the API.
 
 ### Frontend (116 tests)
 

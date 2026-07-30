@@ -131,15 +131,19 @@ public sealed class SentryEventScrubber
 
     private static void ScrubUser(SentryEvent sentryEvent)
     {
-        // There are no accounts yet, so there is nothing legitimate to report.
-        // The SDK otherwise fills Id with an installation identifier, which is
-        // a stable per-machine identifier we have no use for. When
-        // authentication arrives, an opaque user id may be kept here — never
-        // the email address, name or IP.
+        // The IP address is kept: SendDefaultPii is on, and clearing it here
+        // would silently undo that option while the configuration still reads
+        // true. See docs/privacy.md section 4.
+        //
+        // Everything else still goes. There are no accounts, so Id, Email and
+        // Username cannot hold a real identity — Id would be the SDK's
+        // installation identifier, which on a server identifies *our own host*,
+        // the same thing ServerName is removed for. When authentication
+        // arrives, an opaque user id may be kept here; never an email address
+        // or a name.
         sentryEvent.User.Id = null;
         sentryEvent.User.Email = null;
         sentryEvent.User.Username = null;
-        sentryEvent.User.IpAddress = null;
         sentryEvent.User.Other.Clear();
     }
 

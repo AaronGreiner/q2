@@ -57,8 +57,8 @@ browser ──HTTP──> Nuxt server ──HTTP──> ASP.NET Core API ──E
   (`api/openapi/q2-api.json`), from which the frontend's TypeScript types are
   generated (`app/app/api/generated/schema.d.ts`). Both are committed.
 
-**Changing an endpoint or a DTO means running `bun run api:openapi` and
-committing both artefacts.** CI fails otherwise.
+**Changing an endpoint or a DTO means running `bun run api:openapi`; both
+regenerated artefacts belong to the same change.** CI fails otherwise.
 
 ## 4. Architecture principles
 
@@ -172,6 +172,20 @@ secrets, and deterministic. See [docs/testing.md](docs/testing.md).
 
 ## 11. Branches and commits
 
+**An agent does not commit.** Leave the work in the working tree and say what
+changed. Committing is the author's decision — it is where the change is
+reviewed, and an agent that commits on its own removes the moment that review
+would have happened. This holds for `git commit`, `git push`, tags and branches
+alike, and it holds even when the change is finished, tested and obviously
+correct.
+
+The exception is an explicit instruction in the current conversation: "commit
+this", "open a PR". A general "make it good", "do it properly" or "get it done"
+is **not** that instruction. If a task seems to need a commit to be useful —
+a release tag, say — describe the command and let the author run it.
+
+The rest of this section is for whoever does commit:
+
 - Work on a branch; `main` stays green.
 - One logical change per commit. Subject in the imperative, under ~72
   characters. The body explains *why*.
@@ -227,6 +241,8 @@ An agent must actually do these, not describe them:
 - [ ] no secret, database file or personal data has been committed
 - [ ] documentation and, for a significant decision, an ADR are updated
 - [ ] the report names the commands run and their actual output
+- [ ] the change is left uncommitted unless a commit was explicitly asked for
+      (section 11)
 
 ## 15. Honesty
 
