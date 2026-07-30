@@ -1,0 +1,37 @@
+# /etc/systemd/system/q2-api.service
+#
+# Installed by deploy/bootstrap.sh. Modelled on the tram/tcg_home units that
+# already run on this host, so one operator reads them all the same way.
+#
+# The unit is deliberately unaware of releases: deploy/deploy.sh replaces the
+# files under /var/www/q2/api and restarts this service. Nothing here changes
+# between releases.
+
+[Unit]
+Description=q2 API (ASP.NET Core)
+Documentation=https://github.com/AaronGreiner/q2
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/q2/api
+
+# The framework-dependent .dll rather than the apphost binary: rsync does not
+# have to preserve an executable bit for the service to start.
+ExecStart=/usr/bin/dotnet /var/www/q2/api/Q2.Api.dll
+
+Restart=on-failure
+RestartSec=2
+
+Environment=DOTNET_NOLOGO=true
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=true
+
+# Static configuration and per-release identity are separate files: the first
+# is rewritten only when a secret changes, the second by every deploy. Both
+# live outside the rsync target, so `--delete` can never remove them.
+EnvironmentFile=/var/www/q2/shared/api.env
+EnvironmentFile=-/var/www/q2/shared/release.env
+
+[Install]
+WantedBy=multi-user.target

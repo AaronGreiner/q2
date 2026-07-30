@@ -8,12 +8,18 @@ name: CI
 #     recording transport rather than a real project.
 #   * Every job creates its own databases. Nothing is reused between runs and
 #     no database file is ever cached — see the "Databases" note below.
+#
+# `workflow_call` exists so the release workflow can run this exact gate rather
+# than a copy of it. A release must not be able to pass a weaker check than a
+# pull request, which is what a second, drifting copy of these jobs would
+# eventually mean.
 
 on:
   pull_request:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

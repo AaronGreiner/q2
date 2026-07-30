@@ -30,7 +30,8 @@ A vertical slice around one concept, **goals**:
 | Errors | Central exception handling, no internal detail in responses, a correlation id the user can quote |
 | Observability | Sentry in frontend and backend, separate projects and environments, privacy filters, a local recording transport for tests |
 | Tests | 187 backend + 116 frontend + 15 E2E, all green |
-| CI | GitHub Actions for pull requests and pushes, plus a release workflow for source maps |
+| CI | GitHub Actions for pull requests and pushes |
+| Deployment | A `v*` tag builds, verifies and deploys both applications to a Staging host, with health-gated rollback — see [docs/deployment.md](docs/deployment.md) |
 
 ## 2. What is deliberately missing
 
@@ -405,4 +406,5 @@ committed, and CI fails if they do not match the code.
 - [docs/testing.md](docs/testing.md)
 - [docs/observability.md](docs/observability.md)
 - [docs/privacy.md](docs/privacy.md)
+- [docs/deployment.md](docs/deployment.md) — how a tag becomes a running release
 - [docs/adr/](docs/adr/) — why things are the way they are

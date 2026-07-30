@@ -35,7 +35,8 @@ substantial — it may already say why the obvious approach is the wrong one.
 │   └── adr/                           why decisions were made
 ├── app/                               Nuxt frontend
 ├── api/                               ASP.NET Core backend
-└── .github/workflows/                 CI
+├── deploy/                            server bootstrap and the deployment script
+└── .github/workflows/                 CI and release
 ```
 
 Frontend and backend are separate applications that share nothing but the HTTP

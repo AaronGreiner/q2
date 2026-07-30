@@ -1,0 +1,32 @@
+# /etc/systemd/system/q2-app.service
+#
+# Installed by deploy/bootstrap.sh. Same shape as the existing tram.service,
+# only the port and the paths differ.
+
+[Unit]
+Description=q2 App (Nuxt SSR)
+Documentation=https://github.com/AaronGreiner/q2
+After=network.target q2-api.service
+
+# Not Requires=: the frontend renders its own error state when the API is
+# down, which is more useful than systemd refusing to start it at all.
+Wants=q2-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/q2/app
+ExecStart=/usr/bin/node /var/www/q2/app/.output/server/index.mjs
+
+Restart=on-failure
+RestartSec=2
+
+Environment=NODE_ENV=production
+Environment=NITRO_HOST=127.0.0.1
+Environment=NITRO_PORT=3002
+
+EnvironmentFile=/var/www/q2/shared/app.env
+EnvironmentFile=-/var/www/q2/shared/release.env
+
+[Install]
+WantedBy=multi-user.target

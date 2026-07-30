@@ -152,17 +152,28 @@ not stand in for those.
 Trigger for doing this: the first time concurrency or a query SQLite cannot
 express actually hurts. Not before.
 
-### 11. Deployment
+### 11. Deployment — done, for Staging
 
-There is no deployment. Decide where the two applications run, then:
+A tag `v*` builds and deploys both applications to one Linux host. See
+[deployment.md](deployment.md) and
+[adr/0008-deployment-topology.md](adr/0008-deployment-topology.md). All five
+points below are in place: migrations are an explicit deployment step, the
+configuration comes from repository secrets, `ASPNETCORE_URLS` comes from the
+environment, `/health` gates the deployment, and the source maps are uploaded
+under the same release id the services report.
 
-- migrations as an explicit deployment step, never on application start
-  (`Staging` and `Production` already refuse to do it themselves);
-- `ConnectionStrings__Database`, `Sentry__Dsn` and the `NUXT_PUBLIC_*` values
-  from the platform's secret store;
-- `Urls`/`ASPNETCORE_URLS` from the platform — deliberately not in appsettings;
-- health checks wired to the platform's probes;
-- source maps uploaded by the release workflow with the same release id.
+What is still open:
+
+- **No production environment.** The host runs `Staging`. Production is a
+  second host and a second set of secrets.
+- **No database backup.** SQLite on a test host with no real data. The first
+  time the data matters, this is the first gap to close — before, not after.
+- **A few seconds of downtime per deployment.** Services stop, files swap,
+  services start. Revisit when that stops being acceptable, not before.
+- **No synthetic error trigger on the deployed host.** `/api/diagnostics/*` and
+  `sentry canary` are both guarded against Protected environments, so Staging
+  has neither. Real errors report normally; if a deliberate trigger there turns
+  out to be wanted, that is a decision about the guard, not a bug.
 
 ### 12. Localisation
 

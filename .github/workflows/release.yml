@@ -1,27 +1,34 @@
 name: Release
 
-# Builds both applications with one shared release id and uploads the frontend
-# source maps to Sentry.
+# Tag-driven release: `git tag v1.2.3 && git push --tags` builds, verifies and
+# deploys version 1.2.3 of both applications to the server.
 #
-# Deliberately not part of CI:
-#   * it needs secrets, so it can never run for a fork pull request;
-#   * a pull request must never create a production Sentry release.
+# The tag is the only place a version is written down. It becomes:
+#   * the backend assembly version (`-p:Version=`),
+#   * the frontend package version,
+#   * the Sentry release id `q2@1.2.3`, shared by both services and by the
+#     uploaded source maps.
+# Those four must agree, or a Sentry stack trace cannot be resolved back to
+# source. That is why the id is computed once, in one job, and passed down.
 #
-# Run it from a tag or manually. Deployment itself is not implemented yet —
-# this workflow produces the artefacts and registers the release.
+# Deliberately not part of CI: this needs secrets and deploys to a real host,
+# so it can never run for a fork pull request.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      release:
-        description: 'Release id to use (default: q2@<short sha>)'
+      version:
+        description: 'Version to build, without the leading v (e.g. 1.2.3)'
         required: false
         type: string
 
+# Never two releases at once — they would race for the same directories on the
+# server. Not cancel-in-progress: a half-finished deployment must be allowed to
+# finish or roll itself back.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 permissions:
@@ -30,60 +37,104 @@ permissions:
 env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  PUBLIC_URL: https://q2.aarongreiner.dev
 
 jobs:
-  # The release id is computed once and reused by every downstream job, so the
-  # frontend bundle, the backend build and the uploaded source maps all agree.
-  # A mismatch here means Sentry cannot resolve a stack trace.
-  release-id:
-    name: Determine release id
+  # ---------------------------------------------------------------------------
+  # The version, resolved once.
+  # ---------------------------------------------------------------------------
+  version:
+    name: Resolve version
     runs-on: ubuntu-latest
     outputs:
-      release: ${{ steps.compute.outputs.release }}
+      version: ${{ steps.resolve.outputs.version }}
+      release: ${{ steps.resolve.outputs.release }}
     steps:
       - uses: actions/checkout@v5
 
-      - id: compute
+      - id: resolve
         run: |
-          if [ -n "${{ inputs.release }}" ]; then
-            RELEASE="${{ inputs.release }}"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            RELEASE="q2@${GITHUB_REF_NAME#v}"
-          else
-            RELEASE="q2@$(git rev-parse --short=12 HEAD)"
-          fi
-          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
-          echo "Release id: $RELEASE"
+          set -euo pipefail
 
-  backend:
-    name: Backend release build
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            echo "::error::No version. Push a v* tag, or supply the version input."
+            exit 1
+          fi
+
+          # A version that is not a plain semver core would produce an assembly
+          # version .NET rejects, halfway through the build rather than here.
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a valid version (expected 1.2.3 or 1.2.3-rc.1)."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=q2@$VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "### Release \`q2@$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit \`${GITHUB_SHA:0:12}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # The full pull-request gate, unchanged: static analysis, backend tests
+  # (including the Sentry integration tests), frontend tests, E2E.
+  # Nothing is deployed unless this is green.
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
+  # ---------------------------------------------------------------------------
+  # Backend artefact.
+  # ---------------------------------------------------------------------------
+  build-api:
+    name: Build API
     runs-on: ubuntu-latest
-    needs: release-id
+    needs: [version, verify]
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: api/Directory.Packages.props
 
+      # Framework-dependent: the server carries aspnetcore-runtime-10.0 from
+      # apt and gets its security updates from there, the same arrangement the
+      # Node services on that host already use.
       - name: Publish
         env:
-          Q2_RELEASE: ${{ needs.release-id.outputs.release }}
+          Q2_RELEASE: ${{ needs.version.outputs.release }}
           GIT_COMMIT_SHA: ${{ github.sha }}
         run: |
           dotnet restore api/q2.slnx
-          dotnet publish api/src/Q2.Api -c Release -o artifacts/api --no-restore
+          dotnet publish api/src/Q2.Api \
+            -c Release \
+            -o artifacts/api \
+            --no-restore \
+            -p:Version=${{ needs.version.outputs.version }} \
+            -p:InformationalVersion=${{ needs.version.outputs.version }}
+
+      - name: Package
+        run: tar -czf api.tar.gz -C artifacts/api .
 
       - uses: actions/upload-artifact@v4
         with:
           name: api
-          path: artifacts/api
+          path: api.tar.gz
           retention-days: 14
 
-  frontend:
-    name: Frontend build and source map upload
+  # ---------------------------------------------------------------------------
+  # Frontend artefact, plus the source map upload.
+  # ---------------------------------------------------------------------------
+  build-app:
+    name: Build app
     runs-on: ubuntu-latest
-    needs: release-id
+    needs: [version, verify]
     steps:
       - uses: actions/checkout@v5
 
@@ -94,45 +145,211 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # SENTRY_AUTH_TOKEN is a repository secret and is only ever an
-      # environment variable of this step. It is never prefixed NUXT_PUBLIC_,
-      # so it cannot reach the browser bundle, and it is never echoed.
+      # So the shipped artefact carries the released version rather than the
+      # placeholder in the committed package.json. Build-time only; nothing is
+      # committed back.
+      - name: Stamp version
+        run: |
+          cd app
+          bun --print "
+            const p = require('./package.json');
+            p.version = '${{ needs.version.outputs.version }}';
+            require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2) + '\n');
+            p.version
+          "
+
+      # SENTRY_AUTH_TOKEN is only ever an environment variable of this step. It
+      # is never prefixed NUXT_PUBLIC_, so it cannot reach the browser bundle,
+      # and it is never echoed.
       #
       # When the secret is absent the build still succeeds — the Nuxt Sentry
       # module skips the upload — so a misconfigured repository produces a
       # working artefact without source maps rather than a failed release.
       - name: Build and upload source maps
         env:
-          NUXT_PUBLIC_SENTRY_RELEASE: ${{ needs.release-id.outputs.release }}
-          NUXT_PUBLIC_SENTRY_ENVIRONMENT: production
-          NUXT_PUBLIC_APP_ENV: production
+          NUXT_PUBLIC_SENTRY_RELEASE: ${{ needs.version.outputs.release }}
+          NUXT_PUBLIC_SENTRY_ENVIRONMENT: staging
+          NUXT_PUBLIC_APP_ENV: staging
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT_APP: ${{ secrets.SENTRY_PROJECT_APP }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bun run --cwd app build
 
-      - name: Verify no source map is left in the artefact
+      # Source maps must never reach the deployed artefact: everything under
+      # .output/public is publicly fetchable.
+      #
+      # nuxt.config.ts removes them via filesToDeleteAfterUpload, but that only
+      # runs *after* an upload — without a token the module skips the upload and
+      # the maps stay. So the two cases are handled separately rather than
+      # trusting the configuration to have done it.
+      - name: Handle source maps
+        env:
+          HAS_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
-          # nuxt.config.ts sets filesToDeleteAfterUpload; this makes the
-          # guarantee explicit rather than trusting configuration.
-          if find app/.output -name '*.map' -print -quit | grep -q .; then
-            echo "::warning::Source maps are still present in .output. They must not be served publicly."
+          set -euo pipefail
+          remaining=$(find app/.output -name '*.map' | wc -l | tr -d ' ')
+
+          if [ "$HAS_TOKEN" = "true" ]; then
+            if [ "$remaining" -gt 0 ]; then
+              echo "::error::The maps were uploaded but $remaining remain in .output — they would be deployed. Check filesToDeleteAfterUpload in app/nuxt.config.ts."
+              find app/.output -name '*.map'
+              exit 1
+            fi
+            echo "Source maps uploaded to Sentry and removed from the artefact."
+          else
+            echo "::warning::SENTRY_AUTH_TOKEN is not set. No source maps were uploaded, so Sentry cannot resolve frontend stack traces for this release. Removing the $remaining map(s) so they are never served."
+            find app/.output -name '*.map' -delete
           fi
+
+      - name: Package
+        run: tar -czf app.tar.gz -C app .output
 
       - uses: actions/upload-artifact@v4
         with:
           name: app
-          path: app/.output
+          path: app.tar.gz
           retention-days: 14
 
+  # ---------------------------------------------------------------------------
+  # Deployment.
+  #
+  # The workflow uploads; deploy/deploy.sh on the server decides. Everything
+  # that has to happen in a particular order, and everything that has to be
+  # undone when a step fails, lives in that script — see its header.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [version, build-api, build-app]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: upload
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: upload
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -m 700 -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Rendered here rather than kept on the server, so the repository secrets
+      # are the single source of truth: change a DSN, re-run the release, done.
+      # Written straight to files — never echoed, never passed as arguments.
+      - name: Render runtime configuration
+        env:
+          SENTRY_DSN_API: ${{ secrets.SENTRY_DSN_API }}
+          SENTRY_DSN_APP: ${{ secrets.SENTRY_DSN_APP }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          cat > upload/api.env <<EOF
+          ASPNETCORE_ENVIRONMENT=Staging
+          ASPNETCORE_URLS=http://127.0.0.1:5080
+          Q2_DATA_DIR=/var/www/q2/.data
+          # A full connection string, not a bare file name: DatabaseLocation
+          # parses it with SqliteConnectionStringBuilder and resolves the
+          # relative Data Source against Q2_DATA_DIR. Quoted because of the
+          # space — systemd strips the quotes, and deploy.sh sources this file
+          # with bash, which would otherwise read "Source=..." as a command.
+          ConnectionStrings__Database="Data Source=q2-staging.db"
+          Sentry__Dsn=$SENTRY_DSN_API
+          Sentry__Debug=false
+          Sentry__SampleRate=1.0
+          Sentry__TracesSampleRate=1.0
+          EOF
+
+          cat > upload/app.env <<EOF
+          NUXT_PUBLIC_API_BASE_URL=${{ env.PUBLIC_URL }}
+          NUXT_PUBLIC_APP_ENV=staging
+          NUXT_PUBLIC_DIAGNOSTICS_ENABLED=false
+          NUXT_PUBLIC_SENTRY_DSN=$SENTRY_DSN_APP
+          NUXT_PUBLIC_SENTRY_ENVIRONMENT=staging
+          NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=1
+          EOF
+
+          echo "Rendered api.env ($(wc -l < upload/api.env) lines) and app.env ($(wc -l < upload/app.env) lines)."
+
+      - name: Upload to server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$USER@$HOST" 'mkdir -p /var/www/q2/incoming'
+          scp -i ~/.ssh/deploy_key \
+            upload/api.tar.gz upload/app.tar.gz upload/api.env upload/app.env \
+            deploy/deploy.sh \
+            "$USER@$HOST:/var/www/q2/incoming/"
+
+      - name: Deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          RELEASE: ${{ needs.version.outputs.release }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
+            "GIT_COMMIT_SHA='${{ github.sha }}' CI_RUN_ID='${{ github.run_id }}' \
+             bash /var/www/q2/incoming/deploy.sh '$RELEASE'"
+
+      # The script already proved both services answer on localhost. This
+      # proves the public path — DNS, TLS and the Caddy routing — works too.
+      #
+      # If this is the only failing step, the release is deployed and healthy
+      # and the problem is the A record for q2.aarongreiner.dev.
+      - name: Smoke test the public URL
+        run: |
+          set -euo pipefail
+
+          echo "--- $PUBLIC_URL/health ---"
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/health"
+          echo
+
+          echo "--- $PUBLIC_URL/ ---"
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/" \
+            | grep -q '<!DOCTYPE html>' && echo "Frontend served HTML."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deployment"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Release | \`${{ needs.version.outputs.release }}\` |"
+            echo "| Environment | Staging |"
+            echo "| URL | $PUBLIC_URL |"
+            echo "| Result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
   # Optional: proves the real Sentry ingestion path works, using a dedicated
   # non-production project. Skipped entirely when the secret is absent, so it
   # is never a prerequisite for a release or for any local test run.
+  #
+  # Independent of the deployment: it cannot run against the deployed service,
+  # because `sentry canary` refuses to run in Staging and Production.
+  # ---------------------------------------------------------------------------
   sentry-canary:
     name: Sentry canary (optional)
     runs-on: ubuntu-latest
-    needs: release-id
-    if: ${{ github.event_name != 'pull_request' }}
+    needs: version
     steps:
       - uses: actions/checkout@v5
 
@@ -157,7 +374,7 @@ jobs:
           ASPNETCORE_ENVIRONMENT=AutomatedTest \
           Sentry__TestTransport= \
           Sentry__Dsn="$SENTRY_TEST_DSN" \
-          Sentry__Release="${{ needs.release-id.outputs.release }}" \
+          Sentry__Release="${{ needs.version.outputs.release }}" \
           CI_RUN_ID="${{ github.run_id }}" \
           GIT_COMMIT_SHA="${{ github.sha }}" \
           dotnet run --project api/src/Q2.Api --no-launch-profile --verbosity quiet -- sentry canary

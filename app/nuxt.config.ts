@@ -133,6 +133,19 @@ export default defineNuxtConfig({
       project: process.env.SENTRY_PROJECT_APP,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       telemetry: false,
+
+      /*
+       * The maps have to be uploaded under the same release the running app
+       * reports, or Sentry has nothing to attach them to. Left to itself the
+       * plugin guesses from git, which is not what the deployed service says.
+       *
+       * Undefined outside the release workflow, where the upload is disabled
+       * anyway and the plugin's own detection is good enough.
+       */
+      release: {
+        name: process.env.NUXT_PUBLIC_SENTRY_RELEASE,
+      },
+
       sourcemaps: {
         // Remove the maps from the deployed artefact after uploading them.
         filesToDeleteAfterUpload: ['.output/**/*.map'],

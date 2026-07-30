@@ -14,6 +14,7 @@ to working in Claude Code.
 | work on the backend | [api/AGENTS.md](api/AGENTS.md) |
 | understand why something is the way it is | [docs/adr/](docs/adr/) |
 | know what to build next | [docs/next-steps.md](docs/next-steps.md) |
+| release or debug a deployment | [docs/deployment.md](docs/deployment.md) |
 
 ## Things that are easy to get wrong here
 
