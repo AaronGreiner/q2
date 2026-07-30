@@ -47,7 +47,7 @@ public class ErrorHandlingTests(Q2ApiFactory factory) : ApiTestBase(factory)
         // errorId is the Sentry event id, so a support request maps onto an issue.
         Assert.False(string.IsNullOrWhiteSpace(problem.ErrorId));
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
         Assert.Equal(recorded.EventId, problem.ErrorId);
     }
 
@@ -59,7 +59,7 @@ public class ErrorHandlingTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         // Expected failures never become Sentry issues.
-        Assert.Empty(Factory.SentryEvents.Events);
+        Assert.Empty(await Factory.RecordedEventsAsync());
     }
 
     [Fact]

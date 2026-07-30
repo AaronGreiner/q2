@@ -37,7 +37,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         // One failure, one issue — the exception passes both our handler and
         // the Sentry logging integration, and must not be reported twice.
-        Assert.Single(Factory.SentryEvents.Events);
+        Assert.Single(await Factory.RecordedEventsAsync());
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
 
         Assert.Equal(SentryEnvironments.AutomatedTest, recorded.Environment);
         Assert.Equal("q2@integration-tests", recorded.Release);
@@ -58,7 +58,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
 
         Assert.Contains("DiagnosticsTestException", recorded.ExceptionTypes.Single());
     }
@@ -69,7 +69,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var response = await Client.PostJsonAsync("/api/goals", new { title = "", progressPercent = 900 });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Empty(Factory.SentryEvents.Events);
+        Assert.Empty(await Factory.RecordedEventsAsync());
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         await Client.GetAsync("/api/goals/11111111-1111-4111-8111-111111111111", TestContext.Current.CancellationToken);
 
-        Assert.Empty(Factory.SentryEvents.Events);
+        Assert.Empty(await Factory.RecordedEventsAsync());
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
             await Client.GetAsync("/health", TestContext.Current.CancellationToken);
         }
 
-        Assert.Empty(Factory.SentryEvents.Events);
+        Assert.Empty(await Factory.RecordedEventsAsync());
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         await Client.SendAsync(request, TestContext.Current.CancellationToken);
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
 
         Assert.False(recorded.Contains("supersecret123"), "The query token reached Sentry.");
         Assert.False(recorded.Contains("aaa.bbb.ccc"), "The bearer token reached Sentry.");
@@ -127,7 +127,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
 
         Assert.True(recorded.Contains("\"ip_address\""), "The IP address did not reach Sentry.");
 
@@ -147,7 +147,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
         await Client.PostJsonAsync("/api/goals", new { title = personalTitle });
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
-        var recorded = Factory.SentryEvents.Events.Single();
+        var recorded = (await Factory.RecordedEventsAsync()).Single();
 
         // Goal titles and descriptions are personal by nature; nothing in the
         // error path is allowed to carry them along.
