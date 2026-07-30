@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/*
+ * Design tokens for q2.
+ *
+ * Nuxt UI reads these aliases, so components pick up the palette without any
+ * per-component colour props. Keeping them here means "what does primary look
+ * like?" has exactly one answer.
+ */
+@theme static {
+  --color-primary-50: var(--color-teal-50);
+  --color-primary-100: var(--color-teal-100);
+  --color-primary-200: var(--color-teal-200);
+  --color-primary-300: var(--color-teal-300);
+  --color-primary-400: var(--color-teal-400);
+  --color-primary-500: var(--color-teal-500);
+  --color-primary-600: var(--color-teal-600);
+  --color-primary-700: var(--color-teal-700);
+  --color-primary-800: var(--color-teal-800);
+  --color-primary-900: var(--color-teal-900);
+  --color-primary-950: var(--color-teal-950);
+}
+
+:root {
+  --ui-radius: 0.5rem;
+}
+
+/*
+ * Respect the operating system's reduced-motion setting. Progress bars and
+ * transitions are decorative; nobody should get motion sickness from a
+ * self-care app.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

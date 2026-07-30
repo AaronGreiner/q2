@@ -1,0 +1,50 @@
+# ---------------------------------------------------------------------------
+# q2 — repository ignore rules
+# ---------------------------------------------------------------------------
+
+# --- Local databases (never commit these) ----------------------------------
+api/.data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Secrets / local configuration -----------------------------------------
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+
+# --- Node / Bun -------------------------------------------------------------
+node_modules/
+.output/
+.nuxt/
+.nitro/
+.cache/
+dist/
+*.tsbuildinfo
+.data/
+
+# --- Test artefacts ---------------------------------------------------------
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.artifacts/
+TestResults/
+
+# --- .NET -------------------------------------------------------------------
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# --- OS / editors -----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

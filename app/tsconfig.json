@@ -1,0 +1,12 @@
+{
+  // Nuxt generates the real configuration in .nuxt/. This file only points at
+  // it, so `nuxt typecheck` and the editor agree on one set of options.
+  // Strictness is configured in nuxt.config.ts (`typescript.strict`).
+  "files": [],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" },
+    { "path": "./.nuxt/tsconfig.shared.json" },
+    { "path": "./.nuxt/tsconfig.node.json" }
+  ]
+}

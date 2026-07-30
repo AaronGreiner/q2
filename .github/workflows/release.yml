@@ -1,0 +1,163 @@
+name: Release
+
+# Builds both applications with one shared release id and uploads the frontend
+# source maps to Sentry.
+#
+# Deliberately not part of CI:
+#   * it needs secrets, so it can never run for a fork pull request;
+#   * a pull request must never create a production Sentry release.
+#
+# Run it from a tag or manually. Deployment itself is not implemented yet —
+# this workflow produces the artefacts and registers the release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Release id to use (default: q2@<short sha>)'
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  # The release id is computed once and reused by every downstream job, so the
+  # frontend bundle, the backend build and the uploaded source maps all agree.
+  # A mismatch here means Sentry cannot resolve a stack trace.
+  release-id:
+    name: Determine release id
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.compute.outputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: compute
+        run: |
+          if [ -n "${{ inputs.release }}" ]; then
+            RELEASE="${{ inputs.release }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            RELEASE="q2@${GITHUB_REF_NAME#v}"
+          else
+            RELEASE="q2@$(git rev-parse --short=12 HEAD)"
+          fi
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "Release id: $RELEASE"
+
+  backend:
+    name: Backend release build
+    runs-on: ubuntu-latest
+    needs: release-id
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish
+        env:
+          Q2_RELEASE: ${{ needs.release-id.outputs.release }}
+          GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          dotnet restore api/q2.slnx
+          dotnet publish api/src/Q2.Api -c Release -o artifacts/api --no-restore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: artifacts/api
+          retention-days: 14
+
+  frontend:
+    name: Frontend build and source map upload
+    runs-on: ubuntu-latest
+    needs: release-id
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.9'
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # SENTRY_AUTH_TOKEN is a repository secret and is only ever an
+      # environment variable of this step. It is never prefixed NUXT_PUBLIC_,
+      # so it cannot reach the browser bundle, and it is never echoed.
+      #
+      # When the secret is absent the build still succeeds — the Nuxt Sentry
+      # module skips the upload — so a misconfigured repository produces a
+      # working artefact without source maps rather than a failed release.
+      - name: Build and upload source maps
+        env:
+          NUXT_PUBLIC_SENTRY_RELEASE: ${{ needs.release-id.outputs.release }}
+          NUXT_PUBLIC_SENTRY_ENVIRONMENT: production
+          NUXT_PUBLIC_APP_ENV: production
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT_APP: ${{ secrets.SENTRY_PROJECT_APP }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: bun run --cwd app build
+
+      - name: Verify no source map is left in the artefact
+        run: |
+          # nuxt.config.ts sets filesToDeleteAfterUpload; this makes the
+          # guarantee explicit rather than trusting configuration.
+          if find app/.output -name '*.map' -print -quit | grep -q .; then
+            echo "::warning::Source maps are still present in .output. They must not be served publicly."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: app/.output
+          retention-days: 14
+
+  # Optional: proves the real Sentry ingestion path works, using a dedicated
+  # non-production project. Skipped entirely when the secret is absent, so it
+  # is never a prerequisite for a release or for any local test run.
+  sentry-canary:
+    name: Sentry canary (optional)
+    runs-on: ubuntu-latest
+    needs: release-id
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Send one synthetic event
+        env:
+          SENTRY_TEST_DSN: ${{ secrets.SENTRY_TEST_DSN }}
+        run: |
+          if [ -z "${SENTRY_TEST_DSN}" ]; then
+            echo "SENTRY_TEST_DSN is not configured - skipping the canary."
+            exit 0
+          fi
+
+          dotnet restore api/q2.slnx
+
+          # AutomatedTest pins the recording transport in appsettings, so
+          # clearing Sentry__TestTransport is what makes this exercise the real
+          # ingestion path. The command refuses to run in Staging or Production.
+          ASPNETCORE_ENVIRONMENT=AutomatedTest \
+          Sentry__TestTransport= \
+          Sentry__Dsn="$SENTRY_TEST_DSN" \
+          Sentry__Release="${{ needs.release-id.outputs.release }}" \
+          CI_RUN_ID="${{ github.run_id }}" \
+          GIT_COMMIT_SHA="${{ github.sha }}" \
+          dotnet run --project api/src/Q2.Api --no-launch-profile --verbosity quiet -- sentry canary

@@ -1,0 +1,46 @@
+{
+  "name": "q2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kudos (q2) — self-care goals you pursue together. Nuxt frontend + ASP.NET Core API.",
+  "packageManager": "bun@1.3.9",
+  "workspaces": [
+    "app"
+  ],
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "scripts": {
+    "setup": "bun scripts/setup.ts",
+    "dev": "bun scripts/dev.ts",
+    "dev:app": "bun scripts/dev.ts --only app",
+    "dev:api": "bun scripts/dev.ts --only api",
+    "db:migrate": "bun scripts/db.ts migrate",
+    "db:seed": "bun scripts/db.ts seed",
+    "db:reset": "bun scripts/db.ts reset",
+    "db:reset-and-seed": "bun scripts/db.ts reset-and-seed",
+    "db:add-migration": "bun scripts/db.ts add-migration",
+    "test:manual:start": "bun scripts/manual-testing.ts",
+    "api:openapi": "bun scripts/openapi.ts",
+    "api:types": "bun scripts/openapi.ts --types-only",
+    "lint": "bun scripts/tasks.ts lint",
+    "lint:fix": "bun run --cwd app lint:fix",
+    "typecheck": "bun run --cwd app typecheck",
+    "format": "dotnet format api/q2.slnx",
+    "format:check": "bun scripts/tasks.ts format:check",
+    "test": "bun scripts/tasks.ts test",
+    "test:app": "bun scripts/tasks.ts test:app",
+    "test:api": "bun scripts/tasks.ts test:api",
+    "test:unit": "bun scripts/tasks.ts test:unit",
+    "test:component": "bun scripts/tasks.ts test:component",
+    "test:integration": "bun scripts/tasks.ts test:integration",
+    "test:migrations": "bun scripts/tasks.ts test:migrations",
+    "test:sentry": "bun scripts/tasks.ts test:sentry",
+    "test:e2e": "bun run --cwd app test:e2e",
+    "build": "bun scripts/tasks.ts build",
+    "build:app": "bun run --cwd app build",
+    "build:api": "bun scripts/tasks.ts build:api",
+    "validate": "bun scripts/tasks.ts validate"
+  }
+}

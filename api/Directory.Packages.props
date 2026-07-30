@@ -1,0 +1,42 @@
+<Project>
+
+  <!--
+    Central Package Management: every NuGet version for the backend lives here.
+    Project files reference packages without a Version attribute.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="ASP.NET Core / EF Core">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup Label="Observability">
+    <PackageVersion Include="Sentry.AspNetCore" Version="6.8.0" />
+  </ItemGroup>
+
+  <!--
+    Transitive pins that only exist to pull known-vulnerable dependencies up to
+    a patched version. Remove an entry as soon as the direct dependency ships a
+    version that already references something safe.
+      Microsoft.OpenApi          <= 2.7.4  GHSA-v5pm-xwqc-g5wc (via Microsoft.AspNetCore.OpenApi)
+      SQLitePCLRaw.lib.e_sqlite3 <= 2.1.11 GHSA-2m69-gcr7-jv3q (via EF Core Sqlite)
+  -->
+  <ItemGroup Label="Security pins">
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+</Project>

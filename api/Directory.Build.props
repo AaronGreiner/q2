@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Shared build settings for every project under /api.
+    Individual .csproj files should only contain what is genuinely specific
+    to that project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    NuGet lock files are deliberately not enabled. Every version is already
+    pinned exactly in Directory.Packages.props, and transitive pinning is on,
+    so a lock file would restate what is already fixed — and it does not
+    currently coexist with a .slnx solution-level restore.
+  -->
+
+  <!--
+    Release is the configuration CI builds with, so that is where warnings
+    become errors. Debug stays forgiving so local iteration is not blocked by
+    an unused variable in a half-finished method.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

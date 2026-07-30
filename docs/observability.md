@@ -1,0 +1,225 @@
+# Observability
+
+Logging and Sentry: what each is for, what goes where, and what never leaves
+the process.
+
+## The principle
+
+**Sentry is not switched off outside production.**
+
+A monitoring integration that only runs in production is a monitoring
+integration nobody has ever seen work. Here the SDK initialises the same way in
+every environment; what differs is the environment name, the sampling, and
+whether events go to a real endpoint or to a local recorder. That is why the
+test suite can assert on real Sentry behaviour, and why "does reporting work?"
+is answerable on a laptop.
+
+## Logs versus Sentry
+
+| | Logs | Sentry |
+| --- | --- | --- |
+| Purpose | what the system did | what went wrong |
+| Volume | high, routine | low, actionable |
+| Validation failure | `Information` | **never** |
+| "Not found" | `Information` | **never** |
+| Health check | `Debug`/none | **never** |
+| Unexpected exception | `Error`, with stack | **yes, once** |
+
+An expected failure is not an error. A user typing an empty title is normal
+use; recording it as an incident buries the real defects.
+
+One failure produces **one** Sentry event. The backend reports from exactly one
+place — `GlobalExceptionHandler` — and reports *before* logging, because the
+Sentry logging integration also turns `LogError` into an event and whichever
+call happens first wins; the SDK's duplicate detection drops the second. That
+ordering is what lets the response carry the id of the event that actually
+exists.
+
+## Structured logging
+
+Backend: single-line console locally and in ManualTesting, JSON everywhere else
+so a log shipper can parse it. Message templates carry named values
+(`{GoalId}`, `{SeedProfile}`), never string concatenation.
+
+Request logging with headers or bodies is deliberately **not** enabled.
+
+What may be logged: ids, counts, durations, status codes, environment and
+release, migration and seed names, which code path ran.
+
+What may **not** be logged: goal titles and descriptions, participant names,
+credentials, tokens, connection strings, cookies, headers, request bodies,
+email addresses, IP addresses, exact locations.
+
+## Projects and environments
+
+Two Sentry projects, so a frontend regression and a backend regression are
+never the same issue:
+
+```
+q2-app  (frontend: browser + Nitro)
+q2-api  (backend)
+```
+
+Six environments in each, mapped from the application environment:
+
+| ASP.NET Core / `NUXT_PUBLIC_APP_ENV` | Sentry environment |
+| --- | --- |
+| `Development` | `local-development` |
+| `ManualTesting` | `manual-testing` |
+| `AutomatedTest` | `automated-test` |
+| `E2E` | `e2e` |
+| `Staging` | `staging` |
+| `Production` | `production` |
+
+The backend mapping lives in `SentryEnvironments.cs` and nowhere else; a test
+asserts every mapping is distinct, so a local run can never land in the same
+environment as production. An unknown environment maps to `unknown-<name>`
+rather than to anything resembling production.
+
+## Releases
+
+Both services report the same identifier, `q2@<version-or-commit>`, so an issue
+in `q2-app` lines up with one in `q2-api` and a source map upload attaches to
+the right release.
+
+Resolution order (backend, `ReleaseIdentity`): `Sentry:Release` →
+`Q2_RELEASE` → `q2@<short git sha>` → `q2@<assembly version>`. The frontend
+uses `NUXT_PUBLIC_SENTRY_RELEASE`.
+
+**Never random.** Two starts of the same build must report the same value or
+Sentry cannot group them. In CI the value is computed once and passed to both
+builds and to the source map upload.
+
+Additional tags: `service.name` (`q2-app` / `q2-api`), plus `test.run_id`,
+`seed.profile`, `git.sha` and `ci.run_id` when the harness supplies them.
+
+## Sampling
+
+| Environment | Error events | Traces |
+| --- | --- | --- |
+| `local-development` | 1.0 | 1.0 |
+| `manual-testing` | 1.0 | 1.0 |
+| `automated-test` | 1.0 | 1.0 |
+| `e2e` | 1.0 | 1.0 |
+| `staging` | 1.0 | 0.5 |
+| `production` | 1.0 | 0.1 |
+
+Error events are never sampled away: volume is low, and a test waiting for a
+specific event must not lose it to chance. Trace volume is the part that needs
+a budget. A dynamic sampler additionally drops health checks and `favicon.ico`
+so they never consume it.
+
+Values are configurable per environment (`Sentry__TracesSampleRate`,
+`NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`) and are not scattered through the code.
+
+## Behaviour without configuration
+
+- **No DSN** → the SDK initialises, sends nothing, and the application logs
+  once at startup that monitoring is off. It never fails to start.
+- **Enabled without a DSN** (`SENTRY_ENABLED=true`,
+  `NUXT_PUBLIC_SENTRY_ENABLED=true`) → configuration **fails loudly** with a
+  readable message. Asking for reporting and silently not getting it is worse
+  than not asking.
+- **A malformed DSN** → fails at startup, and the error message does not echo
+  the value.
+- **The recording transport in Staging or Production** → refused outright.
+- **Missing Sentry secrets in CI** → builds, unit tests, integration tests and
+  fork pull requests all still pass. Only the optional canary and the source
+  map upload are skipped.
+
+## Filtering
+
+One central filter per side — `SentryEventScrubber` (backend),
+`sentry.shared.ts` (frontend) — wired in as `beforeSend` / `beforeBreadcrumb`.
+Both are unit-tested directly, so the tests exercise the shipped configuration
+rather than a copy of it.
+
+**Dropped entirely:**
+
+- health checks (`/health`, `/healthz`) and `favicon.ico`
+- aborted requests (`OperationCanceledException`)
+- expected failures (anything implementing `IExpectedFailure`)
+- known browser noise: `Failed to fetch`, `AbortError`, `ResizeObserver loop…`
+- `ui.input` breadcrumbs — they record what was typed into a goal title
+
+**Removed from every event:**
+
+- cookies, and all request headers except a small allow-list (`Accept`,
+  `Content-Type`, `User-Agent`, `traceparent`, `tracestate`, `X-Request-Id`)
+- query strings, replaced with `[redacted]`; URLs keep only their path
+- request and response bodies
+- user identity: id, email, username, IP address
+- `server_name`, and the device name from the device context
+- any key matching a credential, session, connection-string or location pattern
+- any key carrying goal content
+
+**Redacted inside free text** (messages, exception values, breadcrumbs):
+connection strings, `Bearer` tokens, JWTs, email addresses, coordinate pairs,
+and `key=value` pairs whose key looks sensitive. Order matters: the specific
+token shapes run *before* the generic `key=value` rule, which stops at the
+first whitespace and would otherwise leave the token itself in the payload.
+
+What is deliberately **not** filtered: local and test events. The environment
+separation exists to make them visible, not to hide them.
+
+## Verifying it locally
+
+Put a development DSN in `api/.env` and `app/.env`, start the app, and open
+<http://localhost:3000/diagnostics>. The page reports whether the backend would
+send anything — without revealing the DSN — and offers two buttons that trigger
+a synthetic server error and a synthetic client error.
+
+It is not a production endpoint and does not become one by accident: the page
+requires `NUXT_PUBLIC_DIAGNOSTICS_ENABLED`, and the backend routes are not
+mapped in Staging or Production at all.
+
+## Sentry in automated tests
+
+Tests run the **real SDK**. `RecordingTransport` replaces only the network
+call: the event is still built, `beforeSend` still runs, environment, release
+and tags are still attached, and the envelope is still serialised. Assertions
+run against that serialised payload, so "this value is not in the event" means
+it genuinely would not have been transmitted.
+
+With a file path configured, the transport also appends each event as one JSON
+line, which is how the Playwright suite inspects events produced by a separate
+server process.
+
+Covered: initialisation, exactly one event per failure, environment and release,
+no event for validation errors / 404s / health checks, no credentials, no
+location data, no goal content, no user identity or machine name, and a failing
+transport not taking the API down.
+
+```bash
+bun run test:sentry
+```
+
+## Sentry in CI
+
+Every run initialises the real SDK with the recording transport and asserts
+environment, release, filtering and event creation. No secret is required, so
+fork pull requests are fully validated.
+
+For trusted branches an optional **canary** may additionally send one
+synthetic event to a dedicated non-production test DSN, tagged with the CI run
+id and commit sha. It is never a prerequisite for a local test run, and it must
+not reach a production project or trigger production alerting.
+
+## Source maps
+
+The frontend build emits `hidden` client source maps: generated for the upload,
+not referenced by the shipped bundles, so browsers are not served them.
+
+The release workflow uploads them under the same release id as the build and
+deletes them from the artefact afterwards. `SENTRY_AUTH_TOKEN` is a CI secret
+only — never prefixed `NUXT_PUBLIC_`, never committed, never printed. Without
+it the upload is skipped so local builds and fork pull requests still succeed.
+
+## Session Replay
+
+**Off**, and explicitly configured to 0 rather than left to a default.
+
+Introducing it later needs its own privacy assessment and a restrictive
+configuration: all text input masked, personal content and location blocked,
+sensitive regions excluded, and a documented retention decision. See
+[privacy.md](privacy.md).
