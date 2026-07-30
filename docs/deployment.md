@@ -196,13 +196,24 @@ success — see the next section for why.
 
 The deploy job's last step requests `$PUBLIC_URL` from GitHub's runner. When it
 is the *only* failing step, both services are already running and healthy on
-loopback — `deploy.sh` proved that before it exited — and the fault is in front
-of them. The curl exit code says which one:
+loopback — `deploy.sh` proved that before it exited. The curl exit code says
+what is actually wrong, and it is not always the host:
 
 | Exit | Meaning | Fix |
 | --- | --- | --- |
 | 6 | `q2.aarongreiner.dev` does not resolve | Create the A record |
 | 35 | Resolves, but Caddy has no certificate for it | Reload Caddy, below |
+| 23 | Nothing is wrong. The check broke its own pipe | Fix the workflow, not the server |
+
+Exit 23 is worth knowing about because it cost a release once. The step used to
+pipe curl into `grep -q`; `grep -q` exits the instant it matches, and
+`<!DOCTYPE html>` is the first thing in the document, so the pipe closed while
+curl still had ~25 KB to write. curl died with a write error, `pipefail` made
+that the step's status, and the step failed *having already proved the page was
+correct*. It reproduced only when the response arrived in several chunks, so it
+passed by hand and failed from a runner. The step now captures the body and
+matches it in bash — no pipe, no race. Nothing analogous is left in `deploy.sh`
+or `bootstrap.sh`.
 
 Exit 35 (`tlsv1 alert internal error`) is Caddy answering a handshake for a
 domain it holds no certificate for. Almost always this means DNS was still

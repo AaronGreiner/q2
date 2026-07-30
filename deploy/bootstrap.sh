@@ -155,12 +155,31 @@ log "Checking DNS for $DOMAIN"
 # Public DNS is what the CA resolves, so ask a public resolver when dig is
 # available; getent would also be satisfied by an /etc/hosts entry the CA
 # cannot see.
+#
+# The first A record is picked with a loop rather than `| head -1`. A reader
+# that exits early closes the pipe under its writer, and pipefail would then
+# turn a lookup that actually succeeded into an aborted script. Both outputs
+# here are one small write, so it would not bite in practice — but this script
+# only exists to stop a plumbing detail from masquerading as a broken host.
 resolve_a() {
+  local out line
   if command -v dig >/dev/null; then
-    dig +short A "$1" @1.1.1.1 2>/dev/null | grep -E '^[0-9.]+$' | head -1
+    out=$(dig +short A "$1" @1.1.1.1 2>/dev/null) || out=
   else
-    getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}'
+    out=$(getent ahostsv4 "$1" 2>/dev/null) || out=
   fi
+
+  # An explicit `if`, for the reason deploy.sh gives at its own: a trailing
+  # `[[ … ]] && …` that does not match is a failing last command in the loop
+  # body, which set -e would take as an error.
+  while IFS=' ' read -r line _; do
+    if [[ $line =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+      printf '%s\n' "$line"
+      return 0
+    fi
+  done <<<"$out"
+
+  return 0
 }
 
 RESOLVED="$(resolve_a "$DOMAIN")"
@@ -175,7 +194,10 @@ fi
 
 LOCAL_IPS="$(ip -4 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]}')"
 
-if printf '%s\n' "$LOCAL_IPS" | grep -qxF "$RESOLVED"; then
+# Exact whole-line membership, done in bash: `| grep -qxF` would be a reader
+# that exits on the first match, and if that ever raced the writer, pipefail
+# would report "not this host" for an address that is in fact local.
+if [[ $'\n'$LOCAL_IPS$'\n' == *$'\n'$RESOLVED$'\n'* ]]; then
   info "$DOMAIN -> $RESOLVED (this host)"
 else
   info "WARNING: $DOMAIN -> $RESOLVED, which is not an address of this host."

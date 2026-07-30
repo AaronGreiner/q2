@@ -330,9 +330,9 @@ jobs:
       # The script already proved both services answer on localhost. This
       # proves the public path — DNS, TLS and the Caddy routing — works too.
       #
-      # If this is the only failing step, the release is deployed and healthy;
-      # the fault is in front of it, on the host. Two different causes, and the
-      # curl exit code tells them apart:
+      # If this is the only failing step, the release is deployed and healthy
+      # and the fault is somewhere on the public path. The curl exit code says
+      # where — and note that not every value means the host is broken:
       #
       #   exit 6  — DNS. q2.aarongreiner.dev has no A record.
       #   exit 35 — TLS. DNS resolves and Caddy answers, but has no certificate
@@ -345,20 +345,49 @@ jobs:
       #             force a fresh attempt, and check with:
       #               journalctl -u caddy | grep -i 'tls.obtain\|acme'
       #
-      # deploy/bootstrap.sh now checks both before it touches Caddy and proves
-      # the certificate afterwards, so a host prepared with it cannot reach the
-      # second case silently.
+      #   exit 23 — not the host at all. This step used to pipe curl into
+      #             `grep -q`, which closed the pipe under curl the moment it
+      #             matched; see the comment on the page check below. Nothing to
+      #             fix on the server if this reappears — fix it here.
+      #
+      # deploy/bootstrap.sh checks DNS before it touches Caddy and proves the
+      # certificate afterwards, so a host prepared with it cannot reach the
+      # exit-35 case silently.
       - name: Smoke test the public URL
         run: |
           set -euo pipefail
 
           echo "--- $PUBLIC_URL/health ---"
-          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/health"
-          echo
+          health=$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/health")
+          printf '%s\n' "$health"
+
+          if [[ $health != *'"healthy"'* ]]; then
+            echo "::error::$PUBLIC_URL/health did not report healthy."
+            exit 1
+          fi
 
           echo "--- $PUBLIC_URL/ ---"
-          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/" \
-            | grep -q '<!DOCTYPE html>' && echo "Frontend served HTML."
+          # Captured into a variable rather than piped into `grep -q`.
+          #
+          # `grep -q` exits the instant it matches, and '<!DOCTYPE html>' is the
+          # first thing in the document — so it closes the pipe while curl is
+          # still writing the remaining ~25 KB of the page. curl then dies with
+          # exit 23, pipefail promotes that to the step's status, and the step
+          # fails having *already proved the thing it was asserting*. Whether it
+          # happens at all depends on how the response is chunked on the wire,
+          # which is why it passes by hand and fails from a runner.
+          #
+          # --retry made it worse rather than better: every retry re-downloaded
+          # into the same closed pipe, so one race produced six identical
+          # errors and no useful information.
+          page=$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/")
+
+          if [[ $page != *'<!DOCTYPE html>'* ]]; then
+            echo "::error::$PUBLIC_URL/ did not serve HTML. First 500 bytes:"
+            printf '%s\n' "${page:0:500}"
+            exit 1
+          fi
+          echo "Frontend served HTML."
 
       - name: Summary
         if: always()
