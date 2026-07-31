@@ -52,6 +52,13 @@ Add `@axe-core/playwright` and run it over the dashboard, the detail page and
 the diagnostics page, in both colour schemes. Assert zero violations of
 `wcag2a` and `wcag2aa`.
 
+**Expect one failure on the first run, deliberately.** Pinch-zoom is disabled so
+that the installed app behaves like an app, which axe reports under its
+`meta-viewport` rule and which really is a WCAG 1.4.4 failure
+([adr/0013-app-like-input.md](adr/0013-app-like-input.md)). The decision at that
+point is to reverse it or to record an explicit, dated exception — not to widen
+the rule set until it stops complaining.
+
 **Done when:** a contrast or ARIA regression fails CI instead of surviving until
 someone squints at a screenshot.
 

@@ -41,7 +41,7 @@ function badgeFor(to: string, unreadChats?: number, pendingRequests?: number): n
 
 <template>
   <nav
-    class="flex border-t border-(--ui-border) bg-(--q2-surface) pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+    class="flex border-t border-(--ui-border) bg-(--q2-surface) pt-2 pb-(--q2-safe-bottom)"
     :aria-label="t.nav.label"
     data-testid="bottom-nav"
   >

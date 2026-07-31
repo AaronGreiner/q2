@@ -53,6 +53,14 @@ tests/component/GoalCard.spec.ts     how to write a component test
   run preview`.
 - **`public/` is generated.** `bun run icons` draws the whole icon set from
   `scripts/generate-icons.ts`; never hand-edit a file in there.
+- **Pinch-zoom off and text unselectable are deliberate**, not leftovers —
+  [../docs/adr/0013-app-like-input.md](../docs/adr/0013-app-like-input.md). The
+  zoom half is a known WCAG 1.4.4 failure and is the one exception
+  [AGENTS.md](AGENTS.md) section 8 allows. A control holding typed text must
+  appear in the `user-select: text` list in `main.css` or it cannot be edited.
+- **Use `--q2-safe-bottom`, not `env(safe-area-inset-bottom)`.** The token caps
+  the inset; using it raw puts a wide empty band under the tab bar on a phone
+  with a home indicator, which is invisible in a desktop browser.
 
 ## Verifying a change
 

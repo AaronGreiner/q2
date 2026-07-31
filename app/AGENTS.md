@@ -225,6 +225,14 @@ Not optional, and checked in the component tests:
 - `prefers-reduced-motion` is respected globally in `main.css`.
 - Interactive elements are reachable and operable by keyboard.
 
+**One deliberate exception, and it is a real one.** Pinch-zoom is disabled so
+that an installed q2 behaves like an app, which **fails WCAG 1.4.4 (Resize
+Text, AA)**. It is written down rather than forgotten
+([../docs/adr/0013-app-like-input.md](../docs/adr/0013-app-like-input.md)), and
+it is the reason the layout has to hold at the largest text rather than lean on
+a person being able to zoom out of a squeeze. Do not add a second exception
+without the same treatment.
+
 ## 9. Mobile format
 
 **q2 is a phone application that currently happens to run in a browser.** The
@@ -289,6 +297,21 @@ The rules that matter:
 - **The offline page lives in the worker**, takes its words from the catalogue
   like everything else, and names no colour — it uses the `Canvas` and
   `CanvasText` system colours, which follow the OS setting on their own.
+
+Three shell behaviours come with being installed, and all three are invisible
+in a desktop run ([../docs/adr/0013-app-like-input.md](../docs/adr/0013-app-like-input.md),
+`tests/e2e/phoneShell.spec.ts`):
+
+- **pinch-zoom is off** — `touch-action: pan-x pan-y` plus `user-scalable=no`.
+  This is the accessibility exception in section 8; read it before touching
+  either half.
+- **content is not selectable**, and `input`, `textarea`, `select` and
+  `[contenteditable]` opt back in. A new control that holds typed text has to
+  be in that list or it cannot be corrected.
+- **`--q2-safe-bottom` is the room the bottom edge needs**, and it *caps*
+  `env(safe-area-inset-bottom)` rather than using all of it — the full inset
+  leaves a compact tab bar hovering above the screen edge. Use the token; do
+  not reach for `env()` directly.
 
 ## 10. Tests
 

@@ -20,3 +20,4 @@ so the reasoning at the time stays readable.
 | [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |
 | [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted |
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
+| [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |

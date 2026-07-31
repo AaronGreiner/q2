@@ -44,6 +44,22 @@
   --ui-radius: 0.75rem;
 
   /*
+   * How much room the bottom edge of the screen needs.
+   *
+   * Installed, `env(safe-area-inset-bottom)` is 34px on an iPhone and can be a
+   * whole navigation bar on Android. Padding a compact tab bar by all of it
+   * leaves the icons stranded near its top edge with a wide empty band under
+   * them — the bar stops looking like it sits on the edge of the screen and
+   * starts looking like it hovers above one.
+   *
+   * The inset is therefore a *ceiling to clear*, not a target: cap it at the
+   * point where the content is comfortably above the iOS home indicator and
+   * outside the system's swipe-up area, and take the smaller of the two. The
+   * 0.75rem floor is what the bar has on a device with no inset at all.
+   */
+  --q2-safe-bottom: max(0.75rem, min(env(safe-area-inset-bottom), 1.25rem));
+
+  /*
    * --ui-bg has one copy elsewhere, in app/utils/themeColors.ts. Installed,
    * this value is the splash screen and the status bar, and both are painted
    * before a stylesheet exists to read a custom property from. Change them
@@ -108,6 +124,24 @@
   --q2-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
 }
 
+/*
+ * Pinch-zoom is off.
+ *
+ * `pan-x pan-y` is the whole list of gestures q2 wants: scroll, and nothing
+ * else. Leaving `pinch-zoom` out of it is what disables the two-finger zoom,
+ * and dropping the double-tap gesture with it also removes the click delay
+ * browsers keep in order to wait for a second tap.
+ *
+ * This is the half that works everywhere; the viewport meta in app/app.vue is
+ * the other half, and iOS honours that one only once the app is installed.
+ * Both are needed, and the trade-off is recorded in
+ * docs/adr/0013-app-like-input.md — it costs a person the ability to
+ * magnify a screen they cannot read.
+ */
+html {
+  touch-action: pan-x pan-y;
+}
+
 body {
   font-family: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   background: var(--ui-bg);
@@ -121,6 +155,31 @@ body {
    */
   overscroll-behavior-y: none;
   overflow-x: hidden;
+
+  /*
+   * Holding a finger on a goal title selects it, pops up a magnifier and
+   * offers "Copy" — which is what a web page does and not what an app does.
+   * A long press in q2 should do nothing rather than something borrowed.
+   *
+   * `-webkit-touch-callout` is the separate iOS switch for the menu that
+   * appears on a long press over a link; without it the menu still opens even
+   * though nothing gets selected.
+   */
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/*
+ * Everything a person types in stays selectable, because selection is how text
+ * is corrected: without this, placing a caret mid-word or picking a wrong word
+ * out of a goal title becomes impossible.
+ */
+input,
+textarea,
+select,
+[contenteditable] {
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 /*

@@ -21,7 +21,7 @@ const t = useMessages()
 
     <main
       id="main"
-      class="flex min-h-0 flex-1 flex-col pt-[max(0.5rem,env(safe-area-inset-top))] pb-[env(safe-area-inset-bottom)]"
+      class="flex min-h-0 flex-1 flex-col pt-[max(0.5rem,env(safe-area-inset-top))] pb-(--q2-safe-bottom)"
     >
       <slot />
     </main>

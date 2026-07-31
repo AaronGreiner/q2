@@ -18,10 +18,18 @@ useHead({
   meta: [
     { name: 'description', content: () => t.value.app.description },
 
-    // The app is packaged with Capacitor and runs behind a notch. `cover` lets
-    // the layout paint into the safe areas, which the shell then pads back out
-    // with env(safe-area-inset-*).
-    { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+    /*
+     * The app is packaged with Capacitor and runs behind a notch. `cover` lets
+     * the layout paint into the safe areas, which the shell then pads back out
+     * with env(safe-area-inset-*).
+     *
+     * `maximum-scale=1, user-scalable=no` turns off pinch-zoom. Safari ignores
+     * it in a browser tab and honours it once q2 is installed, which is the
+     * case it is here for; `touch-action` in main.css covers the rest. It
+     * costs a person the ability to magnify a screen they cannot read — see
+     * docs/adr/0013-app-like-input.md.
+     */
+    { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
     { name: 'color-scheme', content: 'light dark' },
 
     /*
