@@ -312,6 +312,78 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task AGroupCannotExposeAPrivateGoalToItsMembers()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: private goal leak",
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId },
+            goalId = AutomatedTestSeed.GoalWithoutTargetDateId,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AGroupCanPinAGoalEveryMemberMaySee()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: shared goal group",
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId },
+            goalId = AutomatedTestSeed.ActiveGoalId,
+        });
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(
+            AutomatedTestSeed.ActiveGoalId,
+            (await response.ReadAsync<ThreadDocument>()).PinnedGoal?.Id);
+    }
+
+    [Fact]
+    public async Task AThreadOnlyReturnsAPinnedGoalToPeopleAllowedToSeeIt()
+    {
+        var conversationId = Guid.CreateVersion7();
+
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            var conversation = Conversation.CreateGroup(
+                conversationId,
+                "Automated test: inconsistent legacy group",
+                "🔒",
+                AutomatedTestSeed.GoalWithoutTargetDateId,
+                Q2ApiFactory.Now);
+            conversation.AddParticipant(Guid.CreateVersion7(), AutomatedTestSeed.CurrentPersonId);
+            conversation.AddParticipant(Guid.CreateVersion7(), AutomatedTestSeed.FriendPersonId);
+
+            database.Conversations.Add(conversation);
+            await database.SaveChangesAsync(TestContext.Current.CancellationToken);
+        });
+
+        Assert.NotNull((await ThreadAsync(conversationId)).PinnedGoal);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var friendsThread = await (await friend.GetAsync(
+            $"/api/chats/{conversationId}",
+            TestContext.Current.CancellationToken)).ReadAsync<ThreadDocument>();
+
+        Assert.Null(friendsThread.PinnedGoal);
+    }
+
+    [Fact]
+    public async Task AGroupEmojiCannotExceedTheStoredBoundary()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: oversized emoji",
+            emoji = new string('x', Conversation.MaxEmojiLength + 1),
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AGroupNeedsSomebodyElseInIt()
     {
         var response = await Client.PostJsonAsync("/api/chats/groups", new

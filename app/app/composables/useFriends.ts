@@ -119,26 +119,36 @@ export function usePersonSearch(query: Ref<string>) {
 
   const term = computed(() => query.value.trim())
   const isActive = computed(() => term.value.length >= minimumLength)
+  let revision = 0
 
   async function search() {
+    const currentRevision = ++revision
+
     if (!isActive.value) {
       results.value = []
       failure.value = null
+      isSearching.value = false
       return
     }
 
+    const requestedTerm = term.value
     isSearching.value = true
 
     try {
-      results.value = await api.friends.search(term.value)
+      const found = await api.friends.search(requestedTerm)
+      if (currentRevision !== revision) return
+
+      results.value = found
       failure.value = null
     }
     catch (caught) {
+      if (currentRevision !== revision) return
+
       results.value = []
       failure.value = report(caught, { feature: 'friends', action: 'search' })
     }
     finally {
-      isSearching.value = false
+      if (currentRevision === revision) isSearching.value = false
     }
   }
 

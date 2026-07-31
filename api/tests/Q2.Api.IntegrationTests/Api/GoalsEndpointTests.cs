@@ -118,6 +118,33 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task ASharedGoalOnlyReturnsTheSignedInPersonsTasks()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var createdResponse = await friend.PostJsonAsync("/api/tasks", new
+        {
+            title = "Automated test: participant-only task",
+            goalId = AutomatedTestSeed.ActiveGoalId,
+        });
+        createdResponse.EnsureSuccessStatusCode();
+        var participantsTask = await createdResponse.ReadAsync<TaskDocument>();
+
+        var ownersDetail = await (await Client.GetAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}",
+            TestContext.Current.CancellationToken)).ReadAsync<GoalDetailDocument>();
+
+        Assert.Contains(ownersDetail.Tasks, task => task.Id == AutomatedTestSeed.OpenTaskId);
+        Assert.DoesNotContain(ownersDetail.Tasks, task => task.Id == participantsTask.Id);
+
+        var participantsDetail = await (await friend.GetAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}",
+            TestContext.Current.CancellationToken)).ReadAsync<GoalDetailDocument>();
+
+        Assert.Contains(participantsDetail.Tasks, task => task.Id == participantsTask.Id);
+        Assert.DoesNotContain(participantsDetail.Tasks, task => task.Id == AutomatedTestSeed.OpenTaskId);
+    }
+
+    [Fact]
     public async Task ParticipantsComeBackInAStableOrder()
     {
         // The same goal must not produce two different avatar stacks depending

@@ -1,6 +1,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de, en } from '~/i18n/messages'
+import { ApiError } from '~/api/errors'
 import { useAppSettings, useTheme } from '~/composables/useAppSettings'
 import { useLanguage, useMessages } from '~/composables/useMessages'
 import { useNow, useTimeZoneOffset } from '~/composables/useNow'
@@ -56,6 +57,9 @@ beforeEach(() => {
   vi.unstubAllGlobals()
   installVueGlobals()
   installState()
+  vi.stubGlobal('useNuxtApp', () => ({
+    runWithContext: <T>(callback: () => T) => callback(),
+  }))
 })
 
 describe('language and time state', () => {
@@ -192,7 +196,8 @@ describe('session state', () => {
   it('resolves once and adopts login and registration answers', async () => {
     const { api, session } = sessionApi()
     vi.stubGlobal('useQ2Api', () => api)
-    vi.stubGlobal('clearNuxtData', vi.fn())
+    const clearNuxtData = vi.fn()
+    vi.stubGlobal('clearNuxtData', clearNuxtData)
     const state = useSession()
 
     await expect(state.resolve()).resolves.toEqual(session)
@@ -205,11 +210,12 @@ describe('session state', () => {
     expect(state.isSignedIn.value).toBe(false)
     await expect(state.login({ email: 'mara@example.test', password: 'long-password' })).resolves.toEqual(session)
     await expect(state.register({ displayName: 'Mara', email: 'mara@example.test', password: 'long-password' })).resolves.toEqual(session)
+    expect(clearNuxtData).toHaveBeenCalledTimes(2)
   })
 
-  it('treats a failed resolution as signed out and always clears cached personal data', async () => {
+  it('treats an unauthorized resolution as signed out and clears cached personal data', async () => {
     const { api } = sessionApi()
-    api.accounts.session.mockRejectedValueOnce(new Error('unauthorized'))
+    api.accounts.session.mockRejectedValueOnce(new ApiError({ kind: 'unauthorized', status: 401 }))
     api.accounts.logout.mockRejectedValueOnce(new Error('offline'))
     const clearNuxtData = vi.fn()
     vi.stubGlobal('useQ2Api', () => api)
@@ -218,9 +224,28 @@ describe('session state', () => {
 
     await expect(state.resolve()).resolves.toBeNull()
     expect(state.isResolved.value).toBe(true)
+    expect(clearNuxtData).toHaveBeenCalledOnce()
     await expect(state.logout()).rejects.toThrow('offline')
     expect(state.session.value).toBeNull()
-    expect(clearNuxtData).toHaveBeenCalledOnce()
+    expect(clearNuxtData).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not cache a transient session failure as signed out', async () => {
+    const { api, session } = sessionApi()
+    api.accounts.session.mockRejectedValueOnce(new ApiError({ kind: 'network' }))
+    const clearNuxtData = vi.fn()
+    vi.stubGlobal('useQ2Api', () => api)
+    vi.stubGlobal('clearNuxtData', clearNuxtData)
+    const state = useSession()
+
+    await expect(state.resolve()).rejects.toMatchObject({ kind: 'network' })
+    expect(state.isResolved.value).toBe(false)
+    expect(state.isSignedIn.value).toBe(false)
+    expect(clearNuxtData).not.toHaveBeenCalled()
+
+    await expect(state.resolve()).resolves.toEqual(session)
+    expect(api.accounts.session).toHaveBeenCalledTimes(2)
+    expect(state.isResolved.value).toBe(true)
   })
 })
 

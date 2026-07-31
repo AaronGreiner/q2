@@ -1,4 +1,4 @@
-import type { ApiFailure } from '~/api/errors'
+import { isApiError, type ApiFailure } from '~/api/errors'
 import type { Messages } from '~/i18n/messages'
 import type { LoginRequest, RegisterRequest, Session } from '~/api/types'
 
@@ -17,6 +17,7 @@ import type { LoginRequest, RegisterRequest, Session } from '~/api/types'
  */
 export function useSession() {
   const api = useQ2Api()
+  const nuxtApp = useNuxtApp()
   const session = useState<Session | null>('session', () => null)
 
   /** True once the server has actually been asked. */
@@ -24,6 +25,13 @@ export function useSession() {
 
   const person = computed(() => session.value?.person ?? null)
   const isSignedIn = computed(() => session.value !== null)
+
+  // `resolve` also runs during SSR middleware. After awaiting the API request,
+  // Nuxt's implicit composable context is no longer guaranteed to be active,
+  // so cache cleanup must re-enter the context captured at setup time.
+  function clearPersonalData() {
+    nuxtApp.runWithContext(() => clearNuxtData())
+  }
 
   /**
    * Asks the server who is signed in, at most once per navigation.
@@ -38,15 +46,20 @@ export function useSession() {
 
     try {
       session.value = await api.accounts.session()
-    }
-    catch {
-      session.value = null
-    }
-    finally {
       isResolved.value = true
+      return session.value
     }
+    catch (caught) {
+      // Only the API's explicit "no session" answer means signed out. A
+      // timeout or a 500 is transient and must not be cached as an anonymous
+      // session for the rest of the navigation.
+      if (!isApiError(caught) || caught.kind !== 'unauthorized') throw caught
 
-    return session.value
+      session.value = null
+      isResolved.value = true
+      clearPersonalData()
+      return null
+    }
   }
 
   /** Replaces what is known about the session, after a sign-in or sign-up. */
@@ -57,12 +70,14 @@ export function useSession() {
 
   async function login(request: LoginRequest): Promise<Session> {
     const result = await api.accounts.login(request)
+    clearPersonalData()
     adopt(result)
     return result
   }
 
   async function register(request: RegisterRequest): Promise<Session> {
     const result = await api.accounts.register(request)
+    clearPersonalData()
     adopt(result)
     return result
   }
@@ -80,7 +95,7 @@ export function useSession() {
     }
     finally {
       adopt(null)
-      clearNuxtData()
+      clearPersonalData()
     }
   }
 

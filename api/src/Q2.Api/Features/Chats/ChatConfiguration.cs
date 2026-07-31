@@ -23,7 +23,7 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
             .HasMaxLength(Conversation.MaxTitleLength);
 
         builder.Property(c => c.Emoji)
-            .HasMaxLength(8);
+            .HasMaxLength(Conversation.MaxEmojiLength);
 
         builder.Property(c => c.CreatedAt)
             .IsRequired()

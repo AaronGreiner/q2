@@ -270,6 +270,16 @@ public sealed class ChatService(
             {
                 throw new ResourceNotFoundException("Goal", goalId);
             }
+
+            var visibleTo = goal.Participants.Select(participant => participant.PersonId).ToHashSet();
+            visibleTo.Add(goal.OwnerPersonId);
+
+            if (memberIds.Any(memberId => !visibleTo.Contains(memberId)))
+            {
+                throw new DomainValidationException(
+                    nameof(request.GoalId),
+                    "A goal can only be pinned in a group whose members may see it.");
+            }
         }
 
         var emoji = string.IsNullOrWhiteSpace(request.Emoji) ? DefaultGroupEmoji : request.Emoji.Trim();
@@ -339,8 +349,16 @@ public sealed class ChatService(
         var people = await LoadPeopleAsync([conversation], cancellationToken);
         var identity = ResolveIdentity(conversation, people, meId, now);
 
+        // Conversation membership does not grant goal access. The creation
+        // path prevents a mismatch, and this predicate also protects legacy or
+        // otherwise inconsistent rows already present in the database.
         var goal = conversation.GoalId is { } goalId
-            ? await database.Goals.AsNoTracking().SingleOrDefaultAsync(g => g.Id == goalId, cancellationToken)
+            ? await database.Goals
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    g => g.Id == goalId
+                        && (g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId)),
+                    cancellationToken)
             : null;
 
         var messages = conversation.Messages

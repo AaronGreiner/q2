@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
@@ -43,6 +44,21 @@ public class PersistenceTests
     private static Goal BuildGoal(Person owner, DateOnly? targetDate = null) => Goal.Create(
         Guid.CreateVersion7(), owner.Id, "Walk 8.000 steps a day", "Every day counts.", "target",
         GoalRhythm.Daily, false, 4, 10, new TimeOnly(18, 0), targetDate, Now);
+
+    [Fact]
+    public async Task EveryGuidPrimaryKeyIsSuppliedByTheApplication()
+    {
+        await using var database = await MigratedAsync();
+        await using var context = database.CreateContext();
+
+        var generatedKeys = context.Model.GetEntityTypes()
+            .SelectMany(entity => entity.FindPrimaryKey()?.Properties ?? [])
+            .Where(property => property.ClrType == typeof(Guid) && property.ValueGenerated != ValueGenerated.Never)
+            .Select(property => $"{property.DeclaringType.Name}.{property.Name}: {property.ValueGenerated}")
+            .ToList();
+
+        Assert.Empty(generatedKeys);
+    }
 
     [Fact]
     public async Task AGoalSurvivesARoundTripWithEverythingHangingOffIt()

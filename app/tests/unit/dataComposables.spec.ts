@@ -335,6 +335,34 @@ describe('friend and profile composables', () => {
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'friends', action: 'search' })
   })
 
+  it('keeps the newest person-search answer when an older request finishes last', async () => {
+    const api = socialApi()
+    const first = Promise.withResolvers<Array<{ person: { id: string, displayName: string } }>>()
+    const second = Promise.withResolvers<Array<{ person: { id: string, displayName: string } }>>()
+    api.friends.search
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+
+    // Drive the two requests explicitly so the test controls their completion
+    // order rather than Vue's watcher scheduler.
+    vi.stubGlobal('watch', vi.fn())
+    installFeatureGlobals(api)
+    const query = ref('Le')
+    const search = usePersonSearch(query)
+
+    const older = search.search()
+    query.value = 'Lena'
+    const newer = search.search()
+
+    second.resolve([{ person: { id: 'newer', displayName: 'Lena' } }])
+    await newer
+    first.resolve([{ person: { id: 'older', displayName: 'Leo' } }])
+    await older
+
+    expect(search.results.value.map(result => result.person.displayName)).toEqual(['Lena'])
+    expect(search.isSearching.value).toBe(false)
+  })
+
   it('loads a profile and exposes a safe profile failure', async () => {
     const api = socialApi()
     installFeatureGlobals(api)

@@ -27,6 +27,7 @@ public enum ConversationKind
 public sealed class Conversation
 {
     public const int MaxTitleLength = 80;
+    public const int MaxEmojiLength = 8;
 
     /// <summary>
     /// Including yourself. The same bound as a goal's team, because a group
@@ -79,6 +80,7 @@ public sealed class Conversation
     public static Conversation CreateGroup(Guid id, string title, string? emoji, Guid? goalId, DateTimeOffset createdAt)
     {
         var normalisedTitle = title?.Trim() ?? string.Empty;
+        var normalisedEmoji = string.IsNullOrWhiteSpace(emoji) ? null : emoji.Trim();
 
         if (normalisedTitle.Length == 0)
         {
@@ -92,7 +94,14 @@ public sealed class Conversation
                 $"A name may be at most {MaxTitleLength} characters long.");
         }
 
-        return new Conversation(id, ConversationKind.Group, normalisedTitle, emoji, goalId, createdAt);
+        if (normalisedEmoji is { Length: > MaxEmojiLength })
+        {
+            throw new DomainValidationException(
+                nameof(Emoji),
+                $"A group emoji may be at most {MaxEmojiLength} characters long.");
+        }
+
+        return new Conversation(id, ConversationKind.Group, normalisedTitle, normalisedEmoji, goalId, createdAt);
     }
 
     /// <exception cref="DomainValidationException">The conversation is full.</exception>

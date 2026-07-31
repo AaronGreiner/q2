@@ -101,7 +101,10 @@ public sealed class GoalService(
 
         var tasks = await database.GoalTasks
             .AsNoTracking()
-            .Where(t => t.GoalId == id)
+            // A task is personal even when its goal is shared. Returning every
+            // task under a visible goal would expose another participant's
+            // routine, completion state and measurements.
+            .Where(t => t.GoalId == id && t.OwnerPersonId == me.Id)
             .OrderBy(t => t.SortOrder)
             .ThenBy(t => t.Id)
             .ToListAsync(cancellationToken);
