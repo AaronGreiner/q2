@@ -16,7 +16,7 @@ const t = useMessages()
 
 <template>
   <section
-    class="mb-2.5 rounded-2xl border border-(--ui-border) bg-(--q2-accent-soft) px-3.5 py-3"
+    class="mb-2.5 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-accent-soft) px-3.5 py-3"
     aria-labelledby="pinned-goal-heading"
     data-testid="chat-goal-banner"
   >
@@ -35,7 +35,7 @@ const t = useMessages()
     <div class="mt-1.5 flex items-center justify-between gap-3">
       <NuxtLink
         :to="`/goals/${goal.id}`"
-        class="min-w-0 truncate text-[15px] font-extrabold text-(--ui-text) hover:underline focus-visible:underline focus-visible:outline-none"
+        class="-my-3 min-w-0 truncate py-3 text-[15px] font-extrabold text-(--ui-text) hover:underline focus-visible:underline focus-visible:outline-none"
       >
         {{ goal.title }}
       </NuxtLink>
@@ -50,8 +50,9 @@ const t = useMessages()
     />
 
     <UButton
-      class="mt-3 w-full justify-center"
+      class="mt-3 min-h-11 w-full justify-center font-extrabold"
       icon="i-lucide-megaphone"
+      size="lg"
       color="primary"
       data-testid="chat-cheer"
       @click="emit('cheer')"

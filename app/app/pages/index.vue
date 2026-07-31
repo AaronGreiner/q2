@@ -33,7 +33,7 @@ useHead({ title: () => t.value.nav.home })
           color="neutral"
           variant="outline"
           size="lg"
-          :ui="{ base: 'rounded-full' }"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
           :aria-label="theme.isDark.value ? t.settings.themeLight : t.settings.themeDark"
           data-testid="theme-toggle"
           @click="theme.toggle()"
@@ -49,9 +49,9 @@ useHead({ title: () => t.value.nav.home })
         aria-live="polite"
       >
         <span class="sr-only">{{ t.common.loading }}</span>
-        <USkeleton class="h-36 w-full rounded-[22px]" />
-        <USkeleton class="h-16 w-full rounded-2xl" />
-        <USkeleton class="h-16 w-full rounded-2xl" />
+        <USkeleton class="h-36 w-full rounded-(--q2-radius-xl)" />
+        <USkeleton class="h-16 w-full rounded-(--q2-radius-lg)" />
+        <USkeleton class="h-16 w-full rounded-(--q2-radius-lg)" />
       </div>
 
       <AppErrorState
@@ -86,7 +86,7 @@ useHead({ title: () => t.value.nav.home })
             </h2>
             <NuxtLink
               to="/goals"
-              class="text-[13px] font-bold text-(--ui-primary) hover:underline"
+              class="-my-3 py-3 text-[13px] font-bold text-(--ui-primary) hover:underline"
             >
               {{ t.common.showAll }}
             </NuxtLink>
@@ -127,7 +127,7 @@ useHead({ title: () => t.value.nav.home })
             </h2>
             <NuxtLink
               to="/goals"
-              class="text-[13px] font-bold text-(--ui-primary) hover:underline"
+              class="-my-3 py-3 text-[13px] font-bold text-(--ui-primary) hover:underline"
             >
               {{ t.common.more }}
             </NuxtLink>

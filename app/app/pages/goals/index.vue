@@ -48,6 +48,8 @@ useHead({ title: () => t.value.goals.heading })
       <template #actions>
         <UButton
           icon="i-lucide-plus"
+          size="lg"
+          class="min-h-11 rounded-full font-extrabold"
           data-testid="open-create-goal"
           @click="isSheetOpen = true"
         >
@@ -75,7 +77,7 @@ useHead({ title: () => t.value.goals.heading })
         <USkeleton
           v-for="index in 3"
           :key="index"
-          class="h-20 w-full rounded-2xl"
+          class="h-20 w-full rounded-(--q2-radius-lg)"
         />
       </div>
 

@@ -22,7 +22,7 @@ const subtitle = computed(() => goalSubtitle(props.goal, t.value))
   >
     <div class="flex items-center justify-between">
       <span
-        class="flex size-9 items-center justify-center rounded-[11px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+        class="flex size-9 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
         aria-hidden="true"
       >
         <UIcon

@@ -105,27 +105,15 @@ useHead({ title: () => t.value.friends.heading })
     <AppScreenHeader :title="t.friends.heading" />
 
     <div class="shrink-0 px-[18px] pt-1 pb-2.5">
-      <label
-        class="sr-only"
-        for="friend-search"
-      >{{ t.friends.searchPlaceholder }}</label>
-
-      <div class="flex h-11 items-center gap-2 rounded-xl border border-(--ui-border) bg-(--q2-surface) px-3">
-        <UIcon
-          name="i-lucide-user-plus"
-          class="size-[18px] shrink-0 text-(--ui-primary)"
-          aria-hidden="true"
-        />
-        <input
-          id="friend-search"
-          v-model="input"
-          :placeholder="t.friends.searchPlaceholder"
-          type="search"
-          autocomplete="off"
-          class="min-w-0 flex-1 bg-transparent text-sm text-(--ui-text) outline-none"
-          data-testid="friend-search"
-        >
-      </div>
+      <AppSearchField
+        id="friend-search"
+        v-model="input"
+        :label="t.friends.searchPlaceholder"
+        :placeholder="t.friends.searchPlaceholder"
+        icon="i-lucide-user-plus"
+        accent
+        test-id="friend-search"
+      />
     </div>
 
     <div class="q2-scroll flex-1 px-[18px] pb-6">
@@ -137,7 +125,7 @@ useHead({ title: () => t.value.friends.heading })
       >
         <h2
           id="search-heading"
-          class="mb-2.5 px-0.5 text-sm font-extrabold"
+          class="mb-3 px-0.5 text-base font-extrabold"
         >
           {{ t.friends.searchHeading }}
         </h2>
@@ -152,7 +140,7 @@ useHead({ title: () => t.value.friends.heading })
           <USkeleton
             v-for="index in 3"
             :key="index"
-            class="h-16 w-full rounded-2xl"
+            class="h-16 w-full rounded-(--q2-radius-lg)"
           />
         </div>
 
@@ -202,7 +190,7 @@ useHead({ title: () => t.value.friends.heading })
           <USkeleton
             v-for="index in 4"
             :key="index"
-            class="h-16 w-full rounded-2xl"
+            class="h-16 w-full rounded-(--q2-radius-lg)"
           />
         </div>
 
@@ -221,7 +209,7 @@ useHead({ title: () => t.value.friends.heading })
           >
             <h2
               id="requests-heading"
-              class="mb-2.5 flex items-center gap-2 px-0.5 text-sm font-extrabold"
+              class="mb-3 flex items-center gap-2 px-0.5 text-base font-extrabold"
             >
               {{ t.friends.requests }}
               <span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-white">
@@ -250,7 +238,7 @@ useHead({ title: () => t.value.friends.heading })
           >
             <h2
               id="sent-heading"
-              class="mb-2.5 px-0.5 text-sm font-extrabold"
+              class="mb-3 px-0.5 text-base font-extrabold"
             >
               {{ t.friends.sentRequests }}
             </h2>
@@ -275,7 +263,7 @@ useHead({ title: () => t.value.friends.heading })
           >
             <h2
               id="suggestions-heading"
-              class="mb-2.5 px-0.5 text-sm font-extrabold"
+              class="mb-3 px-0.5 text-base font-extrabold"
             >
               {{ t.friends.suggestions }}
             </h2>
@@ -296,7 +284,7 @@ useHead({ title: () => t.value.friends.heading })
           <section aria-labelledby="friends-heading">
             <h2
               id="friends-heading"
-              class="mb-2.5 px-0.5 text-sm font-extrabold"
+              class="mb-3 px-0.5 text-base font-extrabold"
             >
               {{ t.friends.yours }} · {{ friends.length }}
             </h2>

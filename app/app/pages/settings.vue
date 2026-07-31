@@ -165,7 +165,7 @@ useHead({ title: () => t.value.settings.heading })
           class="flex items-center gap-3 border-b border-(--ui-border) px-4 py-3 opacity-55 last:border-b-0"
         >
           <span
-            class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-track) text-(--ui-text-muted)"
+            class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-track) text-(--ui-text-muted)"
             aria-hidden="true"
           >
             <UIcon

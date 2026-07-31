@@ -59,11 +59,14 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
   <div class="flex min-h-0 flex-1 flex-col">
     <header
       v-if="chat"
-      class="flex shrink-0 items-center gap-2.5 border-b border-(--ui-border) bg-(--q2-surface) px-3 py-2"
+      class="flex shrink-0 items-center gap-2.5 border-b border-(--ui-border) bg-(--q2-surface) px-[18px] py-2"
     >
+      <!-- `-ms-2` for the same reason as in AppScreenHeader: the arrow's box is
+           bigger than the arrow, and lining up the box would leave the glyph
+           looking indented against every other screen's title. -->
       <NuxtLink
         to="/chats"
-        class="flex size-9 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="-ms-3 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :aria-label="t.common.back"
         data-testid="back-link"
       >
@@ -95,7 +98,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       <button
         v-if="chat.kind === 'Group'"
         type="button"
-        class="flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="-me-2 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :aria-label="t.chats.leaveGroup"
         data-testid="leave-group"
         @click="isLeaveOpen = true"
@@ -115,8 +118,8 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       aria-live="polite"
     >
       <span class="sr-only">{{ t.common.loading }}</span>
-      <USkeleton class="h-14 w-2/3 rounded-2xl" />
-      <USkeleton class="mt-3 ms-auto h-14 w-1/2 rounded-2xl" />
+      <USkeleton class="h-14 w-2/3 rounded-(--q2-radius-lg)" />
+      <USkeleton class="mt-3 ms-auto h-14 w-1/2 rounded-(--q2-radius-lg)" />
     </div>
 
     <div
@@ -149,7 +152,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <template v-else>
       <div
         ref="thread"
-        class="q2-scroll flex flex-1 flex-col gap-1 p-3.5"
+        class="q2-scroll flex flex-1 flex-col gap-1 px-[18px] py-3.5"
       >
         <ChatGoalBanner
           v-if="chat.pinnedGoal"

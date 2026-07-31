@@ -36,7 +36,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       >
         <span class="sr-only">{{ t.common.loading }}</span>
         <USkeleton class="h-14 w-2/3" />
-        <USkeleton class="h-60 w-full rounded-2xl" />
+        <USkeleton class="h-60 w-full rounded-(--q2-radius-lg)" />
       </div>
 
       <AppErrorState
@@ -67,7 +67,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       >
         <header class="flex items-center gap-3.5">
           <span
-            class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+            class="flex size-14 shrink-0 items-center justify-center rounded-(--q2-radius-lg) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
             aria-hidden="true"
           >
             <UIcon
@@ -164,7 +164,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
         >
           <h2
             id="goal-tasks-heading"
-            class="mb-3 px-0.5 text-[15px] font-extrabold"
+            class="mb-3 px-0.5 text-base font-extrabold"
           >
             {{ t.goals.tasksHeading }}
           </h2>
@@ -187,7 +187,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
         >
           <h2
             id="goal-team-heading"
-            class="mb-3 px-0.5 text-[15px] font-extrabold"
+            class="mb-3 px-0.5 text-base font-extrabold"
           >
             {{ t.goals.sharedWith }}
           </h2>

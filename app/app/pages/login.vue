@@ -132,7 +132,7 @@ void toast
 
       <p
         v-if="message"
-        class="rounded-xl bg-(--ui-error)/10 px-3.5 py-2.5 text-sm font-semibold text-(--ui-error)"
+        class="rounded-(--q2-radius-lg) bg-(--ui-error)/10 px-3.5 py-2.5 text-sm font-semibold text-(--ui-error)"
         role="alert"
         data-testid="login-error"
       >
@@ -168,7 +168,7 @@ void toast
 
     <section
       v-if="demo"
-      class="mt-6 rounded-2xl border border-dashed border-(--ui-border) p-3.5"
+      class="mt-6 rounded-(--q2-radius-lg) border border-dashed border-(--ui-border) p-3.5"
       aria-labelledby="demo-heading"
       data-testid="demo-account"
     >

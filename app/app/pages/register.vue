@@ -128,7 +128,7 @@ useHead({ title: () => t.value.auth.signUpHeading })
 
       <p
         v-if="message"
-        class="rounded-xl bg-(--ui-error)/10 px-3.5 py-2.5 text-sm font-semibold text-(--ui-error)"
+        class="rounded-(--q2-radius-lg) bg-(--ui-error)/10 px-3.5 py-2.5 text-sm font-semibold text-(--ui-error)"
         role="alert"
         data-testid="register-error"
       >

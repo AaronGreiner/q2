@@ -114,7 +114,7 @@ defineExpose({ reset })
             >
               <button
                 type="button"
-                class="flex min-h-11 w-full items-center gap-3 rounded-xl px-2 py-2 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+                class="flex min-h-11 w-full items-center gap-3 rounded-(--q2-radius-md) px-2 py-2 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
                 :disabled="submitting"
                 :data-testid="`chat-with-${friend.person.id}`"
                 @click="emit('direct', friend.person.id)"
@@ -182,7 +182,7 @@ defineExpose({ reset })
                 role="radio"
                 :aria-checked="emoji === option"
                 :aria-label="option"
-                class="flex size-11 items-center justify-center rounded-xl border text-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+                class="flex size-11 items-center justify-center rounded-(--q2-radius-md) border text-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
                 :class="emoji === option
                   ? 'border-transparent bg-(--q2-accent-solid)'
                   : 'border-(--ui-border) bg-(--q2-surface)'"
@@ -205,7 +205,7 @@ defineExpose({ reset })
                 :key="friend.person.id"
               >
                 <label
-                  class="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2"
+                  class="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-(--q2-radius-md) px-2 py-2"
                   :data-testid="`group-member-${friend.person.id}`"
                 >
                   <UCheckbox

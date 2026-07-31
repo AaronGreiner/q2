@@ -19,7 +19,7 @@ const t = useMessages()
     <div class="mx-auto w-full max-w-[360px]">
       <div class="mb-7 flex flex-col items-center text-center">
         <div
-          class="mb-4 flex size-14 items-center justify-center rounded-2xl bg-(--q2-accent-solid) text-2xl"
+          class="mb-4 flex size-14 items-center justify-center rounded-(--q2-radius-lg) bg-(--q2-accent-solid) text-2xl"
           aria-hidden="true"
         >
           💚

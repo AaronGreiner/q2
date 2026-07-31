@@ -14,7 +14,7 @@ const t = useMessages()
   <div class="mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text)">
     <a
       href="#main"
-      class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-(--ui-bg-elevated) focus:px-4 focus:py-2 focus:ring-2 focus:ring-(--ui-primary)"
+      class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-(--q2-radius-lg) focus:bg-(--ui-bg-elevated) focus:px-4 focus:py-2 focus:ring-2 focus:ring-(--ui-primary)"
     >
       {{ t.app.skipToContent }}
     </a>

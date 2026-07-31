@@ -83,6 +83,27 @@
   /* 4.9:1 on --ui-bg. The brighter #00b368 is only ever used behind white. */
   --ui-primary: #00955b;
 
+  /*
+   * Corner radii, written out rather than reached for through `rounded-xl` and
+   * friends.
+   *
+   * Nuxt UI rescales Tailwind's radius utilities off --ui-radius, so in this
+   * app `rounded-sm` is 12px, `rounded-md` 18px, `rounded-xl` 36px and
+   * `rounded-3xl` nothing at all. Its own components land on 18px — a UButton
+   * and a UInput are drawn at exactly the radius a q2 card is — while a
+   * `rounded-xl` written in a q2 template in the belief that it means
+   * Tailwind's 12px comes out at 36px right next to them. That is how a 44px
+   * icon tile turned into a circle and a goal banner ended up rounder than the
+   * card it sits on.
+   *
+   * These four are the whole scale. They do not shadow a Nuxt UI utility, so
+   * `rounded-(--q2-radius-lg)` means the same thing wherever it is read.
+   */
+  --q2-radius-sm: 0.625rem; /* 10px — a 36px icon tile, a small square control */
+  --q2-radius-md: 0.8125rem; /* 13px — a 44px icon tile, a row inside a card */
+  --q2-radius-lg: 1.125rem; /* 18px — a card, a banner, a message: the house radius */
+  --q2-radius-xl: 1.375rem; /* 22px — the streak hero, the one loud card */
+
   --q2-surface: #ffffff;
   --q2-track: #ededed;
   --q2-accent-solid: #00b368;
@@ -189,7 +210,7 @@ select,
 @utility q2-card {
   background: var(--q2-surface);
   border: 1px solid var(--ui-border);
-  border-radius: 1.125rem;
+  border-radius: var(--q2-radius-lg);
   box-shadow: var(--q2-card-shadow);
 }
 

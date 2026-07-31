@@ -19,7 +19,7 @@ const t = useMessages()
 
 <template>
   <section
-    class="relative overflow-hidden rounded-[22px] px-5 py-4 text-white"
+    class="relative overflow-hidden rounded-(--q2-radius-xl) px-5 py-4 text-white"
     style="background: linear-gradient(135deg, #f59e0b, #ef6c00); box-shadow: 0 14px 30px -14px rgba(239, 108, 0, 0.7)"
     aria-labelledby="streak-heading"
     data-testid="streak-hero"
@@ -57,7 +57,7 @@ const t = useMessages()
       <li
         v-for="(active, index) in week"
         :key="index"
-        class="flex h-[30px] flex-1 items-center justify-center rounded-[9px] text-[11px] font-extrabold"
+        class="flex h-[30px] flex-1 items-center justify-center rounded-(--q2-radius-sm) text-[11px] font-extrabold"
         :class="active ? 'bg-white/30' : 'bg-white/10'"
       >
         {{ t.time.weekdayInitials[index] }}

@@ -31,7 +31,7 @@ const medals = ['#f59e0b', '#94a3b8', '#b45309'] as const
     <li
       v-for="entry in visible"
       :key="entry.person.id"
-      class="flex items-center gap-3 rounded-[13px] px-2.5 py-2.5"
+      class="flex items-center gap-3 rounded-(--q2-radius-md) px-2.5 py-2.5"
       :class="entry.isMe ? 'bg-(--q2-accent-soft)' : ''"
     >
       <span

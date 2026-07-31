@@ -21,7 +21,7 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-(--ui-border) px-5 py-10 text-center"
+    class="flex flex-col items-center gap-3 rounded-(--q2-radius-lg) border border-dashed border-(--ui-border) px-5 py-10 text-center"
     :role="tone === 'error' ? 'alert' : 'status'"
   >
     <UIcon

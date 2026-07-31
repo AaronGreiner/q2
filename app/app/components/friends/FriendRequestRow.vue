@@ -44,7 +44,7 @@ const t = useMessages()
 
     <button
       type="button"
-      class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-solid) text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-solid) text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.accept}: ${request.person.displayName}`"
       data-testid="request-accept"
       @click="emit('accept', request.person.id)"
@@ -58,7 +58,7 @@ const t = useMessages()
 
     <button
       type="button"
-      class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-track) text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-track) text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.decline}: ${request.person.displayName}`"
       data-testid="request-decline"
       @click="emit('decline', request.person.id)"

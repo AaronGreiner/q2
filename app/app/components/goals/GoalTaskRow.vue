@@ -35,13 +35,17 @@ const measure = computed(() => formatMeasure(props.task, t.value.numbers.decimal
       A real checkbox, not a div with a click handler: the tick is the whole
       point of this row, and it has to be reachable by keyboard, announced as
       checked or unchecked, and toggled with the space bar.
+
+      The circle is 26px because that is the size the design draws it at; the
+      `after` box is what a thumb actually hits. Padding the button instead
+      would push the title across, so the touch area grows outside the layout.
     -->
     <button
       type="button"
       role="checkbox"
       :aria-checked="task.isDone"
       :disabled="busy"
-      class="flex size-[26px] shrink-0 items-center justify-center rounded-full border-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary) disabled:opacity-60"
+      class="relative flex size-[26px] shrink-0 items-center justify-center rounded-full border-2 transition-colors after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary) disabled:opacity-60"
       :class="task.isDone
         ? 'border-(--q2-accent-solid) bg-(--q2-accent-solid)'
         : 'border-(--ui-border-accented) bg-transparent'"

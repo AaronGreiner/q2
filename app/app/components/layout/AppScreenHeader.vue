@@ -28,7 +28,7 @@ withDefaults(defineProps<{
     <NuxtLink
       v-if="backTo"
       :to="backTo"
-      class="-ms-2 flex size-9 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="-ms-3 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="backLabel"
       data-testid="back-link"
     >

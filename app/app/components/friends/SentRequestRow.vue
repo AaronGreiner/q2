@@ -37,7 +37,7 @@ const t = useMessages()
 
     <button
       type="button"
-      class="min-h-11 shrink-0 rounded-[10px] bg-(--q2-track) px-3 text-xs font-extrabold text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-track) px-3 text-xs font-extrabold text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.withdraw}: ${request.person.displayName}`"
       data-testid="sent-request-withdraw"
       @click="emit('withdraw', request.person.id)"

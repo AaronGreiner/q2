@@ -23,7 +23,7 @@ useHead({ title: () => t.value.profile.heading })
           color="neutral"
           variant="outline"
           size="lg"
-          :ui="{ base: 'rounded-full' }"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
           :aria-label="t.profile.openSettings"
           data-testid="open-settings"
         />
@@ -40,7 +40,7 @@ useHead({ title: () => t.value.profile.heading })
         <span class="sr-only">{{ t.common.loading }}</span>
         <USkeleton class="size-22 rounded-full" />
         <USkeleton class="h-6 w-40" />
-        <USkeleton class="h-20 w-full rounded-2xl" />
+        <USkeleton class="h-20 w-full rounded-(--q2-radius-lg)" />
       </div>
 
       <AppErrorState

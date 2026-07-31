@@ -35,7 +35,7 @@ const preview = computed(() => {
 <template>
   <NuxtLink
     :to="`/chats/${chat.id}`"
-    class="flex items-center gap-3 rounded-2xl px-2.5 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+    class="-mx-2.5 flex items-center gap-3 rounded-(--q2-radius-lg) px-2.5 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     data-testid="chat-row"
   >
     <AppAvatar

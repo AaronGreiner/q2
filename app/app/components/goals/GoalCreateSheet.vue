@@ -147,7 +147,7 @@ defineExpose({ reset })
               role="radio"
               :aria-checked="icon === option"
               :aria-label="option"
-              class="flex aspect-square items-center justify-center rounded-xl border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+              class="flex aspect-square items-center justify-center rounded-(--q2-radius-md) border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
               :class="icon === option
                 ? 'border-transparent bg-(--q2-accent-solid) text-white'
                 : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
@@ -178,7 +178,7 @@ defineExpose({ reset })
           />
         </UFormField>
 
-        <div class="flex items-center justify-between rounded-xl border border-(--ui-border) bg-(--q2-surface) px-4 py-3">
+        <div class="flex items-center justify-between rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-4 py-3">
           <span class="flex items-center gap-2.5">
             <UIcon
               name="i-lucide-bell"

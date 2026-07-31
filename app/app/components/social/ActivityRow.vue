@@ -46,7 +46,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
     <button
       v-if="!readonly"
       type="button"
-      class="flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="relative flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 transition-colors after:absolute after:-inset-y-2 after:-inset-x-1 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="activity.hasMyKudos
         ? 'bg-(--q2-accent-solid) text-white'
         : 'bg-(--q2-accent-soft) text-(--q2-accent-soft-text)'"

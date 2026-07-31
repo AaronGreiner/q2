@@ -26,6 +26,10 @@ tests/component/GoalCard.spec.ts     how to write a component test
   ([AGENTS.md](AGENTS.md) section 8).
 - **`app/app/` is correct.** Nuxt 4's source directory is `app/` inside the
   project, so pages are at `app/app/pages/`.
+- **`rounded-xl` is 36px here, not 12px.** Nuxt UI rescales Tailwind's radius
+  utilities off `--ui-radius` (`md` 18px, `xl` 36px, `2xl` 48px, `3xl` gone).
+  Use the `--q2-radius-*` tokens in `main.css`, or `rounded-full` for a pill —
+  [AGENTS.md](AGENTS.md) section 2.
 - **Component names ignore the folder** (`pathPrefix: false`).
   `components/goals/GoalCard.vue` is `<GoalCard>`, not `<GoalsGoalCard>`. A
   nested component that renders nothing usually means a name mismatch.

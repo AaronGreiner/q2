@@ -17,8 +17,14 @@ const model = defineModel<T>({ required: true })
 </script>
 
 <template>
+  <!--
+    Track and marker are both pills, and that is the point: the marker sits
+    inside the track with 4px around it, so any other pair of radii leaves a
+    square-ish tab rattling around in a round groove. A pill is the one shape
+    that stays concentric whatever the control's height turns out to be.
+  -->
   <div
-    class="flex gap-1 rounded-xl bg-(--q2-track) p-1"
+    class="flex gap-1 rounded-full bg-(--q2-track) p-1"
     role="radiogroup"
     :aria-label="label"
   >
@@ -28,7 +34,7 @@ const model = defineModel<T>({ required: true })
       type="button"
       role="radio"
       :aria-checked="model === option.value"
-      class="flex flex-1 items-center justify-center gap-1.5 rounded-[0.625rem] px-2 py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="model === option.value
         ? 'bg-(--q2-surface) text-(--ui-text) shadow-[var(--q2-card-shadow)]'
         : 'text-(--ui-text-muted)'"

@@ -49,7 +49,7 @@ const t = useMessages()
     <button
       v-if="result.state === 'None'"
       type="button"
-      class="min-h-11 shrink-0 rounded-[10px] bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.add}: ${result.person.displayName}`"
       data-testid="result-request"
       @click="emit('request', result.person.id)"
@@ -60,7 +60,7 @@ const t = useMessages()
     <button
       v-else-if="result.state === 'RequestSent'"
       type="button"
-      class="min-h-11 shrink-0 rounded-[10px] bg-(--q2-track) px-3 text-xs font-extrabold text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-track) px-3 text-xs font-extrabold text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.withdraw}: ${result.person.displayName}`"
       data-testid="result-withdraw"
       @click="emit('withdraw', result.person.id)"
@@ -71,7 +71,7 @@ const t = useMessages()
     <button
       v-else-if="result.state === 'RequestReceived'"
       type="button"
-      class="min-h-11 shrink-0 rounded-[10px] bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.accept}: ${result.person.displayName}`"
       data-testid="result-accept"
       @click="emit('accept', result.person.id)"
@@ -82,7 +82,7 @@ const t = useMessages()
     <button
       v-else-if="result.state === 'Friends'"
       type="button"
-      class="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.message}: ${result.person.displayName}`"
       data-testid="result-message"
       @click="emit('message', result.person.id)"

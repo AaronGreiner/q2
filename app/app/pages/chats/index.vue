@@ -77,50 +77,32 @@ useHead({ title: () => t.value.chats.heading })
   <div class="flex min-h-0 flex-1 flex-col">
     <AppScreenHeader :title="t.chats.heading">
       <template #actions>
-        <button
-          type="button"
-          class="flex min-h-11 items-center gap-1.5 rounded-full bg-(--q2-accent-solid) px-3.5 text-[13px] font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        <UButton
+          icon="i-lucide-plus"
+          size="lg"
+          class="min-h-11 rounded-full font-extrabold"
           data-testid="new-chat"
           @click="isSheetOpen = true"
         >
-          <UIcon
-            name="i-lucide-plus"
-            class="size-4"
-            aria-hidden="true"
-          />
           {{ t.chats.newChat }}
-        </button>
+        </UButton>
       </template>
     </AppScreenHeader>
 
     <div class="shrink-0 px-[18px] pt-1 pb-2.5">
-      <label
-        class="sr-only"
-        for="chat-search"
-      >{{ t.common.search }}</label>
-
-      <div class="flex h-10 items-center gap-2 rounded-xl border border-(--ui-border) bg-(--q2-surface) px-3">
-        <UIcon
-          name="i-lucide-search"
-          class="size-[17px] shrink-0 text-(--ui-text-dimmed)"
-          aria-hidden="true"
-        />
-        <input
-          id="chat-search"
-          v-model="input"
-          :placeholder="t.chats.searchPlaceholder"
-          type="search"
-          autocomplete="off"
-          class="min-w-0 flex-1 bg-transparent text-sm text-(--ui-text) outline-none"
-          data-testid="chat-search"
-        >
-      </div>
+      <AppSearchField
+        id="chat-search"
+        v-model="input"
+        :label="t.common.search"
+        :placeholder="t.chats.searchPlaceholder"
+        test-id="chat-search"
+      />
     </div>
 
-    <div class="q2-scroll flex-1 px-3 pb-6">
+    <div class="q2-scroll flex-1 px-[18px] pb-6">
       <div
         v-if="isLoading"
-        class="flex flex-col gap-2 px-1"
+        class="flex flex-col gap-2"
         aria-busy="true"
         aria-live="polite"
       >
@@ -128,7 +110,7 @@ useHead({ title: () => t.value.chats.heading })
         <USkeleton
           v-for="index in 4"
           :key="index"
-          class="h-16 w-full rounded-2xl"
+          class="h-16 w-full rounded-(--q2-radius-lg)"
         />
       </div>
 

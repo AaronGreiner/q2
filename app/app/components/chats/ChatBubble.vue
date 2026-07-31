@@ -38,8 +38,8 @@ const time = computed(() => formatClock(props.message.sentAt, zone.value))
     <p
       class="px-3.5 py-2.5 text-sm leading-snug font-medium"
       :class="message.isMine
-        ? 'rounded-[17px] rounded-ee-[5px] bg-(--q2-accent-solid) text-white'
-        : 'q2-card rounded-[17px] rounded-es-[5px] text-(--ui-text)'"
+        ? 'rounded-(--q2-radius-lg) rounded-ee-[5px] bg-(--q2-accent-solid) text-white'
+        : 'q2-card rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)'"
     >
       {{ message.text }}
     </p>
@@ -59,7 +59,7 @@ const time = computed(() => formatClock(props.message.sentAt, zone.value))
       <button
         v-if="!message.isMine"
         type="button"
-        class="flex size-6 items-center justify-center rounded-full text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="relative flex size-6 items-center justify-center rounded-full text-sm after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :aria-pressed="message.reactions.some(reaction => reaction.emoji === clap && reaction.isMine)"
         :aria-label="t.chats.clap"
         data-testid="chat-clap"

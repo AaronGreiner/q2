@@ -25,7 +25,7 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
   >
     <div class="flex items-start gap-3">
       <span
-        class="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+        class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
         aria-hidden="true"
       >
         <UIcon
@@ -43,14 +43,14 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
 
           <span
             v-if="goal.isGroup"
-            class="rounded-md bg-(--q2-accent-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-accent-soft-text)"
+            class="rounded-full bg-(--q2-accent-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-accent-soft-text)"
           >
             {{ t.goals.group }}
           </span>
 
           <span
             v-if="goal.isOverdue"
-            class="rounded-md bg-(--q2-amber-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-amber)"
+            class="rounded-full bg-(--q2-amber-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-amber)"
             data-testid="goal-overdue"
           >
             {{ t.goals.overdue }}

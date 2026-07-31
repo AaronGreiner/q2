@@ -36,7 +36,7 @@ const subtitle = computed(() => {
 
 <template>
   <div
-    class="flex items-center gap-3 px-1.5 py-2.5"
+    class="flex items-center gap-3 py-2.5"
     data-testid="friend-row"
   >
     <AppAvatar
@@ -57,7 +57,7 @@ const subtitle = computed(() => {
 
     <button
       type="button"
-      class="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.message}: ${friend.person.displayName}`"
       data-testid="friend-message"
       @click="emit('message', friend.person.id)"
@@ -71,7 +71,7 @@ const subtitle = computed(() => {
 
     <button
       type="button"
-      class="flex size-11 shrink-0 items-center justify-center rounded-[10px] text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.remove}: ${friend.person.displayName}`"
       data-testid="friend-remove"
       @click="emit('remove', friend.person.id)"
