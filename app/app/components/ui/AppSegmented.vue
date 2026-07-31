@@ -34,7 +34,7 @@ const model = defineModel<T>({ required: true })
       type="button"
       role="radio"
       :aria-checked="model === option.value"
-      class="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="model === option.value
         ? 'bg-(--q2-surface) text-(--ui-text) shadow-[var(--q2-card-shadow)]'
         : 'text-(--ui-text-muted)'"

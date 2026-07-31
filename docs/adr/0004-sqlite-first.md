@@ -36,7 +36,10 @@ Rules that keep the door open:
   the UTC conversion above was added. It also maps cleanly onto PostgreSQL's
   `timestamp with time zone`.
 - **Limited `ALTER TABLE`.** EF rebuilds tables for many schema changes, so
-  generated migrations should be read rather than assumed.
+  generated migrations should be read rather than assumed. A generated rebuild
+  that disables foreign keys outside its transaction is replaced with explicit
+  create/copy/drop/rename operations; migration tests inspect the SQL and force
+  a mid-conversion failure to prove rollback.
 - **Dynamic typing.** SQLite does not enforce column types the way PostgreSQL
   does, so a mapping bug can pass locally and fail later. Mitigated by keeping
   the mapping provider-neutral and by asserting round trips in the persistence

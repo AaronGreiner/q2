@@ -271,6 +271,10 @@ export default defineNuxtConfig({
     },
 
     injectManifest: {
+      // The worker is one self-contained script. Choosing IIFE makes that
+      // explicit to Vite and avoids the deprecated inlineDynamicImports path.
+      rollupFormat: 'iife',
+
       /*
        * The precache list, and the reason it names extensions instead of
        * saying "everything".

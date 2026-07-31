@@ -93,11 +93,11 @@ it looks tidier.
 
 ## When to revisit
 
-**When the accessibility work in [next-steps.md](../next-steps.md) item 3
-lands.** `@axe-core/playwright` flags `user-scalable=no` under its
-`meta-viewport` rule, so the suite will fail on this the day it is added — by
-design. The choice at that point is to fix it or to record an explicit
-exception, and either is better than the rule quietly not being run.
+**The accessibility work in [next-steps.md](../next-steps.md) item 3 has
+landed.** `@axe-core/playwright` flags `user-scalable=no` under its
+`meta-viewport` rule. That one rule is disabled next to a link back to this
+decision; every other WCAG A/AA rule must return zero violations. Revisit the
+exception before q2 ships outside a small circle.
 
 **When somebody asks to copy a message**, which is the first thing selection was
 actually good for here.

@@ -87,7 +87,7 @@ useHead({ title: () => t.value.nav.home })
             </h2>
             <NuxtLink
               to="/goals"
-              class="-my-3 py-3 text-[13px] font-bold text-(--ui-primary) hover:underline"
+              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-primary) hover:underline"
             >
               {{ t.common.showAll }}
             </NuxtLink>
@@ -128,7 +128,7 @@ useHead({ title: () => t.value.nav.home })
             </h2>
             <NuxtLink
               to="/goals"
-              class="-my-3 py-3 text-[13px] font-bold text-(--ui-primary) hover:underline"
+              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-primary) hover:underline"
             >
               {{ t.common.more }}
             </NuxtLink>

@@ -9,6 +9,12 @@ import {
   storageStatePath,
 } from './tests/e2e/support/e2eEnvironment'
 
+// Playwright forces colour for its web-server and worker subprocesses. Leaving
+// an inherited NO_COLOR beside that flag makes Node warn that it is ignored on
+// every otherwise successful E2E run, so remove the flag Playwright cannot
+// honour before it starts those processes.
+delete process.env.NO_COLOR
+
 /**
  * End-to-end tests against a real API, a real Nuxt server and a real browser.
  *

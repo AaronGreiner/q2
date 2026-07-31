@@ -32,7 +32,15 @@ public static class PersistenceRegistration
         builder.Services.AddDbContext<Q2DbContext>(options =>
         {
             options.UseSqlite(connectionString, sqlite =>
-                sqlite.MigrationsAssembly(typeof(Q2DbContext).Assembly.FullName));
+            {
+                sqlite.MigrationsAssembly(typeof(Q2DbContext).Assembly.FullName);
+
+                // Goal, profile and chat reads each materialise more than one
+                // collection. One joined query multiplies those rows; splitting
+                // them keeps response cost proportional as a person's history
+                // grows while EF still assembles the same aggregate.
+                sqlite.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            });
 
             if (builder.Environment.IsDevelopment())
             {

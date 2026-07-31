@@ -177,6 +177,8 @@ useHead({ title: 'Diagnostics' })
           icon="i-lucide-server-crash"
           color="error"
           variant="soft"
+          class="min-h-11"
+          style="color: var(--q2-error-action)"
           data-testid="trigger-server-error"
           @click="triggerServerError"
         >
@@ -187,6 +189,8 @@ useHead({ title: 'Diagnostics' })
           icon="i-lucide-bug"
           color="warning"
           variant="soft"
+          class="min-h-11"
+          style="color: var(--q2-warning-action)"
           data-testid="trigger-client-error"
           @click="triggerClientError"
         >

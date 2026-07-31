@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -101,12 +102,11 @@ public class MigrationTests
     /// who "you" were — and then drops it, so the conversion has to happen
     /// while the column is still there.
     ///
-    /// That ordering is not obvious from reading the file: SQLite has no
-    /// <c>DROP COLUMN</c>, so EF Core rebuilds a table for one, and it warns
-    /// that raw SQL "will be attempted while a rebuild is pending". This test
-    /// is what turns that warning into an answer. Without it, the evidence
-    /// would be "it did not fail on an empty database", which is not evidence
-    /// about data at all.
+    /// The migration rebuilds the affected tables explicitly because EF's
+    /// generated SQLite rebuild would disable foreign keys outside its
+    /// transaction. This test proves that the explicit copy keeps the data and
+    /// its ownership intact. Without it, "it did not fail on an empty database"
+    /// would still not be evidence about data at all.
     /// </remarks>
     [Fact]
     public async Task AnExistingDatabaseKeepsItsDataThroughTheAccountsMigration()
@@ -196,6 +196,84 @@ public class MigrationTests
         }
     }
 
+    [Fact]
+    public async Task MigrationSqlNeverDisablesForeignKeys()
+    {
+        await using var database = await SqliteTestDatabase.InMemoryAsync();
+        await using var context = database.CreateContext();
+
+        var script = context.GetService<IMigrator>().GenerateScript();
+
+        Assert.DoesNotContain("PRAGMA foreign_keys = 0", script, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AFailedAccountsMigrationRollsBackSchemaAndDataChanges()
+    {
+        const string beforeAccounts = "20260730190319_KudosExperience";
+        const string accounts = "20260731052301_AccountsAndTwoSidedFriendships";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+        await using var context = database.CreateContext();
+        var migrator = context.GetService<IMigrator>();
+
+        await migrator.MigrateAsync(beforeAccounts, TestContext.Current.CancellationToken);
+
+        // A goal without the old single-user marker makes ownership conversion
+        // fail after the migration has already created its backup tables. The
+        // whole migration must still roll back to the exact old shape.
+        await ExecuteAsync(context, $"""
+            INSERT INTO Goals
+                (Id, Title, Status, CompletedSteps, TotalSteps, Icon, IsGroup, Rhythm, CreatedAt)
+            VALUES
+                ('{Guid.CreateVersion7()}', 'Rollback probe', 'Active', 0, 1, 'target', 0, 'Daily',
+                 '2026-07-31 09:00:00');
+            """);
+
+        var exception = await Assert.ThrowsAsync<SqliteException>(
+            () => migrator.MigrateAsync(accounts, TestContext.Current.CancellationToken));
+
+        Assert.Equal(19, exception.SqliteErrorCode);
+        Assert.DoesNotContain(
+            accounts,
+            await context.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(1, await ScalarAsync(context, "SELECT COUNT(*) FROM Goals WHERE Title = 'Rollback probe';"));
+        Assert.Equal(1, await ScalarAsync(
+            context,
+            "SELECT COUNT(*) FROM pragma_table_info('People') WHERE name = 'IsCurrentUser';"));
+        Assert.Equal(0, await ScalarAsync(
+            context,
+            "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '__q2_%';"));
+        Assert.Equal(1, await ScalarAsync(context, "PRAGMA foreign_keys;"));
+    }
+
+    [Fact]
+    public async Task AccountsMigrationCanBeRevertedAndAppliedAgain()
+    {
+        const string beforeAccounts = "20260730190319_KudosExperience";
+        const string accounts = "20260731052301_AccountsAndTwoSidedFriendships";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+        await using var context = database.CreateContext();
+        var migrator = context.GetService<IMigrator>();
+
+        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        await migrator.MigrateAsync(beforeAccounts, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain(
+            accounts,
+            await context.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
+
+        await migrator.MigrateAsync(accounts, TestContext.Current.CancellationToken);
+
+        Assert.Contains(
+            accounts,
+            await context.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(1, await ScalarAsync(context, "PRAGMA foreign_keys;"));
+        Assert.Equal(0, await ScalarAsync(
+            context,
+            "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '__q2_%';"));
+    }
+
     /// <summary>Runs several statements as one script, outside EF's model.</summary>
     private static async Task ExecuteAsync(Q2DbContext context, string sql)
     {
@@ -204,6 +282,15 @@ public class MigrationTests
         await using var command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = sql;
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<long> ScalarAsync(Q2DbContext context, string sql)
+    {
+        await context.Database.OpenConnectionAsync(TestContext.Current.CancellationToken);
+
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.CommandText = sql;
+        return (long)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
     }
 
     [Fact]

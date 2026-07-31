@@ -22,32 +22,6 @@ const signedInScreens = [
   '/diagnostics',
 ] as const
 
-/**
- * Product debt found by this suite. Keeping exact selectors here means a new
- * violation still fails the run, while removing a fixed one also forces this
- * list to be shortened. Step 1 adds tests only; the visual fixes follow later.
- */
-const knownContrastDebt: Record<string, string[]> = {
-  'dashboard-light': [
-    'color-contrast: .mt-2.gap-1\\.5.text-\\(--q2-amber\\)',
-    'color-contrast: section[aria-labelledby="today-heading"] > .mb-3.px-0\\.5.justify-between > .-my-3.hover\\:underline[href$="goals"]',
-    'color-contrast: .line-through',
-    'color-contrast: section[aria-labelledby="home-goals-heading"] > .mb-3.px-0\\.5.justify-between > .-my-3.hover\\:underline[href$="goals"]',
-    'color-contrast: .block.w-52.p-4:nth-child(1) > .mt-1\\.5.justify-between > .text-\\(--ui-primary\\).font-bold[data-q2-private=""]',
-    'color-contrast: .block.w-52.p-4:nth-child(2) > .mt-1\\.5.justify-between > .text-\\(--ui-primary\\).font-bold[data-q2-private=""]',
-    'color-contrast: .router-link-active > .text-\\[10px\\].font-bold',
-  ],
-  'dashboard-dark': ['color-contrast: .line-through'],
-  'goal detail-light': [
-    'color-contrast: .rounded-md',
-    'color-contrast: .text-\\(--q2-amber\\)',
-  ],
-  'diagnostics-light': [
-    'color-contrast: .text-error',
-    'color-contrast: .text-warning',
-  ],
-}
-
 test.describe('server-rendered HTML', () => {
   test('contains personal data, progress and icons before JavaScript runs', async ({ page }) => {
     const response = await page.request.get('/')
@@ -67,7 +41,7 @@ test.describe('server-rendered HTML', () => {
 test.describe('WCAG A and AA', () => {
   for (const screen of accessibilityScreens) {
     for (const colorScheme of ['light', 'dark'] as const) {
-      test(`${screen.name} matches the reviewed ${colorScheme} accessibility baseline`, async ({ page }) => {
+      test(`${screen.name} has no ${colorScheme} accessibility violations`, async ({ page }) => {
         await page.emulateMedia({ colorScheme })
         await page.goto(screen.path)
 
@@ -82,7 +56,7 @@ test.describe('WCAG A and AA', () => {
           `${violation.id}: ${node.target.join(' ')}`,
         ))
 
-        expect(violations).toEqual(knownContrastDebt[`${screen.name}-${colorScheme}`] ?? [])
+        expect(violations).toEqual([])
       })
     }
   }
@@ -102,7 +76,7 @@ test.describe('phone geometry', () => {
     })
   }
 
-  test('visible controls match the reviewed 44px touch-target baseline', async ({ page }) => {
+  test('visible controls meet the 44px touch-target rule', async ({ page }) => {
     const undersized: string[] = []
 
     for (const path of ['/', '/goals?tab=goals', '/diagnostics'] as const) {
@@ -149,12 +123,6 @@ test.describe('phone geometry', () => {
       undersized.push(...onScreen)
     }
 
-    expect(undersized).toEqual([
-      '/: Mehr (32x44)',
-      '/goals?tab=goals: segment-today (171x40)',
-      '/goals?tab=goals: segment-goals (171x40)',
-      '/diagnostics: trigger-server-error (174x32)',
-      '/diagnostics: trigger-client-error (169x32)',
-    ])
+    expect(undersized).toEqual([])
   })
 })

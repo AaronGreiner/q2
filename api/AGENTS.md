@@ -127,6 +127,9 @@ would drift.
   alone, and a reference that must survive its target (a pinned goal on a
   conversation) is `SetNull` instead.
 - Queries that only read use `AsNoTracking()`.
+- Queries split collection includes by default. Goal, profile and chat reads
+  materialise several collections; one joined query multiplies their rows as
+  those collections grow, while split queries keep that work proportional.
 - **Every GUID key is `ValueGeneratedNever`**, set once in
   `Q2DbContext.OnModelCreating`. EF Core's default is `ValueGeneratedOnAdd`, and
   with it a *new* child discovered inside a tracked aggregate — a check-in on a
@@ -146,13 +149,20 @@ the style gate rejects.
 
 - Migrations are committed and are never edited after being applied anywhere
   beyond a local machine.
+- The documented exception is the 31 July 2026 test-audit correction to
+  `KudosExperience` and `AccountsAndTwoSidedFriendships`: their published ids
+  were retained so already-migrated databases remain untouched, while fresh
+  databases receive the atomic implementation. See
+  [../docs/test-audit-findings.md](../docs/test-audit-findings.md).
 - `MigrationTests` applies every migration to a genuinely empty file, seeds,
-  writes and reads back — and asserts the model has no changes lacking a
-  migration.
+  writes and reads back. It also rejects SQL that disables foreign keys and
+  proves that a failed conversion rolls back schema and data.
 - `EnsureCreated` is not used anywhere. Test fixtures migrate.
 - **SQLite limitations to keep in mind:** no `ORDER BY` on `DateTimeOffset`
   (hence the conversion above); limited `ALTER TABLE`, so EF rebuilds tables
-  for many schema changes — review generated migrations rather than assuming.
+  for many schema changes. Review generated migrations; if EF warns that a
+  rebuild is non-transactional, replace it with explicit transactional table
+  copy operations.
 
 ## 5. Seed profiles
 

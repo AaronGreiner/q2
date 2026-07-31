@@ -28,70 +28,47 @@ public partial class KudosExperience : Migration
         // existed — would silently break any database that has already
         // applied it. Deleting the rows is the smaller loss, and it says so
         // out loud. See docs/adr/0009-single-known-person.md.
-        migrationBuilder.Sql("DELETE FROM GoalParticipants;");
-        migrationBuilder.Sql("DELETE FROM Goals;");
+        // SQLite implements DropColumn by rebuilding a table while foreign
+        // keys are disabled outside the migration transaction. These two
+        // tables are intentionally emptied anyway, so replace them explicitly
+        // and keep the whole migration atomic with foreign keys enabled.
+        migrationBuilder.DropTable(
+            name: "GoalParticipants");
 
-        migrationBuilder.DropIndex(
-            name: "IX_GoalParticipants_GoalId_DisplayName",
-            table: "GoalParticipants");
+        migrationBuilder.DropTable(
+            name: "Goals");
 
-        migrationBuilder.DropColumn(
-            name: "DisplayName",
-            table: "GoalParticipants");
+        migrationBuilder.CreateTable(
+            name: "Goals",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CompletedSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                TotalSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                Icon = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                IsGroup = table.Column<bool>(type: "INTEGER", nullable: false),
+                ReminderAt = table.Column<TimeOnly>(type: "TEXT", nullable: true),
+                Rhythm = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                TargetDate = table.Column<DateOnly>(type: "TEXT", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Goals", x => x.Id);
+            });
 
-        migrationBuilder.DropColumn(
-            name: "ProgressPercent",
-            table: "Goals");
-
-        migrationBuilder.AddColumn<int>(
-            name: "TotalSteps",
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_CreatedAt",
             table: "Goals",
-            type: "INTEGER",
-            nullable: false,
-            defaultValue: 1);
+            column: "CreatedAt");
 
-        migrationBuilder.AddColumn<int>(
-            name: "CompletedSteps",
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_Status",
             table: "Goals",
-            type: "INTEGER",
-            nullable: false,
-            defaultValue: 0);
-
-        migrationBuilder.AddColumn<string>(
-            name: "Icon",
-            table: "Goals",
-            type: "TEXT",
-            maxLength: 40,
-            nullable: false,
-            defaultValue: "");
-
-        migrationBuilder.AddColumn<bool>(
-            name: "IsGroup",
-            table: "Goals",
-            type: "INTEGER",
-            nullable: false,
-            defaultValue: false);
-
-        migrationBuilder.AddColumn<TimeOnly>(
-            name: "ReminderAt",
-            table: "Goals",
-            type: "TEXT",
-            nullable: true);
-
-        migrationBuilder.AddColumn<string>(
-            name: "Rhythm",
-            table: "Goals",
-            type: "TEXT",
-            maxLength: 32,
-            nullable: false,
-            defaultValue: "");
-
-        migrationBuilder.AddColumn<Guid>(
-            name: "PersonId",
-            table: "GoalParticipants",
-            type: "TEXT",
-            nullable: false,
-            defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+            column: "Status");
 
         migrationBuilder.CreateTable(
             name: "Conversations",
@@ -180,6 +157,31 @@ public partial class KudosExperience : Migration
             constraints: table =>
             {
                 table.PrimaryKey("PK_People", x => x.Id);
+            });
+
+        migrationBuilder.CreateTable(
+            name: "GoalParticipants",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: false),
+                PersonId = table.Column<Guid>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalParticipants", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalParticipants_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_GoalParticipants_People_PersonId",
+                    column: x => x.PersonId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
             });
 
         migrationBuilder.CreateTable(
@@ -518,22 +520,11 @@ public partial class KudosExperience : Migration
             column: "PersonId",
             unique: true);
 
-        migrationBuilder.AddForeignKey(
-            name: "FK_GoalParticipants_People_PersonId",
-            table: "GoalParticipants",
-            column: "PersonId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropForeignKey(
-            name: "FK_GoalParticipants_People_PersonId",
-            table: "GoalParticipants");
-
         migrationBuilder.DropTable(
             name: "ActivityKudos");
 
@@ -545,6 +536,9 @@ public partial class KudosExperience : Migration
 
         migrationBuilder.DropTable(
             name: "Friendships");
+
+        migrationBuilder.DropTable(
+            name: "GoalParticipants");
 
         migrationBuilder.DropTable(
             name: "GoalContributions");
@@ -573,67 +567,61 @@ public partial class KudosExperience : Migration
         migrationBuilder.DropTable(
             name: "People");
 
-        migrationBuilder.DropIndex(
-            name: "IX_GoalParticipants_GoalId_PersonId",
-            table: "GoalParticipants");
+        // Mirrors the destructive conversion in Up: recreate the original
+        // empty tables directly instead of asking SQLite to rebuild them.
+        migrationBuilder.DropTable(
+            name: "Goals");
 
-        migrationBuilder.DropIndex(
-            name: "IX_GoalParticipants_PersonId",
-            table: "GoalParticipants");
+        migrationBuilder.CreateTable(
+            name: "Goals",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                ProgressPercent = table.Column<int>(type: "INTEGER", nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                TargetDate = table.Column<DateOnly>(type: "TEXT", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Goals", x => x.Id);
+            });
 
-        migrationBuilder.DropColumn(
-            name: "CompletedSteps",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "Icon",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "IsGroup",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "ReminderAt",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "Rhythm",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "PersonId",
-            table: "GoalParticipants");
-
-        // Mirrors the delete in Up(): going back leaves the goal tables
-        // structurally correct and empty, rather than full of rows whose
-        // participants point at a table that no longer exists.
-        migrationBuilder.Sql("DELETE FROM GoalParticipants;");
-        migrationBuilder.Sql("DELETE FROM Goals;");
-
-        migrationBuilder.DropColumn(
-            name: "TotalSteps",
-            table: "Goals");
-
-        migrationBuilder.AddColumn<int>(
-            name: "ProgressPercent",
-            table: "Goals",
-            type: "INTEGER",
-            nullable: false,
-            defaultValue: 0);
-
-        migrationBuilder.AddColumn<string>(
-            name: "DisplayName",
-            table: "GoalParticipants",
-            type: "TEXT",
-            maxLength: 80,
-            nullable: false,
-            defaultValue: "");
+        migrationBuilder.CreateTable(
+            name: "GoalParticipants",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: false),
+                DisplayName = table.Column<string>(type: "TEXT", maxLength: 80, nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalParticipants", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalParticipants_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
 
         migrationBuilder.CreateIndex(
             name: "IX_GoalParticipants_GoalId_DisplayName",
             table: "GoalParticipants",
             columns: new[] { "GoalId", "DisplayName" },
             unique: true);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_CreatedAt",
+            table: "Goals",
+            column: "CreatedAt");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_Status",
+            table: "Goals",
+            column: "Status");
     }
 }

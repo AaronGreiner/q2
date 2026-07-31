@@ -64,7 +64,11 @@ public sealed class SqliteTestDatabase : IAsyncDisposable
     public Q2DbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<Q2DbContext>()
-            .UseSqlite(ConnectionString, sqlite => sqlite.MigrationsAssembly(typeof(Q2DbContext).Assembly.FullName))
+            .UseSqlite(ConnectionString, sqlite =>
+            {
+                sqlite.MigrationsAssembly(typeof(Q2DbContext).Assembly.FullName);
+                sqlite.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            })
             .Options;
 
         return new Q2DbContext(options);

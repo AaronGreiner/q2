@@ -74,14 +74,15 @@
   --ui-border-muted: #f0f0f0;
   --ui-border-accented: #dcdcdc;
 
-  --ui-text-dimmed: #a3a3a3;
+  /* Completed copy remains subdued by its strike-through, but still passes AA. */
+  --ui-text-dimmed: #737373;
   --ui-text-muted: #737373;
   --ui-text-toned: #525252;
   --ui-text: #0a0a0a;
   --ui-text-highlighted: #000000;
 
-  /* 4.9:1 on --ui-bg. The brighter #00b368 is only ever used behind white. */
-  --ui-primary: #00955b;
+  /* 5.25:1 on --ui-bg and 5.48:1 on cards. */
+  --ui-primary: #00794a;
 
   /*
    * Corner radii, written out rather than reached for through `rounded-xl` and
@@ -109,8 +110,11 @@
   --q2-accent-solid: #00b368;
   --q2-accent-soft: #e7f9f0;
   --q2-accent-soft-text: #00794a;
-  --q2-amber: #d97706;
+  /* 5.44:1 on --ui-bg; used for small streak and trophy copy. */
+  --q2-amber: #a44f00;
   --q2-amber-soft: #fff7e6;
+  --q2-error-action: #991b1b;
+  --q2-warning-action: #854d0e;
   --q2-online: #15803d;
   --q2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 20px -10px rgba(16, 24, 40, 0.13);
 }
@@ -126,7 +130,7 @@
   --ui-border-muted: #202020;
   --ui-border-accented: #333333;
 
-  --ui-text-dimmed: #6b6b6b;
+  --ui-text-dimmed: #858585;
   --ui-text-muted: #a1a1a1;
   --ui-text-toned: #c8c8c8;
   --ui-text: #fafafa;
@@ -141,6 +145,8 @@
   --q2-accent-soft-text: #5ce6ac;
   --q2-amber: #fbbf24;
   --q2-amber-soft: rgba(217, 119, 6, 0.17);
+  --q2-error-action: #fecaca;
+  --q2-warning-action: #fef08a;
   --q2-online: #22c55e;
   --q2-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
 }

@@ -92,8 +92,11 @@ asserting:
 4. a row is written
 5. it is read back through a new connection
 
-A second test asserts the EF model has no changes lacking a migration, so
-forgetting `bun run db:add-migration` fails CI rather than production.
+Additional tests assert the EF model has no changes lacking a migration, the
+generated SQL never disables foreign keys, a failed table conversion rolls
+back both schema and data, and the accounts migration can be reverted and
+applied again. Forgetting `bun run db:add-migration` or introducing a
+non-atomic SQLite rebuild therefore fails CI rather than production.
 
 `EnsureCreated` is not used anywhere in this repository. Test fixtures migrate,
 which means the schema under test is the schema the migrations produce.
@@ -149,7 +152,7 @@ same viewport remains necessary.
 
 ## What is actually covered
 
-### Backend (449 tests)
+### Backend (453 tests)
 
 - **Domain** — every `Goal` invariant: title required and bounded, description
   bounded, progress 0-100, status transitions, archived goals staying archived,
@@ -170,7 +173,8 @@ same viewport remains necessary.
   date, status stored as text, cascade delete, the unique index enforced by the
   database itself.
 - **Migrations** — empty file to working database, idempotence, sortable names,
-  no pending model changes.
+  no pending model changes, foreign keys never disabled, atomic rollback on a
+  failed conversion, and downgrade/re-apply support.
 - **Sentry** — SDK initialised, exactly one event per failure, environment and
   release present, no event for validation errors / 404s / health checks, no
   credentials or location data or goal content, no machine name, no user id,
@@ -202,7 +206,7 @@ Authentication and registration; seeded goals, tasks and all their states;
 goal creation and contribution; chats and messages; friendships and search;
 profile and settings; expected and unexpected errors; Sentry privacy; PWA
 assets; server-rendered content; and the phone shell. The quality spec also
-pins the reviewed WCAG A/AA findings, checks horizontal overflow on every
+requires zero reviewed WCAG A/AA findings, checks horizontal overflow on every
 signed-in screen and verifies representative touch targets.
 
 ## Coverage gate

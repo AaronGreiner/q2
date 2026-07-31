@@ -11,137 +11,32 @@ public partial class AccountsAndTwoSidedFriendships : Migration
     /*
      * Accounts arrive, and with them a second person who can sign in.
      *
-     * The order below is not the one EF scaffolded. The generated version
-     * dropped People.IsCurrentUser before touching anything else, and that
-     * column is the only thing in the old schema that says who "you" were —
-     * without it, every goal, task and friendship in an existing database
-     * becomes unattributable. So: add the new columns first, convert the
-     * data while the flag is still there, and only then drop it.
+     * The order below is not the one EF scaffolded. People.IsCurrentUser is
+     * the only thing in the old schema that says who "you" were, so goals,
+     * tasks and friendships are converted while that flag still exists.
      *
-     * What converts exactly:
-     *   - every goal and task belonged to the one flagged person, so that
-     *     is who they now belong to;
-     *   - a Requested friendship was somebody asking *you*, an Invited one
-     *     was you asking them, and Accepted is symmetric — all three map
-     *     onto the requester/addressee pair without inventing anything.
+     * SQLite table changes are also explicit. EF's generated table rebuilds
+     * turn foreign keys off outside the migration transaction, which can leave
+     * a partly converted database after a failure. Create/copy/drop/rename
+     * keeps this migration atomic and keeps foreign-key enforcement enabled.
      *
-     * What does not, and is deleted rather than guessed:
-     *   - Suggested rows. A suggestion is no longer stored at all; it is
-     *     derived from the friend graph on every read.
-     *
-     * What this migration cannot do: create accounts. A password hash is
-     * not something a migration may invent, so a database seeded before
-     * this change keeps all its data and has nobody able to sign in to it.
-     * For a local Development database the answer is to start over —
-     * README.md section 6 has the one-line command.
+     * Suggested friendships are deleted rather than guessed because they are
+     * now derived from the graph. Accounts cannot be created here: a migration
+     * must not invent password hashes. See README.md section 6.
      */
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.AddColumn<Guid>(
-            name: "OwnerPersonId",
-            table: "Goals",
-            type: "TEXT",
-            nullable: false,
-            defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+        RebuildGoalsWithOwners(migrationBuilder);
+        RebuildTwoSidedFriendships(migrationBuilder);
 
-        migrationBuilder.AddColumn<Guid>(
-            name: "OwnerPersonId",
-            table: "GoalTasks",
-            type: "TEXT",
-            nullable: false,
-            defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
-
-        migrationBuilder.DropForeignKey(
-            name: "FK_Friendships_People_PersonId",
-            table: "Friendships");
-
-        migrationBuilder.DropIndex(
-            name: "IX_Friendships_PersonId",
-            table: "Friendships");
-
-        migrationBuilder.RenameColumn(
-            name: "PersonId",
-            table: "Friendships",
-            newName: "RequesterId");
-
-        migrationBuilder.AddColumn<Guid>(
-            name: "AddresseeId",
-            table: "Friendships",
-            type: "TEXT",
-            nullable: false,
-            defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
-
-        // Left at its default for converted rows on purpose: the old schema
-        // never recorded when a request was made, and a made-up timestamp
-        // would read as fact. They simply sort last.
-        migrationBuilder.AddColumn<DateTime>(
-            name: "RequestedAt",
-            table: "Friendships",
-            type: "TEXT",
-            nullable: false,
-            defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
-
-        migrationBuilder.AddColumn<DateTime>(
-            name: "RespondedAt",
-            table: "Friendships",
-            type: "TEXT",
-            nullable: true);
-
-        // --- data conversion, while IsCurrentUser still exists ---
-        migrationBuilder.Sql(
-            """
-            UPDATE Goals
-            SET OwnerPersonId = (SELECT Id FROM People WHERE IsCurrentUser = 1)
-            WHERE EXISTS (SELECT 1 FROM People WHERE IsCurrentUser = 1);
-            """);
-
-        migrationBuilder.Sql(
-            """
-            UPDATE GoalTasks
-            SET OwnerPersonId = (SELECT Id FROM People WHERE IsCurrentUser = 1)
-            WHERE EXISTS (SELECT 1 FROM People WHERE IsCurrentUser = 1);
-            """);
-
-        migrationBuilder.Sql("DELETE FROM Friendships WHERE Status = 'Suggested';");
-
-        // They asked you, or you are already friends: they are the
-        // requester, you are the addressee.
-        migrationBuilder.Sql(
-            """
-            UPDATE Friendships
-            SET AddresseeId = (SELECT Id FROM People WHERE IsCurrentUser = 1)
-            WHERE Status IN ('Requested', 'Accepted')
-              AND EXISTS (SELECT 1 FROM People WHERE IsCurrentUser = 1);
-            """);
-
-        // You asked them, so the two ends swap. SQLite evaluates every SET
-        // against the row as it was, which is what makes this a swap rather
-        // than two assignments of the same value.
-        migrationBuilder.Sql(
-            """
-            UPDATE Friendships
-            SET AddresseeId = RequesterId,
-                RequesterId = (SELECT Id FROM People WHERE IsCurrentUser = 1)
-            WHERE Status = 'Invited'
-              AND EXISTS (SELECT 1 FROM People WHERE IsCurrentUser = 1);
-            """);
-
-        migrationBuilder.Sql(
-            "UPDATE Friendships SET Status = 'Pending' WHERE Status IN ('Requested', 'Invited');");
-
-        // --- the old shape can go now ---
         migrationBuilder.DropIndex(
             name: "IX_People_IsCurrentUser",
             table: "People");
 
-        migrationBuilder.DropColumn(
-            name: "IsCurrentUser",
-            table: "People");
-
-        migrationBuilder.DropColumn(
-            name: "MutualFriends",
-            table: "Friendships");
+        // SQLite supports dropping this ordinary column transactionally. EF's
+        // generic SQLite operation would instead schedule a table rebuild.
+        migrationBuilder.Sql("ALTER TABLE \"People\" DROP COLUMN \"IsCurrentUser\";");
 
         migrationBuilder.CreateTable(
             name: "AspNetUsers",
@@ -237,27 +132,6 @@ public partial class AccountsAndTwoSidedFriendships : Migration
             });
 
         migrationBuilder.CreateIndex(
-            name: "IX_Goals_OwnerPersonId",
-            table: "Goals",
-            column: "OwnerPersonId");
-
-        migrationBuilder.CreateIndex(
-            name: "IX_GoalTasks_OwnerPersonId",
-            table: "GoalTasks",
-            column: "OwnerPersonId");
-
-        migrationBuilder.CreateIndex(
-            name: "IX_Friendships_AddresseeId",
-            table: "Friendships",
-            column: "AddresseeId");
-
-        migrationBuilder.CreateIndex(
-            name: "IX_Friendships_RequesterId_AddresseeId",
-            table: "Friendships",
-            columns: new[] { "RequesterId", "AddresseeId" },
-            unique: true);
-
-        migrationBuilder.CreateIndex(
             name: "IX_AspNetUserClaims_UserId",
             table: "AspNetUserClaims",
             column: "UserId");
@@ -283,65 +157,15 @@ public partial class AccountsAndTwoSidedFriendships : Migration
             table: "AspNetUsers",
             column: "NormalizedUserName",
             unique: true);
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_Friendships_People_AddresseeId",
-            table: "Friendships",
-            column: "AddresseeId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_Friendships_People_RequesterId",
-            table: "Friendships",
-            column: "RequesterId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_GoalTasks_People_OwnerPersonId",
-            table: "GoalTasks",
-            column: "OwnerPersonId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_Goals_People_OwnerPersonId",
-            table: "Goals",
-            column: "OwnerPersonId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
     }
 
     /// <summary>
     /// Restores the old shape, not the old data: which person was "you" is
     /// gone once the flag is dropped, so every restored <c>IsCurrentUser</c>
-    /// is false and the friendship directions stay as they are. Down is
-    /// here so a local branch can be stepped back, not as a supported way
-    /// to run the previous version against converted data.
+    /// is false and friendship directions stay as they are.
     /// </summary>
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropForeignKey(
-            name: "FK_Friendships_People_AddresseeId",
-            table: "Friendships");
-
-        migrationBuilder.DropForeignKey(
-            name: "FK_Friendships_People_RequesterId",
-            table: "Friendships");
-
-        migrationBuilder.DropForeignKey(
-            name: "FK_GoalTasks_People_OwnerPersonId",
-            table: "GoalTasks");
-
-        migrationBuilder.DropForeignKey(
-            name: "FK_Goals_People_OwnerPersonId",
-            table: "Goals");
-
         migrationBuilder.DropTable(
             name: "AspNetUserClaims");
 
@@ -354,47 +178,6 @@ public partial class AccountsAndTwoSidedFriendships : Migration
         migrationBuilder.DropTable(
             name: "AspNetUsers");
 
-        migrationBuilder.DropIndex(
-            name: "IX_Goals_OwnerPersonId",
-            table: "Goals");
-
-        migrationBuilder.DropIndex(
-            name: "IX_GoalTasks_OwnerPersonId",
-            table: "GoalTasks");
-
-        migrationBuilder.DropIndex(
-            name: "IX_Friendships_AddresseeId",
-            table: "Friendships");
-
-        migrationBuilder.DropIndex(
-            name: "IX_Friendships_RequesterId_AddresseeId",
-            table: "Friendships");
-
-        migrationBuilder.DropColumn(
-            name: "OwnerPersonId",
-            table: "Goals");
-
-        migrationBuilder.DropColumn(
-            name: "OwnerPersonId",
-            table: "GoalTasks");
-
-        migrationBuilder.DropColumn(
-            name: "AddresseeId",
-            table: "Friendships");
-
-        migrationBuilder.DropColumn(
-            name: "RequestedAt",
-            table: "Friendships");
-
-        migrationBuilder.DropColumn(
-            name: "RespondedAt",
-            table: "Friendships");
-
-        migrationBuilder.RenameColumn(
-            name: "RequesterId",
-            table: "Friendships",
-            newName: "PersonId");
-
         migrationBuilder.AddColumn<bool>(
             name: "IsCurrentUser",
             table: "People",
@@ -402,30 +185,494 @@ public partial class AccountsAndTwoSidedFriendships : Migration
             nullable: false,
             defaultValue: false);
 
-        migrationBuilder.AddColumn<int>(
-            name: "MutualFriends",
-            table: "Friendships",
-            type: "INTEGER",
-            nullable: false,
-            defaultValue: 0);
+        RebuildOneSidedFriendships(migrationBuilder);
+        RebuildGoalsWithoutOwners(migrationBuilder);
 
         migrationBuilder.CreateIndex(
             name: "IX_People_IsCurrentUser",
             table: "People",
             column: "IsCurrentUser");
+    }
+
+    private static void RebuildGoalsWithOwners(MigrationBuilder migrationBuilder)
+    {
+        BackupGoalDependents(migrationBuilder, includeOwner: false);
+        DropGoalDependents(migrationBuilder);
+
+        migrationBuilder.CreateTable(
+            name: "__q2_Goals_with_owner",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CompletedSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                TotalSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                Icon = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                IsGroup = table.Column<bool>(type: "INTEGER", nullable: false),
+                ReminderAt = table.Column<TimeOnly>(type: "TEXT", nullable: true),
+                Rhythm = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                TargetDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                OwnerPersonId = table.Column<Guid>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Goals", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_Goals_People_OwnerPersonId",
+                    column: x => x.OwnerPersonId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.Sql(
+            """
+            INSERT INTO "__q2_Goals_with_owner"
+                ("Id", "Title", "Description", "Status", "CompletedSteps", "TotalSteps", "Icon", "IsGroup",
+                 "ReminderAt", "Rhythm", "CreatedAt", "TargetDate", "OwnerPersonId")
+            SELECT "Id", "Title", "Description", "Status", "CompletedSteps", "TotalSteps", "Icon", "IsGroup",
+                   "ReminderAt", "Rhythm", "CreatedAt", "TargetDate",
+                   (SELECT "Id" FROM "People" WHERE "IsCurrentUser" = 1)
+            FROM "Goals";
+            """);
+
+        migrationBuilder.DropTable(
+            name: "Goals");
+
+        migrationBuilder.RenameTable(
+            name: "__q2_Goals_with_owner",
+            newName: "Goals");
+
+        CreateGoalIndexes(migrationBuilder, includeOwner: true);
+        RestoreConversationGoalLinks(migrationBuilder);
+        RestoreGoalDependents(migrationBuilder, includeOwner: true);
+    }
+
+    private static void RebuildGoalsWithoutOwners(MigrationBuilder migrationBuilder)
+    {
+        BackupGoalDependents(migrationBuilder, includeOwner: true);
+        DropGoalDependents(migrationBuilder);
+
+        migrationBuilder.CreateTable(
+            name: "__q2_Goals_without_owner",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CompletedSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                TotalSteps = table.Column<int>(type: "INTEGER", nullable: false),
+                Icon = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                IsGroup = table.Column<bool>(type: "INTEGER", nullable: false),
+                ReminderAt = table.Column<TimeOnly>(type: "TEXT", nullable: true),
+                Rhythm = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                TargetDate = table.Column<DateOnly>(type: "TEXT", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Goals", x => x.Id);
+            });
+
+        migrationBuilder.Sql(
+            """
+            INSERT INTO "__q2_Goals_without_owner"
+                ("Id", "Title", "Description", "Status", "CompletedSteps", "TotalSteps", "Icon", "IsGroup",
+                 "ReminderAt", "Rhythm", "CreatedAt", "TargetDate")
+            SELECT "Id", "Title", "Description", "Status", "CompletedSteps", "TotalSteps", "Icon", "IsGroup",
+                   "ReminderAt", "Rhythm", "CreatedAt", "TargetDate"
+            FROM "Goals";
+            """);
+
+        migrationBuilder.DropTable(
+            name: "Goals");
+
+        migrationBuilder.RenameTable(
+            name: "__q2_Goals_without_owner",
+            newName: "Goals");
+
+        CreateGoalIndexes(migrationBuilder, includeOwner: false);
+        RestoreConversationGoalLinks(migrationBuilder);
+        RestoreGoalDependents(migrationBuilder, includeOwner: false);
+    }
+
+    private static void BackupGoalDependents(MigrationBuilder migrationBuilder, bool includeOwner)
+    {
+        var taskOwnerColumn = includeOwner ? ", \"OwnerPersonId\"" : string.Empty;
+
+        migrationBuilder.Sql(
+            $$"""
+            CREATE TABLE "__q2_GoalParticipants_backup" AS
+            SELECT "Id", "GoalId", "PersonId" FROM "GoalParticipants";
+
+            CREATE TABLE "__q2_GoalContributions_backup" AS
+            SELECT "Id", "GoalId", "Date" FROM "GoalContributions";
+
+            CREATE TABLE "__q2_GoalTasks_backup" AS
+            SELECT "Id", "GoalId", "Title", "Rhythm", "ReminderAt", "WeeklyOn", "DueOn", "CompletedOn",
+                   "MeasuredValue", "TargetValue", "MeasureUnit", "SortOrder", "CreatedAt"{{taskOwnerColumn}}
+            FROM "GoalTasks";
+
+            CREATE TABLE "__q2_ConversationGoals_backup" AS
+            SELECT "Id", "GoalId" FROM "Conversations" WHERE "GoalId" IS NOT NULL;
+            """);
+    }
+
+    private static void DropGoalDependents(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropTable(
+            name: "GoalParticipants");
+
+        migrationBuilder.DropTable(
+            name: "GoalContributions");
+
+        migrationBuilder.DropTable(
+            name: "GoalTasks");
+    }
+
+    private static void RestoreConversationGoalLinks(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql(
+            """
+            UPDATE "Conversations"
+            SET "GoalId" = (
+                SELECT "GoalId"
+                FROM "__q2_ConversationGoals_backup"
+                WHERE "__q2_ConversationGoals_backup"."Id" = "Conversations"."Id"
+            )
+            WHERE "Id" IN (SELECT "Id" FROM "__q2_ConversationGoals_backup");
+
+            DROP TABLE "__q2_ConversationGoals_backup";
+            """);
+    }
+
+    private static void RestoreGoalDependents(MigrationBuilder migrationBuilder, bool includeOwner)
+    {
+        migrationBuilder.CreateTable(
+            name: "GoalParticipants",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: false),
+                PersonId = table.Column<Guid>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalParticipants", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalParticipants_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_GoalParticipants_People_PersonId",
+                    column: x => x.PersonId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.CreateTable(
+            name: "GoalContributions",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: false),
+                Date = table.Column<DateOnly>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalContributions", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalContributions_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        if (includeOwner)
+        {
+            CreateGoalTasksWithOwners(migrationBuilder);
+        }
+        else
+        {
+            CreateGoalTasksWithoutOwners(migrationBuilder);
+        }
+
+        migrationBuilder.Sql(
+            """
+            INSERT INTO "GoalParticipants" ("Id", "GoalId", "PersonId")
+            SELECT "Id", "GoalId", "PersonId" FROM "__q2_GoalParticipants_backup";
+
+            INSERT INTO "GoalContributions" ("Id", "GoalId", "Date")
+            SELECT "Id", "GoalId", "Date" FROM "__q2_GoalContributions_backup";
+
+            DROP TABLE "__q2_GoalParticipants_backup";
+            DROP TABLE "__q2_GoalContributions_backup";
+            """);
+
+        var taskOwnerTarget = includeOwner ? ", \"OwnerPersonId\"" : string.Empty;
+        var taskOwnerSource = includeOwner
+            ? ", (SELECT \"Id\" FROM \"People\" WHERE \"IsCurrentUser\" = 1)"
+            : string.Empty;
+
+        migrationBuilder.Sql(
+            $$"""
+            INSERT INTO "GoalTasks"
+                ("Id", "GoalId", "Title", "Rhythm", "ReminderAt", "WeeklyOn", "DueOn", "CompletedOn",
+                 "MeasuredValue", "TargetValue", "MeasureUnit", "SortOrder", "CreatedAt"{{taskOwnerTarget}})
+            SELECT "Id", "GoalId", "Title", "Rhythm", "ReminderAt", "WeeklyOn", "DueOn", "CompletedOn",
+                   "MeasuredValue", "TargetValue", "MeasureUnit", "SortOrder", "CreatedAt"{{taskOwnerSource}}
+            FROM "__q2_GoalTasks_backup";
+
+            DROP TABLE "__q2_GoalTasks_backup";
+            """);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_GoalParticipants_GoalId_PersonId",
+            table: "GoalParticipants",
+            columns: new[] { "GoalId", "PersonId" },
+            unique: true);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_GoalParticipants_PersonId",
+            table: "GoalParticipants",
+            column: "PersonId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_GoalContributions_GoalId_Date",
+            table: "GoalContributions",
+            columns: new[] { "GoalId", "Date" },
+            unique: true);
+
+        migrationBuilder.CreateIndex(
+            name: "IX_GoalTasks_GoalId",
+            table: "GoalTasks",
+            column: "GoalId");
+
+        if (includeOwner)
+        {
+            migrationBuilder.CreateIndex(
+                name: "IX_GoalTasks_OwnerPersonId",
+                table: "GoalTasks",
+                column: "OwnerPersonId");
+        }
+
+        migrationBuilder.CreateIndex(
+            name: "IX_GoalTasks_SortOrder",
+            table: "GoalTasks",
+            column: "SortOrder");
+    }
+
+    private static void CreateGoalTasksWithOwners(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "GoalTasks",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: true),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Rhythm = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                ReminderAt = table.Column<TimeOnly>(type: "TEXT", nullable: true),
+                WeeklyOn = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
+                DueOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                CompletedOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                MeasuredValue = table.Column<double>(type: "REAL", nullable: true),
+                TargetValue = table.Column<double>(type: "REAL", nullable: true),
+                MeasureUnit = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
+                SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                OwnerPersonId = table.Column<Guid>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalTasks", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalTasks_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_GoalTasks_People_OwnerPersonId",
+                    column: x => x.OwnerPersonId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+    }
+
+    private static void CreateGoalTasksWithoutOwners(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "GoalTasks",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                GoalId = table.Column<Guid>(type: "TEXT", nullable: true),
+                Title = table.Column<string>(type: "TEXT", maxLength: 120, nullable: false),
+                Rhythm = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                ReminderAt = table.Column<TimeOnly>(type: "TEXT", nullable: true),
+                WeeklyOn = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
+                DueOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                CompletedOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                MeasuredValue = table.Column<double>(type: "REAL", nullable: true),
+                TargetValue = table.Column<double>(type: "REAL", nullable: true),
+                MeasureUnit = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
+                SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
+                CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_GoalTasks", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_GoalTasks_Goals_GoalId",
+                    column: x => x.GoalId,
+                    principalTable: "Goals",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+    }
+
+    private static void CreateGoalIndexes(MigrationBuilder migrationBuilder, bool includeOwner)
+    {
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_CreatedAt",
+            table: "Goals",
+            column: "CreatedAt");
+
+        if (includeOwner)
+        {
+            migrationBuilder.CreateIndex(
+                name: "IX_Goals_OwnerPersonId",
+                table: "Goals",
+                column: "OwnerPersonId");
+        }
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Goals_Status",
+            table: "Goals",
+            column: "Status");
+    }
+
+    private static void RebuildTwoSidedFriendships(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "__q2_Friendships_two_sided",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                RequesterId = table.Column<Guid>(type: "TEXT", nullable: false),
+                AddresseeId = table.Column<Guid>(type: "TEXT", nullable: false),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                RequestedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                RespondedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Friendships", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_Friendships_People_AddresseeId",
+                    column: x => x.AddresseeId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+                table.ForeignKey(
+                    name: "FK_Friendships_People_RequesterId",
+                    column: x => x.RequesterId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.Sql(
+            """
+            INSERT INTO "__q2_Friendships_two_sided"
+                ("Id", "RequesterId", "AddresseeId", "Status", "RequestedAt", "RespondedAt")
+            SELECT "Id",
+                   CASE
+                       WHEN "Status" = 'Invited'
+                           THEN (SELECT "Id" FROM "People" WHERE "IsCurrentUser" = 1)
+                       ELSE "PersonId"
+                   END,
+                   CASE
+                       WHEN "Status" = 'Invited' THEN "PersonId"
+                       WHEN "Status" IN ('Requested', 'Accepted')
+                           THEN (SELECT "Id" FROM "People" WHERE "IsCurrentUser" = 1)
+                       ELSE '00000000-0000-0000-0000-000000000000'
+                   END,
+                   CASE WHEN "Status" IN ('Requested', 'Invited') THEN 'Pending' ELSE "Status" END,
+                   '0001-01-01 00:00:00',
+                   NULL
+            FROM "Friendships"
+            WHERE "Status" <> 'Suggested';
+            """);
+
+        migrationBuilder.DropTable(
+            name: "Friendships");
+
+        migrationBuilder.RenameTable(
+            name: "__q2_Friendships_two_sided",
+            newName: "Friendships");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Friendships_AddresseeId",
+            table: "Friendships",
+            column: "AddresseeId");
+
+        migrationBuilder.CreateIndex(
+            name: "IX_Friendships_RequesterId_AddresseeId",
+            table: "Friendships",
+            columns: new[] { "RequesterId", "AddresseeId" },
+            unique: true);
+    }
+
+    private static void RebuildOneSidedFriendships(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.CreateTable(
+            name: "__q2_Friendships_one_sided",
+            columns: table => new
+            {
+                Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                PersonId = table.Column<Guid>(type: "TEXT", nullable: false),
+                Status = table.Column<string>(type: "TEXT", maxLength: 32, nullable: false),
+                MutualFriends = table.Column<int>(type: "INTEGER", nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Friendships", x => x.Id);
+                table.ForeignKey(
+                    name: "FK_Friendships_People_PersonId",
+                    column: x => x.PersonId,
+                    principalTable: "People",
+                    principalColumn: "Id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.Sql(
+            """
+            INSERT INTO "__q2_Friendships_one_sided" ("Id", "PersonId", "Status", "MutualFriends")
+            SELECT "Id", "RequesterId", "Status", 0 FROM "Friendships";
+            """);
+
+        migrationBuilder.DropTable(
+            name: "Friendships");
+
+        migrationBuilder.RenameTable(
+            name: "__q2_Friendships_one_sided",
+            newName: "Friendships");
 
         migrationBuilder.CreateIndex(
             name: "IX_Friendships_PersonId",
             table: "Friendships",
             column: "PersonId",
             unique: true);
-
-        migrationBuilder.AddForeignKey(
-            name: "FK_Friendships_People_PersonId",
-            table: "Friendships",
-            column: "PersonId",
-            principalTable: "People",
-            principalColumn: "Id",
-            onDelete: ReferentialAction.Cascade);
     }
 }

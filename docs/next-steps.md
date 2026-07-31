@@ -44,23 +44,12 @@ confirmed by eye that the scrubbing holds.
 
 ### 3. Automate the accessibility checks that found a real defect
 
-Manual testing found `--ui-text-dimmed` at 2.63:1 — a WCAG AA failure on the
-reference id users are asked to quote. The component tests did not catch it
-because they assert structure, not colour.
-
-Add `@axe-core/playwright` and run it over the dashboard, the detail page and
-the diagnostics page, in both colour schemes. Assert zero violations of
-`wcag2a` and `wcag2aa`.
-
-**Expect one failure on the first run, deliberately.** Pinch-zoom is disabled so
-that the installed app behaves like an app, which axe reports under its
-`meta-viewport` rule and which really is a WCAG 1.4.4 failure
-([adr/0013-app-like-input.md](adr/0013-app-like-input.md)). The decision at that
-point is to reverse it or to record an explicit, dated exception — not to widen
-the rule set until it stops complaining.
-
-**Done when:** a contrast or ARIA regression fails CI instead of surviving until
-someone squints at a screenshot.
+**Status: done.** Playwright runs Axe over the dashboard, goal detail and
+diagnostics in both colour schemes and requires zero WCAG A/AA violations. The
+contrast defects it exposed were corrected in the shared design tokens. The
+`meta-viewport` rule is the one explicit exception: pinch zoom remains disabled
+for the installed-app behaviour, with its WCAG cost recorded in
+[adr/0013-app-like-input.md](adr/0013-app-like-input.md).
 
 ### 4. Give a person a time zone
 
@@ -94,30 +83,11 @@ test that tells you whether SSR still works at all.
 
 ### 6. Assert the phone layout, not only the behaviour
 
-E2E now runs in one project, `mobile-chromium` at 390 × 844, because q2 ships as
-a Capacitor app ([../app/AGENTS.md](../app/AGENTS.md) section 8). Worth knowing
-what that did and did not prove: all 15 tests passed unchanged the moment the
-viewport shrank from desktop to phone. That is not evidence of a good phone
-layout — it is evidence that the suite asserts behaviour and text and never
-looks at geometry.
-
-The cheap assertions that would actually bite:
-
-- no horizontal overflow — `document.documentElement.scrollWidth` never exceeds
-  the viewport width, on every page. Measured by hand at 390 px when the project
-  was switched: the dashboard, the detail page and `/diagnostics` are all clean
-  today, so this one starts green and stays a regression guard.
-- **interactive elements at least 44 × 44 CSS px** — this one is already
-  failing. At 390 px the header links are 24-28 px high, the status filter
-  buttons 28 px, the diagnostics buttons 32 px. On a touch screen that is a
-  mis-tap waiting to happen, so the fix is UI work, not just a test.
-- the primary action of each page reachable without a horizontal scroll.
-
-Best done together with item 3 — axe and layout are the same kind of check, and
-one Playwright helper can carry both.
-
-**Done when:** a layout that only holds together in a wide window fails the
-suite instead of surviving until someone opens the device toolbar.
+**Status: done.** The only Playwright project is `mobile-chromium` at 390 × 844.
+The quality spec checks every signed-in screen for horizontal overflow and
+requires representative interactive controls to expose at least a 44 × 44
+CSS-pixel touch target. The undersized controls found by the first run were
+corrected.
 
 ---
 
