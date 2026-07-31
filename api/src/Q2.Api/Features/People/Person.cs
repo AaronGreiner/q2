@@ -7,16 +7,13 @@ namespace Q2.Api.Features.People;
 /// Someone using q2: the person signed in, and everybody they see in the app.
 /// </summary>
 /// <remarks>
-/// This is <em>not</em> an account. There is no password, no email address and
-/// no login — authentication is still deferred
-/// (docs/adr/0006-authentication-deferred.md). What exists is an identity the
-/// rest of the model can point at, because a shared goal, a chat message and a
-/// kudos all need to say *who*.
+/// This is <em>not</em> the account. Credentials live on
+/// <c>Features.Accounts.AppUser</c>, which points here; a person can exist
+/// without one, which is what lets a seeded world contain people nobody needs
+/// to sign in as (docs/adr/0011-authentication-with-identity.md).
 ///
-/// Exactly one row carries <see cref="IsCurrentUser"/>. That is the stand-in
-/// for "the signed-in user" until real accounts arrive; see
-/// docs/adr/0009-single-known-person.md for why that placeholder is explicit
-/// rather than implied.
+/// What this is instead is the identity the rest of the model points at,
+/// because a shared goal, a chat message and a kudos all need to say *who*.
 ///
 /// Streaks are not stored. They are derived from <see cref="DailyCheckIn"/>
 /// rows by <see cref="StreakOn"/>, so the number can never disagree with the
@@ -43,14 +40,13 @@ public sealed class Person
         AvatarColor = string.Empty;
     }
 
-    private Person(Guid id, string displayName, string handle, string initials, string avatarColor, bool isCurrentUser)
+    private Person(Guid id, string displayName, string handle, string initials, string avatarColor)
     {
         Id = id;
         DisplayName = displayName;
         Handle = handle;
         Initials = initials;
         AvatarColor = avatarColor;
-        IsCurrentUser = isCurrentUser;
     }
 
     public Guid Id { get; private set; }
@@ -65,9 +61,6 @@ public sealed class Person
 
     /// <summary>Hex colour of the avatar, chosen once so it stays recognisable.</summary>
     public string AvatarColor { get; private set; }
-
-    /// <summary>True for the single person this deployment treats as signed in.</summary>
-    public bool IsCurrentUser { get; private set; }
 
     /// <summary>Total kudos this person has received, across their whole history.</summary>
     public int KudosReceived { get; private set; }
@@ -93,8 +86,7 @@ public sealed class Person
         string displayName,
         string handle,
         string initials,
-        string avatarColor,
-        bool isCurrentUser = false)
+        string avatarColor)
     {
         var errors = new Dictionary<string, string[]>();
 
@@ -138,7 +130,7 @@ public sealed class Person
             throw new DomainValidationException(errors);
         }
 
-        return new Person(id, normalisedName, normalisedHandle, normalisedInitials, avatarColor, isCurrentUser);
+        return new Person(id, normalisedName, normalisedHandle, normalisedInitials, avatarColor);
     }
 
     /// <summary>Sets the counters the profile screen shows. Seeding only.</summary>

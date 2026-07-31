@@ -11,6 +11,8 @@ src/Q2.Api/Program.cs                                composition root, read this
 src/Q2.Api/Features/Goals/Goal.cs                    the domain model and its rules
 src/Q2.Api/Features/Goals/GoalEndpoints.cs           the HTTP surface
 src/Q2.Api/Infrastructure/ApiRegistration.cs         services + middleware order
+src/Q2.Api/Infrastructure/AuthenticationRegistration.cs  Identity + the session cookie
+src/Q2.Api/Features/People/CurrentPerson.cs         who is asking, and the only place that answers
 src/Q2.Api/Infrastructure/Errors/GlobalExceptionHandler.cs   every error response
 src/Q2.Api/Infrastructure/Persistence/DatabaseResetGuard.cs  why a reset is refused
 src/Q2.Api/Infrastructure/Observability/SentryEventScrubber.cs  what never reaches Sentry
@@ -30,6 +32,13 @@ src/Q2.Api/Infrastructure/Observability/SentryEventScrubber.cs  what never reach
   afterwards — use it rather than calling `dotnet ef` directly.
 - **Integration tests are sequential by design** (global Sentry hub). Do not
   "optimise" that by re-enabling parallelisation.
+- **`ApiTestBase.Client` arrives signed in.** `AnonymousClient` is the one
+  without a session, and `ClientForAsync(email)` is how a test becomes the other
+  end of a friendship. There is no fake authentication handler and adding one
+  would defeat the tests that matter.
+- **The seeded password hash is a constant** in `SeedAccounts`, because seeds
+  are pure and Identity's hasher salts randomly. `SeedAccountTests` is what
+  would notice it going stale.
 - **Relative `Data Source` paths** are resolved against `api/.data` by
   `DatabaseLocation`, not against the process working directory. `Q2_DATA_DIR`
   overrides it.

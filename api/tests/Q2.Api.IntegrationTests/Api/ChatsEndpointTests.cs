@@ -205,4 +205,199 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Single(await ListAsync("?search=Person Two"));
         Assert.Empty(await ListAsync("?search=nobody-by-this-name"));
     }
+
+    [Fact]
+    public async Task StartingAChatWithAFriendOpensTheOneThatAlreadyExists()
+    {
+        // Idempotent on purpose: the message button appears on the friends
+        // screen, on a leaderboard row and on a goal's team list, and all three
+        // have to land in the same thread rather than making a new empty one.
+        var response = await Client.PostJsonAsync(
+            "/api/chats/direct",
+            new { personId = AutomatedTestSeed.FriendPersonId });
+
+        response.EnsureSuccessStatusCode();
+
+        var thread = await response.ReadAsync<ThreadDocument>();
+        Assert.Equal(AutomatedTestSeed.DirectConversationId, thread.Id);
+        Assert.NotEmpty(thread.Messages);
+    }
+
+    [Fact]
+    public async Task StartingAChatWithAFriendWhoHasNoThreadYetCreatesOne()
+    {
+        // Become friends first: the seed has this person waiting on an answer.
+        await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.RequestingPersonId}/accept",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        var response = await Client.PostJsonAsync(
+            "/api/chats/direct",
+            new { personId = AutomatedTestSeed.RequestingPersonId });
+
+        response.EnsureSuccessStatusCode();
+
+        var thread = await response.ReadAsync<ThreadDocument>();
+        Assert.Empty(thread.Messages);
+        Assert.Equal(2, thread.MemberCount);
+
+        // And it is the other person's thread too.
+        var theirs = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+        var theirList = await (await theirs.GetAsync("/api/chats", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<SummaryDocument>>();
+
+        Assert.Contains(theirList, chat => chat.Id == thread.Id);
+    }
+
+    [Fact]
+    public async Task AChatCannotBeStartedWithSomebodyWhoIsNotAFriend()
+    {
+        // Otherwise a stranger can open a thread with anybody, which is how a
+        // self-care app becomes a place people get shouted at.
+        var response = await Client.PostJsonAsync(
+            "/api/chats/direct",
+            new { personId = AutomatedTestSeed.UnconnectedPersonId });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AChatCannotBeStartedWithSomebodyWhoDoesNotExist()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/direct", new { personId = Guid.CreateVersion7() });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AGroupCanBeCreatedFromFriendsAndShowsUpForAllOfThem()
+    {
+        await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.RequestingPersonId}/accept",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: new group",
+            emoji = "\U0001F331",
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId, AutomatedTestSeed.RequestingPersonId },
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var thread = await response.ReadAsync<ThreadDocument>();
+        Assert.Equal(ConversationKind.Group, thread.Kind);
+        Assert.Equal("Automated test: new group", thread.Name);
+        Assert.Equal(3, thread.MemberCount);
+
+        var theirs = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirList = await (await theirs.GetAsync("/api/chats", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<SummaryDocument>>();
+
+        Assert.Contains(theirList, chat => chat.Id == thread.Id);
+    }
+
+    [Fact]
+    public async Task AGroupCannotContainSomebodyYouAreNotFriendsWith()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: not allowed",
+            memberIds = new[] { AutomatedTestSeed.UnconnectedPersonId },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AGroupNeedsSomebodyElseInIt()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: nobody here",
+            memberIds = Array.Empty<Guid>(),
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AGroupNeedsAName()
+    {
+        var response = await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "   ",
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LeavingAGroupTakesItOffYourListAndLeavesItOnTheirs()
+    {
+        var created = await (await Client.PostJsonAsync("/api/chats/groups", new
+        {
+            title = "Automated test: leaving",
+            memberIds = new[] { AutomatedTestSeed.FriendPersonId },
+        })).ReadAsync<ThreadDocument>();
+
+        var response = await Client.PostAsync(
+            $"/api/chats/{created.Id}/leave",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.DoesNotContain(await ListAsync(), chat => chat.Id == created.Id);
+
+        var theirs = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirList = await (await theirs.GetAsync("/api/chats", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<SummaryDocument>>();
+
+        // Their conversation is not deleted because somebody else walked out.
+        Assert.Contains(theirList, chat => chat.Id == created.Id);
+    }
+
+    [Fact]
+    public async Task ADirectConversationCannotBeLeft()
+    {
+        // There would be nothing left of it. Leaving is a group idea.
+        var response = await Client.PostAsync(
+            $"/api/chats/{AutomatedTestSeed.DirectConversationId}/leave",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AConversationSomebodyElseIsInCannotBeLeft()
+    {
+        var response = await Client.PostAsync(
+            $"/api/chats/{AutomatedTestSeed.ForeignConversationId}/leave",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AMessageArrivesOnTheOtherPersonsScreenAsUnread()
+    {
+        await Client.PostJsonAsync(
+            $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages",
+            new { text = "Automated test: for the other side" });
+
+        var theirs = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirList = await (await theirs.GetAsync("/api/chats", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<SummaryDocument>>();
+
+        var thread = theirList.Single(chat => chat.Id == AutomatedTestSeed.DirectConversationId);
+
+        Assert.Equal("Automated test: for the other side", thread.LastMessage);
+        Assert.False(thread.LastMessageIsMine);
+        Assert.True(thread.UnreadCount > 0);
+    }
 }

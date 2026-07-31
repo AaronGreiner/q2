@@ -21,6 +21,7 @@ namespace Q2.Api.Features.Goals;
 public sealed class GoalService(
     Q2DbContext database,
     CurrentPerson currentPerson,
+    FriendsService friends,
     ActivityRecorder activity,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
@@ -28,10 +29,16 @@ public sealed class GoalService(
 {
     public async Task<IReadOnlyList<GoalResponse>> ListAsync(GoalStatus? status, CancellationToken cancellationToken)
     {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        // Mine, and the ones I have been let in on. Not "every goal in the
+        // database", which is what this read used to mean back when there was
+        // only ever one person to be.
         var query = database.Goals
             .AsNoTracking()
             .Include(g => g.Participants)
             .Include(g => g.Contributions)
+            .Where(g => g.OwnerPersonId == me.Id || g.Participants.Any(p => p.PersonId == me.Id))
             .AsQueryable();
 
         if (status is { } wanted)
@@ -50,15 +57,25 @@ public sealed class GoalService(
         return [.. goals.Select(goal => GoalResponse.From(goal, people, now))];
     }
 
-    /// <exception cref="ResourceNotFoundException">No goal with that id exists.</exception>
+    /// <exception cref="ResourceNotFoundException">
+    /// No such goal, or not one this person may see. The same answer for both:
+    /// confirming that a goal exists but belongs to somebody else already says
+    /// something about somebody else.
+    /// </exception>
     public async Task<GoalDetailResponse> GetAsync(Guid id, CancellationToken cancellationToken)
     {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
         var goal = await database.Goals
             .AsNoTracking()
             .Include(g => g.Participants)
             .Include(g => g.Contributions)
-            .SingleOrDefaultAsync(g => g.Id == id, cancellationToken)
-            ?? throw new ResourceNotFoundException("Goal", id);
+            .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);
+
+        if (goal is null || !goal.IsVisibleTo(me.Id))
+        {
+            throw new ResourceNotFoundException("Goal", id);
+        }
 
         var now = timeProvider.GetUtcNow();
         var today = Today();
@@ -101,6 +118,7 @@ public sealed class GoalService(
 
         var goal = Goal.Create(
             idGenerator.NewId(),
+            me.Id,
             request.Title ?? string.Empty,
             request.Description,
             request.Icon,
@@ -112,8 +130,19 @@ public sealed class GoalService(
             request.TargetDate,
             now);
 
+        // Only friends can be added to a goal. Without that check, a goal is a
+        // way to put your name into a stranger's app.
+        var friendIds = (await friends.FriendIdsAsync(me.Id, cancellationToken)).ToHashSet();
+
         foreach (var personId in request.ParticipantIds ?? [])
         {
+            if (!friendIds.Contains(personId))
+            {
+                throw new DomainValidationException(
+                    nameof(request.ParticipantIds),
+                    "A goal can only be shared with your friends.");
+            }
+
             goal.AddParticipant(idGenerator.NewId(), personId);
         }
 
@@ -141,15 +170,22 @@ public sealed class GoalService(
     /// <exception cref="ResourceNotFoundException">No goal with that id exists.</exception>
     public async Task<GoalResponse> ContributeAsync(Guid id, CancellationToken cancellationToken)
     {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
         var goal = await database.Goals
             .Include(g => g.Participants)
             .Include(g => g.Contributions)
-            .SingleOrDefaultAsync(g => g.Id == id, cancellationToken)
-            ?? throw new ResourceNotFoundException("Goal", id);
+            .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);
+
+        // Everybody on a shared goal moves it along — that is what sharing one
+        // means. Anybody else does not get to know it exists.
+        if (goal is null || !goal.IsVisibleTo(me.Id))
+        {
+            throw new ResourceNotFoundException("Goal", id);
+        }
 
         var now = timeProvider.GetUtcNow();
         var today = Today();
-        var me = await currentPerson.GetAsync(cancellationToken);
 
         if (goal.Contribute(idGenerator.NewId(), today))
         {

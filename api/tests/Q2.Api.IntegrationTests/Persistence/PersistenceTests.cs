@@ -35,8 +35,13 @@ public class PersistenceTests
     private static Person BuildPerson(string handle = "@robin") =>
         Person.Create(Guid.CreateVersion7(), "Robin Sample", handle, "RS", AvatarColors.Indigo);
 
-    private static Goal BuildGoal(DateOnly? targetDate = null) => Goal.Create(
-        Guid.CreateVersion7(), "Walk 8.000 steps a day", "Every day counts.", "target",
+    /// <summary>
+    /// A goal now needs somebody it belongs to, so every test here starts by
+    /// putting that person in the database — the owner is part of the fixture
+    /// rather than of each individual assertion.
+    /// </summary>
+    private static Goal BuildGoal(Person owner, DateOnly? targetDate = null) => Goal.Create(
+        Guid.CreateVersion7(), owner.Id, "Walk 8.000 steps a day", "Every day counts.", "target",
         GoalRhythm.Daily, false, 4, 10, new TimeOnly(18, 0), targetDate, Now);
 
     [Fact]
@@ -45,13 +50,14 @@ public class PersistenceTests
         await using var database = await MigratedAsync();
 
         var person = BuildPerson();
-        var goal = BuildGoal(Today.AddDays(30));
+        var owner = BuildPerson("@owner");
+        var goal = BuildGoal(owner, Today.AddDays(30));
         goal.AddParticipant(Guid.CreateVersion7(), person.Id);
         goal.RecordContribution(Guid.CreateVersion7(), Today);
 
         await using (var context = database.CreateContext())
         {
-            context.People.Add(person);
+            context.People.AddRange(person, owner);
             context.Goals.Add(goal);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
@@ -113,9 +119,12 @@ public class PersistenceTests
         // throws rather than returning the wrong order.
         await using var database = await MigratedAsync();
 
+        var owner = BuildPerson();
+
         await using (var context = database.CreateContext())
         {
-            context.Goals.AddRange(BuildGoal(), BuildGoal());
+            context.People.Add(owner);
+            context.Goals.AddRange(BuildGoal(owner), BuildGoal(owner));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -134,9 +143,12 @@ public class PersistenceTests
     {
         await using var database = await MigratedAsync();
 
+        var owner = BuildPerson();
+
         await using (var context = database.CreateContext())
         {
-            context.Goals.Add(BuildGoal());
+            context.People.Add(owner);
+            context.Goals.Add(BuildGoal(owner));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -155,15 +167,17 @@ public class PersistenceTests
         await using var database = await MigratedAsync();
 
         var person = BuildPerson();
-        var goal = BuildGoal();
-        goal.AddParticipant(Guid.CreateVersion7(), person.Id);
+        var goal = BuildGoal(person);
+        var participant = BuildPerson("@participant");
+        goal.AddParticipant(Guid.CreateVersion7(), participant.Id);
 
         var task = GoalTask.Create(
-            Guid.CreateVersion7(), goal.Id, "Joggen", GoalRhythm.Daily, null, null, null, null, null, null, 0, Now);
+            Guid.CreateVersion7(), person.Id, goal.Id, "Joggen", GoalRhythm.Daily,
+            null, null, null, null, null, null, 0, Now);
 
         await using (var context = database.CreateContext())
         {
-            context.People.Add(person);
+            context.People.AddRange(person, participant);
             context.Goals.Add(goal);
             context.GoalTasks.Add(task);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -180,8 +194,8 @@ public class PersistenceTests
             Assert.Equal(0, await context.GoalParticipants.CountAsync(TestContext.Current.CancellationToken));
             Assert.Equal(0, await context.GoalTasks.CountAsync(TestContext.Current.CancellationToken));
 
-            // The person is not a detail of the goal and stays.
-            Assert.Equal(1, await context.People.CountAsync(TestContext.Current.CancellationToken));
+            // The people are not details of the goal and stay.
+            Assert.Equal(2, await context.People.CountAsync(TestContext.Current.CancellationToken));
         }
     }
 
@@ -191,7 +205,7 @@ public class PersistenceTests
         await using var database = await MigratedAsync();
 
         var person = BuildPerson();
-        var goal = BuildGoal();
+        var goal = BuildGoal(person);
         var conversation = Conversation.CreateDirect(Guid.CreateVersion7(), goal.Id, Now);
         conversation.AddParticipant(Guid.CreateVersion7(), person.Id);
 
@@ -266,7 +280,7 @@ public class PersistenceTests
         await using var database = await MigratedAsync();
 
         var person = BuildPerson();
-        var goal = BuildGoal();
+        var goal = BuildGoal(person);
 
         await using (var context = database.CreateContext())
         {

@@ -33,6 +33,8 @@ export default defineNuxtConfig({
    *   apiBaseUrl              -> NUXT_PUBLIC_API_BASE_URL
    *   appEnv                  -> NUXT_PUBLIC_APP_ENV
    *   diagnosticsEnabled      -> NUXT_PUBLIC_DIAGNOSTICS_ENABLED
+   *   demoEmail               -> NUXT_PUBLIC_DEMO_EMAIL
+   *   demoPassword            -> NUXT_PUBLIC_DEMO_PASSWORD
    *   sentry.dsn              -> NUXT_PUBLIC_SENTRY_DSN
    *   sentry.environment      -> NUXT_PUBLIC_SENTRY_ENVIRONMENT
    *   sentry.release          -> NUXT_PUBLIC_SENTRY_RELEASE
@@ -47,6 +49,18 @@ export default defineNuxtConfig({
       apiBaseUrl: 'http://localhost:5080',
       appEnv: 'local-development',
       diagnosticsEnabled: false,
+
+      /*
+       * The seeded account the sign-in screen offers to fill in for you.
+       *
+       * Empty by default, and the button only exists when both are set — which
+       * is what keeps it out of Staging and Production without a second flag to
+       * forget. It is not a secret: it is the documented credential of a
+       * synthetic seed profile, and those only ever run against a database
+       * built by `bun run dev`, `test:manual:start` or the E2E suite.
+       */
+      demoEmail: '',
+      demoPassword: '',
       sentry: {
         dsn: '',
         environment: 'local-development',

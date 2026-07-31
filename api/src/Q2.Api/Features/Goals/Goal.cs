@@ -36,6 +36,7 @@ public sealed class Goal
 
     private Goal(
         Guid id,
+        Guid ownerPersonId,
         string title,
         string? description,
         string icon,
@@ -48,6 +49,7 @@ public sealed class Goal
         DateTimeOffset createdAt)
     {
         Id = id;
+        OwnerPersonId = ownerPersonId;
         Title = title;
         Description = description;
         Icon = icon;
@@ -62,6 +64,18 @@ public sealed class Goal
     }
 
     public Guid Id { get; private set; }
+
+    /// <summary>
+    /// Whose goal this is: the person who created it.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Participants"/>, which is who it is shared
+    /// <em>with</em>. Both can read it; only the owner is the one it belongs
+    /// to. Without this column every goal in the database would be visible to
+    /// whoever signed in most recently
+    /// (docs/adr/0011-authentication-with-identity.md).
+    /// </remarks>
+    public Guid OwnerPersonId { get; private set; }
 
     public string Title { get; private set; }
 
@@ -108,6 +122,7 @@ public sealed class Goal
     /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
     public static Goal Create(
         Guid id,
+        Guid ownerPersonId,
         string title,
         string? description,
         string? icon,
@@ -120,6 +135,11 @@ public sealed class Goal
         DateTimeOffset createdAt)
     {
         var errors = new Dictionary<string, string[]>();
+
+        if (ownerPersonId == Guid.Empty)
+        {
+            errors[nameof(OwnerPersonId)] = ["A goal needs somebody it belongs to."];
+        }
 
         var normalisedTitle = title?.Trim() ?? string.Empty;
         if (normalisedTitle.Length == 0)
@@ -159,6 +179,7 @@ public sealed class Goal
 
         return new Goal(
             id,
+            ownerPersonId,
             normalisedTitle,
             normalisedDescription,
             normalisedIcon,
@@ -216,10 +237,17 @@ public sealed class Goal
 
     public void Archive() => Status = GoalStatus.Archived;
 
-    /// <summary>Adds a participant. Adding the same person twice does nothing.</summary>
+    /// <summary>True when this person may read the goal: its owner, or somebody it is shared with.</summary>
+    public bool IsVisibleTo(Guid personId) =>
+        OwnerPersonId == personId || _participants.Any(p => p.PersonId == personId);
+
+    /// <summary>
+    /// Adds a participant. Adding the same person twice does nothing, and the
+    /// owner is not added at all — they are already on it, by owning it.
+    /// </summary>
     public void AddParticipant(Guid id, Guid personId)
     {
-        if (_participants.Any(p => p.PersonId == personId))
+        if (personId == OwnerPersonId || _participants.Any(p => p.PersonId == personId))
         {
             return;
         }

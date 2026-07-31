@@ -48,6 +48,21 @@ export const databasePath = join(runDirectory, `q2-e2e-${runId}.db`)
 export const sentryEventsPath = join(runDirectory, 'sentry-events.jsonl')
 
 /**
+ * The signed-in session every spec starts from.
+ *
+ * globalSetup signs in through the real form once and writes the cookie here;
+ * playwright.config points `use.storageState` at it. Signing in per test would
+ * be the same three steps repeated forty times to assert nothing.
+ */
+export const storageStatePath = join(runDirectory, 'storage-state.json')
+
+/** The seeded account the suite signs in as. See E2ESeed.cs. */
+export const e2eAccount = {
+  email: 'e2e.mara@kudos.example',
+  password: 'kudos-demo-2026',
+} as const
+
+/**
  * Environment for the API process.
  *
  * Sentry is deliberately *on*: the suite asserts that a technical failure
@@ -84,6 +99,11 @@ export function appEnvironment(): Record<string, string> {
     NUXT_PUBLIC_API_BASE_URL: apiBaseUrl,
     NUXT_PUBLIC_APP_ENV: 'e2e',
     NUXT_PUBLIC_DIAGNOSTICS_ENABLED: 'true',
+
+    // The suite signs in through the real form once, in globalSetup, and
+    // reuses the session. These are what that form is filled with.
+    NUXT_PUBLIC_DEMO_EMAIL: e2eAccount.email,
+    NUXT_PUBLIC_DEMO_PASSWORD: e2eAccount.password,
     NUXT_PUBLIC_SENTRY_ENVIRONMENT: 'e2e',
     NUXT_PUBLIC_SENTRY_RELEASE: 'q2@e2e',
     // Syntactically valid, points nowhere. Playwright intercepts the request

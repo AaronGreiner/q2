@@ -7,7 +7,7 @@ public static class ActivityEndpoints
 {
     public static IEndpointRouteBuilder MapActivityEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var feed = endpoints.MapGroup("/api/feed").WithTags("Activity");
+        var feed = endpoints.MapGroup("/api/feed").WithTags("Activity").RequireAuthorization();
 
         feed.MapGet("/", ListFeed)
             .WithName("ListFeed")
@@ -21,6 +21,7 @@ public static class ActivityEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         endpoints.MapGet("/api/leaderboard", ListLeaderboard)
+            .RequireAuthorization()
             .WithTags("Activity")
             .WithName("ListLeaderboard")
             .WithSummary("Ranks you and your friends by kudos received.")

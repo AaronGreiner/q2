@@ -34,12 +34,16 @@ public sealed class GoalTaskService(
     public async Task<IReadOnlyList<GoalTaskResponse>> ListAsync(bool scheduledOnly, CancellationToken cancellationToken)
     {
         var today = Today();
+        var me = await currentPerson.GetAsync(cancellationToken);
 
         // The rhythm rules are C#, not SQL: expressing "Monday to Friday" and
         // "the day this weekly task falls on" as a translatable predicate would
-        // be far harder to read than filtering a few dozen rows in memory.
+        // be far harder to read than filtering a few dozen rows in memory. Who
+        // the rows belong to *is* SQL, though — that filter must never be the
+        // one that happens after the read.
         var tasks = await database.GoalTasks
             .AsNoTracking()
+            .Where(t => t.OwnerPersonId == me.Id)
             .OrderBy(t => t.SortOrder)
             .ThenBy(t => t.Id)
             .ToListAsync(cancellationToken);
@@ -53,8 +57,12 @@ public sealed class GoalTaskService(
     public async Task<DaySummaryResponse> SummariseTodayAsync(CancellationToken cancellationToken)
     {
         var today = Today();
+        var me = await currentPerson.GetAsync(cancellationToken);
 
-        var tasks = await database.GoalTasks.AsNoTracking().ToListAsync(cancellationToken);
+        var tasks = await database.GoalTasks
+            .AsNoTracking()
+            .Where(t => t.OwnerPersonId == me.Id)
+            .ToListAsync(cancellationToken);
         var scheduled = tasks.Where(t => t.IsScheduledFor(today)).ToList();
 
         return DaySummaryResponse.From(scheduled.Count(t => t.IsDoneOn(today)), scheduled.Count);
@@ -69,15 +77,20 @@ public sealed class GoalTaskService(
     /// entry it published — but leaves the check-in alone: the day still
     /// happened, and one corrected list item does not undo it.
     /// </remarks>
-    /// <exception cref="ResourceNotFoundException">No task with that id exists.</exception>
+    /// <exception cref="ResourceNotFoundException">No such task of yours.</exception>
     public async Task<GoalTaskResponse> ToggleAsync(Guid id, CancellationToken cancellationToken)
     {
-        var task = await database.GoalTasks.SingleOrDefaultAsync(t => t.Id == id, cancellationToken)
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        // Owner in the query, not in a check afterwards: somebody else's task
+        // is not a task this person may tick off, and it is not one they get to
+        // learn the existence of either.
+        var task = await database.GoalTasks
+            .SingleOrDefaultAsync(t => t.Id == id && t.OwnerPersonId == me.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Task", id);
 
         var now = timeProvider.GetUtcNow();
         var today = Today();
-        var me = await currentPerson.GetAsync(cancellationToken);
 
         if (task.Toggle(today))
         {
@@ -103,21 +116,33 @@ public sealed class GoalTaskService(
     {
         var now = timeProvider.GetUtcNow();
         var today = Today();
+        var me = await currentPerson.GetAsync(cancellationToken);
         var rhythm = request.Rhythm ?? GoalRhythm.Daily;
 
-        if (request.GoalId is { } goalId && !await database.Goals.AnyAsync(g => g.Id == goalId, cancellationToken))
+        if (request.GoalId is { } goalId)
         {
-            throw new ResourceNotFoundException("Goal", goalId);
+            var goal = await database.Goals
+                .AsNoTracking()
+                .Include(g => g.Participants)
+                .SingleOrDefaultAsync(g => g.Id == goalId, cancellationToken);
+
+            if (goal is null || !goal.IsVisibleTo(me.Id))
+            {
+                throw new ResourceNotFoundException("Goal", goalId);
+            }
         }
 
-        // New tasks go to the top of the list, which is where somebody who has
-        // just typed one expects to find it.
+        // New tasks go to the top of *this person's* list, which is where
+        // somebody who has just typed one expects to find it. Scoped to the
+        // owner, or one busy person would push everybody else's new tasks down.
         var lowestSortOrder = await database.GoalTasks
+            .Where(t => t.OwnerPersonId == me.Id)
             .Select(t => (int?)t.SortOrder)
             .MinAsync(cancellationToken) ?? 0;
 
         var task = GoalTask.Create(
             idGenerator.NewId(),
+            me.Id,
             request.GoalId,
             request.Title ?? string.Empty,
             rhythm,

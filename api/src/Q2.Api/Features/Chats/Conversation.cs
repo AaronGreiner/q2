@@ -28,6 +28,12 @@ public sealed class Conversation
 {
     public const int MaxTitleLength = 80;
 
+    /// <summary>
+    /// Including yourself. The same bound as a goal's team, because a group
+    /// chat and a group goal are the same set of people seen twice.
+    /// </summary>
+    public const int MaxParticipants = 20;
+
     private readonly List<ConversationParticipant> _participants = [];
     private readonly List<ChatMessage> _messages = [];
 
@@ -89,6 +95,7 @@ public sealed class Conversation
         return new Conversation(id, ConversationKind.Group, normalisedTitle, emoji, goalId, createdAt);
     }
 
+    /// <exception cref="DomainValidationException">The conversation is full.</exception>
     public void AddParticipant(Guid id, Guid personId, DateTimeOffset? lastReadAt = null)
     {
         if (_participants.Any(p => p.PersonId == personId))
@@ -96,7 +103,44 @@ public sealed class Conversation
             return;
         }
 
+        if (_participants.Count >= MaxParticipants)
+        {
+            throw new DomainValidationException(
+                nameof(Participants),
+                $"A conversation may have at most {MaxParticipants} people in it.");
+        }
+
         _participants.Add(new ConversationParticipant(id, Id, personId, lastReadAt));
+    }
+
+    /// <summary>True when this person is in the conversation.</summary>
+    public bool Includes(Guid personId) => _participants.Any(p => p.PersonId == personId);
+
+    /// <summary>
+    /// Takes somebody out of a group.
+    /// </summary>
+    /// <remarks>
+    /// Their messages stay. A thread with somebody's replies removed is a
+    /// rewritten conversation, and leaving a group is not a request to edit
+    /// what everybody else remembers of it — which is also why the sender of a
+    /// message is looked up by id rather than through the participant row.
+    /// </remarks>
+    /// <exception cref="DomainValidationException">A direct conversation cannot be left.</exception>
+    public void RemoveParticipant(Guid personId)
+    {
+        if (Kind == ConversationKind.Direct)
+        {
+            throw new DomainValidationException(
+                nameof(Participants),
+                "A direct conversation cannot be left; it is between the two of you.");
+        }
+
+        var participant = _participants.FirstOrDefault(p => p.PersonId == personId);
+
+        if (participant is not null)
+        {
+            _participants.Remove(participant);
+        }
     }
 
     /// <exception cref="DomainValidationException">The sender is not in this conversation.</exception>

@@ -57,8 +57,17 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
             .IsRequired()
             .HasConversion(InstantConversion.Required);
 
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(g => g.OwnerPersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(g => g.Status);
         builder.HasIndex(g => g.CreatedAt);
+
+        // Every list of goals starts from "mine", so this is the index that
+        // carries the goals screen.
+        builder.HasIndex(g => g.OwnerPersonId);
 
         builder.HasMany(g => g.Participants)
             .WithOne()
@@ -147,7 +156,15 @@ public sealed class GoalTaskConfiguration : IEntityTypeConfiguration<GoalTask>
             .HasForeignKey(t => t.GoalId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(t => t.OwnerPersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(t => t.GoalId);
         builder.HasIndex(t => t.SortOrder);
+
+        // "What is on my list today" reads by owner before anything else.
+        builder.HasIndex(t => t.OwnerPersonId);
     }
 }

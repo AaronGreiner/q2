@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The conversation list, with a search box over it.
+ * The conversation list, with a search box over it and a way to start a new one.
  *
  * Search is debounced before it reaches the server: a request per keystroke on
  * a phone connection is a list that flickers between three different answers
@@ -8,6 +8,9 @@
  */
 const t = useMessages()
 const now = useNow()
+const api = useQ2Api()
+const router = useRouter()
+const { report } = useErrorReporter()
 
 const input = ref('')
 const search = ref('')
@@ -24,12 +27,71 @@ onScopeDispose(() => clearTimeout(debounce))
 
 const { chats, error, isLoading, refresh } = useChats(search)
 
+// The picker only ever offers friends, which is also the server's rule.
+const { friends } = useFriends()
+
+const sheet = useTemplateRef<{ reset: () => void }>('sheet')
+const isCreating = ref(false)
+const isSheetOpen = ref(false)
+
+async function open(work: () => Promise<{ id: string }>, action: string) {
+  if (isCreating.value) return
+
+  isCreating.value = true
+
+  try {
+    const chat = await work()
+
+    isSheetOpen.value = false
+    sheet.value?.reset()
+    await router.push(`/chats/${chat.id}`)
+  }
+  catch (caught) {
+    report(caught, { feature: 'chats', action })
+  }
+  finally {
+    isCreating.value = false
+  }
+}
+
+/**
+ * Opening a direct chat is idempotent on the server, so somebody who already
+ * has a thread with this person lands in it rather than starting a second.
+ */
+const onDirect = (personId: string) =>
+  open(() => api.chats.startDirect(personId), 'startDirect')
+
+const onGroup = (value: { title: string, emoji: string, memberIds: string[] }) =>
+  open(async () => {
+    const chat = await api.chats.createGroup(value)
+    toast.show(t.value.toast.groupCreated)
+    return chat
+  }, 'createGroup')
+
+const toast = useToastMessage()
+
 useHead({ title: () => t.value.chats.heading })
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <AppScreenHeader :title="t.chats.heading" />
+    <AppScreenHeader :title="t.chats.heading">
+      <template #actions>
+        <button
+          type="button"
+          class="flex min-h-11 items-center gap-1.5 rounded-full bg-(--q2-accent-solid) px-3.5 text-[13px] font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          data-testid="new-chat"
+          @click="isSheetOpen = true"
+        >
+          <UIcon
+            name="i-lucide-plus"
+            class="size-4"
+            aria-hidden="true"
+          />
+          {{ t.chats.newChat }}
+        </button>
+      </template>
+    </AppScreenHeader>
 
     <div class="shrink-0 px-[18px] pt-1 pb-2.5">
       <label
@@ -101,5 +163,14 @@ useHead({ title: () => t.value.chats.heading })
         data-testid="chats-empty"
       />
     </div>
+
+    <ChatCreateSheet
+      ref="sheet"
+      v-model:open="isSheetOpen"
+      :friends="friends"
+      :submitting="isCreating"
+      @direct="onDirect"
+      @group="onGroup"
+    />
   </div>
 </template>

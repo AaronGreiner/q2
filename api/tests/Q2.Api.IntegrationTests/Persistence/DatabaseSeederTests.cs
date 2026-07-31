@@ -50,7 +50,7 @@ public class DatabaseSeederTests
         await using var context = database.CreateContext();
 
         context.People.Add(Person.Create(
-            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal, isCurrentUser: true));
+            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var result = await SqliteTestDatabase.CreateSeeder()
@@ -70,7 +70,7 @@ public class DatabaseSeederTests
         await using var context = database.CreateContext();
 
         context.People.Add(Person.Create(
-            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal, isCurrentUser: true));
+            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var result = await SqliteTestDatabase.CreateSeeder()
@@ -150,9 +150,13 @@ public class DatabaseSeederTests
                 .SeedAsync(context, profile, replaceExisting: true, TestContext.Current.CancellationToken);
         }
 
-        Assert.Single(await context.People
-            .Where(person => person.IsCurrentUser)
-            .ToListAsync(TestContext.Current.CancellationToken));
+        // Re-seeding replaces rather than accumulates, and every person that
+        // survives still has exactly one account to sign in with.
+        var people = await context.People.CountAsync(TestContext.Current.CancellationToken);
+        var accounts = await context.Users.CountAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(people, accounts);
+        Assert.Equal(5, people);
     }
 
     [Fact]

@@ -13,8 +13,9 @@ so the reasoning at the time stays readable.
 | [0003](0003-backend-architecture.md) | Feature-organised minimal APIs, no repository layer | Accepted |
 | [0004](0004-sqlite-first.md) | SQLite first, PostgreSQL-ready | Accepted |
 | [0005](0005-observability-and-sentry.md) | Sentry in every environment, filtered centrally | Accepted |
-| [0006](0006-authentication-deferred.md) | Authentication deliberately deferred | Accepted |
+| [0006](0006-authentication-deferred.md) | Authentication deliberately deferred | Superseded by [0011](0011-authentication-with-identity.md) |
 | [0007](0007-testing-strategy.md) | Real providers, real pipeline, real SDK | Accepted |
 | [0008](0008-deployment-topology.md) | One host, two systemd services, one origin | Accepted |
-| [0009](0009-single-known-person.md) | One known person, flagged in the database | Accepted |
+| [0009](0009-single-known-person.md) | One known person, flagged in the database | Superseded by [0011](0011-authentication-with-identity.md) |
 | [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |
+| [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted |

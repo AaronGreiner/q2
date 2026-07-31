@@ -72,3 +72,22 @@ public sealed record SendMessageRequest(string? Text = null);
 
 /// <summary>Request body for toggling a reaction.</summary>
 public sealed record ToggleReactionRequest(string? Emoji = null);
+
+/// <summary>Request body for opening a direct conversation with somebody.</summary>
+/// <remarks>
+/// There is no "create" here on purpose. Two people have at most one direct
+/// conversation, so asking for it twice has to mean the same thing twice —
+/// otherwise tapping the message button from two screens leaves two threads
+/// with half the history in each.
+/// </remarks>
+public sealed record StartDirectChatRequest(Guid? PersonId = null);
+
+/// <summary>Request body for creating a group conversation.</summary>
+/// <param name="Emoji">The group's avatar. One character; the client offers a small set.</param>
+/// <param name="MemberIds">Who else is in it. You are added automatically.</param>
+/// <param name="GoalId">Optional goal to pin the thread to.</param>
+public sealed record CreateGroupChatRequest(
+    string? Title = null,
+    string? Emoji = null,
+    IReadOnlyList<Guid>? MemberIds = null,
+    Guid? GoalId = null);

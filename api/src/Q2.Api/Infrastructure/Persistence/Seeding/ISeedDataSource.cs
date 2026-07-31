@@ -1,3 +1,4 @@
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
@@ -17,6 +18,7 @@ namespace Q2.Api.Infrastructure.Persistence.Seeding;
 /// </remarks>
 public sealed record SeedData(
     IReadOnlyList<Person> People,
+    IReadOnlyList<AppUser> Accounts,
     IReadOnlyList<Friendship> Friendships,
     IReadOnlyList<Goal> Goals,
     IReadOnlyList<GoalTask> Tasks,
@@ -24,7 +26,7 @@ public sealed record SeedData(
     IReadOnlyList<Conversation> Conversations,
     IReadOnlyList<UserSettings> Settings)
 {
-    public static SeedData Empty { get; } = new([], [], [], [], [], [], []);
+    public static SeedData Empty { get; } = new([], [], [], [], [], [], [], []);
 }
 
 /// <summary>

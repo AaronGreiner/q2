@@ -21,6 +21,7 @@ api/
 │   ├── Program.cs                   composition root, ~35 lines
 │   ├── appsettings.*.json           one file per environment
 │   ├── Features/
+│   │   ├── Accounts/                registration, sign-in, the Identity user
 │   │   ├── Activity/                the feed, kudos and the leaderboard
 │   │   ├── Chats/                   conversations, messages and reactions
 │   │   ├── Diagnostics/             health check and the deliberate-failure endpoints
@@ -31,6 +32,7 @@ api/
 │   │   └── Streaks/                 the one definition of a streak, shared by both
 │   └── Infrastructure/
 │       ├── ApiRegistration.cs       JSON, ProblemDetails, OpenAPI, CORS, pipeline
+│       ├── AuthenticationRegistration.cs  Identity + the session cookie
 │       ├── CommandLineRunner.cs     `db …` and `openapi …` commands
 │       ├── ApplicationEnvironments.cs
 │       ├── Errors/                  exception types + the global handler
@@ -69,10 +71,19 @@ layer projects.
   from its steps; a streak comes from the days recorded behind it. A stored copy
   is a second source of truth waiting to drift, and it needs a nightly job to
   notice a missed day.
-- **Identity goes through `CurrentPerson`.** No feature looks up
-  `Person.IsCurrentUser` itself, so the day a request carries a signed-in user,
-  exactly one implementation changes
-  ([../docs/adr/0009-single-known-person.md](../docs/adr/0009-single-known-person.md)).
+- **Identity goes through `CurrentPerson`.** It resolves the person behind the
+  signed-in account and fails loudly rather than guessing; no feature reads a
+  claim itself
+  ([../docs/adr/0011-authentication-with-identity.md](../docs/adr/0011-authentication-with-identity.md)).
+- **Every feature endpoint group carries `RequireAuthorization`.** The guard is
+  on the group, not on each route, so a new endpoint is guarded by where it is
+  mapped rather than by somebody remembering. `AccountEndpointTests` walks every
+  group anonymously and asserts 401.
+- **Every read is scoped to the caller.** `Goal` and `GoalTask` have an
+  `OwnerPersonId`; a conversation is scoped by its participants. Where the
+  existence of a row is itself private, the answer is 404 rather than 403.
+- **Nothing about authenticating is written by hand** — see `Features/Accounts`,
+  which is `UserManager` and `SignInManager` and no cryptography.
 - **Sentences are composed by the client.** The API sends `kind`, `subject` and
   `amount`; it never sends a line of prose. The app ships in two languages
   ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
@@ -164,14 +175,22 @@ hands out ids so a seed only has to say what exists. `SeedIds` gives each
 profile its own GUID prefix and each kind of row the group after it, so two
 profiles can never collide and a row's origin is obvious at a glance.
 
-Two properties every profile has to keep, both covered by `SeedDataTests`:
+Properties every profile has to keep, all covered by `SeedDataTests`:
 
-- **exactly one person carries `IsCurrentUser`** — `CurrentPerson` refuses to
-  guess, so getting this wrong takes every read down with it;
+- **every person has exactly one account, and every account one address.**
+  Identity finds an account by its normalised address, so a duplicate would make
+  signing in a coin toss — and a person without an account cannot be signed in
+  as, which is what the two-sided tests need;
+- **no two people are connected twice.** One friendship row per pair, either way
+  round; a second would hit the unique index and take the whole seed with it;
+- **every goal and task belongs to somebody in the same world;**
 - **AutomatedTest and E2E contain no weekday-dependent task.** A `Weekdays` or
   `Weekly` task would make "how many tasks are on today's list" depend on the
   day the suite runs, and a test that passes on Tuesday and fails on Saturday is
   worse than no test.
+
+The seeded password lives in `SeedAccounts`, along with the reason its hash is a
+committed constant rather than something computed while seeding.
 
 `DatabaseSeeder` is the only thing that writes seed rows.
 
@@ -181,6 +200,7 @@ Two properties every profile has to keep, both covered by `SeedDataTests`:
 | --- | --- |
 | unit tests | none |
 | API integration tests | SQLite **in memory**, one per test class, real provider |
+| signing a test in | the real `/api/auth/login`, keeping the cookie (`SignIn.AsAsync`) |
 | persistence tests | SQLite in memory, migrated |
 | migration tests | SQLite **file** in the OS temp directory, starting empty |
 | E2E | SQLite file, unique per run, created and seeded by the API at startup |
@@ -220,12 +240,18 @@ response, and the only place that reports to Sentry:
 | --- | --- | --- |
 | `DomainValidationException` | 400 + field errors | no |
 | `ResourceNotFoundException` | 404 | no |
+| `AuthenticationRequiredException` | 401 + a machine-readable `reason` | no |
+| `AccessDeniedException` | 403 | no |
 | `DatabaseResetNotAllowedException` | 403 | no |
 | `BadHttpRequestException` | 400 | no |
 | anything else | 500, generic detail, `traceId` + `errorId` | yes, once |
 
 Never put an exception message into a response: it can contain connection
 strings, file paths or user input.
+
+A 401 carries `reason` — one of `AuthenticationFailures` — as a problem-details
+extension. Structure, not prose: the client picks the sentence, because the app
+speaks two languages.
 
 ## 9. Tests
 

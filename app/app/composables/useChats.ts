@@ -47,6 +47,7 @@ export function useChats(search: Ref<string>) {
  */
 export function useChatThread(id: Ref<string>) {
   const api = useQ2Api()
+  const router = useRouter()
   const { report } = useErrorReporter()
   const toast = useToastMessage()
   const t = useMessages()
@@ -111,5 +112,23 @@ export function useChatThread(id: Ref<string>) {
     }
   }
 
-  return { chat, error, isMissing, isLoading, refresh, send, cheer, react, isSending }
+  /**
+   * Leaves a group and goes back to the list.
+   *
+   * The list is refreshed rather than filtered in place: this conversation is
+   * gone from it, and so is the unread count the tab bar drew from it.
+   */
+  async function leave() {
+    try {
+      await api.chats.leave(id.value)
+      await Promise.all([refreshNuxtData('chats'), refreshNuxtData('profile')])
+      await router.push('/chats')
+      toast.show(t.value.toast.groupLeft)
+    }
+    catch (caught) {
+      report(caught, { feature: 'chats', action: 'leave' })
+    }
+  }
+
+  return { chat, error, isMissing, isLoading, refresh, send, cheer, react, leave, isSending }
 }

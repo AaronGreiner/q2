@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi;
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
@@ -38,6 +40,7 @@ public static class ApiRegistration
         // request, and CurrentPerson caches the answer to "who is asking?" for
         // exactly that long.
         builder.Services.AddScoped<CurrentPerson>();
+        builder.Services.AddScoped<AccountService>();
         builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();
         builder.Services.AddScoped<GoalTaskService>();
@@ -117,7 +120,14 @@ public static class ApiRegistration
 
             policy.WithOrigins(allowedOrigins)
                 .AllowAnyHeader()
-                .AllowAnyMethod();
+                .AllowAnyMethod()
+
+                // The session travels as a cookie, and a cross-origin request
+                // does not carry one unless both sides say so. This is why the
+                // origins have to be listed explicitly: a wildcard origin and
+                // credentials are not allowed together, by the specification
+                // and for good reason.
+                .AllowCredentials();
         }));
 
         return builder;
@@ -138,6 +148,11 @@ public static class ApiRegistration
         app.UseSentryTracing();
 
         app.UseCors(CorsPolicyName);
+
+        // After CORS, before the endpoints: a rejected pre-flight must not
+        // depend on a session it was never going to send.
+        app.UseAuthentication();
+        app.UseAuthorization();
 
         if (!ApplicationEnvironments.Protected.Contains(app.Environment.EnvironmentName))
         {

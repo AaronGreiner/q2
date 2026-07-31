@@ -36,21 +36,16 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
             .IsRequired()
             .HasMaxLength(9);
 
-        builder.Property(p => p.IsCurrentUser).IsRequired();
         builder.Property(p => p.KudosReceived).IsRequired();
         builder.Property(p => p.GoalsCompleted).IsRequired();
 
         builder.Property(p => p.LastSeenAt)
             .HasConversion(InstantConversion.Optional);
 
+        // Unique because the handle is how one person finds another on the
+        // friends screen, and two people answering to "@lena.schmidt" would
+        // make that search a coin toss.
         builder.HasIndex(p => p.Handle).IsUnique();
-
-        // Not unique: the constraint is "at most one", and SQL cannot express
-        // that with a plain unique index over a bool column (every `false`
-        // would collide too). Filtered indexes would work but are provider
-        // specific, so the rule is enforced by CurrentPerson instead — it fails
-        // loudly rather than silently picking one.
-        builder.HasIndex(p => p.IsCurrentUser);
 
         builder.HasMany(p => p.CheckIns)
             .WithOne()
@@ -114,14 +109,30 @@ public sealed class FriendshipConfiguration : IEntityTypeConfiguration<Friendshi
             .HasMaxLength(32)
             .HasConversion<string>();
 
-        builder.Property(f => f.MutualFriends).IsRequired();
+        builder.Property(f => f.RequestedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(f => f.RespondedAt)
+            .HasConversion(InstantConversion.Optional);
 
         builder.HasOne<Person>()
             .WithMany()
-            .HasForeignKey(f => f.PersonId)
+            .HasForeignKey(f => f.RequesterId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // One row per other person: you are either connected to them or not.
-        builder.HasIndex(f => f.PersonId).IsUnique();
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(f => f.AddresseeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One row per ordered pair. The mirrored duplicate — B asking A while
+        // A's request to B is still open — is not something a unique index can
+        // express, so FriendsService looks both ways before it inserts and
+        // turns the second ask into an acceptance.
+        builder.HasIndex(f => new { f.RequesterId, f.AddresseeId }).IsUnique();
+
+        // The friends screen reads "requests waiting for me" on every load.
+        builder.HasIndex(f => f.AddresseeId);
     }
 }

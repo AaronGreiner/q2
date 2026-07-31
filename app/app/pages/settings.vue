@@ -9,8 +9,9 @@ import type { LanguagePreference, ThemePreference } from '~/api/types'
  * things and leave without pressing it.
  *
  * The two notes on this screen are deliberate: the notification switches and
- * the account rows are real settings for features that do not exist yet, and
- * saying so is better than a row that quietly does nothing.
+ * the three greyed-out account rows are real settings for features that do not
+ * exist yet, and saying so is better than a row that quietly does nothing.
+ * Signing out is not one of them — it works, so it is a real button.
  */
 definePageMeta({ layout: 'plain' })
 
@@ -20,6 +21,26 @@ const language = useLanguage()
 const { settings, update } = useAppSettings()
 
 const config = useRuntimeConfig()
+const { person, logout } = useSession()
+
+const isSigningOut = ref(false)
+
+async function onSignOut() {
+  if (isSigningOut.value) return
+
+  isSigningOut.value = true
+
+  try {
+    await logout()
+
+    // `replace`, so the back button does not lead into a signed-out app that
+    // the middleware immediately bounces out of again.
+    await navigateTo('/login', { replace: true })
+  }
+  finally {
+    isSigningOut.value = false
+  }
+}
 
 const themeOptions = computed(() => [
   { value: 'System' as const, label: t.value.settings.themeSystem, icon: 'i-lucide-monitor' },
@@ -155,6 +176,31 @@ useHead({ title: () => t.value.settings.heading })
           <span class="min-w-0 flex-1 text-sm font-semibold">{{ row.label }}</span>
         </div>
       </SettingsSection>
+
+      <div class="mt-5">
+        <p
+          v-if="person"
+          class="mb-2.5 px-1 text-center text-xs font-semibold text-(--ui-text-muted)"
+          data-testid="signed-in-as"
+        >
+          {{ t.auth.signedInAs(person.displayName) }} · {{ person.handle }}
+        </p>
+
+        <UButton
+          type="button"
+          block
+          color="error"
+          variant="soft"
+          size="xl"
+          icon="i-lucide-log-out"
+          :loading="isSigningOut"
+          class="min-h-11 justify-center font-extrabold"
+          data-testid="sign-out"
+          @click="onSignOut"
+        >
+          {{ t.auth.signOut }}
+        </UButton>
+      </div>
 
       <p class="mt-5 text-center text-[11px] font-semibold text-(--ui-text-dimmed)">
         {{ t.settings.version(config.public.appEnv) }}

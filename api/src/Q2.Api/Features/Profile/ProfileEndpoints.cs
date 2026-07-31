@@ -8,6 +8,7 @@ public static class ProfileEndpoints
     public static IEndpointRouteBuilder MapProfileEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/profile", GetProfile)
+            .RequireAuthorization()
             .WithTags("Profile")
             .WithName("GetProfile")
             .WithSummary("Returns who you are, your streak, your badges and your recent activity.")

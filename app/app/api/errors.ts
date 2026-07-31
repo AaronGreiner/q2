@@ -15,7 +15,7 @@ export type ApiErrorKind
     | 'notFound'
   /** 409 — the request conflicts with the current state. */
     | 'conflict'
-  /** 401/403 — reserved for when authentication arrives. */
+  /** 401/403 — no session, wrong credentials, or not yours to touch. */
     | 'unauthorized'
   /** The request never got an answer: offline, DNS, CORS, timeout. */
     | 'network'
@@ -47,6 +47,14 @@ export class ApiError extends Error {
   readonly status: number | null
   /** Field name -> messages. Empty unless `kind === 'validation'`. */
   readonly fieldErrors: Readonly<Record<string, string[]>>
+  /**
+   * Why a 401 came back — `invalidCredentials`, `lockedOut`, `noSession`.
+   *
+   * Structure rather than a sentence, because the API never sends prose: the
+   * sign-in screen chooses the words from its own catalogue. Null for every
+   * other kind of failure.
+   */
+  readonly reason: string | null
   /** Correlation id from the backend, safe to show to a user. */
   readonly traceId: string | null
   /** Sentry event id the backend recorded, when it recorded one. */
@@ -56,6 +64,7 @@ export class ApiError extends Error {
     kind: ApiErrorKind
     status?: number | null
     fieldErrors?: Record<string, string[]>
+    reason?: string | null
     traceId?: string | null
     errorId?: string | null
     cause?: unknown
@@ -65,6 +74,7 @@ export class ApiError extends Error {
     this.kind = init.kind
     this.status = init.status ?? null
     this.fieldErrors = Object.freeze({ ...(init.fieldErrors ?? {}) })
+    this.reason = init.reason ?? null
     this.traceId = init.traceId ?? null
     this.errorId = init.errorId ?? null
   }
@@ -92,6 +102,7 @@ export interface ApiFailure {
   kind: ApiErrorKind
   status: number | null
   fieldErrors: Record<string, string[]>
+  reason: string | null
   traceId: string | null
   errorId: string | null
   isExpected: boolean
@@ -102,6 +113,7 @@ export function toApiFailure(error: ApiError): ApiFailure {
     kind: error.kind,
     status: error.status,
     fieldErrors: { ...error.fieldErrors },
+    reason: error.reason,
     traceId: error.traceId,
     errorId: error.errorId,
     isExpected: error.isExpected,
@@ -128,6 +140,7 @@ interface FetchLikeError {
 }
 
 function readProblem(data: unknown): ProblemDetails & Partial<ValidationProblemDetails> & {
+  reason?: unknown
   traceId?: unknown
   errorId?: unknown
 } {
@@ -169,6 +182,7 @@ export function normalizeApiError(error: unknown): ApiError {
     kind: kindForStatus(status),
     status,
     fieldErrors: readFieldErrors(problem),
+    reason: typeof problem.reason === 'string' ? problem.reason : null,
     traceId: typeof problem.traceId === 'string' ? problem.traceId : null,
     errorId: typeof problem.errorId === 'string' ? problem.errorId : null,
     cause: error,

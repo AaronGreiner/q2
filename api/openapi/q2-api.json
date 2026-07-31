@@ -51,6 +51,143 @@
         }
       }
     },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Creates an account and signs it in.",
+        "operationId": "Register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Signs in with an email address and a password.",
+        "operationId": "Login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Ends the session. Succeeds even when there was none.",
+        "operationId": "Logout",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/auth/session": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Returns who is signed in.",
+        "operationId": "GetSession",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals": {
       "get": {
         "tags": [
@@ -402,17 +539,8 @@
         "tags": [
           "Friends"
         ],
-        "summary": "Returns your friends, pending requests and suggestions.",
+        "summary": "Returns your friends, pending requests in both directions and suggestions.",
         "operationId": "GetFriends",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -427,7 +555,135 @@
         }
       }
     },
-    "/api/friends/requests/{id}/accept": {
+    "/api/friends/search": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Finds people by name or handle, with where you stand with each.",
+        "operationId": "SearchPeople",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonSearchResultResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends/{personId}/request": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Asks somebody to be friends.",
+        "operationId": "SendFriendRequest",
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonSearchResultResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Takes back a request you sent.",
+        "operationId": "WithdrawFriendRequest",
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends/{personId}/accept": {
       "post": {
         "tags": [
           "Friends"
@@ -436,7 +692,7 @@
         "operationId": "AcceptFriendRequest",
         "parameters": [
           {
-            "name": "id",
+            "name": "personId",
             "in": "path",
             "required": true,
             "schema": {
@@ -479,7 +735,7 @@
         }
       }
     },
-    "/api/friends/requests/{id}/decline": {
+    "/api/friends/{personId}/decline": {
       "post": {
         "tags": [
           "Friends"
@@ -488,7 +744,7 @@
         "operationId": "DeclineFriendRequest",
         "parameters": [
           {
-            "name": "id",
+            "name": "personId",
             "in": "path",
             "required": true,
             "schema": {
@@ -524,16 +780,16 @@
         }
       }
     },
-    "/api/friends/suggestions/{id}/request": {
-      "post": {
+    "/api/friends/{personId}": {
+      "delete": {
         "tags": [
           "Friends"
         ],
-        "summary": "Asks a suggested person to be friends.",
-        "operationId": "SendFriendRequest",
+        "summary": "Ends a friendship, for both people.",
+        "operationId": "RemoveFriend",
         "parameters": [
           {
-            "name": "id",
+            "name": "personId",
             "in": "path",
             "required": true,
             "schema": {
@@ -543,15 +799,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FriendSuggestionResponse"
-                }
-              }
-            }
+          "204": {
+            "description": "No Content"
           },
           "404": {
             "description": "Not Found",
@@ -559,16 +808,6 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -602,6 +841,153 @@
                   "items": {
                     "$ref": "#/components/schemas/ChatSummaryResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/direct": {
+      "post": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Opens the conversation with somebody, creating it the first time.",
+        "operationId": "StartDirectChat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartDirectChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/groups": {
+      "post": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Creates a group conversation with friends.",
+        "operationId": "CreateGroupChat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}/leave": {
+      "post": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Leaves a group conversation.",
+        "operationId": "LeaveChat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -1166,6 +1552,32 @@
           }
         }
       },
+      "CreateGroupChatRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "emoji": {
+            "type": "string",
+            "nullable": true
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
       "CreateTaskRequest": {
         "type": "object",
         "properties": {
@@ -1259,22 +1671,22 @@
       },
       "FriendRequestResponse": {
         "required": [
-          "id",
           "person",
-          "mutualFriends"
+          "mutualFriends",
+          "requestedAt"
         ],
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "person": {
             "$ref": "#/components/schemas/PersonSummary"
           },
           "mutualFriends": {
             "type": "integer",
             "format": "int32"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1302,26 +1714,17 @@
       },
       "FriendSuggestionResponse": {
         "required": [
-          "id",
           "person",
-          "mutualFriends",
-          "isInvited"
+          "mutualFriends"
         ],
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "person": {
             "$ref": "#/components/schemas/PersonSummary"
           },
           "mutualFriends": {
             "type": "integer",
             "format": "int32"
-          },
-          "isInvited": {
-            "type": "boolean"
           }
         }
       },
@@ -1329,6 +1732,7 @@
         "required": [
           "friends",
           "requests",
+          "sentRequests",
           "suggestions"
         ],
         "type": "object",
@@ -1345,6 +1749,12 @@
               "$ref": "#/components/schemas/FriendRequestResponse"
             }
           },
+          "sentRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SentRequestResponse"
+            }
+          },
           "suggestions": {
             "type": "array",
             "items": {
@@ -1352,6 +1762,15 @@
             }
           }
         }
+      },
+      "FriendshipState": {
+        "enum": [
+          "None",
+          "RequestSent",
+          "RequestReceived",
+          "Friends",
+          "Self"
+        ]
       },
       "GoalDetailResponse": {
         "required": [
@@ -1619,6 +2038,19 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "MessageReactionResponse": {
         "required": [
           "emoji",
@@ -1636,6 +2068,26 @@
           },
           "isMine": {
             "type": "boolean"
+          }
+        }
+      },
+      "PersonSearchResultResponse": {
+        "required": [
+          "person",
+          "state",
+          "mutualFriends"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendshipState"
+          },
+          "mutualFriends": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -1758,12 +2210,60 @@
           }
         }
       },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "SendMessageRequest": {
         "type": "object",
         "properties": {
           "text": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "SentRequestResponse": {
+        "required": [
+          "person",
+          "requestedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SessionResponse": {
+        "required": [
+          "person",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "email": {
+            "type": "string"
           }
         }
       },
@@ -1795,6 +2295,16 @@
           },
           "notifyWeeklyReview": {
             "type": "boolean"
+          }
+        }
+      },
+      "StartDirectChatRequest": {
+        "type": "object",
+        "properties": {
+          "personId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -1867,6 +2377,9 @@
     },
     {
       "name": "Activity"
+    },
+    {
+      "name": "Accounts"
     },
     {
       "name": "Goals"

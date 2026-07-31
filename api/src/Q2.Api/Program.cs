@@ -1,3 +1,4 @@
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Diagnostics;
@@ -13,12 +14,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddQ2Observability();
 builder.AddQ2Persistence();
+
+// After persistence: Identity's stores are registered against Q2DbContext.
+builder.AddQ2Authentication();
 builder.AddQ2ApiServices();
 
 var app = builder.Build();
 
 app.UseQ2Pipeline();
 
+app.MapAccountEndpoints();
 app.MapProfileEndpoints();
 app.MapGoalEndpoints();
 app.MapActivityEndpoints();

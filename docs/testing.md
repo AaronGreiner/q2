@@ -36,6 +36,12 @@ bun run validate          # the whole gate, in order
   date as a parameter. `Goal.IsOverdue(today)`, `describeTargetDate(goal,
   today)`, `SeedContext.Now`. Integration tests inject a fixed `TimeProvider`
   so seeds and derived fields agree on one instant.
+- **Signed in for real.** There is no fake authentication handler: the
+  integration fixture posts to `/api/auth/login` and keeps the cookie, and the
+  E2E suite fills in the real form once in `globalSetup`. A stub would let every
+  test pass while the property the tests exist to protect — a request without a
+  session gets nothing, one with a session gets exactly that person's data — was
+  never exercised.
 - **Free of ambient identity.** Ids are injected. Integration tests use a
   sequential generator, so a created goal has a predictable id.
 - **Free of production secrets.** No test needs a DSN, a token or a live

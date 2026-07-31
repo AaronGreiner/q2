@@ -17,6 +17,7 @@ namespace Q2.Api.Features.Activity;
 public sealed class ActivityService(
     Q2DbContext database,
     CurrentPerson currentPerson,
+    FriendsService friends,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ActivityService> logger)
@@ -32,12 +33,16 @@ public sealed class ActivityService(
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
-        // Your own doing is not news to you: the feed is what your friends have
-        // been up to. Your own history is on the profile screen instead.
+        // Your friends, and only them. Your own doing is not news to you — that
+        // is on the profile screen — and a stranger's is not yours to see at
+        // all: the feed is the one screen that would otherwise show the whole
+        // database to whoever signed up most recently.
+        var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
+
         var events = await database.ActivityEvents
             .AsNoTracking()
             .Include(e => e.Kudos)
-            .Where(e => e.ActorPersonId != me.Id)
+            .Where(e => friendIds.Contains(e.ActorPersonId))
             .OrderByDescending(e => e.OccurredAt)
             .ThenBy(e => e.Id)
             .Take(FeedLimit)
@@ -79,15 +84,21 @@ public sealed class ActivityService(
     /// separate "un-kudos" endpoint would be an affordance nothing in the app
     /// offers.
     /// </remarks>
-    /// <exception cref="ResourceNotFoundException">No activity with that id exists.</exception>
+    /// <exception cref="ResourceNotFoundException">
+    /// No such activity, or it is not one this person can see. Deliberately the
+    /// same answer for both: "that exists but is not yours" would confirm the
+    /// existence of an activity belonging to somebody the caller does not know.
+    /// </exception>
     public async Task<ActivityResponse> ToggleKudosAsync(Guid id, CancellationToken cancellationToken)
     {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
+
         var activity = await database.ActivityEvents
             .Include(e => e.Kudos)
-            .SingleOrDefaultAsync(e => e.Id == id, cancellationToken)
+            .SingleOrDefaultAsync(e => e.Id == id && friendIds.Contains(e.ActorPersonId), cancellationToken)
             ?? throw new ResourceNotFoundException("Activity", id);
 
-        var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
         var actor = await database.People
@@ -127,11 +138,7 @@ public sealed class ActivityService(
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
-        var friendIds = await database.Friendships
-            .AsNoTracking()
-            .Where(f => f.Status == FriendshipStatus.Accepted)
-            .Select(f => f.PersonId)
-            .ToListAsync(cancellationToken);
+        var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
 
         var people = await database.People
             .AsNoTracking()

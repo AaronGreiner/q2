@@ -77,9 +77,16 @@ its steps, a streak from the days recorded behind it, "done today" from the day
 a task was last completed. A stored copy would be a second source of truth, and
 a stored streak would need a nightly job to notice a missed day.
 
-Identity goes through one type, `CurrentPerson`, because there is no
-authentication yet and exactly one row is flagged as the signed-in person —
-see [adr/0009-single-known-person.md](adr/0009-single-known-person.md).
+Identity goes through one type, `CurrentPerson`. It resolves the person behind
+the signed-in account and fails loudly rather than guessing; every feature asks
+it rather than reading a claim, which is what kept the move from a flagged row
+to a real session down to one file — see
+[adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md).
+
+Access control is per person and lives in the queries: `Goal` and `GoalTask`
+carry an `OwnerPersonId`, a conversation is scoped by its participants, and
+every feature endpoint group carries `RequireAuthorization`. Where the existence
+of a row is itself private, the answer is 404 rather than 403.
 
 `Program.cs` is about thirty-five lines and reads as a table of contents:
 observability, persistence, API services, pipeline, endpoints, run.
@@ -178,9 +185,11 @@ See [observability.md](observability.md) and
   packaged app will be ([../app/AGENTS.md](../app/AGENTS.md) section 8).
 - **PostgreSQL.** Provider-neutral EF configuration, committed migrations, no
   raw SQL.
-- **Authentication.** The domain has no user concept to unpick, and the error
-  taxonomy already has an `unauthorized` kind. See
-  [adr/0006-authentication-deferred.md](adr/0006-authentication-deferred.md).
+- **Account recovery and other identity flows.** Password reset, email
+  confirmation and two-factor are all Identity token providers on top of what is
+  already wired up; what they need is a way to send mail. Bearer tokens for a
+  Capacitor build are the same kind of addition. See
+  [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md).
 - **More features.** Each is a folder in `Features/` and a folder in
   `components/`.
 

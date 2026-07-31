@@ -55,11 +55,40 @@ public class SeedDataTests
 
     [Theory]
     [MemberData(nameof(AllSources))]
-    public void ExactlyOnePersonIsTheSignedInOne(ISeedDataSource source)
+    public void EverySeededPersonCanSignIn(ISeedDataSource source)
     {
-        // CurrentPerson refuses to guess, so a seed that got this wrong would
-        // take every read down with it.
-        Assert.Single(source.Create(Context).People, person => person.IsCurrentUser);
+        // The property that replaced "exactly one person is the signed-in one".
+        // A person without an account cannot be logged in as, and being able to
+        // be *any* of them is what makes it possible to check a friendship or a
+        // group chat from both ends.
+        var data = source.Create(Context);
+
+        Assert.NotEmpty(data.People);
+        Assert.Equal(data.People.Count, data.Accounts.Count);
+
+        Assert.All(data.Accounts, account =>
+        {
+            Assert.Contains(data.People, person => person.Id == account.PersonId);
+            Assert.False(string.IsNullOrWhiteSpace(account.PasswordHash));
+            Assert.Equal(account.Email?.ToUpperInvariant(), account.NormalizedEmail);
+            Assert.Equal(account.UserName, account.Email);
+        });
+
+        // One account per person, and one address per account: FindByEmail
+        // would otherwise be a coin toss.
+        Assert.Equal(data.Accounts.Count, data.Accounts.Select(a => a.PersonId).Distinct().Count());
+        Assert.Equal(data.Accounts.Count, data.Accounts.Select(a => a.NormalizedEmail).Distinct().Count());
+    }
+
+    [Theory]
+    [MemberData(nameof(AllSources))]
+    public void EveryAddressIsInTheReservedSeedDomain(ISeedDataSource source)
+    {
+        // No seeded address may be one that could reach a real inbox
+        // (docs/privacy.md). RFC 2606 reserves ".example" for exactly this.
+        Assert.All(
+            source.Create(Context).Accounts,
+            account => Assert.EndsWith("@" + SeedAccounts.EmailDomain, account.Email!, StringComparison.Ordinal));
     }
 
     [Theory]
@@ -69,6 +98,7 @@ public class SeedDataTests
         var data = source.Create(Context);
 
         var ids = data.People.Select(p => p.Id)
+            .Concat(data.Accounts.Select(a => a.Id))
             .Concat(data.People.SelectMany(p => p.CheckIns).Select(c => c.Id))
             .Concat(data.People.SelectMany(p => p.Badges).Select(b => b.Id))
             .Concat(data.Friendships.Select(f => f.Id))
@@ -108,7 +138,9 @@ public class SeedDataTests
         var people = data.People.Select(p => p.Id).ToHashSet();
         var goals = data.Goals.Select(g => g.Id).ToHashSet();
 
-        Assert.All(data.Friendships, link => Assert.Contains(link.PersonId, people));
+        Assert.All(data.Friendships, link => Assert.Contains(link.RequesterId, people));
+        Assert.All(data.Friendships, link => Assert.Contains(link.AddresseeId, people));
+        Assert.All(data.Accounts, account => Assert.Contains(account.PersonId, people));
         Assert.All(data.Goals.SelectMany(g => g.Participants), p => Assert.Contains(p.PersonId, people));
         Assert.All(data.Activity, a => Assert.Contains(a.ActorPersonId, people));
         Assert.All(data.Settings, s => Assert.Contains(s.PersonId, people));
@@ -134,10 +166,36 @@ public class SeedDataTests
     [MemberData(nameof(AllSources))]
     public void NobodyIsAFriendOfThemselves(ISeedDataSource source)
     {
-        var data = source.Create(Context);
-        var me = data.People.Single(person => person.IsCurrentUser);
+        Assert.DoesNotContain(
+            source.Create(Context).Friendships,
+            link => link.RequesterId == link.AddresseeId);
+    }
 
-        Assert.DoesNotContain(data.Friendships, link => link.PersonId == me.Id);
+    [Theory]
+    [MemberData(nameof(AllSources))]
+    public void NoTwoPeopleAreConnectedTwice(ISeedDataSource source)
+    {
+        // One row per pair, in either direction. Two would mean the unique
+        // index fails on insert, and a seed that cannot be inserted is a seed
+        // that takes every test with it.
+        var pairs = source.Create(Context).Friendships
+            .Select(link => link.RequesterId.CompareTo(link.AddresseeId) < 0
+                ? (link.RequesterId, link.AddresseeId)
+                : (link.AddresseeId, link.RequesterId))
+            .ToList();
+
+        Assert.Equal(pairs.Count, pairs.Distinct().Count());
+    }
+
+    [Theory]
+    [MemberData(nameof(AllSources))]
+    public void EveryGoalAndTaskBelongsToSomebodyInTheWorld(ISeedDataSource source)
+    {
+        var data = source.Create(Context);
+        var people = data.People.Select(p => p.Id).ToHashSet();
+
+        Assert.All(data.Goals, goal => Assert.Contains(goal.OwnerPersonId, people));
+        Assert.All(data.Tasks, task => Assert.Contains(task.OwnerPersonId, people));
     }
 
     [Theory]

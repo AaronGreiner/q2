@@ -6,6 +6,7 @@ import {
   appBaseUrl,
   appEnvironment,
   repoRoot,
+  storageStatePath,
 } from './tests/e2e/support/e2eEnvironment'
 
 /**
@@ -42,6 +43,11 @@ export default defineConfig({
 
   use: {
     baseURL: appBaseUrl,
+
+    // Every spec starts signed in as the E2E seed's primary person. globalSetup
+    // establishes that session once through the real sign-in form; a spec that
+    // is *about* signing in opts out with its own `test.use`.
+    storageState: storageStatePath,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',

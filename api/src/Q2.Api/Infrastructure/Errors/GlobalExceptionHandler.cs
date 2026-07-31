@@ -45,7 +45,10 @@ public sealed class GlobalExceptionHandler(
         {
             DomainValidationException validation => ValidationProblem(validation),
             ResourceNotFoundException notFound => NotFoundProblem(notFound),
-            DatabaseResetNotAllowedException => ForbiddenProblem(),
+            AuthenticationRequiredException unauthenticated => UnauthenticatedProblem(unauthenticated),
+            AccessDeniedException denied => ForbiddenProblem(denied.Message),
+            DatabaseResetNotAllowedException => ForbiddenProblem(
+                "This operation is not permitted in the current environment."),
             BadHttpRequestException badRequest => MalformedRequestProblem(badRequest),
             _ => UnexpectedProblem(exception, httpContext),
         };
@@ -85,10 +88,35 @@ public sealed class GlobalExceptionHandler(
         };
     }
 
-    private ProblemDetails ForbiddenProblem() => new()
+    /// <remarks>
+    /// Logged at information level, like every other expected failure: an
+    /// expired session is a normal thing for a phone to have.
+    /// </remarks>
+    private ProblemDetails UnauthenticatedProblem(AuthenticationRequiredException exception)
+    {
+        // The reason, never the email address that was tried: a failed sign-in
+        // is not a reason to write somebody's address into a log file.
+        logger.LogInformation("Authentication failed: {AuthenticationFailure}.", exception.Reason);
+
+        var problem = new ProblemDetails
+        {
+            Title = "Not signed in",
+            Detail = exception.Message,
+            Status = StatusCodes.Status401Unauthorized,
+            Type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.2",
+        };
+
+        // Structure rather than a sentence, so the client can say it in the
+        // language it is currently speaking.
+        problem.Extensions["reason"] = exception.Reason;
+
+        return problem;
+    }
+
+    private ProblemDetails ForbiddenProblem(string detail) => new()
     {
         Title = "Operation not permitted",
-        Detail = "This operation is not permitted in the current environment.",
+        Detail = detail,
         Status = StatusCodes.Status403Forbidden,
         Type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.4",
     };

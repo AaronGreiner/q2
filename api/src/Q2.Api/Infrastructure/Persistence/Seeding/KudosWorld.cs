@@ -24,7 +24,7 @@ internal static class KudosWorld
     {
         var context = build.Context;
 
-        var me = build.AddCurrentUser(
+        var me = build.AddPrimaryPerson(
             "Mara Klein",
             "@mara.k",
             "MK",
@@ -62,15 +62,28 @@ internal static class KudosWorld
         var lukas = build.AddPerson("Lukas Feld", "@lukas.f", "LF", AvatarColors.Blue, lastSeenMinutesAgo: 300);
         var emma = build.AddPerson("Emma Roth", "@emma.r", "ER", AvatarColors.Red, lastSeenMinutesAgo: 45);
 
-        build.Connect(jonas, FriendshipStatus.Accepted);
-        build.Connect(lena, FriendshipStatus.Accepted);
-        build.Connect(tom, FriendshipStatus.Accepted);
-        build.Connect(sarah, FriendshipStatus.Accepted);
-        build.Connect(david, FriendshipStatus.Accepted);
-        build.Connect(max, FriendshipStatus.Requested, mutualFriends: 3);
-        build.Connect(nora, FriendshipStatus.Requested, mutualFriends: 1);
-        build.Connect(lukas, FriendshipStatus.Suggested, mutualFriends: 5);
-        build.Connect(emma, FriendshipStatus.Suggested, mutualFriends: 2);
+        build.Befriend(me, jonas);
+        build.Befriend(me, lena);
+        build.Befriend(me, tom);
+        build.Befriend(me, sarah);
+        build.Befriend(me, david);
+
+        // Two people waiting for an answer, and one waiting on me — the friends
+        // screen has a section for each, and an empty one shows nothing.
+        build.Request(max, me);
+        build.Request(nora, me);
+        build.Request(me, emma);
+
+        // Friendships that have nothing to do with me. They are what makes
+        // Lukas a suggestion: three of my friends know him and I do not, which
+        // is the whole of what "Vorschläge" means now that it is derived rather
+        // than stored.
+        build.Befriend(jonas, lukas);
+        build.Befriend(lena, lukas);
+        build.Befriend(tom, lukas);
+        build.Befriend(sarah, nora);
+        build.Befriend(david, max);
+        build.Befriend(jonas, lena);
 
         var halfMarathon = build.AddGoal(
             "Halbmarathon im Mai",

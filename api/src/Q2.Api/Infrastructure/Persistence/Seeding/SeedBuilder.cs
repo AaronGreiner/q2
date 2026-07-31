@@ -1,3 +1,4 @@
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
@@ -33,6 +34,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     private readonly Dictionary<SeedEntity, int> _counters = [];
 
     private readonly List<Person> _people = [];
+    private readonly List<AppUser> _accounts = [];
     private readonly List<Friendship> _friendships = [];
     private readonly List<Goal> _goals = [];
     private readonly List<GoalTask> _tasks = [];
@@ -44,18 +46,26 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
 
     public SeedContext Context { get; } = context;
 
-    /// <summary>The signed-in person. Set by <see cref="AddCurrentUser"/>.</summary>
+    /// <summary>
+    /// The person this world is written from the point of view of.
+    /// </summary>
+    /// <remarks>
+    /// Not a privileged account — every seeded person has one, and any of them
+    /// can sign in. This is simply the one the documentation, the manual flow
+    /// and the test suites use, and the one a seed's goals and chats belong to
+    /// unless they say otherwise.
+    /// </remarks>
     public Person Me => _me
-        ?? throw new InvalidOperationException("This seed has not defined a current user yet.");
+        ?? throw new InvalidOperationException("This seed has not defined its primary person yet.");
 
     /// <summary>
-    /// Adds the one person this deployment treats as signed in.
+    /// Adds the person this world is written around. See <see cref="Me"/>.
     /// </summary>
     /// <param name="streakDays">
     /// How many days back the check-ins go, ending today — which is exactly the
     /// streak that will be read back out.
     /// </param>
-    public Person AddCurrentUser(
+    public Person AddPrimaryPerson(
         string displayName,
         string handle,
         string initials,
@@ -67,7 +77,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     {
         if (_me is not null)
         {
-            throw new InvalidOperationException("A seed may define only one current user.");
+            throw new InvalidOperationException("A seed may define only one primary person.");
         }
 
         _me = AddPerson(
@@ -79,8 +89,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             goalsCompleted,
             streakDays,
             lastSeenMinutesAgo: 0,
-            isCurrentUser: true,
-            badges);
+            badges: badges);
 
         return _me;
     }
@@ -94,7 +103,6 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         int goalsCompleted = 0,
         int streakDays = 0,
         int? lastSeenMinutesAgo = null,
-        bool isCurrentUser = false,
         params BadgeKey[] badges)
     {
         var person = Person.Create(
@@ -102,8 +110,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             displayName,
             handle,
             initials,
-            avatarColor,
-            isCurrentUser);
+            avatarColor);
 
         person.SetTotals(kudosReceived, goalsCompleted);
 
@@ -123,20 +130,40 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         }
 
         _people.Add(person);
+
+        // Everybody gets one. A person without an account could not be signed
+        // in as, and "log in as the other side and check what they see" is the
+        // whole reason the friendship and chat tests can exist.
+        _accounts.Add(SeedAccounts.For(NextId(SeedEntity.Account), person));
+
         return person;
     }
 
-    public Friendship Connect(Person person, FriendshipStatus status, int mutualFriends = 0)
-    {
-        var friendship = Friendship.Create(NextId(SeedEntity.Friendship), person.Id, status, mutualFriends);
-        _friendships.Add(friendship);
-        return friendship;
-    }
+    /// <summary>Two people who are already friends.</summary>
+    /// <remarks>
+    /// One row for the pair, so it is a friendship from both sides. Seeds also
+    /// connect people to <em>each other</em>, not only to <see cref="Me"/> —
+    /// suggestions are derived from friends-of-friends, and a world where
+    /// nobody else knows anybody has nobody to suggest.
+    /// </remarks>
+    public Friendship Befriend(Person one, Person other) =>
+        Add(Friendship.Create(
+            NextId(SeedEntity.Friendship),
+            one.Id,
+            other.Id,
+            FriendshipStatus.Accepted,
+            Context.DaysAgo(30),
+            Context.DaysAgo(30)));
+
+    /// <summary>A request somebody sent and nobody has answered yet.</summary>
+    public Friendship Request(Person from, Person to) =>
+        Add(Friendship.Request(NextId(SeedEntity.Friendship), from.Id, to.Id, Context.DaysAgo(2)));
 
     /// <param name="streakDays">
     /// How many days back the contributions go, ending today — which is the
     /// streak the goal card will show.
     /// </param>
+    /// <param name="owner">Whose goal it is. <see cref="Me"/> unless a seed says otherwise.</param>
     public Goal AddGoal(
         string title,
         string? description,
@@ -149,10 +176,12 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         bool isGroup = false,
         TimeOnly? reminderAt = null,
         DateOnly? targetDate = null,
+        Person? owner = null,
         params Person[] participants)
     {
         var goal = Goal.Create(
             NextId(SeedEntity.Goal),
+            (owner ?? Me).Id,
             title,
             description,
             icon,
@@ -178,6 +207,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         return goal;
     }
 
+    /// <param name="owner">Whose task it is. <see cref="Me"/> unless a seed says otherwise.</param>
     public GoalTask AddTask(
         string title,
         GoalRhythm rhythm,
@@ -188,10 +218,12 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         double? targetValue = null,
         string? measureUnit = null,
         DayOfWeek? weeklyOn = null,
-        DateOnly? dueOn = null)
+        DateOnly? dueOn = null,
+        Person? owner = null)
     {
         var task = GoalTask.Create(
             NextId(SeedEntity.GoalTask),
+            (owner ?? Me).Id,
             goal?.Id,
             title,
             rhythm,
@@ -286,7 +318,13 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     }
 
     public SeedData Build() =>
-        new(_people, _friendships, _goals, _tasks, _activity, _conversations, _settings);
+        new(_people, _accounts, _friendships, _goals, _tasks, _activity, _conversations, _settings);
+
+    private Friendship Add(Friendship friendship)
+    {
+        _friendships.Add(friendship);
+        return friendship;
+    }
 
     private Conversation AddConversation(
         Conversation conversation,

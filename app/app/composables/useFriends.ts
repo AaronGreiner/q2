@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { Friends } from '~/api/types'
+import type { Friends, PersonSearchResult } from '~/api/types'
 
 interface FriendsPayload {
   friends: Friends
@@ -7,13 +7,14 @@ interface FriendsPayload {
 }
 
 /**
- * Friends, requests and suggestions — one read and three answers to it.
+ * The friends screen: who you know, who is waiting, and who you might know.
  *
- * Search is passed to the server, which applies it to friends and suggestions
- * but never to pending requests: hiding somebody's request behind a search box
- * is how it stays unanswered forever.
+ * Suggestions and mutual counts are derived by the server from the friend
+ * graph, so every one of these actions changes them — which is why the whole
+ * screen is reloaded after a write rather than patched in place. One read is
+ * cheap and cannot disagree with itself.
  */
-export function useFriends(search: Ref<string>) {
+export function useFriends() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
   const toast = useToastMessage()
@@ -23,82 +24,131 @@ export function useFriends(search: Ref<string>) {
     'friends',
     async () => {
       try {
-        return { friends: await api.friends.get({ search: search.value }), failure: null }
+        return { friends: await api.friends.get(), failure: null }
       }
       catch (caught) {
         return { friends: empty(), failure: report(caught, { feature: 'friends', action: 'list' }) }
       }
     },
-    { watch: [search], default: (): FriendsPayload => ({ friends: empty(), failure: null }) },
+    { default: (): FriendsPayload => ({ friends: empty(), failure: null }) },
   )
 
   const friends = computed(() => data.value?.friends.friends ?? [])
   const requests = computed(() => data.value?.friends.requests ?? [])
+  const sentRequests = computed(() => data.value?.friends.sentRequests ?? [])
   const suggestions = computed(() => data.value?.friends.suggestions ?? [])
 
-  async function accept(id: string) {
-    const name = requests.value.find(request => request.id === id)?.person.displayName
+  /** The tab bar counts pending requests, and several of these change it. */
+  async function reload() {
+    await Promise.all([refresh(), refreshNuxtData('profile')])
+  }
 
+  async function run(action: string, work: () => Promise<void>) {
     try {
-      await api.friends.accept(id)
-      await refresh()
+      await work()
+      await reload()
+    }
+    catch (caught) {
+      report(caught, { feature: 'friends', action })
+    }
+  }
+
+  async function accept(personId: string) {
+    const name = requests.value.find(request => request.person.id === personId)?.person.displayName
+
+    await run('accept', async () => {
+      await api.friends.accept(personId)
       if (name) toast.show(t.value.toast.friendAdded(name))
-    }
-    catch (caught) {
-      report(caught, { feature: 'friends', action: 'accept' })
-    }
+    })
   }
 
-  async function decline(id: string) {
-    try {
-      await api.friends.decline(id)
-      await refresh()
-    }
-    catch (caught) {
-      report(caught, { feature: 'friends', action: 'decline' })
-    }
-  }
+  const decline = (personId: string) =>
+    run('decline', () => api.friends.decline(personId))
 
-  async function request(id: string) {
-    try {
-      const updated = await api.friends.request(id)
-
-      // A whole new payload, not a nested property: `useAsyncData` returns a
-      // shallow ref, and an in-place update would leave the button reading
-      // "Hinzufügen" after the request had already been sent.
-      if (data.value) {
-        data.value = {
-          ...data.value,
-          friends: {
-            ...data.value.friends,
-            suggestions: data.value.friends.suggestions
-              .map(suggestion => (suggestion.id === id ? updated : suggestion)),
-          },
-        }
-      }
-
+  const request = (personId: string) =>
+    run('request', async () => {
+      await api.friends.request(personId)
       toast.show(t.value.toast.requestSent)
-    }
-    catch (caught) {
-      report(caught, { feature: 'friends', action: 'request' })
-    }
-  }
+    })
+
+  const withdraw = (personId: string) =>
+    run('withdraw', async () => {
+      await api.friends.withdraw(personId)
+      toast.show(t.value.toast.requestWithdrawn)
+    })
+
+  const remove = (personId: string) =>
+    run('remove', async () => {
+      await api.friends.remove(personId)
+      toast.show(t.value.toast.friendRemoved)
+    })
 
   return {
     friends,
     requests,
+    sentRequests,
     suggestions,
     error: computed(() => data.value?.failure ?? null),
     isLoading: computed(() => status.value === 'pending'),
-    refresh,
+    refresh: reload,
     accept,
     decline,
     request,
+    withdraw,
+    remove,
   }
 }
 
+/**
+ * Finding people, anywhere in q2.
+ *
+ * Client-side rather than through `useAsyncData`: a search box is not part of
+ * a page's initial state, and server-rendering results for a term nobody has
+ * typed yet would be work thrown away on every first paint.
+ */
+export function usePersonSearch(query: Ref<string>) {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+
+  /** Mirrors FriendsService.MinimumSearchLength on the server. */
+  const minimumLength = 2
+
+  const results = ref<PersonSearchResult[]>([])
+  const isSearching = ref(false)
+  const failure = ref<ApiFailure | null>(null)
+
+  const term = computed(() => query.value.trim())
+  const isActive = computed(() => term.value.length >= minimumLength)
+
+  async function search() {
+    if (!isActive.value) {
+      results.value = []
+      failure.value = null
+      return
+    }
+
+    isSearching.value = true
+
+    try {
+      results.value = await api.friends.search(term.value)
+      failure.value = null
+    }
+    catch (caught) {
+      results.value = []
+      failure.value = report(caught, { feature: 'friends', action: 'search' })
+    }
+    finally {
+      isSearching.value = false
+    }
+  }
+
+  watch(term, search)
+
+  return { results, isSearching, isActive, minimumLength, error: failure, search }
+}
+
 function empty(): Friends {
-  return { friends: [], requests: [], suggestions: [] }
+  return { friends: [], requests: [], sentRequests: [], suggestions: [] }
 }
 
 /**

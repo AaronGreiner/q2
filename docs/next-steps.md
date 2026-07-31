@@ -67,7 +67,8 @@ That is fine while there are no accounts — there is nowhere to keep a zone. It
 stops being fine the moment reminders are actually delivered: "07:00" has to
 mean seven in the morning where the person is.
 
-Do it together with authentication, not before: a zone belongs to an account.
+There are accounts now, so there is somewhere to keep it: a zone belongs on the
+account, next to the address. Nothing else blocks this.
 
 **Done when:** a reminder time and a message timestamp mean the same thing on
 two devices in different zones, and the first server-rendered paint is already
@@ -115,20 +116,42 @@ suite instead of surviving until someone opens the device toolbar.
 
 ## Next: the features that make it an application
 
-### 7. Authentication and identity
+### 7. A way back into an account
 
-The largest single gap, and the one everything else depends on. Read
-[adr/0006-authentication-deferred.md](adr/0006-authentication-deferred.md)
-first — it lists the order to do this in and what not to build.
+**Status:** accounts exist
+([adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md)),
+and there is no password reset, no email confirmation and no two-factor. A
+forgotten password currently means a new account.
 
-The short version: decide what identity *is* for this product before writing a
-table, use an established provider or library, add ownership to `Goal` and
-authorisation to the endpoints in the same change, and store the minimum.
+All three need to send mail, which is why they were left out — "nothing that
+needs a running service to develop against" is a rule this repository has. That
+rule is right for a reference implementation and wrong the moment somebody who
+is not a developer signs up, so this is the first thing to do before that
+happens.
 
-**Until this exists the API must not be publicly exposed with real data.** It
-has no access control.
+Decide the mail path first (a transactional provider, an SMTP relay, something
+else), then reset, then confirmation. Identity has the token providers for all
+of it; `AddDefaultTokenProviders` is deliberately absent today and is where this
+starts.
 
-### 8. Updating and deleting goals
+**Done when:** somebody who has forgotten their password can get back in without
+a developer touching the database, and the flow is covered end to end.
+
+### 8. Editing a profile, and deleting an account
+
+The name, the handle and the avatar colour are set at registration and cannot be
+changed. Deleting an account is not possible at all — which is a gap with a
+legal deadline attached to it the day there are real users
+([privacy.md](privacy.md)).
+
+Erasure is the harder half: a person's goals and check-ins go with them, but
+their messages are part of somebody else's conversation. Decide what a deleted
+person looks like in a thread before writing the delete.
+
+**Done when:** a person can change their display name, and can delete their
+account with a documented, tested answer for everything that pointed at them.
+
+### 9. Updating and deleting goals
 
 Progress cannot currently be changed after creation, which makes the product
 close to useless: the whole point is tracking progress over time.
@@ -136,44 +159,36 @@ close to useless: the whole point is tracking progress over time.
 - `PATCH /api/goals/{id}` for progress and status, `DELETE` for removal.
 - `Goal.UpdateProgress` and `Goal.Archive` already exist and are tested — this
   is mostly endpoints, DTOs and UI.
-- Do it **after** authentication, or you ship an API where anyone can change
-  anyone's goals.
+- `Goal.OwnerPersonId` and `Goal.IsVisibleTo` already say who may read one; who
+  may *change* one is the question this item has to answer. "The owner" is the
+  obvious answer and is probably wrong for a shared goal.
 
-### 9. A progress history
+### 10. A progress history
 
 "Track progress" implies knowing when it changed. A `GoalProgressEntry` (goal,
 percent, recorded-at) unlocks the activity feed, the encouragement features and
 the "kudos" idea the product is named after.
 
-This is the first change that needs a real migration against existing data —
-a good moment to prove that path works.
+This is the second change that needs a real migration against existing data.
+`AccountsAndTwoSidedFriendships` was the first and is worth reading before
+writing it: it converts rather than deletes, and it says in a comment what it
+could not convert and why.
 
-### 10. Friends, groups and kudos — built, but not yet safe to share
+### 11. Notification delivery
 
-The screens exist: friends with requests and suggestions, direct and group
-chats, kudos on a feed, a leaderboard. What does **not** exist is the part that
-makes them safe with more than one person in the database.
+The switches on the settings screen are stored and honoured by nothing. The
+screen says so, which is the honest interim state, but it is the last thing in
+q2 that is visibly a promise rather than a feature.
 
-There is one person the API answers as
-([adr/0009-single-known-person.md](adr/0009-single-known-person.md)), so "who
-may see this" has one answer today and no enforcement behind it. A conversation
-somebody is not in answers 404, and that is the only rule of its kind.
-
-Before a second person can sign in:
-
-- every read has to be scoped to the caller, not to "the current person";
-- who may see whose goals needs an answer, and a legal basis — revisit
-  [privacy.md](privacy.md) before designing it, not after;
-- message content and friendships are personal data with a retention question
-  attached, which the initial version does not answer.
-
-This comes **after** authentication, and the two are one piece of work.
+Push notifications are a Capacitor concern (item 15) and reminders are a
+scheduling one; a weekly review is neither. Pick the one with a real user asking
+for it rather than building the general mechanism first.
 
 ---
 
 ## Later: platform and operations
 
-### 11. PostgreSQL
+### 12. PostgreSQL
 
 Follow the checklist in
 [adr/0004-sqlite-first.md](adr/0004-sqlite-first.md#when-postgresql-is-introduced).
@@ -184,7 +199,7 @@ not stand in for those.
 Trigger for doing this: the first time concurrency or a query SQLite cannot
 express actually hurts. Not before.
 
-### 12. Deployment — done, for Staging
+### 13. Deployment — done, for Staging
 
 A tag `v*` builds and deploys both applications to one Linux host. See
 [deployment.md](deployment.md) and
@@ -207,7 +222,7 @@ What is still open:
   has neither. Real errors report normally; if a deliberate trigger there turns
   out to be wanted, that is a decision about the guard, not a bug.
 
-### 13. A third language
+### 14. A third language
 
 German and English are hand-written catalogues in `app/app/i18n/messages.ts`,
 switched from the settings screen
@@ -221,11 +236,15 @@ number and date helpers in `app/utils/display.ts`, which format by hand because
 ICU data differs between Node and browsers and caused hydration mismatches, and
 the decimal separator, which currently lives in the catalogue.
 
-### 14. Capacitor for Android and iOS
+### 15. Capacitor for Android and iOS
 
 The architecture keeps this possible: a Nuxt frontend talking to an HTTP API
 over a configurable base URL, and a UI that is designed and tested at phone
-width from the start (item 6). Do it when there is a reason, and expect the real
+width from the start (item 6). One thing to look at first: the session is a
+cookie, and a WebView on a `capacitor://` origin is a harder place to keep a
+cross-site cookie than a browser tab. Identity can issue bearer tokens from the
+same setup, so that is an addition at that point rather than a rewrite — see
+[adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). Do it when there is a reason, and expect the real
 work to be in native concerns — push notifications, offline behaviour, safe-area
 insets, app store requirements — not in the frontend.
 
@@ -240,7 +259,7 @@ list is [privacy.md](privacy.md) section 8; the items that block a launch:
 - a data processing agreement with Sentry and every other processor;
 - a retention policy, with automated deletion;
 - working erasure and export paths — **tested**, not documented;
-- access control (item 6 above);
+- account recovery and deletion (items 7 and 8 above);
 - a DPIA, which is likely required: goal content can be health-related;
 - a breach process.
 

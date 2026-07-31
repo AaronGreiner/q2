@@ -2,14 +2,21 @@
 import type { Friend } from '~/api/types'
 
 /**
- * A friend, with the one thing you can do about them: write to them.
+ * A friend, with the two things you can do about them: write to them, or stop
+ * being friends.
+ *
+ * Removing is destructive and ends the friendship for both people, so the page
+ * asks before it happens — this component only says that it was asked for.
  */
 const props = defineProps<{
   friend: Friend
   now: number
 }>()
 
-const emit = defineEmits<{ message: [id: string] }>()
+const emit = defineEmits<{
+  message: [id: string]
+  remove: [id: string]
+}>()
 
 const t = useMessages()
 
@@ -50,13 +57,27 @@ const subtitle = computed(() => {
 
     <button
       type="button"
-      class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.message}: ${friend.person.displayName}`"
       data-testid="friend-message"
       @click="emit('message', friend.person.id)"
     >
       <UIcon
         name="i-lucide-message-circle"
+        class="size-[17px]"
+        aria-hidden="true"
+      />
+    </button>
+
+    <button
+      type="button"
+      class="flex size-11 shrink-0 items-center justify-center rounded-[10px] text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      :aria-label="`${t.friends.remove}: ${friend.person.displayName}`"
+      data-testid="friend-remove"
+      @click="emit('remove', friend.person.id)"
+    >
+      <UIcon
+        name="i-lucide-user-minus"
         class="size-[17px]"
         aria-hidden="true"
       />

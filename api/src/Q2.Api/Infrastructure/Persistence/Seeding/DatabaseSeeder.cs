@@ -68,6 +68,10 @@ public sealed class DatabaseSeeder(
         // sort most of this out on its own, but the order is also the answer to
         // "what does this world consist of?" and is worth being able to read.
         database.People.AddRange(data.People);
+
+        // Accounts after people: an account points at the person it signs in
+        // as, and the foreign key is Restrict rather than Cascade.
+        database.Users.AddRange(data.Accounts);
         database.Friendships.AddRange(data.Friendships);
         database.Goals.AddRange(data.Goals);
         database.GoalTasks.AddRange(data.Tasks);
@@ -123,6 +127,10 @@ public sealed class DatabaseSeeder(
         await database.Friendships.ExecuteDeleteAsync(cancellationToken);
         await database.PersonBadges.ExecuteDeleteAsync(cancellationToken);
         await database.DailyCheckIns.ExecuteDeleteAsync(cancellationToken);
+
+        // Before People: the account's foreign key is Restrict, so a person
+        // with an account cannot be deleted while it still exists.
+        await database.Users.ExecuteDeleteAsync(cancellationToken);
         await database.People.ExecuteDeleteAsync(cancellationToken);
 
         database.ChangeTracker.Clear();

@@ -1,5 +1,11 @@
 import type { ApiCaller } from './client'
-import type { ChatDetail, ChatSummary, Settings, UpdateSettingsRequest } from './types'
+import type {
+  ChatDetail,
+  ChatSummary,
+  CreateGroupChatRequest,
+  Settings,
+  UpdateSettingsRequest,
+} from './types'
 
 /** Conversations and messages. */
 export interface ChatsApi {
@@ -7,6 +13,9 @@ export interface ChatsApi {
   get: (id: string) => Promise<ChatDetail>
   send: (id: string, text: string) => Promise<ChatDetail>
   react: (id: string, messageId: string, emoji: string) => Promise<ChatDetail>
+  startDirect: (personId: string) => Promise<ChatDetail>
+  createGroup: (request: CreateGroupChatRequest) => Promise<ChatDetail>
+  leave: (id: string) => Promise<void>
 }
 
 /** The signed-in person's preferences. */
@@ -38,6 +47,20 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
       `/api/chats/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/reactions`,
       { method: 'POST', body: { emoji } },
     ),
+
+    // Opens the one conversation with that person, creating it the first time.
+    // Asking twice is the same as asking once, which is what lets the message
+    // button appear on several screens without making several threads.
+    startDirect: personId => call<ChatDetail>('/api/chats/direct', {
+      method: 'POST',
+      body: { personId },
+    }),
+
+    createGroup: request => call<ChatDetail>('/api/chats/groups', { method: 'POST', body: request }),
+
+    leave: async (id) => {
+      await call<unknown>(`/api/chats/${encodeURIComponent(id)}/leave`, { method: 'POST' })
+    },
   }
 }
 

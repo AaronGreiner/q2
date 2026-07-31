@@ -32,6 +32,11 @@ to working in Claude Code.
   "fix" it.
 - **Integration tests must not use `Microsoft.EntityFrameworkCore.InMemory`.**
   The real SQLite provider is used everywhere.
+- **Everything is behind a sign-in.** Tests go through it rather than around
+  it — there is no fake authentication handler, deliberately. Every seeded
+  person has an account and they all share one password; README.md section 10
+  lists them. Setting `NUXT_PUBLIC_DEMO_*` puts a one-tap fill-in on the
+  sign-in screen, which is how `bun run dev` stays frictionless.
 - **Sentry is not disabled outside production.** Do not add
   `if (production)` around it.
 - **The browser is the test surface; a phone is the target.** q2 ships as a

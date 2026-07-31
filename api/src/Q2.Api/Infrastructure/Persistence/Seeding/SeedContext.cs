@@ -57,6 +57,7 @@ public enum SeedEntity
     Message = 12,
     Reaction = 13,
     Settings = 14,
+    Account = 15,
 }
 
 /// <summary>

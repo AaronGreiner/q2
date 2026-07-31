@@ -18,10 +18,14 @@ namespace Q2.Api.Features.Chats;
 public sealed class ChatService(
     Q2DbContext database,
     CurrentPerson currentPerson,
+    FriendsService friends,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ChatService> logger)
 {
+    /// <summary>The emoji a group gets when none was chosen.</summary>
+    public const string DefaultGroupEmoji = "\U0001F4AC";
+
     public async Task<IReadOnlyList<ChatSummaryResponse>> ListAsync(string? search, CancellationToken cancellationToken)
     {
         var me = await currentPerson.GetAsync(cancellationToken);
@@ -139,6 +143,191 @@ public sealed class ChatService(
         await database.SaveChangesAsync(cancellationToken);
 
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens the direct conversation with somebody, creating it the first time.
+    /// </summary>
+    /// <remarks>
+    /// Idempotent, and it has to be: the message button appears on the friends
+    /// screen, on a leaderboard row and on a goal's team list, and all three
+    /// have to land in the same thread.
+    ///
+    /// Only friends. A stranger being able to open a thread with anybody is
+    /// how a self-care app becomes a place people are shouted at.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such person.</exception>
+    /// <exception cref="DomainValidationException">You are not friends with them.</exception>
+    public async Task<ChatDetailResponse> StartDirectAsync(
+        StartDirectChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        if (request.PersonId is not { } personId || personId == Guid.Empty)
+        {
+            throw new DomainValidationException(nameof(request.PersonId), "A person is required.");
+        }
+
+        if (personId == me.Id)
+        {
+            throw new DomainValidationException(nameof(request.PersonId), "You cannot start a chat with yourself.");
+        }
+
+        if (!await database.People.AnyAsync(p => p.Id == personId, cancellationToken))
+        {
+            throw new ResourceNotFoundException("Person", personId);
+        }
+
+        var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
+
+        if (!friendIds.Contains(personId))
+        {
+            throw new DomainValidationException(
+                nameof(request.PersonId),
+                "You can only write to people you are friends with.");
+        }
+
+        var existing = await database.Conversations
+            .Include(c => c.Participants)
+            .Include(c => c.Messages)
+            .ThenInclude(m => m.Reactions)
+            .Where(c => c.Kind == ConversationKind.Direct
+                && c.Participants.Any(p => p.PersonId == me.Id)
+                && c.Participants.Any(p => p.PersonId == personId))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existing is not null)
+        {
+            existing.MarkRead(me.Id, now);
+            await database.SaveChangesAsync(cancellationToken);
+
+            return await DescribeAsync(existing, me.Id, now, cancellationToken);
+        }
+
+        var conversation = Conversation.CreateDirect(idGenerator.NewId(), goalId: null, now);
+        conversation.AddParticipant(idGenerator.NewId(), me.Id, now);
+        conversation.AddParticipant(idGenerator.NewId(), personId);
+
+        database.Conversations.Add(conversation);
+        await database.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Direct conversation {ConversationId} started", conversation.Id);
+
+        return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates a group conversation.
+    /// </summary>
+    /// <remarks>
+    /// Unlike a direct chat this is not idempotent, and should not be: two
+    /// groups with the same people and the same name are two different groups,
+    /// which is exactly what somebody who made one for a different purpose
+    /// wanted.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">A pinned goal that is not yours.</exception>
+    /// <exception cref="DomainValidationException">The request is not usable.</exception>
+    public async Task<ChatDetailResponse> CreateGroupAsync(
+        CreateGroupChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var memberIds = (request.MemberIds ?? []).Where(id => id != me.Id).Distinct().ToList();
+
+        if (memberIds.Count == 0)
+        {
+            throw new DomainValidationException(nameof(request.MemberIds), "A group needs somebody else in it.");
+        }
+
+        if (memberIds.Count + 1 > Conversation.MaxParticipants)
+        {
+            throw new DomainValidationException(
+                nameof(request.MemberIds),
+                $"A group may have at most {Conversation.MaxParticipants} people in it.");
+        }
+
+        var friendIds = (await friends.FriendIdsAsync(me.Id, cancellationToken)).ToHashSet();
+
+        if (memberIds.Any(id => !friendIds.Contains(id)))
+        {
+            throw new DomainValidationException(
+                nameof(request.MemberIds),
+                "A group can only be made up of your friends.");
+        }
+
+        if (request.GoalId is { } goalId)
+        {
+            var goal = await database.Goals
+                .AsNoTracking()
+                .Include(g => g.Participants)
+                .SingleOrDefaultAsync(g => g.Id == goalId, cancellationToken);
+
+            if (goal is null || !goal.IsVisibleTo(me.Id))
+            {
+                throw new ResourceNotFoundException("Goal", goalId);
+            }
+        }
+
+        var emoji = string.IsNullOrWhiteSpace(request.Emoji) ? DefaultGroupEmoji : request.Emoji.Trim();
+
+        // Conversation.CreateGroup enforces the title itself, so an empty one
+        // becomes a 400 without a second copy of the rule here.
+        var conversation = Conversation.CreateGroup(
+            idGenerator.NewId(),
+            request.Title ?? string.Empty,
+            emoji,
+            request.GoalId,
+            now);
+
+        conversation.AddParticipant(idGenerator.NewId(), me.Id, now);
+
+        foreach (var memberId in memberIds)
+        {
+            conversation.AddParticipant(idGenerator.NewId(), memberId);
+        }
+
+        database.Conversations.Add(conversation);
+        await database.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Group conversation {ConversationId} created with {MemberCount} member(s)",
+            conversation.Id,
+            conversation.Participants.Count);
+
+        return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Leaves a group.
+    /// </summary>
+    /// <remarks>
+    /// The last person out takes the conversation with them: an empty thread
+    /// nobody can open is not something to keep, and the messages in it are
+    /// personal data with no remaining reason to be stored (docs/privacy.md).
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such conversation of yours.</exception>
+    /// <exception cref="DomainValidationException">A direct conversation cannot be left.</exception>
+    public async Task LeaveAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+
+        conversation.RemoveParticipant(me.Id);
+
+        if (conversation.Participants.Count == 0)
+        {
+            database.Conversations.Remove(conversation);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Left conversation {ConversationId}", id);
     }
 
     private async Task<ChatDetailResponse> DescribeAsync(

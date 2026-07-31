@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
@@ -16,8 +18,14 @@ namespace Q2.Api.Infrastructure.Persistence;
 /// <see cref="GoalConfiguration"/>) and is picked up by assembly scanning, so
 /// adding a feature does not mean editing this file — only adding the sets a
 /// service needs to reach.
+///
+/// The base type is <see cref="IdentityUserContext{TUser,TKey}"/> rather than
+/// <c>IdentityDbContext</c>: q2 has no roles, and the four tables that come
+/// with users are already more than it uses. Roles would be three more tables
+/// nothing queries (docs/adr/0011-authentication-with-identity.md).
 /// </remarks>
-public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options) : DbContext(options)
+public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
+    : IdentityUserContext<AppUser, Guid>(options)
 {
     public DbSet<Person> People => Set<Person>();
 
@@ -51,6 +59,11 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options) : DbConte
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // First, not last: the base call is what puts Identity's own entity
+        // types into the model, and both the feature configurations below and
+        // the key rule after them have to be able to see them.
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Q2DbContext).Assembly);
 
         /*
@@ -68,7 +81,9 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options) : DbConte
          *
          * Applied here rather than in fifteen configurations because it is one
          * rule about this whole model, and the fifteenth is exactly the one
-         * somebody would forget.
+         * somebody would forget. It covers Identity's user key too, which is
+         * why the base call above has to come first: an account id is handed
+         * out by IIdGenerator or by a seed like every other id here.
          */
         foreach (var key in modelBuilder.Model.GetEntityTypes().Select(entity => entity.FindPrimaryKey()).OfType<IMutableKey>())
         {

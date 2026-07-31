@@ -38,6 +38,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creates an account and signs it in. */
+        post: operations["Register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signs in with an email address and a password. */
+        post: operations["Login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ends the session. Succeeds even when there was none. */
+        post: operations["Logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns who is signed in. */
+        get: operations["GetSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals": {
         parameters: {
             query?: never;
@@ -166,7 +234,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Returns your friends, pending requests and suggestions. */
+        /** Returns your friends, pending requests in both directions and suggestions. */
         get: operations["GetFriends"];
         put?: never;
         post?: never;
@@ -176,7 +244,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/friends/requests/{id}/accept": {
+    "/api/friends/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Finds people by name or handle, with where you stand with each. */
+        get: operations["SearchPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends/{personId}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Asks somebody to be friends. */
+        post: operations["SendFriendRequest"];
+        /** Takes back a request you sent. */
+        delete: operations["WithdrawFriendRequest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends/{personId}/accept": {
         parameters: {
             query?: never;
             header?: never;
@@ -193,7 +296,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/friends/requests/{id}/decline": {
+    "/api/friends/{personId}/decline": {
         parameters: {
             query?: never;
             header?: never;
@@ -210,7 +313,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/friends/suggestions/{id}/request": {
+    "/api/friends/{personId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -219,9 +322,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Asks a suggested person to be friends. */
-        post: operations["SendFriendRequest"];
-        delete?: never;
+        post?: never;
+        /** Ends a friendship, for both people. */
+        delete: operations["RemoveFriend"];
         options?: never;
         head?: never;
         patch?: never;
@@ -238,6 +341,57 @@ export interface paths {
         get: operations["ListChats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/direct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Opens the conversation with somebody, creating it the first time. */
+        post: operations["StartDirectChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Creates a group conversation with friends. */
+        post: operations["CreateGroupChat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leaves a group conversation. */
+        post: operations["LeaveChat"];
         delete?: never;
         options?: never;
         head?: never;
@@ -407,6 +561,13 @@ export interface components {
             targetDate?: string | null;
             participantIds?: string[] | null;
         };
+        CreateGroupChatRequest: {
+            title?: string | null;
+            emoji?: string | null;
+            memberIds?: string[] | null;
+            /** Format: uuid */
+            goalId?: string | null;
+        };
         CreateTaskRequest: {
             title?: string | null;
             rhythm?: null | components["schemas"]["GoalRhythm"];
@@ -432,11 +593,11 @@ export interface components {
             percent: number;
         };
         FriendRequestResponse: {
-            /** Format: uuid */
-            id: string;
             person: components["schemas"]["PersonSummary"];
             /** Format: int32 */
             mutualFriends: number;
+            /** Format: date-time */
+            requestedAt: string;
         };
         FriendResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -446,18 +607,18 @@ export interface components {
             lastSeenAt: string | null;
         };
         FriendSuggestionResponse: {
-            /** Format: uuid */
-            id: string;
             person: components["schemas"]["PersonSummary"];
             /** Format: int32 */
             mutualFriends: number;
-            isInvited: boolean;
         };
         FriendsResponse: {
             friends: components["schemas"]["FriendResponse"][];
             requests: components["schemas"]["FriendRequestResponse"][];
+            sentRequests: components["schemas"]["SentRequestResponse"][];
             suggestions: components["schemas"]["FriendSuggestionResponse"][];
         };
+        /** @enum {unknown} */
+        FriendshipState: "None" | "RequestSent" | "RequestReceived" | "Friends" | "Self";
         GoalDetailResponse: {
             goal: components["schemas"]["GoalResponse"];
             team: components["schemas"]["GoalTeamMemberResponse"][];
@@ -537,11 +698,21 @@ export interface components {
             kudos: number;
             isMe: boolean;
         };
+        LoginRequest: {
+            email?: string | null;
+            password?: string | null;
+        };
         MessageReactionResponse: {
             emoji: string;
             /** Format: int32 */
             count: number;
             isMine: boolean;
+        };
+        PersonSearchResultResponse: {
+            person: components["schemas"]["PersonSummary"];
+            state: components["schemas"]["FriendshipState"];
+            /** Format: int32 */
+            mutualFriends: number;
         };
         PersonSummary: {
             /** Format: uuid */
@@ -577,8 +748,22 @@ export interface components {
             badges: components["schemas"]["BadgeResponse"][];
             recentActivity: components["schemas"]["ActivityResponse"][];
         };
+        RegisterRequest: {
+            name?: string | null;
+            email?: string | null;
+            password?: string | null;
+        };
         SendMessageRequest: {
             text?: string | null;
+        };
+        SentRequestResponse: {
+            person: components["schemas"]["PersonSummary"];
+            /** Format: date-time */
+            requestedAt: string;
+        };
+        SessionResponse: {
+            person: components["schemas"]["PersonSummary"];
+            email: string;
         };
         SettingsResponse: {
             theme: components["schemas"]["ThemePreference"];
@@ -587,6 +772,10 @@ export interface components {
             notifyKudos: boolean;
             notifyMessages: boolean;
             notifyWeeklyReview: boolean;
+        };
+        StartDirectChatRequest: {
+            /** Format: uuid */
+            personId?: string | null;
         };
         /** @enum {unknown} */
         ThemePreference: "System" | "Light" | "Dark";
@@ -646,6 +835,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaderboardEntryResponse"][];
+                };
+            };
+        };
+    };
+    Register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    Login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    Logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GetSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -915,9 +1226,7 @@ export interface operations {
     };
     GetFriends: {
         parameters: {
-            query?: {
-                search?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -935,12 +1244,112 @@ export interface operations {
             };
         };
     };
+    SearchPeople: {
+        parameters: {
+            query?: {
+                query?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSearchResultResponse"][];
+                };
+            };
+        };
+    };
+    SendFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                personId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSearchResultResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    WithdrawFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                personId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AcceptFriendRequest: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                personId: string;
             };
             cookie?: never;
         };
@@ -980,7 +1389,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                personId: string;
             };
             cookie?: never;
         };
@@ -1013,34 +1422,23 @@ export interface operations {
             };
         };
     };
-    SendFriendRequest: {
+    RemoveFriend: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                personId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["FriendSuggestionResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
-                };
+                content?: never;
             };
             /** @description Not Found */
             404: {
@@ -1071,6 +1469,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatSummaryResponse"][];
+                };
+            };
+        };
+    };
+    StartDirectChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartDirectChatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CreateGroupChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGroupChatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    LeaveChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

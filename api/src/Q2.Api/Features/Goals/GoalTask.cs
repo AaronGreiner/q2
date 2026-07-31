@@ -29,6 +29,7 @@ public sealed class GoalTask
 
     private GoalTask(
         Guid id,
+        Guid ownerPersonId,
         Guid? goalId,
         string title,
         GoalRhythm rhythm,
@@ -42,6 +43,7 @@ public sealed class GoalTask
         DateTimeOffset createdAt)
     {
         Id = id;
+        OwnerPersonId = ownerPersonId;
         GoalId = goalId;
         Title = title;
         Rhythm = rhythm;
@@ -56,6 +58,17 @@ public sealed class GoalTask
     }
 
     public Guid Id { get; private set; }
+
+    /// <summary>
+    /// Whose task this is.
+    /// </summary>
+    /// <remarks>
+    /// A task is personal even under a shared goal: two people running the same
+    /// half-marathon each tick off their own runs, and one of them ticking a
+    /// box must not put a mark on the other's day. Ticking one off writes a
+    /// check-in for its owner, which is exactly why it needs one.
+    /// </remarks>
+    public Guid OwnerPersonId { get; private set; }
 
     /// <summary>The goal this contributes to, when there is one.</summary>
     public Guid? GoalId { get; private set; }
@@ -103,6 +116,7 @@ public sealed class GoalTask
     /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
     public static GoalTask Create(
         Guid id,
+        Guid ownerPersonId,
         Guid? goalId,
         string title,
         GoalRhythm rhythm,
@@ -116,6 +130,11 @@ public sealed class GoalTask
         DateTimeOffset createdAt)
     {
         var errors = new Dictionary<string, string[]>();
+
+        if (ownerPersonId == Guid.Empty)
+        {
+            errors[nameof(OwnerPersonId)] = ["A task needs somebody it belongs to."];
+        }
 
         var normalisedTitle = title?.Trim() ?? string.Empty;
         if (normalisedTitle.Length == 0)
@@ -165,6 +184,7 @@ public sealed class GoalTask
 
         return new GoalTask(
             id,
+            ownerPersonId,
             goalId,
             normalisedTitle,
             rhythm,

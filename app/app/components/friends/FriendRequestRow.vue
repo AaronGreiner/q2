@@ -7,6 +7,10 @@ import type { FriendRequest } from '~/api/types'
  * Accept and decline are icon buttons in the design, so both carry a real
  * label — an unlabelled tick and cross are indistinguishable to a screen
  * reader, and this is a decision about a person.
+ *
+ * Emits the *person's* id, not the friendship row's: the row is deleted and
+ * recreated by ordinary use, and the person is what both ends of the API talk
+ * about.
  */
 defineProps<{ request: FriendRequest }>()
 
@@ -43,7 +47,7 @@ const t = useMessages()
       class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-accent-solid) text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.accept}: ${request.person.displayName}`"
       data-testid="request-accept"
-      @click="emit('accept', request.id)"
+      @click="emit('accept', request.person.id)"
     >
       <UIcon
         name="i-lucide-check"
@@ -57,7 +61,7 @@ const t = useMessages()
       class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-(--q2-track) text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.decline}: ${request.person.displayName}`"
       data-testid="request-decline"
-      @click="emit('decline', request.id)"
+      @click="emit('decline', request.person.id)"
     >
       <UIcon
         name="i-lucide-x"

@@ -16,8 +16,8 @@ the Kudos design: goals and the tasks under them, chats about them, friends,
 and a profile. Read [README.md](README.md) sections 1 and 2 for exactly what
 exists and what is deliberately absent.
 
-The important consequence: **do not build ahead of the requirement**. No user
-system, no permissions engine, no event sourcing, no microservices, no generic
+The important consequence: **do not build ahead of the requirement**. No
+permissions engine, no event sourcing, no microservices, no generic
 abstractions waiting for a second use case. When something genuinely needs to
 exist, it gets built then, with the real requirement in hand.
 
@@ -134,9 +134,14 @@ The rules that matter:
   `SeedBuilder` so ids are handed out rather than written by hand. No
   `DateTime.UtcNow`, no `Guid.NewGuid()`, no randomness, no real personal data,
   no secrets.
-- **Exactly one person carries `IsCurrentUser`.** `CurrentPerson` refuses to
-  guess when that is not true, so a seed that gets it wrong fails loudly
-  ([docs/adr/0009-single-known-person.md](docs/adr/0009-single-known-person.md)).
+- **Every seeded person has an account**, all sharing one documented password
+  (`SeedAccounts`, README.md section 10). That is what makes it possible to sign
+  in as *either* end of a friendship or a group chat, which is the only way to
+  test that they look right from both.
+- **The seeded password hash is a committed constant.** Identity's hasher salts
+  randomly, and a seed has to be a pure function of its context. `SeedAccountTests`
+  asserts the constant still verifies, so a framework change cannot quietly lock
+  every seeded account out.
 - **The AutomatedTest and E2E seeds contain no weekday-dependent task.** "How
   many tasks are on today's list" would otherwise depend on the day the suite
   runs.
@@ -158,6 +163,13 @@ See [README.md](README.md) sections 6-12 and
 - Input is validated at the boundary *and* in the domain.
 - Data minimisation is the default. If a field is not needed, it is not
   collected. Location data is not processed at all in this version.
+- **Nothing about authenticating is written by hand.** The password hash, the
+  security stamp, lockout and the session cookie are ASP.NET Core Identity's
+  ([docs/adr/0011-authentication-with-identity.md](docs/adr/0011-authentication-with-identity.md)).
+- **Every feature endpoint group carries `RequireAuthorization`,** and every
+  read is scoped to the caller. A new feature is guarded by the group it is
+  mapped into, not by a check somebody has to remember to write.
+- **Identity goes through `CurrentPerson`.** No feature reads a claim itself.
 
 [docs/privacy.md](docs/privacy.md) is binding, not advisory.
 

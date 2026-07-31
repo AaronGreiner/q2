@@ -27,13 +27,18 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
     private sealed record FriendDocument(PersonDocument Person, int Streak, DateTimeOffset? LastSeenAt);
 
-    private sealed record RequestDocument(Guid Id, PersonDocument Person, int MutualFriends);
+    private sealed record RequestDocument(PersonDocument Person, int MutualFriends, DateTimeOffset RequestedAt);
 
-    private sealed record SuggestionDocument(Guid Id, PersonDocument Person, int MutualFriends, bool IsInvited);
+    private sealed record SentRequestDocument(PersonDocument Person, DateTimeOffset RequestedAt);
+
+    private sealed record SuggestionDocument(PersonDocument Person, int MutualFriends);
+
+    private sealed record SearchResultDocument(PersonDocument Person, string State, int MutualFriends);
 
     private sealed record FriendsDocument(
         IReadOnlyList<FriendDocument> Friends,
         IReadOnlyList<RequestDocument> Requests,
+        IReadOnlyList<SentRequestDocument> SentRequests,
         IReadOnlyList<SuggestionDocument> Suggestions);
 
     private async Task<IReadOnlyList<ActivityDocument>> FeedAsync() =>
@@ -41,8 +46,15 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
             .ReadAsync<IReadOnlyList<ActivityDocument>>();
 
     private async Task<FriendsDocument> FriendsAsync(string query = "") =>
-        await (await Client.GetAsync($"/api/friends{query}", TestContext.Current.CancellationToken))
+        await FriendsAsync(Client, query);
+
+    private static async Task<FriendsDocument> FriendsAsync(HttpClient client, string query = "") =>
+        await (await client.GetAsync($"/api/friends{query}", TestContext.Current.CancellationToken))
             .ReadAsync<FriendsDocument>();
+
+    private async Task<IReadOnlyList<SearchResultDocument>> SearchAsync(string term) =>
+        await (await Client.GetAsync($"/api/friends/search?query={term}", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<SearchResultDocument>>();
 
     [Fact]
     public async Task TheFeedShowsFriendsRatherThanYourself()
@@ -140,57 +152,61 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task TheFriendsScreenComesBackInThreeSections()
+    public async Task TheFriendsScreenComesBackInItsFourSections()
     {
         var friends = await FriendsAsync();
 
         Assert.Single(friends.Friends);
         Assert.Single(friends.Requests);
+        Assert.Empty(friends.SentRequests);
+
+        // Not connected to me, but known to my one friend.
         Assert.Single(friends.Suggestions);
     }
 
     [Fact]
-    public async Task AcceptingARequestMakesThemAFriend()
+    public async Task AcceptingARequestMakesThemAFriendForBothPeople()
     {
         var response = await Client.PostAsync(
-            $"/api/friends/requests/{AutomatedTestSeed.PendingRequestId}/accept",
+            $"/api/friends/{AutomatedTestSeed.RequestingPersonId}/accept",
             content: null,
             TestContext.Current.CancellationToken);
 
         response.EnsureSuccessStatusCode();
 
-        var friends = await FriendsAsync();
-        Assert.Equal(2, friends.Friends.Count);
-        Assert.Empty(friends.Requests);
+        var mine = await FriendsAsync();
+        Assert.Equal(2, mine.Friends.Count);
+        Assert.Empty(mine.Requests);
+
+        // The point of the whole two-sided model: it is one friendship, and
+        // the person who asked can see it too.
+        var theirs = await FriendsAsync(await ClientForAsync(AutomatedTestSeed.RequesterEmail));
+        Assert.Contains(theirs.Friends, friend => friend.Person.Id == AutomatedTestSeed.CurrentPersonId);
+        Assert.Empty(theirs.SentRequests);
     }
 
     [Fact]
-    public async Task DecliningARequestRemovesItWithoutLeavingARecord()
+    public async Task ARequestIsWaitingForOneSideAndSentByTheOther()
     {
-        var response = await Client.PostAsync(
-            $"/api/friends/requests/{AutomatedTestSeed.PendingRequestId}/decline",
-            content: null,
-            TestContext.Current.CancellationToken);
+        var mine = await FriendsAsync();
+        var theirs = await FriendsAsync(await ClientForAsync(AutomatedTestSeed.RequesterEmail));
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Single(mine.Requests, request => request.Person.Id == AutomatedTestSeed.RequestingPersonId);
+        Assert.Single(theirs.SentRequests, sent => sent.Person.Id == AutomatedTestSeed.CurrentPersonId);
 
-        var friends = await FriendsAsync();
-        Assert.Empty(friends.Requests);
-
-        // Storing who somebody did not want to know is not information q2 has
-        // any use for.
-        await Factory.WithDatabaseAsync(async database =>
-        {
-            Assert.DoesNotContain(database.Friendships, link => link.Id == AutomatedTestSeed.PendingRequestId);
-            await Task.CompletedTask;
-        });
+        // And neither of them has it in the other list.
+        Assert.Empty(mine.SentRequests);
+        Assert.Empty(theirs.Requests);
     }
 
     [Fact]
-    public async Task ASuggestionCannotBeAcceptedOnSomebodyElsesBehalf()
+    public async Task ARequestCannotBeAcceptedByThePersonWhoSentIt()
     {
-        var response = await Client.PostAsync(
-            $"/api/friends/requests/{AutomatedTestSeed.SuggestionId}/accept",
+        // Otherwise asking and being accepted would be the same action.
+        var requester = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+
+        var response = await requester.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.CurrentPersonId}/accept",
             content: null,
             TestContext.Current.CancellationToken);
 
@@ -198,40 +214,156 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task AskingASuggestedPersonMarksThemAsInvited()
+    public async Task DecliningARequestRemovesItWithoutLeavingARecord()
     {
         var response = await Client.PostAsync(
-            $"/api/friends/suggestions/{AutomatedTestSeed.SuggestionId}/request",
+            $"/api/friends/{AutomatedTestSeed.RequestingPersonId}/decline",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty((await FriendsAsync()).Requests);
+
+        // Storing who somebody did not want to know is not information q2 has
+        // any use for.
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            Assert.DoesNotContain(
+                database.Friendships,
+                link => link.Involves(AutomatedTestSeed.RequestingPersonId));
+
+            await Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task AskingSomebodyPutsTheRequestOnBothScreens()
+    {
+        var response = await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request",
             content: null,
             TestContext.Current.CancellationToken);
 
         response.EnsureSuccessStatusCode();
-        Assert.True((await response.ReadAsync<SuggestionDocument>()).IsInvited);
+        Assert.Equal("RequestSent", (await response.ReadAsync<SearchResultDocument>()).State);
 
-        // Still on the screen, as "Angefragt" — a row that vanished on tap
-        // would leave people wondering whether it worked.
-        Assert.Single((await FriendsAsync()).Suggestions, suggestion => suggestion.IsInvited);
+        Assert.Single(
+            (await FriendsAsync()).SentRequests,
+            sent => sent.Person.Id == AutomatedTestSeed.UnconnectedPersonId);
     }
 
     [Fact]
-    public async Task SearchingFiltersFriendsButNeverHidesARequest()
+    public async Task ARequestCanBeTakenBack()
     {
-        var friends = await FriendsAsync("?search=nobody-by-this-name");
+        await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request",
+            content: null,
+            TestContext.Current.CancellationToken);
 
-        Assert.Empty(friends.Friends);
-        Assert.Empty(friends.Suggestions);
+        var response = await Client.DeleteAsync(
+            $"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request",
+            TestContext.Current.CancellationToken);
 
-        // Hiding a pending request behind a search box is how it stays
-        // unanswered forever.
-        Assert.Single(friends.Requests);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty((await FriendsAsync()).SentRequests);
     }
 
     [Fact]
-    public async Task SearchingByNameFindsTheFriend()
+    public async Task AskingSomebodyWhoAlreadyAskedYouAcceptsTheirRequest()
     {
-        var friends = await FriendsAsync("?search=person two");
+        // Two people tapping "add" within the same minute is a friendship, not
+        // a conflict — and certainly not two rows facing opposite ways.
+        var response = await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.RequestingPersonId}/request",
+            content: null,
+            TestContext.Current.CancellationToken);
 
-        Assert.Single(friends.Friends);
-        Assert.Equal("Test Person Two", friends.Friends[0].Person.DisplayName);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("Friends", (await response.ReadAsync<SearchResultDocument>()).State);
+
+        var friends = await FriendsAsync();
+        Assert.Equal(2, friends.Friends.Count);
+        Assert.Empty(friends.Requests);
+    }
+
+    [Fact]
+    public async Task AskingAFriendAgainIsRejected()
+    {
+        var response = await Client.PostAsync(
+            $"/api/friends/{AutomatedTestSeed.FriendPersonId}/request",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RemovingAFriendEndsItForBothOfThem()
+    {
+        var response = await Client.DeleteAsync(
+            $"/api/friends/{AutomatedTestSeed.FriendPersonId}",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty((await FriendsAsync()).Friends);
+
+        var theirs = await FriendsAsync(await ClientForAsync(AutomatedTestSeed.FriendEmail));
+        Assert.DoesNotContain(theirs.Friends, friend => friend.Person.Id == AutomatedTestSeed.CurrentPersonId);
+    }
+
+    [Fact]
+    public async Task SearchFindsPeopleByNameAndSaysWhereYouStandWithThem()
+    {
+        var results = await SearchAsync("Test Person");
+
+        // Everybody but me.
+        Assert.Equal(3, results.Count);
+        Assert.DoesNotContain(results, result => result.Person.Id == AutomatedTestSeed.CurrentPersonId);
+
+        Assert.Equal("Friends", results.Single(r => r.Person.Id == AutomatedTestSeed.FriendPersonId).State);
+        Assert.Equal(
+            "RequestReceived",
+            results.Single(r => r.Person.Id == AutomatedTestSeed.RequestingPersonId).State);
+        Assert.Equal("None", results.Single(r => r.Person.Id == AutomatedTestSeed.UnconnectedPersonId).State);
+    }
+
+    [Fact]
+    public async Task SearchAlsoMatchesAHandle()
+    {
+        Assert.Single(await SearchAsync("test.two"));
+    }
+
+    [Fact]
+    public async Task ASearchTermTooShortToBeUsefulReturnsNothing()
+    {
+        // Rather than the entire directory, which is what an empty box would
+        // otherwise ask for on every keystroke.
+        Assert.Empty(await SearchAsync("T"));
+    }
+
+    [Fact]
+    public async Task SearchDoesNotTreatAWildcardAsOne()
+    {
+        // "%" matching everybody would turn the search box into a directory
+        // dump for anybody who typed one character.
+        Assert.Empty(await SearchAsync("%%"));
+    }
+
+
+    [Fact]
+    public async Task SearchNeverIncludesYourself()
+    {
+        // You are on every screen already, and "add yourself" is not an action.
+        Assert.DoesNotContain(
+            await SearchAsync("Test Person One"),
+            result => result.Person.Id == AutomatedTestSeed.CurrentPersonId);
+    }
+
+    [Fact]
+    public async Task SignedOutTheFriendsScreenAnswersNothingAtAll()
+    {
+        var response = await AnonymousClient.GetAsync("/api/friends", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

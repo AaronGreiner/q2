@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.People;
@@ -7,23 +9,23 @@ namespace Q2.Api.Features.People;
 /// Answers "who is asking?".
 /// </summary>
 /// <remarks>
-/// There is no authentication yet
-/// (docs/adr/0006-authentication-deferred.md), so the answer is always the one
-/// <see cref="Person"/> flagged <see cref="Person.IsCurrentUser"/>. Every
-/// feature that needs an identity goes through this type rather than looking
-/// the flag up itself, which means the day a request actually carries a
-/// signed-in user, exactly one implementation changes.
+/// The answer is the <see cref="Person"/> behind the signed-in account. Every
+/// feature that needs an identity goes through this type rather than reading a
+/// claim itself, which is what kept the change from
+/// <c>Person.IsCurrentUser</c> to a real session down to this one file
+/// (docs/adr/0009-single-known-person.md, superseded by
+/// docs/adr/0011-authentication-with-identity.md).
 ///
-/// It fails loudly when the flag is missing or ambiguous. A silent
-/// <c>FirstOrDefault</c> would hand somebody else's chats to whoever asked
-/// first, and that is the sort of bug that is only noticed in production.
+/// It fails loudly rather than returning null. A silent fallback to "somebody"
+/// would hand one person's chats to another, and that is the sort of bug that
+/// is only ever noticed in production.
 /// </remarks>
-public sealed class CurrentPerson(Q2DbContext database)
+public sealed class CurrentPerson(Q2DbContext database, IHttpContextAccessor httpContextAccessor)
 {
     private Person? _cached;
 
-    /// <exception cref="InvalidOperationException">
-    /// The database does not describe exactly one current user.
+    /// <exception cref="AuthenticationRequiredException">
+    /// There is no session, or nothing behind it any more.
     /// </exception>
     public async Task<Person> GetAsync(CancellationToken cancellationToken)
     {
@@ -32,26 +34,39 @@ public sealed class CurrentPerson(Q2DbContext database)
             return _cached;
         }
 
+        var principal = httpContextAccessor.HttpContext?.User;
+
+        if (principal?.Identity?.IsAuthenticated != true)
+        {
+            throw new AuthenticationRequiredException("This request carries no session.");
+        }
+
+        // Identity puts the account id here. It is the account's id, not the
+        // person's — the two are separate rows on purpose (see AppUser).
+        if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var accountId))
+        {
+            throw new AuthenticationRequiredException("This session does not identify an account.");
+        }
+
+        var personId = await database.Users
+            .AsNoTracking()
+            .Where(user => user.Id == accountId)
+            .Select(user => user.PersonId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (personId == Guid.Empty)
+        {
+            throw new AuthenticationRequiredException("The account behind this session no longer exists.");
+        }
+
         // Check-ins come along because almost everything that reads the current
         // person also reads their streak, and because Person.CheckIn on a
         // person whose days were never loaded would insert a duplicate and hit
         // the unique index instead of doing nothing.
-        var candidates = await database.People
+        _cached = await database.People
             .Include(p => p.CheckIns)
-            .Where(p => p.IsCurrentUser)
-            .Take(2)
-            .ToListAsync(cancellationToken);
-
-        _cached = candidates.Count switch
-        {
-            1 => candidates[0],
-            0 => throw new InvalidOperationException(
-                "No person is marked as the current user. The database has not been seeded "
-                + "(see api/README.md) — every read needs somebody to read it as."),
-            _ => throw new InvalidOperationException(
-                "More than one person is marked as the current user. Exactly one row may carry "
-                + "Person.IsCurrentUser; see docs/adr/0009-single-known-person.md."),
-        };
+            .SingleOrDefaultAsync(p => p.Id == personId, cancellationToken)
+            ?? throw new AuthenticationRequiredException("The person behind this session no longer exists.");
 
         return _cached;
     }

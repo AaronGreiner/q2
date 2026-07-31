@@ -26,6 +26,7 @@ Five screens, and everything behind them:
 
 | Screen | What it does |
 | --- | --- |
+| **Anmeldung** | Sign in, or create an account with a name, an email address and a password |
 | **Start** | Streak with the current week, how much of today is done, the next tasks, a strip of goals, what friends have been up to, and the weekly leaderboard |
 | **Ziele** | Today's tasks under one tab, the goals themselves under the other; a bottom sheet creates a goal |
 | **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and reactions |
@@ -34,9 +35,11 @@ Five screens, and everything behind them:
 
 | Area | What exists |
 | --- | --- |
-| Domain | `Person`, `Goal` (progress counted in steps), `GoalTask`, streaks derived from recorded days, friendships, activity and kudos, conversations and messages, badges, preferences — all invariants enforced in the model |
-| API | Goals, tasks, feed and kudos, leaderboard, friends, chats, profile and settings; `GET /health`, OpenAPI document, Problem Details for every error |
-| Frontend | The five screens plus goal detail, chat thread and settings; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
+| Accounts | Registration and sign-in on ASP.NET Core Identity, a http-only session cookie, lockout after repeated failures; the account holds credentials only and points at the person it signs in as |
+| Domain | `Person`, `Goal` (owned, progress counted in steps), `GoalTask`, streaks derived from recorded days, two-sided friendships, activity and kudos, conversations and messages, badges, preferences — all invariants enforced in the model |
+| Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your tasks, your friends' feed, the conversations you are in |
+| API | Register/sign in/sign out/session; goals, tasks, feed and kudos, leaderboard, friends with search and requests, chats including starting and leaving them, profile and settings; `GET /health`, OpenAPI document, Problem Details for every error |
+| Frontend | Sign-in and registration, the five screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
 | Contract | OpenAPI exported from the code, TypeScript types generated from it, both committed |
 | Database | SQLite via EF Core, migrations, six environments, four seed profiles, guarded destructive resets |
 | Errors | Central exception handling, no internal detail in responses, a correlation id the user can quote |
@@ -51,15 +54,24 @@ truth, not this table.
 
 These are absent on purpose, not by oversight:
 
-- **Authentication and accounts.** There is exactly one person the API answers
-  as, flagged in the database. Adding real identity is a security-relevant
-  design step, not a quick patch — see
-  [docs/adr/0006-authentication-deferred.md](docs/adr/0006-authentication-deferred.md)
-  and [docs/adr/0009-single-known-person.md](docs/adr/0009-single-known-person.md).
-- **Permissions.** Friendships exist; roles and sharing rules do not.
+- **Account recovery.** No password reset, no email confirmation, no two-factor.
+  All three need to send mail, and nothing here needs a running service to
+  develop against. A forgotten password currently means a new account — this is
+  the first gap to close before anybody who is not a developer signs up. See
+  [docs/adr/0011-authentication-with-identity.md](docs/adr/0011-authentication-with-identity.md).
+- **Roles and sharing rules.** Access control exists and is per person: your
+  data is yours, a shared goal is readable by the people it is shared with, and
+  a conversation by the people in it. What does not exist is a *second kind* of
+  actor — a coach, a moderator, a support agent — or any way to grant somebody
+  a view of your goals beyond sharing one.
+- **Changing your profile.** The name, the handle and the avatar colour are set
+  at registration and cannot be edited yet. The settings screen says so.
 - **Notification delivery.** The switches on the settings screen are stored and
   honoured by nothing yet. The screen says so.
 - **Updating or deleting goals.** Only reading, creating and making progress.
+- **Deleting an account.** There is no erasure path, which is a gap with a legal
+  deadline attached to it the day there are real users — see
+  [docs/privacy.md](docs/privacy.md).
 - **Time zones.** Instants are stored and reasoned about in UTC; the browser
   shifts a displayed clock into its own zone after hydration, and nothing is
   remembered per person. See [docs/next-steps.md](docs/next-steps.md).
@@ -140,6 +152,13 @@ start over, delete the file yourself and migrate again:
 rm api/.data/q2-development.db && bun run db:migrate && bun run db:seed
 ```
 
+**A database created before accounts existed has nobody who can sign in.** The
+`AccountsAndTwoSidedFriendships` migration converts every goal, task and
+friendship honestly — it uses the old `IsCurrentUser` flag before dropping it —
+but a password hash is not something a migration may invent. If `bun run dev`
+shows you a sign-in screen no seeded account works on, that is what happened,
+and the command above is the answer.
+
 ## 7. The manual testing environment
 
 When you want a known, reproducible state to click through:
@@ -190,6 +209,23 @@ the fixture holds one open for its lifetime. The schema is applied with the
 rebuilt before each test, so any test can be run alone, repeatedly, in any
 order.
 
+### Tests sign in for real
+
+There is a sign-in in front of everything, so the suites go through it rather
+than around it. No fake authentication handler exists: a stub would let every
+test pass while the thing the tests are there to protect — that a request
+without a session gets nothing, and one with a session gets exactly that
+person's data — was never exercised.
+
+- **Integration tests** post to `/api/auth/login` and keep the cookie
+  (`SignIn.AsAsync`). `ApiTestBase` hands each test a client signed in as the
+  AutomatedTest seed's primary person, an anonymous one, and a way to sign in as
+  anybody else.
+- **E2E** signs in once in `globalSetup`, through the real form at phone width,
+  and every spec reuses that session through Playwright's `storageState`.
+  `authentication.spec.ts` opts out and starts signed out, because it is the one
+  that is *about* signing in.
+
 ### E2E tests use a temporary SQLite file
 
 Frontend, backend and Playwright run as separate processes, so they need a
@@ -234,10 +270,38 @@ All seed data lives in
 | `AutomatedTest` | API integration tests | the smallest world that still covers every branch |
 | `E2E` | Playwright | stable ids and unique, non-overlapping titles |
 
-A seed is a whole graph — people, goals, tasks, check-ins, activity, chats,
-friendships and preferences — composed through `SeedBuilder`, which hands out
-the ids so a seed only has to say what exists. `KudosWorld` holds the world
-Development and ManualTesting share.
+A seed is a whole graph — people, **accounts**, goals, tasks, check-ins,
+activity, chats, friendships and preferences — composed through `SeedBuilder`,
+which hands out the ids so a seed only has to say what exists. `KudosWorld`
+holds the world Development and ManualTesting share.
+
+### Seeded accounts
+
+**Every seeded person has an account, and they all share one password:**
+
+```
+kudos-demo-2026
+```
+
+The address is the handle at a reserved domain, so `@mara.k` signs in as
+`mara.k@kudos.example`. The four profiles' primary people are:
+
+| Profile | Sign in as |
+| --- | --- |
+| `Development`, `ManualTesting` | `mara.k@kudos.example` |
+| `AutomatedTest` | `test.one@kudos.example` |
+| `E2E` | `e2e.mara@kudos.example` |
+
+Being able to sign in as *anybody* in a seeded world is the point: a friend
+request and a group chat look different from each end, and only a test that can
+be both ends can say so.
+
+This is not a secret. It protects nothing — seed profiles run only in
+Development, ManualTesting, AutomatedTest and E2E, and Staging and Production
+seed nothing at all. Set `NUXT_PUBLIC_DEMO_EMAIL` and
+`NUXT_PUBLIC_DEMO_PASSWORD` (see `app/.env.example`) and the sign-in screen
+offers to fill them in with one tap; leave them empty and the button does not
+exist.
 
 Seeds are **pure functions** of a `SeedContext`: no `DateTime.UtcNow`, no
 `Guid.NewGuid()`, no randomness. Ids are fixed per profile
@@ -248,10 +312,11 @@ moves on, and a chat's newest message is minutes old rather than timestamped at
 midnight; a test that needs byte-identical output injects a fixed
 `TimeProvider`.
 
-Every profile keeps two properties, both covered by `SeedDataTests`: exactly one
-person carries `IsCurrentUser`, and the AutomatedTest and E2E worlds contain no
-weekday-dependent task — otherwise "what is on today's list" would depend on the
-day the suite runs.
+Every profile keeps these properties, all covered by `SeedDataTests`: every
+person has exactly one account and every account one address, no two people are
+connected twice, every goal and task belongs to somebody in the same world, and
+the AutomatedTest and E2E worlds contain no weekday-dependent task — otherwise
+"what is on today's list" would depend on the day the suite runs.
 
 To add data, edit the seed class for that profile. Never insert rows from
 `Program.cs`, from a migration or from a test.

@@ -17,6 +17,138 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserLogins", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Accounts.AppUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
+
+                    b.HasIndex("PersonId")
+                        .IsUnique();
+
+                    b.ToTable("AspNetUsers", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Activity.ActivityEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -210,6 +342,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsGroup")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
                     b.Property<TimeOnly?>("ReminderAt")
                         .HasColumnType("TEXT");
 
@@ -237,6 +372,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("OwnerPersonId");
 
                     b.HasIndex("Status");
 
@@ -307,6 +444,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<double?>("MeasuredValue")
                         .HasColumnType("REAL");
 
+                    b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
                     b.Property<TimeOnly?>("ReminderAt")
                         .HasColumnType("TEXT");
 
@@ -333,6 +473,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GoalId");
+
+                    b.HasIndex("OwnerPersonId");
 
                     b.HasIndex("SortOrder");
 
@@ -363,10 +505,16 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("MutualFriends")
-                        .HasColumnType("INTEGER");
+                    b.Property<Guid>("AddresseeId")
+                        .HasColumnType("TEXT");
 
-                    b.Property<Guid>("PersonId")
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RequesterId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RespondedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -376,7 +524,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId")
+                    b.HasIndex("AddresseeId");
+
+                    b.HasIndex("RequesterId", "AddresseeId")
                         .IsUnique();
 
                     b.ToTable("Friendships", (string)null);
@@ -410,9 +560,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsCurrentUser")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("KudosReceived")
                         .HasColumnType("INTEGER");
 
@@ -423,8 +570,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Handle")
                         .IsUnique();
-
-                    b.HasIndex("IsCurrentUser");
 
                     b.ToTable("People", (string)null);
                 });
@@ -489,6 +634,42 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UserSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Accounts.AppUser", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Activity.ActivityEvent", b =>
@@ -568,6 +749,15 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerPersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalContribution", b =>
                 {
                     b.HasOne("Q2.Api.Features.Goals.Goal", null)
@@ -598,6 +788,12 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("GoalId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerPersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Q2.Api.Features.People.DailyCheckIn", b =>
@@ -613,7 +809,13 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
                         .WithMany()
-                        .HasForeignKey("PersonId")
+                        .HasForeignKey("AddresseeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("RequesterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

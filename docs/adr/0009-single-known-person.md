@@ -1,9 +1,15 @@
 # 0009 — One known person, flagged in the database
 
-**Status:** Accepted
+**Status:** Superseded by
+[0011 — Accounts with ASP.NET Core Identity and a session cookie](0011-authentication-with-identity.md)
 **Date:** 2026-07-30
-**Supersedes:** nothing. **Extends:**
+**Supersedes:** nothing. **Extended:**
 [0006 — Authentication deliberately deferred](0006-authentication-deferred.md).
+
+> `Person.IsCurrentUser` is gone. The prediction this record made held: the day
+> authentication arrived, exactly one implementation changed — `CurrentPerson`
+> started reading the request's principal instead of a column. Kept for that
+> reasoning, not as a description of the model.
 
 ## Context
 

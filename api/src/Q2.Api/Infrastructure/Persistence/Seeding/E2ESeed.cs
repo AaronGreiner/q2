@@ -36,6 +36,16 @@ public sealed class E2ESeed : ISeedDataSource
 
     public const string CurrentPersonName = "E2E Mara";
 
+    /// <summary>
+    /// The address Playwright signs in with. Its global setup posts this and
+    /// <see cref="SeedAccounts.Password"/> once, then every spec reuses the
+    /// session it got back.
+    /// </summary>
+    public const string CurrentPersonEmail = "e2e.mara@" + SeedAccounts.EmailDomain;
+
+    /// <summary>The friend's address, for the specs that check the other side.</summary>
+    public const string FriendEmail = "e2e.jonas@" + SeedAccounts.EmailDomain;
+
     public const string FriendName = "E2E Jonas";
 
     public const string RequestingPersonName = "E2E Max";
@@ -60,7 +70,7 @@ public sealed class E2ESeed : ISeedDataSource
     {
         var build = new SeedBuilder(Owner, context);
 
-        var me = build.AddCurrentUser(
+        var me = build.AddPrimaryPerson(
             CurrentPersonName,
             "@e2e.mara",
             "EM",
@@ -82,10 +92,13 @@ public sealed class E2ESeed : ISeedDataSource
         var max = build.AddPerson(RequestingPersonName, "@e2e.max", "EX", AvatarColors.Teal);
         var emma = build.AddPerson(SuggestedPersonName, "@e2e.emma", "EE", AvatarColors.Red);
 
-        build.Connect(jonas, FriendshipStatus.Accepted);
-        build.Connect(lena, FriendshipStatus.Accepted);
-        build.Connect(max, FriendshipStatus.Requested, mutualFriends: 2);
-        build.Connect(emma, FriendshipStatus.Suggested, mutualFriends: 4);
+        build.Befriend(me, jonas);
+        build.Befriend(me, lena);
+        build.Request(max, me);
+
+        // Not connected to me, but to both of my friends: the one suggestion.
+        build.Befriend(jonas, emma);
+        build.Befriend(lena, emma);
 
         var shared = build.AddGoal(
             SharedGoalTitle,

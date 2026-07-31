@@ -13,7 +13,7 @@ const t = useMessages()
 const now = useNow()
 
 const id = computed(() => String(route.params.id))
-const { chat, error, isMissing, isLoading, refresh, send, cheer, react, isSending } = useChatThread(id)
+const { chat, error, isMissing, isLoading, refresh, send, cheer, react, leave, isSending } = useChatThread(id)
 
 const thread = useTemplateRef<HTMLElement>('thread')
 
@@ -37,6 +37,12 @@ async function onSend(text: string) {
   await send(text)
   await scrollToLatest()
 }
+
+/**
+ * Leaving is not undoable from inside the app — somebody in the group would
+ * have to start a new one — so it asks first.
+ */
+const isLeaveOpen = ref(false)
 
 onMounted(async () => {
   await scrollToLatest()
@@ -83,6 +89,23 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           {{ status }}
         </p>
       </div>
+
+      <!-- Only a group can be left; a direct conversation is between the two
+           of you and there would be nothing left of it. -->
+      <button
+        v-if="chat.kind === 'Group'"
+        type="button"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :aria-label="t.chats.leaveGroup"
+        data-testid="leave-group"
+        @click="isLeaveOpen = true"
+      >
+        <UIcon
+          name="i-lucide-log-out"
+          class="size-5"
+          aria-hidden="true"
+        />
+      </button>
     </header>
 
     <div
@@ -162,5 +185,13 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         @send="onSend"
       />
     </template>
+
+    <AppConfirmDialog
+      v-model:open="isLeaveOpen"
+      :title="t.chats.leaveGroup"
+      :description="t.chats.leaveGroupConfirm"
+      :confirm-label="t.chats.leaveGroup"
+      @confirm="leave"
+    />
   </div>
 </template>

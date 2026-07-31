@@ -2,11 +2,11 @@
 import type { FriendSuggestion } from '~/api/types'
 
 /**
- * Somebody q2 thinks you might know.
+ * Somebody q2 thinks you might know, because your friends do.
  *
- * Once asked, the button stays and turns into "Angefragt" rather than
- * disappearing: a row that vanishes on tap leaves people wondering whether it
- * worked.
+ * Derived from the friend graph on every read rather than stored, so asking
+ * moves them out of this list and into "Gesendete Anfragen" — which is where a
+ * request that is waiting on somebody belongs.
  */
 defineProps<{ suggestion: FriendSuggestion }>()
 
@@ -37,15 +37,12 @@ const t = useMessages()
 
     <button
       type="button"
-      :disabled="suggestion.isInvited"
-      class="shrink-0 rounded-[10px] px-3 py-2 text-xs font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-      :class="suggestion.isInvited
-        ? 'bg-(--q2-track) text-(--ui-text-muted)'
-        : 'bg-(--q2-accent-solid) text-white'"
+      class="min-h-11 shrink-0 rounded-[10px] bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      :aria-label="`${t.friends.add}: ${suggestion.person.displayName}`"
       data-testid="suggestion-request"
-      @click="emit('request', suggestion.id)"
+      @click="emit('request', suggestion.person.id)"
     >
-      {{ suggestion.isInvited ? t.friends.requested : t.friends.add }}
+      {{ t.friends.add }}
     </button>
   </div>
 </template>

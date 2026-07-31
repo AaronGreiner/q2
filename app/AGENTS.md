@@ -26,6 +26,7 @@ app/
 │   ├── components/           chats/ friends/ goals/ home/ layout/ profile/
 │   │                         settings/ social/ ui/
 │   ├── composables/          state and side effects
+│   ├── middleware/           auth.global.ts — the route guard
 │   ├── i18n/messages.ts      every user-facing word, in both languages
 │   ├── layouts/              default (with the tab bar) and plain (without)
 │   ├── pages/
@@ -59,7 +60,7 @@ components with logic inline is not "using the design system well".
 
 **No component contains a literal user-facing string.** `const t =
 useMessages()` and `{{ t.goals.heading }}`; the words live in
-`app/i18n/messages.ts` (see §10).
+`app/i18n/messages.ts` (see §11).
 
 Current components, by folder:
 
@@ -71,13 +72,17 @@ Current components, by folder:
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen |
+| `AuthScreen` | the frame the sign-in and sign-up screens share |
+| `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
 | `GoalCard` `GoalTile` | one goal in the list, and in the horizontal strip |
 | `GoalTaskRow` | one task with its tick box |
 | `GoalCreateSheet` | the bottom sheet that creates a goal |
 | `ActivityRow` `LeaderboardCard` | the feed and the ranking |
-| `FriendRow` `FriendRequestRow` `FriendSuggestionRow` | the three friend states |
+| `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
+| `PersonSearchRow` | a search result, and the one action its `state` implies |
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens |
+| `ChatCreateSheet` | starting a direct chat, or making a group |
 | `BadgeGrid` | the badge collection, earned and not |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
 
@@ -88,6 +93,7 @@ app/api/generated/schema.d.ts   GENERATED — never edit
 app/api/types.ts                named re-exports of the contract
 app/api/errors.ts               ApiError, ApiFailure, normalisation
 app/api/client.ts               the fetch wrapper that normalises every failure
+app/api/accounts.ts             register, sign in, sign out, session
 app/api/goals.ts                goals and tasks
 app/api/social.ts               feed, kudos, leaderboard, friends, profile
 app/api/chats.ts                conversations, messages and settings
@@ -96,6 +102,10 @@ app/composables/useQ2Api.ts     the configured client
 ```
 
 - **Nothing outside `app/api/` builds a URL or reads a response body.**
+- **The session is a cookie, and it does not travel by itself.** In the browser
+  the client sends `credentials: 'include'`, because the API is a different
+  origin; during server rendering it copies the `cookie` header off the incoming
+  request, which is what keeps the first paint of a page the signed-in one.
 - The base URL comes from runtime config (`NUXT_PUBLIC_API_BASE_URL`). No
   environment URL is ever hard-coded.
 - `schema.d.ts` is generated from `api/openapi/q2-api.json`. Regenerate with
@@ -112,7 +122,31 @@ app/composables/useQ2Api.ts     the configured client
 - Type-aware lint rules are deliberately off (they need a full TS program per
   lint run); `bun run typecheck` covers types properly with `vue-tsc`.
 
-## 5. Error handling
+## 5. Signing in
+
+`middleware/auth.global.ts` guards every route. It is global rather than
+per-page on purpose: a new screen is a new file, and a guard somebody has to
+remember to add is the one that will be missing from exactly the screen that
+needed it. `/login`, `/register` and `/diagnostics` opt out, explicitly and
+visibly.
+
+It is convenience, not security — the API refuses every request without a
+session on its own. All the middleware does is take somebody to the sign-in
+screen instead of showing them five error states.
+
+`useSession()` holds the answer to "who is this?" under one `useState` key, so
+the layout, the middleware and the settings screen ask once. It never stores a
+token, because there is none: the session is an http-only cookie the browser
+sends by itself. Signing out clears the Nuxt data cache as well — without that
+the next person to sign in on the same device would see the previous one's goals
+until the first request came back.
+
+The sign-in screen offers to fill in a seeded account when
+`NUXT_PUBLIC_DEMO_EMAIL` and `NUXT_PUBLIC_DEMO_PASSWORD` are both set. They are
+empty by default; the button therefore does not exist in Staging or Production
+without a second flag to forget.
+
+## 6. Error handling
 
 Every failure is normalised once, in `app/api/errors.ts`, into an `ApiError`
 with a `kind`:
@@ -152,7 +186,7 @@ and capturing again would duplicate the issue.
 request succeeds and the screen does not move. Always replace the whole
 payload — `data.value = { ...data.value, feed: … }`.
 
-## 6. Sentry
+## 7. Sentry
 
 - `sentry.shared.ts` holds `beforeSend` and `beforeBreadcrumb` for both
   runtimes, so the browser and Nitro filter identically. It is unit-tested
@@ -173,7 +207,7 @@ payload — `data.value = { ...data.value, feed: … }`.
   a 5xx that already carries an `errorId` becomes a breadcrumb rather than a
   second issue for one incident.
 
-## 7. Accessibility
+## 8. Accessibility
 
 Not optional, and checked in the component tests:
 
@@ -187,7 +221,7 @@ Not optional, and checked in the component tests:
 - `prefers-reduced-motion` is respected globally in `main.css`.
 - Interactive elements are reachable and operable by keyboard.
 
-## 8. Mobile format
+## 9. Mobile format
 
 **q2 is a phone application that currently happens to run in a browser.** The
 browser is the development and test surface; what ships to a person is a
@@ -216,7 +250,7 @@ added ahead of the requirement. This section is about the format the UI is
 designed and verified in, not about adding a native layer now
 ([../docs/next-steps.md](../docs/next-steps.md), item 14).
 
-## 9. Tests
+## 10. Tests
 
 ```bash
 bun run test             # unit + component
@@ -233,6 +267,13 @@ bun run test:e2e
 - **e2e** — Playwright against the production build and a real API on ports
   3001/5081, with its own freshly seeded temporary SQLite database.
 
+**Every spec starts signed in.** `globalSetup` signs in once through the real
+form and Playwright's `storageState` carries that session into every test;
+`authentication.spec.ts` opts out with its own `test.use`, because it is the one
+spec that is about signing in. A broken sign-in therefore fails once, in the
+setup, with a clear message — rather than failing forty tests with "expected the
+goal list, found the login page".
+
 Anything time-dependent takes the date as a parameter (`today`), so tests never
 depend on when they run.
 
@@ -247,7 +288,7 @@ unreachable tap target would still be green
 ([../docs/next-steps.md](../docs/next-steps.md), item 6). Looking at the change
 yourself remains part of the work.
 
-## 10. The message catalogue
+## 11. The message catalogue
 
 `app/app/i18n/messages.ts` holds every user-facing word, in German and English.
 The product speaks German by default; the settings screen switches it, and the
@@ -270,7 +311,7 @@ Three rules keep it working:
 Presentation helpers take the catalogue as an argument rather than reaching for
 a composable, which is what keeps them pure and unit-testable.
 
-## 11. Commands
+## 12. Commands
 
 ```bash
 bun run dev
@@ -284,7 +325,7 @@ bun run typecheck
 From the repository root, `bun run dev`, `bun run validate` and
 `bun run api:types` cover the same ground with the right environment.
 
-## 12. Before finishing a frontend change
+## 13. Before finishing a frontend change
 
 1. `bun run lint`
 2. `bun run typecheck`
@@ -294,7 +335,7 @@ From the repository root, `bun run dev`, `bun run validate` and
 6. if the API surface changed: `bun run api:openapi`, keeping both artefacts
 7. check the loading, empty and error states, not just the happy path
 8. look at the change at 390 × 844 — E2E runs there too, but it never asserts
-   layout (section 8)
+   layout (section 9)
 9. confirm no user content reaches Sentry
 
 Or `bun run validate` from the root, and report what it actually printed.

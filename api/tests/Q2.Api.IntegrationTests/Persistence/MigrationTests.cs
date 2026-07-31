@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
+using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -48,16 +51,21 @@ public class MigrationTests
         var person = Person.Create(
             Guid.CreateVersion7(), "Robin Sample", "@robin.after-migrating", "RS", AvatarColors.Indigo);
 
+        // Somebody to share it with. The owner is not added as a participant —
+        // they are already on the goal by owning it.
+        var participant = Person.Create(
+            Guid.CreateVersion7(), "Sam Sample", "@sam.after-migrating", "SS", AvatarColors.Pink);
+
         await using (var context = database.CreateContext())
         {
             var goal = Goal.Create(
-                id, "Written after migrating", null, "medal", GoalRhythm.Weekly, isGroup: false,
+                id, person.Id, "Written after migrating", null, "medal", GoalRhythm.Weekly, isGroup: false,
                 completedSteps: 4, totalSteps: 20, reminderAt: new TimeOnly(18, 0),
                 targetDate: new DateOnly(2026, 12, 24), Q2ApiFactory.Now);
-            goal.AddParticipant(Guid.CreateVersion7(), person.Id);
+            goal.AddParticipant(Guid.CreateVersion7(), participant.Id);
             goal.RecordContribution(Guid.CreateVersion7(), Q2ApiFactory.Today);
 
-            context.People.Add(person);
+            context.People.AddRange(person, participant);
             context.Goals.Add(goal);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
@@ -80,6 +88,122 @@ public class MigrationTests
         }
 
         Assert.True(database.FileExists);
+    }
+
+    /// <summary>
+    /// The other case a migration has to survive: an existing database with
+    /// rows in it.
+    /// </summary>
+    /// <remarks>
+    /// <c>AccountsAndTwoSidedFriendships</c> is the first migration here that
+    /// converts data rather than only reshaping tables. It reads
+    /// <c>People.IsCurrentUser</c> — the only thing in the old schema that says
+    /// who "you" were — and then drops it, so the conversion has to happen
+    /// while the column is still there.
+    ///
+    /// That ordering is not obvious from reading the file: SQLite has no
+    /// <c>DROP COLUMN</c>, so EF Core rebuilds a table for one, and it warns
+    /// that raw SQL "will be attempted while a rebuild is pending". This test
+    /// is what turns that warning into an answer. Without it, the evidence
+    /// would be "it did not fail on an empty database", which is not evidence
+    /// about data at all.
+    /// </remarks>
+    [Fact]
+    public async Task AnExistingDatabaseKeepsItsDataThroughTheAccountsMigration()
+    {
+        const string beforeAccounts = "20260730190319_KudosExperience";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+
+        var me = Guid.CreateVersion7();
+        var friend = Guid.CreateVersion7();
+        var asked = Guid.CreateVersion7();
+        var invited = Guid.CreateVersion7();
+        var suggested = Guid.CreateVersion7();
+        var goal = Guid.CreateVersion7();
+        var task = Guid.CreateVersion7();
+
+        await using (var context = database.CreateContext())
+        {
+            // 1. the schema as it was before accounts existed
+            var migrator = context.GetService<IMigrator>();
+            await migrator.MigrateAsync(beforeAccounts, TestContext.Current.CancellationToken);
+
+            // 2. rows in the old shape, written as SQL because the C# model
+            //    that produced them no longer exists
+            await ExecuteAsync(context, $"""
+                INSERT INTO People (Id, DisplayName, Handle, Initials, AvatarColor, IsCurrentUser, KudosReceived, GoalsCompleted)
+                VALUES
+                  ('{me}',        'Alt Ich',      '@alt.ich',      'AI', '#15803d', 1, 3, 1),
+                  ('{friend}',    'Alt Freund',   '@alt.freund',   'AF', '#4f46e5', 0, 0, 0),
+                  ('{asked}',     'Alt Anfrage',  '@alt.anfrage',  'AA', '#db2777', 0, 0, 0),
+                  ('{invited}',   'Alt Gefragt',  '@alt.gefragt',  'AG', '#b45309', 0, 0, 0),
+                  ('{suggested}', 'Alt Vorschlag','@alt.vorschlag','AV', '#0e7490', 0, 0, 0);
+
+                INSERT INTO Friendships (Id, PersonId, Status, MutualFriends) VALUES
+                  ('{Guid.CreateVersion7()}', '{friend}',    'Accepted',  2),
+                  ('{Guid.CreateVersion7()}', '{asked}',     'Requested', 1),
+                  ('{Guid.CreateVersion7()}', '{invited}',   'Invited',   0),
+                  ('{Guid.CreateVersion7()}', '{suggested}', 'Suggested', 4);
+
+                INSERT INTO Goals (Id, Title, Icon, Rhythm, Status, IsGroup, CompletedSteps, TotalSteps, CreatedAt)
+                VALUES ('{goal}', 'Altes Ziel', 'target', 'Daily', 'Active', 0, 2, 10, '2026-06-01 09:00:00');
+
+                INSERT INTO GoalTasks (Id, GoalId, Title, Rhythm, SortOrder, CreatedAt)
+                VALUES ('{task}', '{goal}', 'Alte Aufgabe', 'Daily', 0, '2026-06-01 09:00:00');
+                """);
+
+            // 3. the migration under test
+            await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using (var context = database.CreateContext())
+        {
+            // Everything that was there is still there, and now belongs to the
+            // person who was flagged as "you".
+            var storedGoal = await context.Goals.SingleAsync(TestContext.Current.CancellationToken);
+            var storedTask = await context.GoalTasks.SingleAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("Altes Ziel", storedGoal.Title);
+            Assert.Equal(me, storedGoal.OwnerPersonId);
+            Assert.Equal(me, storedTask.OwnerPersonId);
+
+            var friendships = await context.Friendships.ToListAsync(TestContext.Current.CancellationToken);
+
+            // The suggestion is gone: it was a guess stored as though it were a
+            // relationship, and suggestions are derived now.
+            Assert.Equal(3, friendships.Count);
+            Assert.DoesNotContain(friendships, f => f.Involves(suggested));
+
+            // "They asked you" keeps its direction …
+            var incoming = friendships.Single(f => f.Involves(asked));
+            Assert.Equal(asked, incoming.RequesterId);
+            Assert.Equal(me, incoming.AddresseeId);
+            Assert.True(incoming.IsIncomingFor(me));
+
+            // … and so does "you asked them", the other way round.
+            var outgoing = friendships.Single(f => f.Involves(invited));
+            Assert.Equal(me, outgoing.RequesterId);
+            Assert.Equal(invited, outgoing.AddresseeId);
+            Assert.True(outgoing.IsOutgoingFrom(me));
+
+            var accepted = friendships.Single(f => f.Involves(friend));
+            Assert.Equal(FriendshipStatus.Accepted, accepted.Status);
+
+            // No accounts: a password hash is not something a migration may
+            // invent, which is why README section 6 says to start over.
+            Assert.Equal(0, await context.Users.CountAsync(TestContext.Current.CancellationToken));
+        }
+    }
+
+    /// <summary>Runs several statements as one script, outside EF's model.</summary>
+    private static async Task ExecuteAsync(Q2DbContext context, string sql)
+    {
+        await context.Database.OpenConnectionAsync(TestContext.Current.CancellationToken);
+
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]

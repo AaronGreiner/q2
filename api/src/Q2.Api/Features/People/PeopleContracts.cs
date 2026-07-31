@@ -30,24 +30,64 @@ public sealed record PersonSummary(
         person.IsOnlineAt(now));
 }
 
+/// <summary>
+/// Where the signed-in person stands with somebody else.
+/// </summary>
+/// <remarks>
+/// Sent instead of a set of booleans so the client has one thing to switch on
+/// when it decides which buttons a row gets. The states are exclusive by
+/// construction: there is at most one friendship row per pair.
+/// </remarks>
+public enum FriendshipState
+{
+    /// <summary>No connection at all. The row offers "add".</summary>
+    None,
+
+    /// <summary>You asked and are waiting. The row offers "withdraw".</summary>
+    RequestSent,
+
+    /// <summary>They asked and you have not answered. The row offers "accept" and "decline".</summary>
+    RequestReceived,
+
+    /// <summary>Friends. The row offers "message" and "remove".</summary>
+    Friends,
+
+    /// <summary>You. Nothing to offer.</summary>
+    Self,
+}
+
 /// <summary>Somebody you are already connected to.</summary>
 /// <param name="Streak">Their current streak, so the list can show who is on a roll.</param>
 public sealed record FriendResponse(PersonSummary Person, int Streak, DateTimeOffset? LastSeenAt);
 
 /// <summary>Somebody who has asked to be your friend.</summary>
-public sealed record FriendRequestResponse(Guid Id, PersonSummary Person, int MutualFriends);
+public sealed record FriendRequestResponse(PersonSummary Person, int MutualFriends, DateTimeOffset RequestedAt);
 
-/// <summary>Somebody q2 thinks you might know.</summary>
-/// <param name="IsInvited">True once you have sent the request and are waiting.</param>
-public sealed record FriendSuggestionResponse(Guid Id, PersonSummary Person, int MutualFriends, bool IsInvited);
+/// <summary>A request you sent that has not been answered yet.</summary>
+public sealed record SentRequestResponse(PersonSummary Person, DateTimeOffset RequestedAt);
+
+/// <summary>Somebody q2 thinks you might know, and why.</summary>
+/// <remarks>
+/// Derived from the friend graph rather than stored: a suggestion is a
+/// statement about the data as it stands now, and a stored one would go stale
+/// the moment somebody's friendships changed.
+/// </remarks>
+public sealed record FriendSuggestionResponse(PersonSummary Person, int MutualFriends);
+
+/// <summary>A person found by search, and where you stand with them.</summary>
+public sealed record PersonSearchResultResponse(
+    PersonSummary Person,
+    FriendshipState State,
+    int MutualFriends);
 
 /// <summary>Everything the friends screen shows, in one read.</summary>
 /// <remarks>
-/// One response rather than three endpoints: the screen is useless without all
-/// three sections, and three round trips on a phone connection is three chances
-/// to show a half-drawn page.
+/// One response rather than four endpoints: the screen is useless without all
+/// of it, and four round trips on a phone connection is four chances to show a
+/// half-drawn page.
 /// </remarks>
 public sealed record FriendsResponse(
     IReadOnlyList<FriendResponse> Friends,
     IReadOnlyList<FriendRequestResponse> Requests,
+    IReadOnlyList<SentRequestResponse> SentRequests,
     IReadOnlyList<FriendSuggestionResponse> Suggestions);

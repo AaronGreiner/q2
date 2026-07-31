@@ -15,7 +15,7 @@ public static class GoalEndpoints
 {
     public static IEndpointRouteBuilder MapGoalEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var goals = endpoints.MapGroup("/api/goals").WithTags("Goals");
+        var goals = endpoints.MapGroup("/api/goals").WithTags("Goals").RequireAuthorization();
 
         goals.MapGet("/", ListGoals)
             .WithName("ListGoals")
@@ -40,7 +40,7 @@ public static class GoalEndpoints
             .Produces<GoalResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        var tasks = endpoints.MapGroup("/api/tasks").WithTags("Tasks");
+        var tasks = endpoints.MapGroup("/api/tasks").WithTags("Tasks").RequireAuthorization();
 
         tasks.MapGet("/", ListTasks)
             .WithName("ListTasks")

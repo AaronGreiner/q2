@@ -30,13 +30,22 @@ export type LeaderboardEntry = Schemas['LeaderboardEntryResponse']
 export type Friends = Schemas['FriendsResponse']
 export type Friend = Schemas['FriendResponse']
 export type FriendRequest = Schemas['FriendRequestResponse']
+export type SentRequest = Schemas['SentRequestResponse']
 export type FriendSuggestion = Schemas['FriendSuggestionResponse']
+export type PersonSearchResult = Schemas['PersonSearchResultResponse']
+export type FriendshipState = Schemas['FriendshipState']
 
 export type ChatSummary = Schemas['ChatSummaryResponse']
 export type ChatDetail = Schemas['ChatDetailResponse']
 export type ChatMessage = Schemas['ChatMessageResponse']
 export type MessageReaction = Schemas['MessageReactionResponse']
 export type ChatPinnedGoal = Schemas['ChatPinnedGoalResponse']
+export type StartDirectChatRequest = Schemas['StartDirectChatRequest']
+export type CreateGroupChatRequest = Schemas['CreateGroupChatRequest']
+
+export type Session = Schemas['SessionResponse']
+export type RegisterRequest = Schemas['RegisterRequest']
+export type LoginRequest = Schemas['LoginRequest']
 
 export type Profile = Schemas['ProfileResponse']
 export type Badge = Schemas['BadgeResponse']
@@ -80,6 +89,14 @@ export const goalIcons: readonly string[] = [
 
 /** The reactions a message can carry. Matches `MessageReactions` on the server. */
 export const messageReactions = ['👏', '🔥', '❤️'] as const
+
+/**
+ * The avatars a group chat can be given.
+ *
+ * A short, closed list rather than an emoji picker: the avatar is one glyph on
+ * a coloured circle, and every one of these still reads at that size.
+ */
+export const groupEmoji = ['💬', '🌅', '📚', '🏃', '🌱', '🎯', '💚', '🎉'] as const
 
 export function isGoalStatus(value: unknown): value is GoalStatus {
   return typeof value === 'string' && (goalStatuses as readonly string[]).includes(value)

@@ -18,7 +18,7 @@ aspirational.
 
 | GDPR principle | How it shows up here |
 | --- | --- |
-| Data minimisation (Art. 5(1)(c)) | The model has seven fields. No accounts, no profiles, no analytics, no tracking, no location. |
+| Data minimisation (Art. 5(1)(c)) | An account is an address and a password hash, and nothing else. No profiles, no analytics, no tracking, no location. |
 | Purpose limitation (Art. 5(1)(b)) | Stored data is used to render goals. It is not sent to Sentry, not logged and not aggregated. |
 | Transparency (Art. 5(1)(a)) | The environment is visible in the UI; the diagnostics page states plainly what reporting is active. |
 | Storage limitation (Art. 5(1)(e)) | Local and test databases are throwaway by design. Production retention is an open decision — section 8. |
@@ -35,28 +35,36 @@ aspirational.
 | Task content | title, measured amount and unit | User-authored. Same treatment. |
 | Progress | steps done, days worked on, task completion dates | A day-by-day record of somebody's habits. |
 | Time | creation timestamp, optional target date, reminder time | |
-| People | display name, handle, initials, avatar colour | No account, no email, no password. See [adr/0009-single-known-person.md](adr/0009-single-known-person.md). |
-| Presence | last-seen timestamp | Written by the seeds only; nothing updates it at runtime. |
-| Social graph | friendships and their status, mutual-friend counts | One-sided, relative to the one known person. |
+| People | display name, handle, initials, avatar colour | Separate from the account, and the only thing other people ever see of somebody. |
+| Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). |
+| Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
+| Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
 | Activity | what somebody did, when, and who cheered it | The subject is a goal or task title, so it inherits their treatment. |
 | Messages | text, sender, timestamp, reactions | **The most personal thing q2 stores.** |
 | Preferences | theme, language, notification switches | |
 
 **Not processed at all:**
 
-email addresses, passwords, phone numbers, postal addresses, dates of birth,
-payment data, location or coordinates, device identifiers, IP addresses beyond
-the transport layer and what Sentry attaches (section 4), biometric data,
-advertising or analytics identifiers, third-party profile data, photographs —
-an avatar is initials on a colour, so there is no face to lose control of.
+plain passwords, phone numbers, postal addresses, dates of birth, payment data,
+location or coordinates, device identifiers, IP addresses beyond the transport
+layer and what Sentry attaches (section 4), biometric data, advertising or
+analytics identifiers, third-party profile data, photographs — an avatar is
+initials on a colour, so there is no face to lose control of.
 
-There is no user account system yet, and every name in the database is
-invented — but a goal description, a task title and a message all can identify
-somebody, so all three are treated as personal data throughout.
+**The email address is the newest category here and the one to watch.** It is
+the credential and nothing else: it is never shown to another person, never
+searchable — `GET /api/friends/search` matches display names and handles only,
+which is deliberate, because matching addresses would turn it into a way to
+check whether a given address has an account here — and never sent to Sentry.
 
-Chat messages and the social graph are the two categories that would need a
-retention answer before real people are in the database. The initial version
-does not have one; see [next-steps.md](next-steps.md) item 10.
+Every name in the database is invented — but a goal description, a task title
+and a message all can identify somebody, so all three are treated as personal
+data throughout.
+
+Chat messages, the social graph and now the account itself are the categories
+that need a retention and erasure answer before real people are in the database.
+The initial version does not have one; see [next-steps.md](next-steps.md)
+items 7 and 8.
 
 ## 3. Logging rules
 
@@ -104,7 +112,7 @@ can be reconstructed rather than guessed at.
 | | Frontend | Backend |
 | --- | --- | --- |
 | `sendDefaultPii` | `true` — the SDK attaches the IP address | `true` — same |
-| User id, email, username | no accounts exist, so nothing is set | cleared by `ScrubUser`; the SDK would otherwise fill the id with an installation identifier that identifies *our host* |
+| User id, email, username | never set; the app does not tell the SDK who is signed in | cleared by `ScrubUser`; the SDK would otherwise fill the id with an installation identifier that identifies *our host* |
 | Session Replay | every session (`replaysSessionSampleRate: 1`) | not applicable — replay is browser-only |
 | Request bodies | never attached | never attached (`MaxRequestBodySize.None`, unaffected by `SendDefaultPii`) |
 
@@ -209,9 +217,9 @@ Technical preparation is not compliance. Before q2 processes real users' data:
    database, backups and error-reporting data.
 7. **Right to data portability** (Art. 20): export in a machine-readable
    format.
-8. **Access control**: authentication and authorisation — until then the API
-   must not be publicly exposed with real data. See
-   [adr/0006-authentication-deferred.md](adr/0006-authentication-deferred.md).
+8. **Account recovery and deletion**: there is no password reset and no way to
+   delete an account. The second is Art. 17 with a deadline attached to it. See
+   [next-steps.md](next-steps.md) items 7 and 8.
 9. **DPIA** (Art. 35) if health-related content, community features or any
    location processing are confirmed — likely for this product.
 10. **Breach process** (Art. 33/34): who is notified, by whom, within 72 hours.

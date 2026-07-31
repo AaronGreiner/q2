@@ -15,6 +15,9 @@ public class GoalTaskTests
 {
     private static readonly DateTimeOffset Created = new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>Whoever it belongs to. Fixed, so a failure names the same id twice.</summary>
+    private static readonly Guid Owner = new("11111111-1111-4111-8111-111111111111");
+
     // 2026-06-15 is a Monday; the 20th is the Saturday of the same week.
     private static readonly DateOnly Monday = new(2026, 6, 15);
     private static readonly DateOnly Saturday = new(2026, 6, 20);
@@ -28,6 +31,7 @@ public class GoalTaskTests
         string? unit = null) =>
         GoalTask.Create(
             Guid.CreateVersion7(),
+            Owner,
             goalId: null,
             "Joggen 5 km",
             rhythm,
@@ -161,7 +165,7 @@ public class GoalTaskTests
     public void ABlankTitleIsRejected(string title)
     {
         var error = Assert.Throws<DomainValidationException>(() => GoalTask.Create(
-            Guid.CreateVersion7(), null, title, GoalRhythm.Daily, null, null, null, null, null, null, 0, Created));
+            Guid.CreateVersion7(), Owner, null, title, GoalRhythm.Daily, null, null, null, null, null, null, 0, Created));
 
         Assert.Contains(nameof(GoalTask.Title), error.Errors.Keys);
     }

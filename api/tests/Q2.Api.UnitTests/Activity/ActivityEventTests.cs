@@ -94,49 +94,82 @@ public class ActivityEventTests
 }
 
 /// <summary>
-/// Where a friend request can go from where it is.
+/// Where a friend request can go from where it is, and who may move it.
 /// </summary>
 public class FriendshipTests
 {
-    [Fact]
-    public void OnlyAPendingRequestCanBeAccepted()
-    {
-        var suggestion = Friendship.Create(
-            Guid.CreateVersion7(), Guid.CreateVersion7(), FriendshipStatus.Suggested);
+    private static readonly DateTimeOffset Asked = new(2026, 6, 1, 9, 0, 0, TimeSpan.Zero);
 
-        // Accepting a suggestion would make somebody your friend without them
-        // ever having asked.
-        Assert.Throws<DomainValidationException>(suggestion.Accept);
-    }
+    private static readonly Guid Requester = new("11111111-1111-4111-8111-111111111111");
+
+    private static readonly Guid Addressee = new("22222222-2222-4222-8222-222222222222");
 
     [Fact]
     public void AcceptingARequestConnectsThem()
     {
-        var request = Friendship.Create(
-            Guid.CreateVersion7(), Guid.CreateVersion7(), FriendshipStatus.Requested, mutualFriends: 3);
+        var request = Friendship.Request(Guid.CreateVersion7(), Requester, Addressee, Asked);
 
-        request.Accept();
+        request.Accept(Addressee, Asked.AddHours(2));
 
         Assert.Equal(FriendshipStatus.Accepted, request.Status);
+        Assert.Equal(Asked.AddHours(2), request.RespondedAt);
     }
 
     [Fact]
-    public void OnlyASuggestionCanBeTurnedIntoARequest()
+    public void OnlyThePersonWhoWasAskedCanAccept()
     {
-        var accepted = Friendship.Create(
-            Guid.CreateVersion7(), Guid.CreateVersion7(), FriendshipStatus.Accepted);
+        var request = Friendship.Request(Guid.CreateVersion7(), Requester, Addressee, Asked);
 
-        Assert.Throws<DomainValidationException>(accepted.Invite);
+        // Otherwise sending a request would be the same thing as being granted
+        // one, and nobody would ever have to agree.
+        Assert.Throws<DomainValidationException>(() => request.Accept(Requester, Asked));
     }
 
     [Fact]
-    public void AskingASuggestedPersonSendsAnInvitation()
+    public void AnAlreadyAcceptedFriendshipCannotBeAcceptedAgain()
     {
-        var suggestion = Friendship.Create(
-            Guid.CreateVersion7(), Guid.CreateVersion7(), FriendshipStatus.Suggested);
+        var friendship = Friendship.Create(
+            Guid.CreateVersion7(), Requester, Addressee, FriendshipStatus.Accepted, Asked, Asked);
 
-        suggestion.Invite();
+        Assert.Throws<DomainValidationException>(() => friendship.Accept(Addressee, Asked));
+    }
 
-        Assert.Equal(FriendshipStatus.Invited, suggestion.Status);
+    [Fact]
+    public void NobodyCanBefriendThemselves()
+    {
+        Assert.Throws<DomainValidationException>(
+            () => Friendship.Request(Guid.CreateVersion7(), Requester, Requester, Asked));
+    }
+
+    [Fact]
+    public void TheSameRowReadsAsIncomingForOneSideAndOutgoingForTheOther()
+    {
+        var request = Friendship.Request(Guid.CreateVersion7(), Requester, Addressee, Asked);
+
+        Assert.True(request.IsIncomingFor(Addressee));
+        Assert.False(request.IsIncomingFor(Requester));
+
+        Assert.True(request.IsOutgoingFrom(Requester));
+        Assert.False(request.IsOutgoingFrom(Addressee));
+    }
+
+    [Fact]
+    public void AnAcceptedFriendshipIsNeitherIncomingNorOutgoing()
+    {
+        var friendship = Friendship.Create(
+            Guid.CreateVersion7(), Requester, Addressee, FriendshipStatus.Accepted, Asked, Asked);
+
+        Assert.False(friendship.IsIncomingFor(Addressee));
+        Assert.False(friendship.IsOutgoingFrom(Requester));
+    }
+
+    [Fact]
+    public void TheOtherEndIsWhicheverOneYouAreNot()
+    {
+        var friendship = Friendship.Request(Guid.CreateVersion7(), Requester, Addressee, Asked);
+
+        Assert.Equal(Addressee, friendship.OtherThan(Requester));
+        Assert.Equal(Requester, friendship.OtherThan(Addressee));
+        Assert.Throws<InvalidOperationException>(() => friendship.OtherThan(Guid.CreateVersion7()));
     }
 }

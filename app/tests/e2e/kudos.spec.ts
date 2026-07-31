@@ -215,6 +215,45 @@ test.describe('chats', () => {
 
     await expect(page.getByTestId('chat-not-found')).toBeVisible()
   })
+
+  test('a group can be created from friends and left again', async ({ page }) => {
+    await page.goto('/chats')
+
+    await page.getByTestId('new-chat').click()
+    await page.getByTestId('chat-mode-group').click()
+
+    const title = `E2E created group ${Date.now()}`
+    await page.getByTestId('group-title-input').fill(title)
+    await page.getByTestId('group-emoji-🌱').click()
+
+    // Every friend is offered, and the server refuses anybody else.
+    await page.getByTestId('group-create-form').getByRole('checkbox').first().check()
+    await page.getByTestId('group-create-submit').click()
+
+    await expect(page).toHaveURL(/\/chats\//)
+    await expect(page.getByRole('heading', { name: title })).toBeVisible()
+
+    await page.getByTestId('leave-group').click()
+    await page.getByTestId('confirm-accept').click()
+
+    await expect(page).toHaveURL('/chats')
+    await expect(page.getByTestId('chat-list')).not.toContainText(title)
+  })
+
+  test('a direct chat opened twice is the same thread, not a second one', async ({ page }) => {
+    await page.goto('/chats')
+
+    const before = await page.getByTestId('chat-row').count()
+
+    await page.getByTestId('new-chat').click()
+    await page.getByTestId('chat-mode-direct').click()
+    await page.getByTestId('chat-friend-picker').getByRole('button').first().click()
+
+    await expect(page).toHaveURL(/\/chats\//)
+    await page.goto('/chats')
+
+    await expect(page.getByTestId('chat-row')).toHaveCount(before)
+  })
 })
 
 test.describe('friends', () => {
@@ -226,13 +265,20 @@ test.describe('friends', () => {
     await expect(page.getByTestId('friend-list')).toContainText(seeded.friend)
   })
 
-  test('asking a suggested person leaves the row visible as "Angefragt"', async ({ page }) => {
+  test('asking a suggested person moves them into the sent requests', async ({ page }) => {
     await page.goto('/friends')
 
     const suggestion = page.getByTestId('friend-suggestion').filter({ hasText: seeded.suggested })
     await suggestion.getByTestId('suggestion-request').click()
 
-    await expect(suggestion.getByTestId('suggestion-request')).toHaveText('Angefragt')
+    // A suggestion is derived from the friend graph, so asking takes them out
+    // of it and puts them where a request that is waiting belongs.
+    await expect(page.getByTestId('sent-request')).toContainText(seeded.suggested)
+    await expect(page.getByTestId('friend-suggestion')).toHaveCount(0)
+
+    // Put it back, so the next test starts where this one did.
+    await page.getByTestId('sent-request').getByTestId('sent-request-withdraw').click()
+    await expect(page.getByTestId('sent-request')).toHaveCount(0)
   })
 
   test('accepting a request makes them a friend', async ({ page }) => {
@@ -245,13 +291,47 @@ test.describe('friends', () => {
     await expect(page.getByTestId('friend-request')).toHaveCount(0)
   })
 
-  test('searching filters the list', async ({ page }) => {
+  test('searching finds somebody who is not a friend yet, and adds them', async ({ page }) => {
     await page.goto('/friends')
 
-    await page.getByTestId('friend-search').fill('Lena')
+    // The one box searches everybody, which is what makes it possible to add
+    // somebody the app has not already suggested.
+    await page.getByTestId('friend-search').fill('E2E Lena')
 
-    await expect(page.getByTestId('friend-list')).toContainText('E2E Lena')
-    await expect(page.getByTestId('friend-list')).not.toContainText(seeded.friend)
+    const result = page.getByTestId('person-result').filter({ hasText: 'E2E Lena' })
+    await expect(result).toBeVisible()
+
+    // Already a friend, so the row offers a message rather than an add.
+    await expect(result.getByTestId('result-message')).toBeVisible()
+  })
+
+  test('search matches a handle as well as a name', async ({ page }) => {
+    await page.goto('/friends')
+
+    await page.getByTestId('friend-search').fill('e2e.jonas')
+
+    await expect(page.getByTestId('person-results')).toContainText(seeded.friend)
+  })
+
+  test('a term too short to be useful asks for more rather than listing everybody', async ({ page }) => {
+    await page.goto('/friends')
+
+    await page.getByTestId('friend-search').fill('E')
+
+    await expect(page.getByTestId('search-empty')).toBeVisible()
+  })
+
+  test('writing to a friend opens the conversation with them', async ({ page }) => {
+    await page.goto('/friends')
+
+    await page
+      .getByTestId('friend-row')
+      .filter({ hasText: seeded.friend })
+      .getByTestId('friend-message')
+      .click()
+
+    await expect(page).toHaveURL(/\/chats\//)
+    await expect(page.getByRole('heading', { name: seeded.friend })).toBeVisible()
   })
 })
 

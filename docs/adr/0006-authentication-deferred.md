@@ -1,7 +1,13 @@
 # 0006 — Authentication deliberately deferred
 
-- **Status:** Accepted
+- **Status:** Superseded by
+  [0011 — Accounts with ASP.NET Core Identity and a session cookie](0011-authentication-with-identity.md)
 - **Date:** 2026-07-29
+
+> Authentication now exists. This record is kept because the reasoning for
+> deferring it, and the checklist it left behind, are what ADR 0011 was built
+> against — every item under "When authentication is introduced" was worked
+> through there. Read it for the history, not for the current state.
 
 ## Context
 

@@ -11,6 +11,8 @@ app/pages/index.vue                  the dashboard — how a page composes
 app/components/goals/GoalCard.vue    the reference component
 app/composables/useGoals.ts          state, loading, error handling
 app/api/errors.ts                    every failure is normalised here
+app/middleware/auth.global.ts        the route guard
+app/composables/useSession.ts        who is signed in
 sentry.shared.ts                     what never reaches Sentry
 tests/component/GoalCard.spec.ts     how to write a component test
 ```
@@ -38,6 +40,10 @@ tests/component/GoalCard.spec.ts     how to write a component test
 - **Do not format dates with `Intl`.** ICU data differs between Node versions
   and browsers (`Sep` vs `Sept`), which causes hydration mismatches. Use
   `formatDate` in `app/utils/goalDisplay.ts`.
+- **The session is a cookie, not a token.** `useQ2Api` sends
+  `credentials: 'include'` in the browser and copies the `cookie` header off the
+  incoming request during SSR. Drop either and the app renders signed-out and
+  then flickers.
 - **Do not disable Sentry outside production.**
 
 ## Verifying a change
@@ -53,6 +59,10 @@ bun run typecheck
 ```bash
 bun run test
 ```
+
+Every E2E spec starts signed in — `globalSetup` does it once through the real
+form and `storageState` carries it. `authentication.spec.ts` opts out, because
+it is the spec that is about signing in.
 
 The E2E suite starts its own API and frontend on ports 5081/3001, so it can run
 while `bun run dev` is up:

@@ -28,8 +28,17 @@ public sealed class AutomatedTestSeed : ISeedDataSource
 
     public string Description => "3 people, 3 goals, 3 tasks, 2 conversations — one of each branch.";
 
-    /// <summary>The person every request is answered as.</summary>
+    /// <summary>The person the tests sign in as by default.</summary>
     public static Guid CurrentPersonId => SeedIds.For(Owner, SeedEntity.Person, 1);
+
+    /// <summary>Their email address, which is what the sign-in helper posts.</summary>
+    public const string CurrentPersonEmail = "test.one@" + SeedAccounts.EmailDomain;
+
+    /// <summary>The friend's address, for tests that check the other side of a thing.</summary>
+    public const string FriendEmail = "test.two@" + SeedAccounts.EmailDomain;
+
+    /// <summary>The address of the person who has asked to be friends.</summary>
+    public const string RequesterEmail = "test.three@" + SeedAccounts.EmailDomain;
 
     /// <summary>An accepted friend — the actor behind the seeded feed entry.</summary>
     public static Guid FriendPersonId => SeedIds.For(Owner, SeedEntity.Person, 2);
@@ -52,11 +61,11 @@ public sealed class AutomatedTestSeed : ISeedDataSource
     /// <summary>A one-off task due in three days, so it is never on today's list.</summary>
     public static Guid FutureTaskId => SeedIds.For(Owner, SeedEntity.GoalTask, 3);
 
-    /// <summary>The pending friend request, for accept and decline tests.</summary>
-    public static Guid PendingRequestId => SeedIds.For(Owner, SeedEntity.Friendship, 2);
+    /// <summary>Who has asked to be friends — the accept and decline tests.</summary>
+    public static Guid RequestingPersonId => SeedIds.For(Owner, SeedEntity.Person, 3);
 
-    /// <summary>The suggestion, for the "send a request" test.</summary>
-    public static Guid SuggestionId => SeedIds.For(Owner, SeedEntity.Friendship, 3);
+    /// <summary>Somebody not connected at all — the "send a request" test.</summary>
+    public static Guid UnconnectedPersonId => SeedIds.For(Owner, SeedEntity.Person, 4);
 
     /// <summary>A feed entry nobody has given kudos to yet.</summary>
     public static Guid ActivityWithoutKudosId => SeedIds.For(Owner, SeedEntity.Activity, 1);
@@ -71,7 +80,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
     {
         var build = new SeedBuilder(Owner, context);
 
-        var me = build.AddCurrentUser(
+        var me = build.AddPrimaryPerson(
             "Test Person One",
             "@test.one",
             "T1",
@@ -88,11 +97,14 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         var stranger = build.AddPerson(
             "Test Person Three", "@test.three", "T3", AvatarColors.Pink, lastSeenMinutesAgo: 5000);
 
-        build.Connect(friend, FriendshipStatus.Accepted);
-        build.Connect(stranger, FriendshipStatus.Requested, mutualFriends: 2);
+        var unconnected = build.AddPerson("Test Person Four", "@test.four", "T4", AvatarColors.Amber);
 
-        var suggested = build.AddPerson("Test Person Four", "@test.four", "T4", AvatarColors.Amber);
-        build.Connect(suggested, FriendshipStatus.Suggested, mutualFriends: 1);
+        build.Befriend(me, friend);
+        build.Request(stranger, me);
+
+        // Not connected to me, but known to my friend — which is what makes
+        // them the one suggestion this world offers.
+        build.Befriend(friend, unconnected);
 
         var active = build.AddGoal(
             "Automated test: shared active goal",
@@ -141,7 +153,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
             new SeedMessage(me, "Automated test: first message", 30),
             new SeedMessage(friend, "Automated test: unread reply", 20, MessageReactions.Clap));
 
-        build.AddChatWithoutMe("Automated test: not my group", "🔒", [stranger, suggested]);
+        build.AddChatWithoutMe("Automated test: not my group", "🔒", [stranger, unconnected]);
 
         build.AddDefaultSettings();
 

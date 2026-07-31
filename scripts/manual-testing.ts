@@ -51,6 +51,14 @@ const steps: Step[] = [
       NUXT_PUBLIC_APP_ENV: 'manual-testing',
       NUXT_PUBLIC_SENTRY_ENVIRONMENT: 'manual-testing',
       NUXT_PUBLIC_DIAGNOSTICS_ENABLED: 'true',
+
+      // Set here rather than left to app/.env, so this environment is usable
+      // from a fresh checkout: the whole point of it is a known state to click
+      // through, and looking a password up first is friction it does not need.
+      // The ManualTesting seed shares KudosWorld with Development, so this is
+      // the same account `bun run dev` offers. See README.md section 10.
+      NUXT_PUBLIC_DEMO_EMAIL: 'mara.k@kudos.example',
+      NUXT_PUBLIC_DEMO_PASSWORD: 'kudos-demo-2026',
     },
   },
 ]

@@ -13,11 +13,15 @@ namespace Q2.Api.UnitTests.Goals;
 public class GoalTests
 {
     private static readonly DateTimeOffset Created = new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Whoever it belongs to. Fixed, so a failure names the same id twice.</summary>
+    private static readonly Guid Owner = new("11111111-1111-4111-8111-111111111111");
     private static readonly DateOnly Today = new(2026, 6, 15);
 
     private static Goal Build(int completedSteps = 0, int totalSteps = 10, DateOnly? targetDate = null) =>
         Goal.Create(
             Guid.CreateVersion7(),
+            Owner,
             "Walk 8.000 steps a day",
             null,
             "target",
@@ -33,7 +37,7 @@ public class GoalTests
     public void ATitleIsRequiredAndIsTrimmed()
     {
         var goal = Goal.Create(
-            Guid.CreateVersion7(), "  Read every day  ", null, "book-open", GoalRhythm.Daily,
+            Guid.CreateVersion7(), Owner, "  Read every day  ", null, "book-open", GoalRhythm.Daily,
             false, 0, 30, null, null, Created);
 
         Assert.Equal("Read every day", goal.Title);
@@ -45,7 +49,7 @@ public class GoalTests
     public void ABlankTitleIsRejected(string title)
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), title, null, "target", GoalRhythm.Daily, false, 0, 10, null, null, Created));
+            Guid.CreateVersion7(), Owner, title, null, "target", GoalRhythm.Daily, false, 0, 10, null, null, Created));
 
         Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
     }
@@ -54,7 +58,7 @@ public class GoalTests
     public void ATitleLongerThanTheLimitIsRejected()
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), new string('a', Goal.MaxTitleLength + 1), null, "target", GoalRhythm.Daily,
+            Guid.CreateVersion7(), Owner, new string('a', Goal.MaxTitleLength + 1), null, "target", GoalRhythm.Daily,
             false, 0, 10, null, null, Created));
 
         Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
@@ -64,7 +68,7 @@ public class GoalTests
     public void AnUnknownIconIsRejected()
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), "Anything", null, "rocket", GoalRhythm.Daily, false, 0, 10, null, null, Created));
+            Guid.CreateVersion7(), Owner, "Anything", null, "rocket", GoalRhythm.Daily, false, 0, 10, null, null, Created));
 
         Assert.Contains(nameof(Goal.Icon), error.Errors.Keys);
     }
@@ -73,7 +77,7 @@ public class GoalTests
     public void AMissingIconFallsBackToTheDefaultRatherThanFailing()
     {
         var goal = Goal.Create(
-            Guid.CreateVersion7(), "Anything", null, null, GoalRhythm.Daily, false, 0, 10, null, null, Created);
+            Guid.CreateVersion7(), Owner, "Anything", null, null, GoalRhythm.Daily, false, 0, 10, null, null, Created);
 
         Assert.Equal(GoalIcons.Default, goal.Icon);
     }
@@ -85,7 +89,7 @@ public class GoalTests
     public void AnImpossibleNumberOfStepsIsRejected(int totalSteps)
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), "Anything", null, "target", GoalRhythm.Daily, false, 0, totalSteps, null, null, Created));
+            Guid.CreateVersion7(), Owner, "Anything", null, "target", GoalRhythm.Daily, false, 0, totalSteps, null, null, Created));
 
         Assert.Contains(nameof(Goal.TotalSteps), error.Errors.Keys);
     }
@@ -94,7 +98,7 @@ public class GoalTests
     public void MoreCompletedStepsThanTotalStepsIsRejected()
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), "Anything", null, "target", GoalRhythm.Daily, false, 11, 10, null, null, Created));
+            Guid.CreateVersion7(), Owner, "Anything", null, "target", GoalRhythm.Daily, false, 11, 10, null, null, Created));
 
         Assert.Contains(nameof(Goal.CompletedSteps), error.Errors.Keys);
     }

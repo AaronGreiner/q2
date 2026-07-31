@@ -1,16 +1,22 @@
 <script setup lang="ts">
 /**
- * Friends, requests and suggestions.
+ * Friends: who you know, who is waiting on an answer, who you have asked, and
+ * who you might know.
  *
- * Tapping the message button on a friend opens the conversation with them if
- * there is one, and otherwise lands on the chat list — creating a conversation
- * is not something this version can do, and pretending otherwise would be
- * worse than the honest fallback.
+ * The search box has one meaning — find a person, anywhere in q2 — and while
+ * something is typed into it the sections are replaced by its results. A box
+ * that filtered your own friends *and* was the only way to add somebody was the
+ * reason this screen could not add anybody it had not already been told about.
+ *
+ * The message button opens the conversation with somebody, creating it if there
+ * is not one yet. That is one call, and it is idempotent on the server, so
+ * tapping it twice lands in the same thread rather than making two.
  */
 const t = useMessages()
 const now = useNow()
 const api = useQ2Api()
 const router = useRouter()
+const { report } = useErrorReporter()
 
 const input = ref('')
 const search = ref('')
@@ -25,28 +31,70 @@ watch(input, (value) => {
 
 onScopeDispose(() => clearTimeout(debounce))
 
-const { friends, requests, suggestions, error, isLoading, refresh, accept, decline, request } = useFriends(search)
+const {
+  friends,
+  requests,
+  sentRequests,
+  suggestions,
+  error,
+  isLoading,
+  refresh,
+  accept,
+  decline,
+  request,
+  withdraw,
+  remove,
+} = useFriends()
 
-async function onAccept(id: string) {
-  await accept(id)
-  // The tab bar counts pending requests, and there is now one fewer.
-  await refreshNuxtData('profile')
-}
+const {
+  results,
+  isSearching,
+  isActive: isSearchActive,
+  minimumLength,
+  error: searchError,
+  search: runSearch,
+} = usePersonSearch(search)
 
-async function onDecline(id: string) {
-  await decline(id)
-  await refreshNuxtData('profile')
-}
+/** Whether the typed-in box is showing results instead of the usual sections. */
+const isSearchMode = computed(() => search.value.trim().length > 0)
 
 async function onMessage(personId: string) {
-  const chats = await api.chats.list()
-  const direct = chats.find(chat => chat.kind === 'Direct' && chat.name === nameOf(personId))
-
-  await router.push(direct ? `/chats/${direct.id}` : '/chats')
+  try {
+    const chat = await api.chats.startDirect(personId)
+    await router.push(`/chats/${chat.id}`)
+  }
+  catch (caught) {
+    report(caught, { feature: 'friends', action: 'startChat' })
+  }
 }
 
-function nameOf(personId: string): string | undefined {
-  return friends.value.find(friend => friend.person.id === personId)?.person.displayName
+/**
+ * Removing ends the friendship for both people, so it asks first. The person
+ * being removed is held while the dialog is open rather than passed through it,
+ * so the dialog stays a dumb yes/no.
+ */
+const pendingRemoval = ref<{ id: string, name: string } | null>(null)
+const isRemoveOpen = ref(false)
+
+function onRemove(personId: string) {
+  const friend = friends.value.find(entry => entry.person.id === personId)
+  if (!friend) return
+
+  pendingRemoval.value = { id: personId, name: friend.person.displayName }
+  isRemoveOpen.value = true
+}
+
+async function confirmRemove() {
+  const target = pendingRemoval.value
+  pendingRemoval.value = null
+
+  if (target) await remove(target.id)
+}
+
+/** A search result changes state on every action, so the list is re-fetched. */
+async function actOnResult(personId: string, action: (id: string) => Promise<void>) {
+  await action(personId)
+  await runSearch()
 }
 
 useHead({ title: () => t.value.friends.heading })
@@ -81,116 +129,215 @@ useHead({ title: () => t.value.friends.heading })
     </div>
 
     <div class="q2-scroll flex-1 px-[18px] pb-6">
-      <div
-        v-if="isLoading"
-        class="flex flex-col gap-3"
-        aria-busy="true"
-        aria-live="polite"
+      <!-- Searching: the sections make way for what was asked for. -->
+      <section
+        v-if="isSearchMode"
+        aria-labelledby="search-heading"
+        data-testid="person-search"
       >
-        <span class="sr-only">{{ t.common.loading }}</span>
-        <USkeleton
-          v-for="index in 4"
-          :key="index"
-          class="h-16 w-full rounded-2xl"
-        />
-      </div>
+        <h2
+          id="search-heading"
+          class="mb-2.5 px-0.5 text-sm font-extrabold"
+        >
+          {{ t.friends.searchHeading }}
+        </h2>
 
-      <AppErrorState
-        v-else-if="error"
-        :error="error"
-        retryable
-        @retry="refresh()"
-      />
+        <div
+          v-if="isSearching"
+          class="flex flex-col gap-2.5"
+          aria-busy="true"
+          aria-live="polite"
+        >
+          <span class="sr-only">{{ t.common.loading }}</span>
+          <USkeleton
+            v-for="index in 3"
+            :key="index"
+            class="h-16 w-full rounded-2xl"
+          />
+        </div>
+
+        <AppErrorState
+          v-else-if="searchError"
+          :error="searchError"
+          retryable
+          @retry="runSearch()"
+        />
+
+        <ul
+          v-else-if="results.length > 0"
+          class="flex list-none flex-col gap-2.5 p-0"
+          data-testid="person-results"
+        >
+          <li
+            v-for="result in results"
+            :key="result.person.id"
+          >
+            <PersonSearchRow
+              :result="result"
+              @request="id => actOnResult(id, request)"
+              @withdraw="id => actOnResult(id, withdraw)"
+              @accept="id => actOnResult(id, accept)"
+              @message="onMessage"
+            />
+          </li>
+        </ul>
+
+        <AppStateMessage
+          v-else
+          icon="i-lucide-search"
+          :title="isSearchActive ? t.friends.noMatches : t.friends.searchHeading"
+          :description="isSearchActive ? t.friends.noMatchesHint : t.friends.searchHint(minimumLength)"
+          data-testid="search-empty"
+        />
+      </section>
 
       <template v-else>
-        <section
-          v-if="requests.length > 0"
-          class="mb-6"
-          aria-labelledby="requests-heading"
+        <div
+          v-if="isLoading"
+          class="flex flex-col gap-3"
+          aria-busy="true"
+          aria-live="polite"
         >
-          <h2
-            id="requests-heading"
-            class="mb-2.5 flex items-center gap-2 px-0.5 text-sm font-extrabold"
-          >
-            {{ t.friends.requests }}
-            <span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-white">
-              {{ requests.length }}
-            </span>
-          </h2>
-
-          <ul class="flex list-none flex-col gap-2.5 p-0">
-            <li
-              v-for="item in requests"
-              :key="item.id"
-            >
-              <FriendRequestRow
-                :request="item"
-                @accept="onAccept"
-                @decline="onDecline"
-              />
-            </li>
-          </ul>
-        </section>
-
-        <section
-          v-if="suggestions.length > 0"
-          class="mb-6"
-          aria-labelledby="suggestions-heading"
-        >
-          <h2
-            id="suggestions-heading"
-            class="mb-2.5 px-0.5 text-sm font-extrabold"
-          >
-            {{ t.friends.suggestions }}
-          </h2>
-
-          <ul class="flex list-none flex-col gap-2.5 p-0">
-            <li
-              v-for="item in suggestions"
-              :key="item.id"
-            >
-              <FriendSuggestionRow
-                :suggestion="item"
-                @request="request"
-              />
-            </li>
-          </ul>
-        </section>
-
-        <section aria-labelledby="friends-heading">
-          <h2
-            id="friends-heading"
-            class="mb-2.5 px-0.5 text-sm font-extrabold"
-          >
-            {{ t.friends.yours }} · {{ friends.length }}
-          </h2>
-
-          <ul
-            v-if="friends.length > 0"
-            class="flex list-none flex-col p-0"
-            data-testid="friend-list"
-          >
-            <li
-              v-for="friend in friends"
-              :key="friend.person.id"
-            >
-              <FriendRow
-                :friend="friend"
-                :now="now"
-                @message="onMessage"
-              />
-            </li>
-          </ul>
-
-          <AppStateMessage
-            v-else
-            icon="i-lucide-users"
-            :title="search ? t.friends.noMatches : t.friends.none"
-            :description="search ? t.friends.noMatchesHint : t.friends.noneHint"
-            data-testid="friends-empty"
+          <span class="sr-only">{{ t.common.loading }}</span>
+          <USkeleton
+            v-for="index in 4"
+            :key="index"
+            class="h-16 w-full rounded-2xl"
           />
-        </section>
+        </div>
+
+        <AppErrorState
+          v-else-if="error"
+          :error="error"
+          retryable
+          @retry="refresh()"
+        />
+
+        <template v-else>
+          <section
+            v-if="requests.length > 0"
+            class="mb-6"
+            aria-labelledby="requests-heading"
+          >
+            <h2
+              id="requests-heading"
+              class="mb-2.5 flex items-center gap-2 px-0.5 text-sm font-extrabold"
+            >
+              {{ t.friends.requests }}
+              <span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-white">
+                {{ requests.length }}
+              </span>
+            </h2>
+
+            <ul class="flex list-none flex-col gap-2.5 p-0">
+              <li
+                v-for="item in requests"
+                :key="item.person.id"
+              >
+                <FriendRequestRow
+                  :request="item"
+                  @accept="accept"
+                  @decline="decline"
+                />
+              </li>
+            </ul>
+          </section>
+
+          <section
+            v-if="sentRequests.length > 0"
+            class="mb-6"
+            aria-labelledby="sent-heading"
+          >
+            <h2
+              id="sent-heading"
+              class="mb-2.5 px-0.5 text-sm font-extrabold"
+            >
+              {{ t.friends.sentRequests }}
+            </h2>
+
+            <ul class="flex list-none flex-col gap-2.5 p-0">
+              <li
+                v-for="item in sentRequests"
+                :key="item.person.id"
+              >
+                <SentRequestRow
+                  :request="item"
+                  @withdraw="withdraw"
+                />
+              </li>
+            </ul>
+          </section>
+
+          <section
+            v-if="suggestions.length > 0"
+            class="mb-6"
+            aria-labelledby="suggestions-heading"
+          >
+            <h2
+              id="suggestions-heading"
+              class="mb-2.5 px-0.5 text-sm font-extrabold"
+            >
+              {{ t.friends.suggestions }}
+            </h2>
+
+            <ul class="flex list-none flex-col gap-2.5 p-0">
+              <li
+                v-for="item in suggestions"
+                :key="item.person.id"
+              >
+                <FriendSuggestionRow
+                  :suggestion="item"
+                  @request="request"
+                />
+              </li>
+            </ul>
+          </section>
+
+          <section aria-labelledby="friends-heading">
+            <h2
+              id="friends-heading"
+              class="mb-2.5 px-0.5 text-sm font-extrabold"
+            >
+              {{ t.friends.yours }} · {{ friends.length }}
+            </h2>
+
+            <ul
+              v-if="friends.length > 0"
+              class="flex list-none flex-col p-0"
+              data-testid="friend-list"
+            >
+              <li
+                v-for="friend in friends"
+                :key="friend.person.id"
+              >
+                <FriendRow
+                  :friend="friend"
+                  :now="now"
+                  @message="onMessage"
+                  @remove="onRemove"
+                />
+              </li>
+            </ul>
+
+            <AppStateMessage
+              v-else
+              icon="i-lucide-users"
+              :title="t.friends.none"
+              :description="t.friends.noneHint"
+              data-testid="friends-empty"
+            />
+          </section>
+        </template>
       </template>
     </div>
+
+    <AppConfirmDialog
+      v-if="pendingRemoval"
+      v-model:open="isRemoveOpen"
+      :title="t.friends.remove"
+      :description="t.friends.removeConfirm(pendingRemoval.name)"
+      :confirm-label="t.friends.remove"
+      @confirm="confirmRemove"
+    />
   </div>
 </template>
