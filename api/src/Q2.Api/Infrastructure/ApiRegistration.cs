@@ -1,6 +1,11 @@
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi;
+using Q2.Api.Features.Activity;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
+using Q2.Api.Features.Profile;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -28,7 +33,19 @@ public static class ApiRegistration
     {
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IIdGenerator, SequentialIdGenerator>();
+
+        // Scoped, all of them: each holds a DbContext for the duration of one
+        // request, and CurrentPerson caches the answer to "who is asking?" for
+        // exactly that long.
+        builder.Services.AddScoped<CurrentPerson>();
+        builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();
+        builder.Services.AddScoped<GoalTaskService>();
+        builder.Services.AddScoped<ActivityService>();
+        builder.Services.AddScoped<FriendsService>();
+        builder.Services.AddScoped<ChatService>();
+        builder.Services.AddScoped<ProfileService>();
+        builder.Services.AddScoped<SettingsService>();
 
         builder.Services.ConfigureHttpJsonOptions(options =>
         {

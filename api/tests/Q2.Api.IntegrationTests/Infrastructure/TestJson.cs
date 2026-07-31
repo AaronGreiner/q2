@@ -26,4 +26,7 @@ public static class TestJson
 
     public static Task<HttpResponseMessage> PostJsonAsync(this HttpClient client, string url, object body) =>
         client.PostAsJsonAsync(url, body, Options, TestContext.Current.CancellationToken);
+
+    public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string url, object body) =>
+        client.PutAsJsonAsync(url, body, Options, TestContext.Current.CancellationToken);
 }

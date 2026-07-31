@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -39,14 +40,24 @@ public class MigrationTests
             var result = await SqliteTestDatabase.CreateSeeder()
                 .SeedAsync(context, SeedProfile.AutomatedTest, replaceExisting: true, TestContext.Current.CancellationToken);
             Assert.Equal(3, result.GoalsInserted);
+            Assert.Equal(4, result.PeopleInserted);
         }
 
         // 4. write
         var id = Guid.CreateVersion7();
+        var person = Person.Create(
+            Guid.CreateVersion7(), "Robin Sample", "@robin.after-migrating", "RS", AvatarColors.Indigo);
+
         await using (var context = database.CreateContext())
         {
-            var goal = Goal.Create(id, "Written after migrating", null, 20, new DateOnly(2026, 12, 24), Q2ApiFactory.Now);
-            goal.AddParticipant(Guid.CreateVersion7(), "Robin Sample");
+            var goal = Goal.Create(
+                id, "Written after migrating", null, "medal", GoalRhythm.Weekly, isGroup: false,
+                completedSteps: 4, totalSteps: 20, reminderAt: new TimeOnly(18, 0),
+                targetDate: new DateOnly(2026, 12, 24), Q2ApiFactory.Now);
+            goal.AddParticipant(Guid.CreateVersion7(), person.Id);
+            goal.RecordContribution(Guid.CreateVersion7(), Q2ApiFactory.Today);
+
+            context.People.Add(person);
             context.Goals.Add(goal);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
@@ -56,11 +67,15 @@ public class MigrationTests
         {
             var stored = await context.Goals
                 .Include(g => g.Participants)
+                .Include(g => g.Contributions)
                 .SingleAsync(g => g.Id == id, TestContext.Current.CancellationToken);
 
             Assert.Equal("Written after migrating", stored.Title);
             Assert.Equal(new DateOnly(2026, 12, 24), stored.TargetDate);
+            Assert.Equal(new TimeOnly(18, 0), stored.ReminderAt);
+            Assert.Equal(20, stored.ProgressPercent);
             Assert.Single(stored.Participants);
+            Assert.Single(stored.Contributions);
             Assert.Equal(4, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
         }
 

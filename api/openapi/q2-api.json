@@ -6,6 +6,51 @@
     "version": "v1"
   },
   "paths": {
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Returns who you are, your streak, your badges and your recent activity.",
+        "operationId": "GetProfile",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/leaderboard": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "summary": "Ranks you and your friends by kudos received.",
+        "operationId": "ListLeaderboard",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderboardEntryResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals": {
       "get": {
         "tags": [
@@ -83,8 +128,50 @@
         "tags": [
           "Goals"
         ],
-        "summary": "Returns a single goal.",
+        "summary": "Returns one goal with its team and its tasks.",
         "operationId": "GetGoal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/contribute": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Records one step of progress towards a goal.",
+        "operationId": "ContributeToGoal",
         "parameters": [
           {
             "name": "id",
@@ -119,10 +206,910 @@
           }
         }
       }
+    },
+    "/api/tasks": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Lists the tasks scheduled for today, or all of them.",
+        "operationId": "ListTasks",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GoalTaskResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Creates a task.",
+        "operationId": "CreateTask",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalTaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/toggle": {
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Ticks a task off for today, or takes it back.",
+        "operationId": "ToggleTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalTaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feed": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "summary": "Lists what your friends have been up to, newest first.",
+        "operationId": "ListFeed",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActivityResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feed/{id}/kudos": {
+      "post": {
+        "tags": [
+          "Activity"
+        ],
+        "summary": "Gives kudos for an activity, or takes them back.",
+        "operationId": "ToggleKudos",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends": {
+      "get": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Returns your friends, pending requests and suggestions.",
+        "operationId": "GetFriends",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends/requests/{id}/accept": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Accepts a pending friend request.",
+        "operationId": "AcceptFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends/requests/{id}/decline": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Turns a pending friend request down.",
+        "operationId": "DeclineFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/friends/suggestions/{id}/request": {
+      "post": {
+        "tags": [
+          "Friends"
+        ],
+        "summary": "Asks a suggested person to be friends.",
+        "operationId": "SendFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendSuggestionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats": {
+      "get": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Lists your conversations, most recent first.",
+        "operationId": "ListChats",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatSummaryResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}": {
+      "get": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Returns one thread and marks it as read.",
+        "operationId": "GetChat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}/messages": {
+      "post": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Writes a message into a conversation.",
+        "operationId": "SendMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}/messages/{messageId}/reactions": {
+      "post": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Adds a reaction to a message, or takes it back.",
+        "operationId": "ToggleMessageReaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleReactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Returns the current preferences.",
+        "operationId": "GetSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Changes preferences. Omitted properties keep their value.",
+        "operationId": "UpdateSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ActivityKind": {
+        "enum": [
+          "TaskCompleted",
+          "StreakReached",
+          "GoalProgress",
+          "GoalCreated"
+        ]
+      },
+      "ActivityResponse": {
+        "required": [
+          "id",
+          "actor",
+          "kind",
+          "subject",
+          "amount",
+          "kudosCount",
+          "hasMyKudos",
+          "occurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ActivityKind"
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "kudosCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasMyKudos": {
+            "type": "boolean"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BadgeKey": {
+        "enum": [
+          "StreakHero",
+          "EarlyBird",
+          "Bookworm",
+          "KudosGiver",
+          "Marathon",
+          "WeeklyWinner"
+        ]
+      },
+      "BadgeResponse": {
+        "required": [
+          "key",
+          "isEarned",
+          "earnedOn"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/BadgeKey"
+          },
+          "isEarned": {
+            "type": "boolean"
+          },
+          "earnedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        }
+      },
+      "ChatDetailResponse": {
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "initials",
+          "avatarColor",
+          "isOnline",
+          "memberCount",
+          "otherLastSeenAt",
+          "pinnedGoal",
+          "messages"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ConversationKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "initials": {
+            "type": "string"
+          },
+          "avatarColor": {
+            "type": "string"
+          },
+          "isOnline": {
+            "type": "boolean"
+          },
+          "memberCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "otherLastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pinnedGoal": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ChatPinnedGoalResponse"
+              }
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageResponse"
+            }
+          }
+        }
+      },
+      "ChatMessageResponse": {
+        "required": [
+          "id",
+          "senderId",
+          "senderName",
+          "text",
+          "isMine",
+          "sentAt",
+          "reactions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "senderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "senderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string"
+          },
+          "isMine": {
+            "type": "boolean"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageReactionResponse"
+            }
+          }
+        }
+      },
+      "ChatPinnedGoalResponse": {
+        "required": [
+          "id",
+          "title",
+          "progressPercent"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "progressPercent": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ChatSummaryResponse": {
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "initials",
+          "avatarColor",
+          "isOnline",
+          "lastMessage",
+          "lastMessageSenderName",
+          "lastMessageIsMine",
+          "lastMessageAt",
+          "unreadCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ConversationKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "initials": {
+            "type": "string"
+          },
+          "avatarColor": {
+            "type": "string"
+          },
+          "isOnline": {
+            "type": "boolean"
+          },
+          "lastMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastMessageSenderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastMessageIsMine": {
+            "type": "boolean"
+          },
+          "lastMessageAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "unreadCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConversationKind": {
+        "enum": [
+          "Direct",
+          "Group"
+        ]
+      },
       "CreateGoalRequest": {
         "type": "object",
         "properties": {
@@ -134,9 +1121,34 @@
             "type": "string",
             "nullable": true
           },
-          "progressPercent": {
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "rhythm": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalRhythm"
+              }
+            ]
+          },
+          "isGroup": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "totalSteps": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          },
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
             "nullable": true
           },
           "targetDate": {
@@ -144,12 +1156,225 @@
             "format": "date",
             "nullable": true
           },
-          "participants": {
+          "participantIds": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             },
             "nullable": true
+          }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "rhythm": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalRhythm"
+              }
+            ]
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "weeklyOn": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "dueOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "targetValue": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "measureUnit": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DayOfWeek": {
+        "enum": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          null
+        ]
+      },
+      "DaySummaryResponse": {
+        "required": [
+          "done",
+          "total",
+          "percent"
+        ],
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "percent": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "FriendRequestResponse": {
+        "required": [
+          "id",
+          "person",
+          "mutualFriends"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "mutualFriends": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "FriendResponse": {
+        "required": [
+          "person",
+          "streak",
+          "lastSeenAt"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "streak": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "FriendSuggestionResponse": {
+        "required": [
+          "id",
+          "person",
+          "mutualFriends",
+          "isInvited"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "mutualFriends": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isInvited": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FriendsResponse": {
+        "required": [
+          "friends",
+          "requests",
+          "suggestions"
+        ],
+        "type": "object",
+        "properties": {
+          "friends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendResponse"
+            }
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendRequestResponse"
+            }
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendSuggestionResponse"
+            }
+          }
+        }
+      },
+      "GoalDetailResponse": {
+        "required": [
+          "goal",
+          "team",
+          "tasks"
+        ],
+        "type": "object",
+        "properties": {
+          "goal": {
+            "$ref": "#/components/schemas/GoalResponse"
+          },
+          "team": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalTeamMemberResponse"
+            }
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalTaskResponse"
+            }
           }
         }
       },
@@ -158,10 +1383,17 @@
           "id",
           "title",
           "description",
+          "icon",
+          "rhythm",
           "status",
+          "isGroup",
+          "completedSteps",
+          "totalSteps",
           "progressPercent",
-          "createdAt",
+          "streak",
+          "reminderAt",
           "targetDate",
+          "createdAt",
           "participants",
           "isOverdue"
         ],
@@ -178,26 +1410,52 @@
             "type": "string",
             "nullable": true
           },
+          "icon": {
+            "type": "string"
+          },
+          "rhythm": {
+            "$ref": "#/components/schemas/GoalRhythm"
+          },
           "status": {
             "$ref": "#/components/schemas/GoalStatus"
+          },
+          "isGroup": {
+            "type": "boolean"
+          },
+          "completedSteps": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalSteps": {
+            "type": "integer",
+            "format": "int32"
           },
           "progressPercent": {
             "type": "integer",
             "format": "int32"
           },
-          "createdAt": {
+          "streak": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reminderAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "time",
+            "nullable": true
           },
           "targetDate": {
             "type": "string",
             "format": "date",
             "nullable": true
           },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "participants": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/PersonSummary"
             }
           },
           "isOverdue": {
@@ -205,12 +1463,95 @@
           }
         }
       },
+      "GoalRhythm": {
+        "enum": [
+          "Daily",
+          "Weekdays",
+          "Weekly",
+          "Once"
+        ]
+      },
       "GoalStatus": {
         "enum": [
           "Active",
           "Completed",
           "Archived"
         ]
+      },
+      "GoalTaskResponse": {
+        "required": [
+          "id",
+          "goalId",
+          "title",
+          "rhythm",
+          "reminderAt",
+          "isDone",
+          "measuredValue",
+          "targetValue",
+          "measureUnit",
+          "measurePercent"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "title": {
+            "type": "string"
+          },
+          "rhythm": {
+            "$ref": "#/components/schemas/GoalRhythm"
+          },
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "isDone": {
+            "type": "boolean"
+          },
+          "measuredValue": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "targetValue": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "measureUnit": {
+            "type": "string",
+            "nullable": true
+          },
+          "measurePercent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "GoalTeamMemberResponse": {
+        "required": [
+          "person",
+          "streak"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "streak": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "HttpValidationProblemDetails": {
         "type": "object",
@@ -247,6 +1588,89 @@
           }
         }
       },
+      "LanguagePreference": {
+        "enum": [
+          "German",
+          "English"
+        ]
+      },
+      "LeaderboardEntryResponse": {
+        "required": [
+          "rank",
+          "person",
+          "kudos",
+          "isMe"
+        ],
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "kudos": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isMe": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MessageReactionResponse": {
+        "required": [
+          "emoji",
+          "count",
+          "isMine"
+        ],
+        "type": "object",
+        "properties": {
+          "emoji": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isMine": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PersonSummary": {
+        "required": [
+          "id",
+          "displayName",
+          "handle",
+          "initials",
+          "avatarColor",
+          "isOnline"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "initials": {
+            "type": "string"
+          },
+          "avatarColor": {
+            "type": "string"
+          },
+          "isOnline": {
+            "type": "boolean"
+          }
+        }
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -272,12 +1696,192 @@
             "nullable": true
           }
         }
+      },
+      "ProfileResponse": {
+        "required": [
+          "person",
+          "streak",
+          "kudosReceived",
+          "goalsCompleted",
+          "weekActivity",
+          "today",
+          "unreadChats",
+          "pendingFriendRequests",
+          "badges",
+          "recentActivity"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "streak": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kudosReceived": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "goalsCompleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "weekActivity": {
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            }
+          },
+          "today": {
+            "$ref": "#/components/schemas/DaySummaryResponse"
+          },
+          "unreadChats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingFriendRequests": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "badges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BadgeResponse"
+            }
+          },
+          "recentActivity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityResponse"
+            }
+          }
+        }
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SettingsResponse": {
+        "required": [
+          "theme",
+          "language",
+          "notifyReminders",
+          "notifyKudos",
+          "notifyMessages",
+          "notifyWeeklyReview"
+        ],
+        "type": "object",
+        "properties": {
+          "theme": {
+            "$ref": "#/components/schemas/ThemePreference"
+          },
+          "language": {
+            "$ref": "#/components/schemas/LanguagePreference"
+          },
+          "notifyReminders": {
+            "type": "boolean"
+          },
+          "notifyKudos": {
+            "type": "boolean"
+          },
+          "notifyMessages": {
+            "type": "boolean"
+          },
+          "notifyWeeklyReview": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ThemePreference": {
+        "enum": [
+          "System",
+          "Light",
+          "Dark"
+        ]
+      },
+      "ToggleReactionRequest": {
+        "type": "object",
+        "properties": {
+          "emoji": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ThemePreference"
+              }
+            ]
+          },
+          "language": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/LanguagePreference"
+              }
+            ]
+          },
+          "notifyReminders": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notifyKudos": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notifyMessages": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notifyWeeklyReview": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
       }
     }
   },
   "tags": [
     {
+      "name": "Profile"
+    },
+    {
+      "name": "Activity"
+    },
+    {
       "name": "Goals"
+    },
+    {
+      "name": "Tasks"
+    },
+    {
+      "name": "Friends"
+    },
+    {
+      "name": "Chats"
+    },
+    {
+      "name": "Settings"
     }
   ]
 }

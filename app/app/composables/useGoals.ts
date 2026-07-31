@@ -1,53 +1,69 @@
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, Goal, GoalStatus } from '~/api/types'
+import type { CreateGoalRequest, Goal, GoalTask } from '~/api/types'
 
 interface GoalsPayload {
   goals: Goal[]
+  tasks: GoalTask[]
   failure: ApiFailure | null
 }
 
 /**
- * Loading, filtering and creating goals.
+ * The goals screen: today's tasks under one tab, the goals themselves under
+ * the other.
  *
- * Pages compose views; this is where the state lives. It exposes the states the
- * UI has to render — loading, empty, error, loaded — as separate flags instead
- * of leaving every component to infer them from `data === undefined`.
- *
- * Note that the failure travels *inside* the async data rather than in a
- * separate ref: everything `useAsyncData` returns is serialised into the SSR
- * payload and revived in the browser, while a ref set during server rendering
- * would simply be back to `null` after hydration — and the error state would
- * vanish on the client.
+ * Both tabs are loaded at once. They are two views of the same commitment, the
+ * data is small, and a tab that spins for half a second every time it is
+ * touched makes the pair feel like two screens instead of one.
  */
-export function useGoals(statusFilter: Ref<GoalStatus | undefined>) {
-  const api = useGoalsApi()
+export function useGoals() {
+  const api = useQ2Api()
   const { report } = useErrorReporter()
+  const toast = useToastMessage()
+  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<GoalsPayload>(
     'goals',
     async () => {
       try {
-        return { goals: await api.list({ status: statusFilter.value }), failure: null }
+        const [goals, tasks] = await Promise.all([api.goals.list(), api.tasks.list()])
+        return { goals, tasks, failure: null }
       }
       catch (caught) {
-        // Handled rather than thrown: a failed list is an in-page error state,
-        // not a reason to replace the whole app with an error screen.
-        return { goals: [], failure: report(caught, { feature: 'goals', action: 'list' }) }
+        return { goals: [], tasks: [], failure: report(caught, { feature: 'goals', action: 'list' }) }
       }
     },
-    {
-      default: (): GoalsPayload => ({ goals: [], failure: null }),
-      watch: [statusFilter],
-    },
+    { default: (): GoalsPayload => ({ goals: [], tasks: [], failure: null }) },
   )
 
-  const goals = computed<Goal[]>(() => data.value?.goals ?? [])
-  const error = computed<ApiFailure | null>(() => data.value?.failure ?? null)
+  const goals = computed(() => data.value?.goals ?? [])
+  const tasks = computed(() => data.value?.tasks ?? [])
+  const error = computed(() => data.value?.failure ?? null)
   const isLoading = computed(() => status.value === 'pending')
-  const isEmpty = computed(() => !isLoading.value && error.value === null && goals.value.length === 0)
 
   const isCreating = ref(false)
   const createError = ref<ApiFailure | null>(null)
+
+  async function toggleTask(id: string) {
+    const wasDone = tasks.value.find(task => task.id === id)?.isDone ?? false
+
+    try {
+      const updated = await api.tasks.toggle(id)
+
+      // A whole new payload, not a property of the old one: `useAsyncData`
+      // returns a shallow ref, so an in-place update never reaches the screen.
+      if (data.value) {
+        data.value = {
+          ...data.value,
+          tasks: data.value.tasks.map(task => (task.id === id ? updated : task)),
+        }
+      }
+
+      if (!wasDone) toast.show(t.value.toast.taskDone)
+    }
+    catch (caught) {
+      report(caught, { feature: 'tasks', action: 'toggle' })
+    }
+  }
 
   /**
    * Creates a goal and refreshes the list.
@@ -59,8 +75,9 @@ export function useGoals(statusFilter: Ref<GoalStatus | undefined>) {
     createError.value = null
 
     try {
-      const created = await api.create(request)
+      const created = await api.goals.create(request)
       await refresh()
+      toast.show(t.value.toast.goalCreated)
       return created
     }
     catch (caught) {
@@ -72,14 +89,71 @@ export function useGoals(statusFilter: Ref<GoalStatus | undefined>) {
     }
   }
 
-  return {
-    goals,
-    isLoading,
-    isEmpty,
-    error,
-    refresh,
-    create,
-    isCreating,
-    createError,
+  return { goals, tasks, error, isLoading, refresh, toggleTask, create, isCreating, createError }
+}
+
+/**
+ * One goal, its team and its tasks.
+ *
+ * Loaded on the server so the page is meaningful without JavaScript and a
+ * shared link has the right title.
+ */
+export function useGoalDetail(id: Ref<string>) {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+  const toast = useToastMessage()
+  const t = useMessages()
+
+  const { data, status, refresh } = useAsyncData(
+    () => `goal:${id.value}`,
+    async () => {
+      try {
+        return { goal: await api.goals.get(id.value), failure: null }
+      }
+      catch (caught) {
+        return { goal: null, failure: report(caught, { feature: 'goals', action: 'detail' }) }
+      }
+    },
+    { watch: [id], default: () => ({ goal: null, failure: null }) },
+  )
+
+  const detail = computed(() => data.value?.goal ?? null)
+  const failure = computed(() => data.value?.failure ?? null)
+
+  // A missing goal is an ordinary outcome of following a stale link, so it gets
+  // its own calm state rather than the generic "something went wrong".
+  const isMissing = computed(() => failure.value?.kind === 'notFound')
+  const error = computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null))
+  const isLoading = computed(() => status.value === 'pending')
+  const isContributing = ref(false)
+
+  async function contribute() {
+    isContributing.value = true
+    try {
+      const updated = await api.goals.contribute(id.value)
+      toast.show(updated.status === 'Completed' ? t.value.toast.goalReached : t.value.toast.progressSaved)
+      await refresh()
+    }
+    catch (caught) {
+      report(caught, { feature: 'goals', action: 'contribute' })
+    }
+    finally {
+      isContributing.value = false
+    }
   }
+
+  async function toggleTask(taskId: string) {
+    const wasDone = detail.value?.tasks.find(task => task.id === taskId)?.isDone ?? false
+
+    try {
+      await api.tasks.toggle(taskId)
+      if (!wasDone) toast.show(t.value.toast.taskDone)
+      await refresh()
+    }
+    catch (caught) {
+      report(caught, { feature: 'tasks', action: 'toggle' })
+    }
+  }
+
+  return { detail, error, isMissing, isLoading, refresh, contribute, isContributing, toggleTask }
 }

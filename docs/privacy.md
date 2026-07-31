@@ -32,31 +32,46 @@ aspirational.
 | Category | Field | Note |
 | --- | --- | --- |
 | Goal content | title, description | User-authored. Potentially health-related. |
-| Progress | status, progress percent | |
-| Time | creation timestamp, optional target date | |
-| Participants | display name | Free text. No account, no email, no identifier. |
+| Task content | title, measured amount and unit | User-authored. Same treatment. |
+| Progress | steps done, days worked on, task completion dates | A day-by-day record of somebody's habits. |
+| Time | creation timestamp, optional target date, reminder time | |
+| People | display name, handle, initials, avatar colour | No account, no email, no password. See [adr/0009-single-known-person.md](adr/0009-single-known-person.md). |
+| Presence | last-seen timestamp | Written by the seeds only; nothing updates it at runtime. |
+| Social graph | friendships and their status, mutual-friend counts | One-sided, relative to the one known person. |
+| Activity | what somebody did, when, and who cheered it | The subject is a goal or task title, so it inherits their treatment. |
+| Messages | text, sender, timestamp, reactions | **The most personal thing q2 stores.** |
+| Preferences | theme, language, notification switches | |
 
 **Not processed at all:**
 
-names, email addresses, passwords, phone numbers, postal addresses, dates of
-birth, payment data, location or coordinates, device identifiers, IP addresses
-beyond the transport layer, biometric data, advertising or analytics
-identifiers, third-party profile data.
+email addresses, passwords, phone numbers, postal addresses, dates of birth,
+payment data, location or coordinates, device identifiers, IP addresses beyond
+the transport layer and what Sentry attaches (section 4), biometric data,
+advertising or analytics identifiers, third-party profile data, photographs —
+an avatar is initials on a colour, so there is no face to lose control of.
 
-There is no user account system yet, so nothing in the database identifies a
-natural person on its own — but a goal description can, so it is treated as
-personal data throughout.
+There is no user account system yet, and every name in the database is
+invented — but a goal description, a task title and a message all can identify
+somebody, so all three are treated as personal data throughout.
+
+Chat messages and the social graph are the two categories that would need a
+retention answer before real people are in the database. The initial version
+does not have one; see [next-steps.md](next-steps.md) item 10.
 
 ## 3. Logging rules
 
-**May be logged:** goal ids, participant *counts*, status values, progress
-numbers, durations, HTTP status codes, route templates, environment, release,
-migration and seed names, correlation ids.
+**May be logged:** goal, task, conversation, activity and person *ids*,
+participant and step *counts*, status and rhythm values, progress numbers,
+durations, HTTP status codes, route templates, environment, release, migration
+and seed names, correlation ids.
 
-**Must never be logged:** goal titles and descriptions, participant names,
-credentials or tokens, connection strings, cookies, request or response
-bodies, `Authorization` headers, email addresses, IP addresses, coordinates,
-developer or machine names.
+**Must never be logged:** goal titles and descriptions, task titles, message
+text, person names and handles, credentials or tokens, connection strings,
+cookies, request or response bodies, `Authorization` headers, email addresses,
+IP addresses, coordinates, developer or machine names.
+
+The services follow this literally: `ChatService` logs that a message was sent
+in a conversation and nothing about what it said.
 
 Request logging with headers or bodies is not enabled. Where a log line refers
 to a goal, it refers to its **id** — see `GoalService.CreateAsync`.

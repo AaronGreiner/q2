@@ -29,25 +29,39 @@ reachable from both.
 | --- | --- |
 | business rules, invariants | the API, in the domain model |
 | persistence, migrations, seeds | the API |
-| derived facts (`isOverdue`) | the API, so every client agrees |
+| derived facts (`isOverdue`, `progressPercent`, a streak, "is this on today's list") | the API, so every client agrees |
 | the contract | the API, exported as OpenAPI |
 | rendering, composition, navigation | the frontend |
-| presentation logic (formatting, phrasing) | the frontend, in pure functions |
+| presentation logic (formatting, phrasing, language) | the frontend, in pure functions |
 | error *classification* | the API (status codes) |
 | error *wording for humans* | the frontend |
 
 The frontend never re-implements a rule the server already enforces. It does
-not decide whether a goal is overdue; it renders the answer.
+not decide whether a goal is overdue, how far along it is, or whether a task
+belongs on today's list; it renders the answer.
+
+The line runs the other way too: the API never sends a sentence. It sends the
+parts of one — `kind`, `subject`, `amount` — because the app speaks German and
+English and a phrase composed on the server could only ever be one of them.
 
 ## Backend
 
 Minimal APIs on .NET 10, organised by feature.
 
 ```
-Features/Goals/          model, contracts, validation, service, EF config, endpoints
+Features/Activity/       the feed, kudos and the leaderboard
+Features/Chats/          conversations, messages, reactions
+Features/Goals/          goals and the tasks under them
+Features/People/         Person, friendships, badges, CurrentPerson
+Features/Profile/        the signed-in person's own screen
+Features/Settings/       theme, language, notification preferences
+Features/Streaks/        one definition of "days in a row", shared by both
 Features/Diagnostics/    health check, deliberate-failure endpoints
 Infrastructure/          persistence, errors, observability, time, CLI, registration
 ```
+
+Each of those holds a model, its contracts, validation, a service, an EF
+configuration and endpoints.
 
 A feature owns its whole vertical. Adding one means adding a folder, not
 editing a stack of layer projects. There is no repository abstraction over EF
@@ -58,6 +72,15 @@ The domain model is the authority on its own rules. `Goal.Create` validates
 everything and takes its id and timestamp as **arguments** rather than reading
 them from ambient state, which is what makes seeds and tests reproducible.
 
+Numbers people see are **derived, not stored**: a goal's percentage comes from
+its steps, a streak from the days recorded behind it, "done today" from the day
+a task was last completed. A stored copy would be a second source of truth, and
+a stored streak would need a nightly job to notice a missed day.
+
+Identity goes through one type, `CurrentPerson`, because there is no
+authentication yet and exactly one row is flagged as the signed-in person —
+see [adr/0009-single-known-person.md](adr/0009-single-known-person.md).
+
 `Program.cs` is about thirty-five lines and reads as a table of contents:
 observability, persistence, API services, pipeline, endpoints, run.
 
@@ -67,11 +90,18 @@ Nuxt 4 with SSR. Layers, from the outside in:
 
 ```
 pages/         compose a view, own the wiring, hold no rules
+layouts/       the phone shell: default (with the tab bar) and plain (without)
 components/    render; typed props in, typed events out, no fetching
-composables/   state and side effects (useGoals, useGoalsApi, useErrorReporter)
+composables/   state and side effects (useHome, useQ2Api, useErrorReporter)
 api/           the only place that speaks HTTP
+i18n/          every user-facing word, in German and English
 utils/         pure presentation logic
 ```
+
+The catalogue is why the API sends structure rather than sentences: the feed
+sends `kind`, `subject` and `amount`, and the client composes the line in
+whichever language is selected
+([adr/0010-german-first-interface.md](adr/0010-german-first-interface.md)).
 
 Nuxt UI is a foundation, not an architecture: feature components render domain
 objects and happen to use `U*` primitives, rather than being defined by them.

@@ -4,220 +4,237 @@ using Q2.Api.Infrastructure.Errors;
 namespace Q2.Api.UnitTests.Goals;
 
 /// <summary>
-/// The domain rules. No database, no host, no clock — <see cref="Goal.Create"/>
-/// takes its id and timestamp as arguments, so every case here is a pure
-/// function call.
+/// The rules a goal enforces about itself.
 /// </summary>
-[Trait("Category", "Unit")]
+/// <remarks>
+/// Pure unit tests: no database, no HTTP, no clock. Every instant and every id
+/// is passed in, which is exactly what makes them possible.
+/// </remarks>
 public class GoalTests
 {
-    private static readonly Guid Id = new("11111111-1111-4111-8111-111111111111");
-    private static readonly DateTimeOffset CreatedAt = new(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Created = new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateOnly Today = new(2026, 6, 15);
 
-    private static Goal Create(
-        string title = "Walk every day",
-        string? description = null,
-        int progress = 0,
-        DateOnly? targetDate = null) =>
-        Goal.Create(Id, title, description, progress, targetDate, CreatedAt);
-
-    [Fact]
-    public void Create_SetsTheSuppliedValues()
-    {
-        var goal = Create("Read more", "Ten pages a day", 25, new DateOnly(2026, 6, 1));
-
-        Assert.Equal(Id, goal.Id);
-        Assert.Equal("Read more", goal.Title);
-        Assert.Equal("Ten pages a day", goal.Description);
-        Assert.Equal(25, goal.ProgressPercent);
-        Assert.Equal(new DateOnly(2026, 6, 1), goal.TargetDate);
-        Assert.Equal(CreatedAt, goal.CreatedAt);
-        Assert.Equal(GoalStatus.Active, goal.Status);
-        Assert.Empty(goal.Participants);
-    }
+    private static Goal Build(int completedSteps = 0, int totalSteps = 10, DateOnly? targetDate = null) =>
+        Goal.Create(
+            Guid.CreateVersion7(),
+            "Walk 8.000 steps a day",
+            null,
+            "target",
+            GoalRhythm.Daily,
+            isGroup: false,
+            completedSteps,
+            totalSteps,
+            reminderAt: null,
+            targetDate,
+            Created);
 
     [Fact]
-    public void Create_TrimsTitleAndDescription()
+    public void ATitleIsRequiredAndIsTrimmed()
     {
-        var goal = Create("  Stretch  ", "  Every morning  ");
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), "  Read every day  ", null, "book-open", GoalRhythm.Daily,
+            false, 0, 30, null, null, Created);
 
-        Assert.Equal("Stretch", goal.Title);
-        Assert.Equal("Every morning", goal.Description);
-    }
-
-    [Fact]
-    public void Create_TurnsBlankDescriptionIntoNull()
-    {
-        Assert.Null(Create(description: "   ").Description);
+        Assert.Equal("Read every day", goal.Title);
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_RejectsMissingTitle(string title)
+    public void ABlankTitleIsRejected(string title)
     {
-        var exception = Assert.Throws<DomainValidationException>(() => Create(title));
+        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
+            Guid.CreateVersion7(), title, null, "target", GoalRhythm.Daily, false, 0, 10, null, null, Created));
 
-        Assert.Contains(nameof(Goal.Title), exception.Errors.Keys);
+        Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
     }
 
     [Fact]
-    public void Create_RejectsTitleAboveTheLimit()
+    public void ATitleLongerThanTheLimitIsRejected()
     {
-        var exception = Assert.Throws<DomainValidationException>(
-            () => Create(new string('a', Goal.MaxTitleLength + 1)));
+        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
+            Guid.CreateVersion7(), new string('a', Goal.MaxTitleLength + 1), null, "target", GoalRhythm.Daily,
+            false, 0, 10, null, null, Created));
 
-        Assert.Contains(nameof(Goal.Title), exception.Errors.Keys);
+        Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
     }
 
     [Fact]
-    public void Create_AcceptsTitleExactlyAtTheLimit()
+    public void AnUnknownIconIsRejected()
     {
-        var goal = Create(new string('a', Goal.MaxTitleLength));
+        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
+            Guid.CreateVersion7(), "Anything", null, "rocket", GoalRhythm.Daily, false, 0, 10, null, null, Created));
 
-        Assert.Equal(Goal.MaxTitleLength, goal.Title.Length);
+        Assert.Contains(nameof(Goal.Icon), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void AMissingIconFallsBackToTheDefaultRatherThanFailing()
+    {
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), "Anything", null, null, GoalRhythm.Daily, false, 0, 10, null, null, Created);
+
+        Assert.Equal(GoalIcons.Default, goal.Icon);
     }
 
     [Theory]
+    [InlineData(0)]
     [InlineData(-1)]
-    [InlineData(101)]
-    public void Create_RejectsProgressOutsideZeroToHundred(int progress)
+    [InlineData(Goal.MaxSteps + 1)]
+    public void AnImpossibleNumberOfStepsIsRejected(int totalSteps)
     {
-        var exception = Assert.Throws<DomainValidationException>(() => Create(progress: progress));
+        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
+            Guid.CreateVersion7(), "Anything", null, "target", GoalRhythm.Daily, false, 0, totalSteps, null, null, Created));
 
-        Assert.Contains(nameof(Goal.ProgressPercent), exception.Errors.Keys);
+        Assert.Contains(nameof(Goal.TotalSteps), error.Errors.Keys);
     }
 
     [Fact]
-    public void Create_ReportsEveryProblemAtOnce()
+    public void MoreCompletedStepsThanTotalStepsIsRejected()
     {
-        var exception = Assert.Throws<DomainValidationException>(() => Create(title: "", progress: 500));
+        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
+            Guid.CreateVersion7(), "Anything", null, "target", GoalRhythm.Daily, false, 11, 10, null, null, Created));
 
-        // A caller should not have to fix one field, resubmit, and discover the next.
-        Assert.Equal(2, exception.Errors.Count);
+        Assert.Contains(nameof(Goal.CompletedSteps), error.Errors.Keys);
+    }
+
+    [Theory]
+    [InlineData(0, 10, 0)]
+    [InlineData(5, 10, 50)]
+    [InlineData(14, 21, 67)]
+    [InlineData(10, 10, 100)]
+    public void ProgressIsDerivedFromTheSteps(int completed, int total, int expected)
+    {
+        Assert.Equal(expected, Build(completed, total).ProgressPercent);
     }
 
     [Fact]
-    public void Create_WithFullProgress_IsAlreadyCompleted()
+    public void AGoalThatStartsAtItsTotalIsAlreadyCompleted()
     {
-        Assert.Equal(GoalStatus.Completed, Create(progress: 100).Status);
+        Assert.Equal(GoalStatus.Completed, Build(10, 10).Status);
     }
 
     [Fact]
-    public void UpdateProgress_ToHundred_CompletesTheGoal()
+    public void ContributingAddsOneStepAndOneDay()
     {
-        var goal = Create(progress: 40);
+        var goal = Build(4, 10);
 
-        goal.UpdateProgress(100);
+        Assert.True(goal.Contribute(Guid.CreateVersion7(), Today));
+
+        Assert.Equal(5, goal.CompletedSteps);
+        Assert.Equal(50, goal.ProgressPercent);
+        Assert.Single(goal.Contributions);
+        Assert.Equal(GoalStatus.Active, goal.Status);
+    }
+
+    [Fact]
+    public void ASecondContributionOnTheSameDayCountsAsAStepButNotAsADay()
+    {
+        var goal = Build(4, 10);
+
+        goal.Contribute(Guid.CreateVersion7(), Today);
+        goal.Contribute(Guid.CreateVersion7(), Today);
+
+        Assert.Equal(6, goal.CompletedSteps);
+        Assert.Single(goal.Contributions);
+        Assert.Equal(1, goal.StreakOn(Today));
+    }
+
+    [Fact]
+    public void TheLastStepCompletesTheGoal()
+    {
+        var goal = Build(9, 10);
+
+        goal.Contribute(Guid.CreateVersion7(), Today);
 
         Assert.Equal(GoalStatus.Completed, goal.Status);
         Assert.Equal(100, goal.ProgressPercent);
     }
 
     [Fact]
-    public void UpdateProgress_BelowHundred_ReopensACompletedGoal()
+    public void ContributingToACompletedGoalChangesNothingAndSaysSo()
     {
-        var goal = Create(progress: 100);
+        var goal = Build(10, 10);
 
-        goal.UpdateProgress(80);
-
-        Assert.Equal(GoalStatus.Active, goal.Status);
+        Assert.False(goal.Contribute(Guid.CreateVersion7(), Today));
+        Assert.Equal(10, goal.CompletedSteps);
     }
 
     [Fact]
-    public void UpdateProgress_LeavesAnArchivedGoalArchived()
+    public void AnArchivedGoalIsNotReopenedByContributing()
     {
-        var goal = Create(progress: 50);
+        var goal = Build(4, 10);
         goal.Archive();
 
-        goal.UpdateProgress(100);
-
-        // Reopening an archived goal is a deliberate action, not a side effect
-        // of recording progress.
+        Assert.False(goal.Contribute(Guid.CreateVersion7(), Today));
         Assert.Equal(GoalStatus.Archived, goal.Status);
-        Assert.Equal(100, goal.ProgressPercent);
-    }
-
-    [Theory]
-    [InlineData(-1)]
-    [InlineData(101)]
-    public void UpdateProgress_RejectsValuesOutsideTheRange(int progress)
-    {
-        var goal = Create();
-
-        Assert.Throws<DomainValidationException>(() => goal.UpdateProgress(progress));
     }
 
     [Fact]
-    public void AddParticipant_StoresTrimmedNames()
+    public void TheStreakCountsConsecutiveDaysEndingToday()
     {
-        var goal = Create();
+        var goal = Build(4, 10);
 
-        goal.AddParticipant(Guid.NewGuid(), "  Robin Sample  ");
+        foreach (var offset in new[] { 0, 1, 2, 4 })
+        {
+            goal.RecordContribution(Guid.CreateVersion7(), Today.AddDays(-offset));
+        }
 
-        Assert.Equal(["Robin Sample"], goal.Participants.Select(p => p.DisplayName));
+        // Three days back to back, then a gap: the day before the gap does not
+        // extend the run.
+        Assert.Equal(3, goal.StreakOn(Today));
     }
 
     [Fact]
-    public void AddParticipant_IgnoresCaseInsensitiveDuplicates()
+    public void AParticipantIsAddedOnceHoweverOftenTheyAreOffered()
     {
-        var goal = Create();
+        var goal = Build();
+        var person = Guid.CreateVersion7();
 
-        goal.AddParticipant(Guid.NewGuid(), "Robin Sample");
-        goal.AddParticipant(Guid.NewGuid(), "robin sample");
+        goal.AddParticipant(Guid.CreateVersion7(), person);
+        goal.AddParticipant(Guid.CreateVersion7(), person);
 
         Assert.Single(goal.Participants);
     }
 
     [Fact]
-    public void AddParticipant_RejectsBlankNames()
+    public void MoreParticipantsThanTheLimitAreRejected()
     {
-        var goal = Create();
+        var goal = Build();
 
-        Assert.Throws<DomainValidationException>(() => goal.AddParticipant(Guid.NewGuid(), "  "));
-    }
-
-    [Fact]
-    public void AddParticipant_RejectsMoreThanTheMaximum()
-    {
-        var goal = Create();
         for (var i = 0; i < Goal.MaxParticipants; i++)
         {
-            goal.AddParticipant(Guid.NewGuid(), $"Participant {i}");
+            goal.AddParticipant(Guid.CreateVersion7(), Guid.CreateVersion7());
         }
 
-        Assert.Throws<DomainValidationException>(() => goal.AddParticipant(Guid.NewGuid(), "One too many"));
+        var error = Assert.Throws<DomainValidationException>(
+            () => goal.AddParticipant(Guid.CreateVersion7(), Guid.CreateVersion7()));
+
+        Assert.Contains(nameof(Goal.Participants), error.Errors.Keys);
     }
 
     [Fact]
-    public void IsOverdue_IsTrue_ForAPastTargetDateOnAnActiveGoal()
+    public void AGoalIsOverdueOnceItsTargetDateHasPassed()
     {
-        var goal = Create(targetDate: new DateOnly(2026, 5, 1), progress: 30);
-
-        Assert.True(goal.IsOverdue(new DateOnly(2026, 5, 2)));
+        Assert.True(Build(targetDate: Today.AddDays(-1)).IsOverdue(Today));
     }
 
     [Fact]
-    public void IsOverdue_IsFalse_OnTheTargetDateItself()
+    public void AGoalDueTodayIsNotOverdueYet()
     {
-        var goal = Create(targetDate: new DateOnly(2026, 5, 1), progress: 30);
-
-        Assert.False(goal.IsOverdue(new DateOnly(2026, 5, 1)));
+        Assert.False(Build(targetDate: Today).IsOverdue(Today));
     }
 
     [Fact]
-    public void IsOverdue_IsFalse_ForACompletedGoal()
+    public void ACompletedGoalIsNeverOverdue()
     {
-        var goal = Create(targetDate: new DateOnly(2026, 5, 1), progress: 100);
-
-        Assert.False(goal.IsOverdue(new DateOnly(2026, 12, 31)));
+        Assert.False(Build(10, 10, Today.AddDays(-30)).IsOverdue(Today));
     }
 
     [Fact]
-    public void IsOverdue_IsFalse_WithoutATargetDate()
+    public void AGoalWithoutATargetDateIsNeverOverdue()
     {
-        var goal = Create(targetDate: null, progress: 10);
-
-        Assert.False(goal.IsOverdue(new DateOnly(2099, 1, 1)));
+        Assert.False(Build().IsOverdue(Today));
     }
 }

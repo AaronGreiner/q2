@@ -1,127 +1,118 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import GoalCard from '~/components/goals/GoalCard.vue'
-import type { Goal } from '~/api/types'
+import type { Goal, Person } from '~/api/types'
 
 /**
  * The reference component test: real Nuxt environment, real Nuxt UI, plain
- * props in, rendered output asserted. `today` is injected, so nothing here
- * depends on the day the suite happens to run.
+ * props in, rendered output asserted. Nothing here reads a clock or a store,
+ * which is what makes the assertions the same on every run.
  */
-const today = new Date('2026-06-15T09:00:00Z')
+function person(overrides: Partial<Person> = {}): Person {
+  return {
+    id: '019faece-5a81-7c67-8fa2-00a63d9e9200',
+    displayName: 'Jonas Weber',
+    handle: '@jonas.w',
+    initials: 'JW',
+    avatarColor: '#4f46e5',
+    isOnline: true,
+    ...overrides,
+  }
+}
 
 function goal(overrides: Partial<Goal> = {}): Goal {
   return {
     id: '019faece-5a81-7c67-8fa2-00a63d9e9127',
-    title: 'Run a 10k together',
-    description: 'Twice a week, building up slowly.',
+    title: 'Halbmarathon im Mai',
+    description: 'Drei Läufe pro Woche.',
+    icon: 'medal',
+    rhythm: 'Weekly',
     status: 'Active',
-    progressPercent: 62,
+    isGroup: false,
+    completedSteps: 14,
+    totalSteps: 21,
+    progressPercent: 67,
+    streak: 12,
+    reminderAt: '18:00:00',
+    targetDate: '2026-08-25',
     createdAt: '2026-05-15T09:00:00+00:00',
-    targetDate: '2026-06-25',
-    participants: ['Robin Sample', 'Kim Example'],
+    participants: [],
     isOverdue: false,
     ...overrides,
   }
 }
 
 describe('GoalCard', () => {
-  it('shows the title, description and status', async () => {
-    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal(), today } })
+  it('shows the title, the rhythm and how far along it is', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
-    expect(wrapper.text()).toContain('Run a 10k together')
-    expect(wrapper.text()).toContain('Twice a week, building up slowly.')
-    expect(wrapper.text()).toContain('Active')
+    expect(wrapper.text()).toContain('Halbmarathon im Mai')
+    expect(wrapper.text()).toContain('Wöchentlich')
+    expect(wrapper.text()).toContain('14 von 21 Schritten')
+    expect(wrapper.text()).toContain('67%')
   })
 
   it('links to the goal detail page', async () => {
-    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal(), today } })
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
     expect(wrapper.find('a').attributes('href'))
       .toBe('/goals/019faece-5a81-7c67-8fa2-00a63d9e9127')
   })
 
   it('renders progress as an accessible progress bar', async () => {
-    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ progressPercent: 62 }), today } })
-
-    expect(wrapper.text()).toContain('62%')
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ progressPercent: 67 }) } })
 
     const progressbar = wrapper.find('[role="progressbar"]')
+
     expect(progressbar.exists()).toBe(true)
-    expect(progressbar.attributes('aria-valuenow')).toBe('62')
+    expect(progressbar.attributes('aria-valuenow')).toBe('67')
     expect(progressbar.attributes('aria-valuemin')).toBe('0')
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
   })
 
-  it('summarises participants', async () => {
+  it('shows the streak and the reminder', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
+
+    expect(wrapper.text()).toContain('12 Tage')
+    expect(wrapper.text()).toContain('18:00')
+  })
+
+  it('leaves the reminder out when there is none', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ reminderAt: null }) } })
+
+    expect(wrapper.text()).not.toContain(':')
+  })
+
+  it('marks a group goal as one', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ isGroup: true }) } })
+
+    expect(wrapper.text()).toContain('GRUPPE')
+  })
+
+  it('says an overdue goal is overdue in words, not only in colour', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ isOverdue: true }) } })
+
+    expect(wrapper.find('[data-testid="goal-overdue"]').text()).toBe('Überfällig')
+  })
+
+  it('draws one avatar per participant', async () => {
     const wrapper = await mountSuspended(GoalCard, {
       props: {
-        goal: goal({ participants: ['Robin Sample', 'Kim Example', 'Alex Placeholder'] }),
-        today,
+        goal: goal({
+          participants: [
+            person(),
+            person({ id: 'other', displayName: 'Lena Schulz', initials: 'LS', avatarColor: '#db2777' }),
+          ],
+        }),
       },
     })
 
-    expect(wrapper.text()).toContain('Robin Sample, Kim Example and 1 other')
+    expect(wrapper.findAll('[data-testid="avatar"]')).toHaveLength(2)
   })
 
-  it('counts down to the target date', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ targetDate: '2026-06-25', isOverdue: false }), today },
-    })
+  it('is a heading at the level a list under an h2 needs', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
-    expect(wrapper.text()).toContain('Due in 10 days')
-  })
-
-  it('marks an overdue goal without relying on colour alone', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ targetDate: '2026-06-08', isOverdue: true }), today },
-    })
-
-    expect(wrapper.text()).toContain('Overdue')
-    expect(wrapper.text()).toContain('Overdue by 7 days')
-  })
-
-  it('omits the date row entirely when there is no target date', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ targetDate: null }), today },
-    })
-
-    expect(wrapper.text()).not.toContain('Due')
-    expect(wrapper.text()).not.toContain('Overdue')
-  })
-
-  it('omits the participants row for a solo goal', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ participants: [] }), today },
-    })
-
-    expect(wrapper.find('dl').text()).not.toContain('Robin')
-  })
-
-  it('renders a completed goal at full progress', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ status: 'Completed', progressPercent: 100 }), today },
-    })
-
-    expect(wrapper.text()).toContain('Completed')
-    expect(wrapper.text()).toContain('100%')
-  })
-
-  it('renders a zero-progress goal without breaking the bar', async () => {
-    const wrapper = await mountSuspended(GoalCard, {
-      props: { goal: goal({ progressPercent: 0 }), today },
-    })
-
-    expect(wrapper.text()).toContain('0%')
-    expect(wrapper.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('0')
-  })
-
-  it('keeps the heading level below the list heading', async () => {
-    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal(), today } })
-
-    // The page uses h1/h2; a card must not jump back to h2 or the heading
-    // outline breaks for screen-reader navigation.
-    expect(wrapper.find('h3').exists()).toBe(true)
-    expect(wrapper.find('h2').exists()).toBe(false)
+    expect(wrapper.find('h3').text()).toBe('Halbmarathon im Mai')
   })
 })

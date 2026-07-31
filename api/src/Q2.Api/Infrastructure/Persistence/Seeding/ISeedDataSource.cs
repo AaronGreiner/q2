@@ -1,6 +1,31 @@
+using Q2.Api.Features.Activity;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
+using Q2.Api.Features.Settings;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
+
+/// <summary>
+/// A whole world's worth of synthetic data, in the order it has to be written.
+/// </summary>
+/// <remarks>
+/// One record rather than one collection per seed method: q2 is a graph — a
+/// chat points at a goal, a goal at people, an activity at whoever did it — and
+/// a seed that could return half of it would be a seed that could leave a
+/// dangling reference behind.
+/// </remarks>
+public sealed record SeedData(
+    IReadOnlyList<Person> People,
+    IReadOnlyList<Friendship> Friendships,
+    IReadOnlyList<Goal> Goals,
+    IReadOnlyList<GoalTask> Tasks,
+    IReadOnlyList<ActivityEvent> Activity,
+    IReadOnlyList<Conversation> Conversations,
+    IReadOnlyList<UserSettings> Settings)
+{
+    public static SeedData Empty { get; } = new([], [], [], [], [], [], []);
+}
 
 /// <summary>
 /// One profile's worth of synthetic data.
@@ -16,52 +41,5 @@ public interface ISeedDataSource
     /// <summary>Short description shown when the seed runs.</summary>
     string Description { get; }
 
-    IReadOnlyList<Goal> CreateGoals(SeedContext context);
-}
-
-/// <summary>Shared helpers so the individual seeds stay readable.</summary>
-internal static class SeedGoals
-{
-    /// <summary>Builds one goal, including participants, with fixed ids.</summary>
-    public static Goal Build(
-        SeedProfile profile,
-        int index,
-        string title,
-        string? description,
-        int progressPercent,
-        DateOnly? targetDate,
-        DateTimeOffset createdAt,
-        params string[] participants)
-    {
-        var goal = Goal.Create(
-            SeedIds.Goal(profile, index),
-            title,
-            description,
-            progressPercent,
-            targetDate,
-            createdAt);
-
-        for (var i = 0; i < participants.Length; i++)
-        {
-            goal.AddParticipant(SeedIds.Participant(profile, index, i + 1), participants[i]);
-        }
-
-        return goal;
-    }
-
-    /// <summary>Builds a goal and archives it.</summary>
-    public static Goal BuildArchived(
-        SeedProfile profile,
-        int index,
-        string title,
-        string? description,
-        int progressPercent,
-        DateOnly? targetDate,
-        DateTimeOffset createdAt,
-        params string[] participants)
-    {
-        var goal = Build(profile, index, title, description, progressPercent, targetDate, createdAt, participants);
-        goal.Archive();
-        return goal;
-    }
+    SeedData Create(SeedContext context);
 }

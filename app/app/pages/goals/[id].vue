@@ -1,156 +1,223 @@
 <script setup lang="ts">
-import type { ApiFailure } from '~/api/errors'
-import type { Goal } from '~/api/types'
-
-interface GoalPayload {
-  goal: Goal | null
-  failure: ApiFailure | null
-}
-
 /**
- * A single goal.
+ * One goal: the ring, the team, and the button that moves it.
  *
  * Loaded on the server so the page is meaningful without JavaScript and a
  * shared link has the right title.
- *
- * The failure travels inside the async data, not in a separate ref: only what
- * `useAsyncData` returns is serialised into the SSR payload, so a ref set
- * during server rendering would be empty again after hydration.
  */
+definePageMeta({ layout: 'plain' })
+
 const route = useRoute()
-const api = useGoalsApi()
-const { report } = useErrorReporter()
+const t = useMessages()
 
 const id = computed(() => String(route.params.id))
+const { detail, error, isMissing, isLoading, refresh, contribute, isContributing, toggleTask } = useGoalDetail(id)
 
-const { data, status, refresh } = useAsyncData<GoalPayload>(
-  () => `goal:${id.value}`,
-  async () => {
-    try {
-      return { goal: await api.get(id.value), failure: null }
-    }
-    catch (caught) {
-      return { goal: null, failure: report(caught, { feature: 'goals', action: 'detail' }) }
-    }
-  },
-  { watch: [id], default: (): GoalPayload => ({ goal: null, failure: null }) },
-)
+const goal = computed(() => detail.value?.goal ?? null)
+const reminder = computed(() => (goal.value ? formatClock(goal.value.reminderAt) : null))
 
-const goal = computed(() => data.value?.goal ?? null)
-const failure = computed(() => data.value?.failure ?? null)
-
-// A missing goal is an ordinary outcome of following a stale link, so it gets
-// its own calm state rather than the generic "something went wrong".
-const isMissing = computed(() => failure.value?.kind === 'notFound' || (!failure.value && !goal.value))
-const error = computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null))
-
-const isLoading = computed(() => status.value === 'pending')
-const dueLabel = computed(() => (goal.value ? describeTargetDate(goal.value, new Date()) : null))
-
-useHead({ title: () => goal.value?.title ?? 'Goal' })
+useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <UButton
-      to="/"
-      icon="i-lucide-arrow-left"
-      variant="link"
-      color="neutral"
-      class="self-start px-0"
-    >
-      Back to goals
-    </UButton>
-
-    <div
-      v-if="isLoading"
-      class="flex flex-col gap-4"
-      aria-busy="true"
-    >
-      <span class="sr-only">Loading goal…</span>
-      <USkeleton class="h-8 w-2/3" />
-      <USkeleton class="h-24 w-full" />
-    </div>
-
-    <AppErrorState
-      v-else-if="error"
-      :error="error"
-      retryable
-      @retry="refresh()"
+  <div class="flex min-h-0 flex-1 flex-col">
+    <AppScreenHeader
+      :title="t.goals.detailHeading"
+      back-to="/goals"
+      :back-label="t.common.back"
     />
 
-    <article
-      v-else-if="goal"
-      class="flex flex-col gap-6"
-      data-testid="goal-detail"
-    >
-      <header class="flex flex-col gap-3">
-        <h1 class="text-2xl font-semibold text-pretty">
-          {{ goal.title }}
-        </h1>
-        <GoalStatusBadge
-          :status="goal.status"
-          :overdue="goal.isOverdue"
-        />
+    <div class="q2-scroll flex-1 px-[18px] pt-1 pb-8">
+      <div
+        v-if="isLoading"
+        class="flex flex-col gap-4"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <span class="sr-only">{{ t.common.loading }}</span>
+        <USkeleton class="h-14 w-2/3" />
+        <USkeleton class="h-60 w-full rounded-2xl" />
+      </div>
+
+      <AppErrorState
+        v-else-if="error"
+        :error="error"
+        retryable
+        @retry="refresh()"
+      />
+
+      <AppStateMessage
+        v-else-if="isMissing || !goal || !detail"
+        icon="i-lucide-compass"
+        :title="t.goals.notFound"
+        :description="t.goals.notFoundHint"
+        data-testid="goal-not-found"
+      >
+        <UButton
+          to="/goals"
+          icon="i-lucide-target"
+        >
+          {{ t.goals.heading }}
+        </UButton>
+      </AppStateMessage>
+
+      <article
+        v-else
+        data-testid="goal-detail"
+      >
+        <header class="flex items-center gap-3.5">
+          <span
+            class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+            aria-hidden="true"
+          >
+            <UIcon
+              :name="goalIconName(goal.icon)"
+              class="size-7"
+            />
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <h1 class="text-xl leading-tight font-extrabold text-pretty">
+              {{ goal.title }}
+            </h1>
+            <p class="mt-0.5 text-[13px] font-semibold text-(--ui-text-muted)">
+              {{ t.rhythm[goal.rhythm] }} · {{ goalSubtitle(goal, t) }}
+            </p>
+          </div>
+        </header>
+
         <p
           v-if="goal.description"
-          class="max-w-prose text-(--ui-text-muted)"
+          class="mt-3 text-sm text-(--ui-text-muted)"
         >
           {{ goal.description }}
         </p>
-      </header>
 
-      <UCard>
-        <GoalProgress :percent="goal.progressPercent" />
-      </UCard>
+        <section
+          class="q2-card mt-4 p-5 text-center"
+          aria-labelledby="goal-progress-heading"
+        >
+          <h2
+            id="goal-progress-heading"
+            class="sr-only"
+          >
+            {{ t.goals.progressLabel(goal.progressPercent) }}
+          </h2>
 
-      <dl class="grid gap-4 sm:grid-cols-2">
-        <div v-if="dueLabel">
-          <dt class="text-sm text-(--ui-text-muted)">
-            Target date
-          </dt>
-          <dd :class="{ 'text-(--ui-warning) font-medium': goal.isOverdue }">
-            {{ formatDate(goal.targetDate!) }} — {{ dueLabel }}
-          </dd>
+          <AppProgressRing
+            class="mx-auto"
+            :percent="goal.progressPercent"
+            :size="130"
+            :label="t.goals.progressLabel(goal.progressPercent)"
+          >
+            <span class="text-[34px] leading-none font-extrabold text-(--ui-primary)">{{ goal.progressPercent }}%</span>
+            <span class="mt-0.5 text-[11px] font-bold text-(--ui-text-muted)">{{ t.goals.reached }}</span>
+          </AppProgressRing>
+
+          <UButton
+            class="mt-4 w-full justify-center"
+            size="xl"
+            icon="i-lucide-circle-check-big"
+            :loading="isContributing"
+            :disabled="goal.status !== 'Active'"
+            data-testid="goal-contribute"
+            @click="contribute()"
+          >
+            {{ goal.status === 'Active' ? t.goals.contribute : t.goals.contributeDone }}
+          </UButton>
+        </section>
+
+        <div class="mt-3.5 flex gap-2.5">
+          <div class="q2-card flex-1 p-3.5">
+            <p class="flex items-center gap-1.5 text-xs font-extrabold text-(--q2-amber)">
+              <UIcon
+                name="i-lucide-flame"
+                class="size-4"
+                aria-hidden="true"
+              />
+              {{ t.goals.streak }}
+            </p>
+            <p class="mt-1 text-[22px] font-extrabold">
+              {{ t.goals.streakDays(goal.streak) }}
+            </p>
+          </div>
+
+          <div class="q2-card flex-1 p-3.5">
+            <p class="flex items-center gap-1.5 text-xs font-extrabold text-(--ui-text-muted)">
+              <UIcon
+                name="i-lucide-bell"
+                class="size-4"
+                aria-hidden="true"
+              />
+              {{ t.goals.reminder }}
+            </p>
+            <p class="mt-1 text-lg font-extrabold">
+              {{ reminder ?? t.goals.noReminder }}
+            </p>
+          </div>
         </div>
 
-        <div v-if="goal.participants.length > 0">
-          <dt class="text-sm text-(--ui-text-muted)">
-            Participants
-          </dt>
-          <dd>
-            <ul class="flex flex-wrap gap-1.5 p-0">
-              <li
-                v-for="participant in goal.participants"
-                :key="participant"
-                class="list-none"
-              >
-                <UBadge
-                  color="neutral"
-                  variant="subtle"
-                >
-                  {{ participant }}
-                </UBadge>
-              </li>
-            </ul>
-          </dd>
-        </div>
-      </dl>
-    </article>
+        <section
+          v-if="detail.tasks.length > 0"
+          class="mt-6"
+          aria-labelledby="goal-tasks-heading"
+        >
+          <h2
+            id="goal-tasks-heading"
+            class="mb-3 px-0.5 text-[15px] font-extrabold"
+          >
+            {{ t.goals.tasksHeading }}
+          </h2>
 
-    <AppStateMessage
-      v-else-if="isMissing"
-      icon="i-lucide-compass"
-      title="Goal not found"
-      description="We could not find that goal. It may have been removed."
-      data-testid="goal-not-found"
-    >
-      <UButton
-        to="/"
-        icon="i-lucide-house"
-      >
-        Back to goals
-      </UButton>
-    </AppStateMessage>
+          <div class="flex flex-col gap-2.5">
+            <GoalTaskRow
+              v-for="task in detail.tasks"
+              :key="task.id"
+              :task="task"
+              detailed
+              @toggle="toggleTask"
+            />
+          </div>
+        </section>
+
+        <section
+          v-if="detail.team.length > 0"
+          class="mt-6"
+          aria-labelledby="goal-team-heading"
+        >
+          <h2
+            id="goal-team-heading"
+            class="mb-3 px-0.5 text-[15px] font-extrabold"
+          >
+            {{ t.goals.sharedWith }}
+          </h2>
+
+          <ul class="flex list-none flex-col gap-2.5 p-0">
+            <li
+              v-for="member in detail.team"
+              :key="member.person.id"
+              class="q2-card flex items-center gap-3 px-3 py-3"
+              data-testid="goal-team-member"
+            >
+              <AppAvatar
+                :initials="member.person.initials"
+                :color="member.person.avatarColor"
+                :size="40"
+                :online="member.person.isOnline"
+              />
+
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-bold">
+                  {{ member.person.displayName }}
+                </p>
+                <p class="text-[11px] font-semibold text-(--ui-text-muted)">
+                  {{ member.streak > 0 ? t.friends.streak(member.streak) : t.goals.thisWeek }}
+                </p>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </article>
+    </div>
   </div>
 </template>

@@ -62,10 +62,10 @@ test.describe('error handling', () => {
 
     const state = page.getByTestId('error-state')
     await expect(state).toBeVisible()
-    await expect(state).toContainText('The server could not complete your request')
+    await expect(state).toContainText('Der Server konnte die Anfrage nicht abschließen')
 
     // The reference id lets a user quote the incident.
-    await expect(state).toContainText('Reference:')
+    await expect(state).toContainText('Referenz:')
 
     const body = await page.textContent('body')
     expect(body).not.toContain('DiagnosticsTestException')
@@ -145,10 +145,10 @@ test.describe('error handling', () => {
 
     const error = page.getByTestId('app-error')
     await expect(error).toBeVisible()
-    await expect(error).toContainText('Page not found')
+    await expect(error).toContainText('Seite nicht gefunden')
 
     await error.getByTestId('app-error-home').click()
-    await expect(page.getByRole('heading', { name: 'Shared goals' })).toBeVisible()
+    await expect(page.getByTestId('streak-hero')).toBeVisible()
   })
 })
 

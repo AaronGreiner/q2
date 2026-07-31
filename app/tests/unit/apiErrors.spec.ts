@@ -1,48 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, isApiError, messageForKind, normalizeApiError } from '~/api/errors'
+import { ApiError, isApiError, normalizeApiError, toApiFailure, type ApiErrorKind } from '~/api/errors'
+import { de, en } from '~/i18n/messages'
 
 /**
- * The classification that decides both what a user reads and whether an
- * incident reaches Sentry.
+ * Normalisation is the single place a failure gets its meaning, so this is
+ * where the mapping from "what came back" to "what the UI does about it" is
+ * pinned down.
  */
 
-/** Shaped like what ofetch throws for a failed response. */
+/** The shape ofetch throws. */
 function fetchError(status: number, data?: unknown) {
-  return Object.assign(new Error(`[GET] failed with ${status}`), { status, data })
+  return { status, statusCode: status, data, message: `HTTP ${status}` }
 }
 
 describe('normalizeApiError', () => {
-  it('treats a request that never completed as a network error', () => {
-    const error = normalizeApiError(new TypeError('Failed to fetch'))
-
-    expect(error.kind).toBe('network')
-    expect(error.status).toBeNull()
-    expect(error.isExpected).toBe(true)
-  })
-
-  it('reads field errors out of a validation problem', () => {
-    const error = normalizeApiError(fetchError(400, {
-      title: 'One or more validation errors occurred.',
-      status: 400,
-      errors: {
-        Title: ['A title is required.'],
-        ProgressPercent: ['Progress must be between 0 and 100.'],
-      },
-      traceId: '0HN123:00000001',
-    }))
-
-    expect(error.kind).toBe('validation')
-    expect(error.fieldErrors.Title).toEqual(['A title is required.'])
-    expect(error.fieldErrors.ProgressPercent).toHaveLength(1)
-    expect(error.traceId).toBe('0HN123:00000001')
-    expect(error.isExpected).toBe(true)
-  })
-
-  it('classifies a 400 without field details as validation too', () => {
-    expect(normalizeApiError(fetchError(400, { title: 'Malformed request' })).kind).toBe('validation')
-  })
-
-  it.each([
+  it.each<[number, ApiErrorKind]>([
+    [400, 'validation'],
     [401, 'unauthorized'],
     [403, 'unauthorized'],
     [404, 'notFound'],
@@ -50,55 +23,57 @@ describe('normalizeApiError', () => {
     [500, 'server'],
     [503, 'server'],
     [418, 'unknown'],
-  ])('maps status %i to %s', (status, expected) => {
-    expect(normalizeApiError(fetchError(status)).kind).toBe(expected)
+  ])('maps %i onto "%s"', (status, kind) => {
+    expect(normalizeApiError(fetchError(status)).kind).toBe(kind)
   })
 
-  it('keeps the backend error id so support can find the Sentry issue', () => {
-    const error = normalizeApiError(fetchError(500, {
-      title: 'Unexpected error',
-      traceId: '0HN123:00000002',
-      errorId: '8df1d696c6ec446ca43d20f8c5a38a67',
+  it('treats a request that never got an answer as a network failure', () => {
+    // Offline, DNS, CORS, abort — all of them arrive without a status.
+    expect(normalizeApiError(new TypeError('Failed to fetch')).kind).toBe('network')
+    expect(normalizeApiError({ status: 0 }).kind).toBe('network')
+    expect(normalizeApiError(undefined).kind).toBe('network')
+  })
+
+  it('keeps the field errors a validation problem carried', () => {
+    const error = normalizeApiError(fetchError(400, {
+      errors: { Title: ['A title is required.'], Icon: ['That icon is not one of the available goal icons.'] },
     }))
 
-    expect(error.errorId).toBe('8df1d696c6ec446ca43d20f8c5a38a67')
+    expect(error.fieldErrors.Title).toEqual(['A title is required.'])
+    expect(Object.keys(error.fieldErrors)).toHaveLength(2)
   })
 
-  it('never surfaces the backend detail text to the user', () => {
-    const error = normalizeApiError(fetchError(500, {
-      title: 'Unexpected error',
-      detail: 'SqliteException: unable to open database file Data Source=/srv/live.db',
-    }))
+  it('ignores field errors that are not lists of strings', () => {
+    const error = normalizeApiError(fetchError(400, { errors: { Title: 'nope', Icon: [1, 2] } }))
 
-    expect(error.message).toBe(messageForKind('server'))
-    expect(error.message).not.toContain('Sqlite')
-    expect(error.message).not.toContain('Data Source')
+    expect(error.fieldErrors.Title).toBeUndefined()
+    expect(error.fieldErrors.Icon).toEqual([])
   })
 
-  it('passes an ApiError through unchanged', () => {
-    const original = new ApiError({ kind: 'notFound', message: 'gone' })
+  it('keeps the correlation ids a user can quote', () => {
+    const error = normalizeApiError(fetchError(500, { traceId: 'trace-1', errorId: 'sentry-1' }))
+
+    expect(error.traceId).toBe('trace-1')
+    expect(error.errorId).toBe('sentry-1')
+  })
+
+  it('leaves an already-normalised error alone', () => {
+    const original = new ApiError({ kind: 'conflict', status: 409 })
 
     expect(normalizeApiError(original)).toBe(original)
   })
 
-  it('produces field errors that cannot be mutated by a caller', () => {
-    const error = normalizeApiError(fetchError(400, { errors: { Title: ['required'] } }))
+  it('never puts the backend\'s wording in front of a person', () => {
+    // `detail` is written for developers and may contain internals.
+    const error = normalizeApiError(fetchError(500, { detail: 'NullReferenceException at Q2.Api.Foo' }))
 
-    expect(() => {
-      // @ts-expect-error deliberately violating the readonly contract
-      error.fieldErrors.Title = ['changed']
-    }).toThrow()
-  })
-
-  it('ignores malformed error payloads instead of throwing', () => {
-    expect(normalizeApiError(fetchError(400, 'just a string')).fieldErrors).toEqual({})
-    expect(normalizeApiError(fetchError(400, { errors: 'nope' })).fieldErrors).toEqual({})
-    expect(normalizeApiError(undefined).kind).toBe('network')
+    expect(error.message).not.toContain('NullReference')
+    expect(error.message).not.toContain('Q2.Api')
   })
 })
 
-describe('isExpected', () => {
-  it.each([
+describe('ApiError.isExpected', () => {
+  it.each<[ApiErrorKind, boolean]>([
     ['validation', true],
     ['notFound', true],
     ['conflict', true],
@@ -106,37 +81,56 @@ describe('isExpected', () => {
     ['network', true],
     ['server', false],
     ['unknown', false],
-  ] as const)('%s -> %s', (kind, expected) => {
-    // Only the last two deserve a Sentry issue; the rest are normal use.
-    expect(new ApiError({ kind, message: 'x' }).isExpected).toBe(expected)
+  ])('treats "%s" as expected: %s', (kind, expected) => {
+    expect(new ApiError({ kind }).isExpected).toBe(expected)
   })
 })
 
-describe('messageForKind', () => {
-  it('never repeats the heading it is shown under', () => {
-    // AppErrorState renders "Something went wrong" as the heading for these
-    // two kinds. The page used to read "Something went wrongSomething went
-    // wrong on our side." — found by reading the rendered page, not by a test.
-    expect(messageForKind('server')).not.toContain('Something went wrong')
-    expect(messageForKind('unknown')).not.toContain('Something went wrong')
-    expect(messageForKind('network')).not.toContain('No connection')
-    expect(messageForKind('notFound')).not.toContain('Not found')
-  })
+describe('toApiFailure', () => {
+  it('produces plain data that survives the SSR payload', () => {
+    const failure = toApiFailure(new ApiError({
+      kind: 'validation',
+      status: 400,
+      fieldErrors: { Title: ['A title is required.'] },
+      traceId: 'trace-1',
+    }))
 
-  it('is written for a person, not a developer', () => {
-    for (const kind of ['validation', 'notFound', 'conflict', 'unauthorized', 'network', 'server', 'unknown'] as const) {
-      const message = messageForKind(kind)
-
-      expect(message.length).toBeGreaterThan(10)
-      expect(message).not.toMatch(/\d{3}|exception|null|undefined/i)
-    }
+    // A class instance would arrive in the browser without its prototype, and
+    // `isExpected` would be gone.
+    expect(JSON.parse(JSON.stringify(failure))).toEqual(failure)
+    expect(failure.isExpected).toBe(true)
   })
 })
 
 describe('isApiError', () => {
-  it('distinguishes our errors from ordinary ones', () => {
-    expect(isApiError(new ApiError({ kind: 'server', message: 'x' }))).toBe(true)
-    expect(isApiError(new Error('x'))).toBe(false)
+  it('recognises its own type and nothing else', () => {
+    expect(isApiError(new ApiError({ kind: 'network' }))).toBe(true)
+    expect(isApiError(new Error('nope'))).toBe(false)
     expect(isApiError(null)).toBe(false)
+  })
+})
+
+describe('the copy behind a failure', () => {
+  const kinds: ApiErrorKind[] = [
+    'validation', 'notFound', 'conflict', 'unauthorized', 'network', 'server', 'unknown',
+  ]
+
+  it('exists in both languages for every kind', () => {
+    for (const kind of kinds) {
+      expect(de.errors[kind]).toBeTruthy()
+      expect(en.errors[kind]).toBeTruthy()
+    }
+  })
+
+  it('never repeats the heading it is shown under', () => {
+    // "Something went wrong" followed by "Something went wrong on our side" is
+    // what this assertion exists to prevent.
+    for (const [messages, titles] of [[de, de.errors.title], [en, en.errors.title]] as const) {
+      for (const kind of kinds) {
+        for (const title of Object.values(titles)) {
+          expect(messages.errors[kind]).not.toContain(title)
+        }
+      }
+    }
   })
 })

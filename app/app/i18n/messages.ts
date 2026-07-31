@@ -1,0 +1,538 @@
+import type { ApiErrorKind } from '~/api/errors'
+import type { BadgeKey, GoalRhythm, GoalStatus } from '~/api/types'
+
+/**
+ * Every word q2 says, in both languages it speaks.
+ *
+ * Hand-written rather than a library: there are two languages and a few
+ * hundred strings, the app has no plural rules beyond "one / many", and
+ * `@nuxtjs/i18n` would bring routing, lazy loading and a message compiler for
+ * none of that. When a third language or real pluralisation arrives, this file
+ * is what gets replaced — and it will be one replacement, because nothing else
+ * contains a user-visible string.
+ *
+ * The rule that keeps it that way: **no component or page may contain literal
+ * user-facing text.** A German string in a template is a string that cannot be
+ * translated and, worse, one nobody will find.
+ *
+ * `en` is typed as `Messages`, so leaving a key out of it is a build error
+ * rather than a screen that falls back to German without telling anyone.
+ */
+export const de = {
+  app: {
+    name: 'Kudos',
+    description: 'Kudos (q2) — Ziele für dein Wohlbefinden, gemeinsam mit Freunden.',
+    skipToContent: 'Zum Inhalt springen',
+  },
+
+  nav: {
+    label: 'Hauptnavigation',
+    home: 'Start',
+    goals: 'Ziele',
+    chats: 'Chats',
+    friends: 'Freunde',
+    profile: 'Profil',
+  },
+
+  common: {
+    back: 'Zurück',
+    retry: 'Erneut versuchen',
+    showAll: 'Alle anzeigen',
+    more: 'Mehr',
+    search: 'Suchen',
+    loading: 'Wird geladen …',
+    reference: 'Referenz',
+    close: 'Schließen',
+    toHome: 'Zur Startseite',
+  },
+
+  home: {
+    greeting: (hour: number): string => (hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend'),
+    streakLabel: 'Dein Streak',
+    streakDays: (days: number): string => (days === 1 ? 'Tag in Folge 🔥' : 'Tage in Folge 🔥'),
+    streakEncouragement: 'Stark dran! Heute dranbleiben hält die Serie am Leben.',
+    streakStart: 'Noch keine Serie — der erste Haken von heute startet sie.',
+    todayHeading: 'Heute',
+    todayDone: 'Heute geschafft',
+    todaySummary: (done: number, total: number) => `${done} von ${total} Aufgaben erledigt`,
+    todayShort: 'heute',
+    goalsHeading: 'Deine Ziele',
+    feedHeading: 'Aktivität deiner Freunde',
+    leaderboardHeading: 'Wochen-Bestenliste',
+    noTasks: 'Für heute steht nichts an.',
+    noTasksHint: 'Leg ein Ziel an, dann taucht es hier auf.',
+    noGoals: 'Noch keine Ziele.',
+    noFeed: 'Noch nichts von deinen Freunden.',
+    noFeedHint: 'Sobald jemand etwas schafft, steht es hier.',
+  },
+
+  goals: {
+    heading: 'Ziele',
+    new: 'Neu',
+    tabToday: 'Heute',
+    tabGoals: 'Ziele',
+    group: 'GRUPPE',
+    detailHeading: 'Ziel-Details',
+    reached: 'erreicht',
+    contribute: 'Heute eintragen',
+    contributeDone: 'Ziel erreicht 🎉',
+    streak: 'Streak',
+    streakDays: (days: number) => (days === 1 ? '1 Tag' : `${days} Tage`),
+    reminder: 'Erinnerung',
+    noReminder: 'Keine',
+    sharedWith: 'Gemeinsam mit',
+    cheer: '👏 Anfeuern',
+    thisWeek: 'Diese Woche dabei',
+    tasksHeading: 'Aufgaben',
+    steps: (done: number, total: number) => `${done} von ${total} Schritten`,
+    noTasksToday: 'Heute steht nichts an.',
+    noTasksTodayHint: 'Alles erledigt, oder für heute nichts geplant.',
+    noGoals: 'Noch keine Ziele',
+    noGoalsHint: 'Leg dein erstes Ziel an und verfolge euren Fortschritt gemeinsam.',
+    notFound: 'Ziel nicht gefunden',
+    notFoundHint: 'Wir konnten dieses Ziel nicht finden. Vielleicht wurde es entfernt.',
+    progressLabel: (percent: number) => `${percent}\u00A0% erreicht`,
+    overdue: 'Überfällig',
+  },
+
+  create: {
+    heading: 'Neues Ziel',
+    subtitle: 'Was möchtest du gemeinsam erreichen?',
+    titleLabel: 'Titel',
+    titlePlaceholder: 'z. B. 10.000 Schritte am Tag',
+    rhythmLabel: 'Rhythmus',
+    iconLabel: 'Symbol',
+    stepsLabel: 'Schritte bis zum Ziel',
+    stepsHelp: 'Wie oft musst du dranbleiben, bis es geschafft ist?',
+    reminderLabel: 'Tägliche Erinnerung',
+    submit: 'Ziel erstellen',
+    open: 'Neues Ziel anlegen',
+  },
+
+  rhythm: {
+    Daily: 'Täglich',
+    Weekdays: 'Mo–Fr',
+    Weekly: 'Wöchentlich',
+    Once: 'Einmalig',
+  } satisfies Record<GoalRhythm, string>,
+
+  status: {
+    Active: 'Aktiv',
+    Completed: 'Abgeschlossen',
+    Archived: 'Archiviert',
+  } satisfies Record<GoalStatus, string>,
+
+  chats: {
+    heading: 'Chats',
+    searchPlaceholder: 'Suchen',
+    you: 'Du',
+    members: (count: number) => (count === 1 ? '1 Mitglied' : `${count} Mitglieder`),
+    online: 'Online',
+    lastSeen: (label: string) => `${label} aktiv`,
+    offline: 'Offline',
+    sharedGoal: 'Gemeinsames Ziel',
+    cheerButton: 'Anfeuern 🔥',
+    messagePlaceholder: 'Nachricht …',
+    send: 'Senden',
+    clap: 'Applaudieren',
+    empty: 'Noch keine Nachrichten',
+    emptyHint: 'Schreib die erste — Anfeuern hilft mehr als man denkt.',
+    noChats: 'Noch keine Chats',
+    noChatsHint: 'Sobald du dich mit jemandem verbindest, entsteht hier ein Chat.',
+    notFound: 'Chat nicht gefunden',
+    notFoundHint: 'Diese Unterhaltung gibt es nicht — oder sie gehört nicht zu dir.',
+    quickCheers: [
+      { label: '💪 Stark!', text: '💪 Stark gemacht!' },
+      { label: '🔥 Weiter so!', text: '🔥 Weiter so!' },
+      { label: '👏 Kudos', text: '👏 Kudos für dich!' },
+      { label: '🙌 Du schaffst das', text: '🙌 Du schaffst das!' },
+    ],
+    cheerText: '🔥 Los geht’s — ich feuere dich an!',
+  },
+
+  friends: {
+    heading: 'Freunde',
+    searchPlaceholder: 'Freunde finden …',
+    requests: 'Anfragen',
+    suggestions: 'Vorschläge für dich',
+    yours: 'Deine Freunde',
+    mutual: (count: number) => (count === 1 ? '1 gemeinsamer Freund' : `${count} gemeinsame Freunde`),
+    accept: 'Annehmen',
+    decline: 'Ablehnen',
+    add: 'Hinzufügen',
+    requested: 'Angefragt',
+    message: 'Nachricht schreiben',
+    streak: (days: number) => `${days}-Tage-Streak 🔥`,
+    none: 'Noch keine Freunde',
+    noneHint: 'Such oben nach jemandem, mit dem du dranbleiben möchtest.',
+    noMatches: 'Niemand gefunden',
+    noMatchesHint: 'Versuch es mit einem anderen Namen.',
+  },
+
+  profile: {
+    heading: 'Profil',
+    streak: 'Streak',
+    kudos: 'Kudos',
+    goals: 'Ziele',
+    streakBadge: (days: number) => `${days}-Tage-Streak`,
+    badges: 'Abzeichen',
+    badgeLocked: 'noch nicht erreicht',
+    activity: 'Letzte Aktivität',
+    noActivity: 'Noch nichts passiert.',
+    noActivityHint: 'Hak eine Aufgabe ab — sie steht dann hier.',
+    openSettings: 'Einstellungen öffnen',
+  },
+
+  badges: {
+    StreakHero: 'Streak-Held',
+    EarlyBird: 'Frühaufsteher',
+    Bookworm: 'Bücherwurm',
+    KudosGiver: 'Kudos-Geber',
+    Marathon: 'Marathon',
+    WeeklyWinner: 'Wochensieger',
+  } satisfies Record<BadgeKey, string>,
+
+  settings: {
+    heading: 'Einstellungen',
+    appearance: 'Darstellung',
+    theme: 'Theme',
+    themeSystem: 'System',
+    themeLight: 'Hell',
+    themeDark: 'Dunkel',
+    language: 'Sprache',
+    languageGerman: 'Deutsch',
+    languageEnglish: 'English',
+    notifications: 'Benachrichtigungen',
+    notifyReminders: 'Erinnerungen',
+    notifyKudos: 'Kudos & Reaktionen',
+    notifyMessages: 'Nachrichten',
+    notifyWeeklyReview: 'Wochenrückblick',
+    notificationsNote: 'q2 verschickt noch keine Benachrichtigungen. Deine Auswahl wird gespeichert und gilt, sobald es so weit ist.',
+    account: 'Konto',
+    editProfile: 'Profil bearbeiten',
+    privacy: 'Privatsphäre',
+    help: 'Hilfe & Support',
+    accountNote: 'Es gibt noch keine Konten — diese Punkte kommen mit der Anmeldung.',
+    version: (version: string) => `Q2 · Kudos — ${version}`,
+  },
+
+  activity: {
+    taskCompleted: (subject: string) => `hat „${subject}“ abgeschlossen`,
+    streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht 🔥`,
+    goalProgress: (subject: string, percent: number) => `ist bei „${subject}“ auf ${percent}\u00A0%`,
+    goalCreated: (subject: string) => `hat ein neues Ziel erstellt: ${subject}`,
+    giveKudos: 'Kudos geben',
+    takeBackKudos: 'Kudos zurücknehmen',
+  },
+
+  /** How numbers are written. Used by formatAmount in app/utils/display.ts. */
+  numbers: {
+    decimal: ',',
+  },
+
+  time: {
+    justNow: 'gerade eben',
+    minutesAgo: (minutes: number) => `vor ${minutes} Min`,
+    hoursAgo: (hours: number) => (hours === 1 ? 'vor 1 Std' : `vor ${hours} Std`),
+    yesterday: 'gestern',
+    daysAgo: (days: number) => `vor ${days} Tagen`,
+    weekdays: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+    weekdayInitials: ['M', 'D', 'M', 'D', 'F', 'S', 'S'],
+  },
+
+  errors: {
+    title: {
+      network: 'Keine Verbindung',
+      notFound: 'Nicht gefunden',
+      unauthorized: 'Kein Zugriff',
+      other: 'Etwas ist schiefgelaufen',
+    },
+    validation: 'Bitte prüf die markierten Felder und versuch es erneut.',
+    notFound: 'Das konnten wir nicht finden. Vielleicht wurde es entfernt.',
+    conflict: 'Diese Änderung passt nicht zum aktuellen Stand. Lade neu und versuch es erneut.',
+    unauthorized: 'Darauf hast du keinen Zugriff.',
+    network: 'Wir konnten den Server nicht erreichen. Prüf deine Verbindung und versuch es erneut.',
+    server: 'Der Server konnte die Anfrage nicht abschließen. Bitte versuch es gleich noch einmal.',
+    unknown: 'Bitte versuch es erneut. Wenn es weiter auftritt, nenne uns die Referenz unten.',
+    pageNotFound: 'Seite nicht gefunden',
+    pageNotFoundHint: 'Diese Seite gibt es nicht. Vielleicht wurde sie verschoben oder entfernt.',
+    unexpected: 'Wir sind auf ein unerwartetes Problem gestoßen. Es wurde aufgezeichnet — bitte versuch es erneut.',
+  },
+
+  toast: {
+    taskDone: { emoji: '🎉', text: 'Stark gemacht!' },
+    kudosSent: { emoji: '👏', text: 'Kudos gesendet!' },
+    progressSaved: { emoji: '💪', text: 'Fortschritt gespeichert!' },
+    goalReached: { emoji: '🏆', text: 'Ziel erreicht!' },
+    goalCreated: { emoji: '✨', text: 'Ziel erstellt!' },
+    cheerSent: { emoji: '🔥', text: 'Anfeuerung gesendet!' },
+    requestSent: { emoji: '✉️', text: 'Anfrage gesendet!' },
+    friendAdded: (name: string) => ({ emoji: '🤝', text: `${name} ist jetzt dein Freund!` }),
+    titleRequired: { emoji: '✏️', text: 'Bitte gib einen Titel ein' },
+  },
+}
+
+export type Messages = typeof de
+
+export const en: Messages = {
+  app: {
+    name: 'Kudos',
+    description: 'Kudos (q2) — pursue self-care goals together with friends.',
+    skipToContent: 'Skip to content',
+  },
+
+  nav: {
+    label: 'Main navigation',
+    home: 'Home',
+    goals: 'Goals',
+    chats: 'Chats',
+    friends: 'Friends',
+    profile: 'Profile',
+  },
+
+  common: {
+    back: 'Back',
+    retry: 'Try again',
+    showAll: 'Show all',
+    more: 'More',
+    search: 'Search',
+    loading: 'Loading …',
+    reference: 'Reference',
+    close: 'Close',
+    toHome: 'Back to home',
+  },
+
+  home: {
+    greeting: (hour: number) => (hour < 11 ? 'Good morning' : hour < 18 ? 'Hello' : 'Good evening'),
+    streakLabel: 'Your streak',
+    streakDays: (days: number) => (days === 1 ? 'day in a row 🔥' : 'days in a row 🔥'),
+    streakEncouragement: 'Going strong. One more today keeps it alive.',
+    streakStart: 'No streak yet — the first tick today starts one.',
+    todayHeading: 'Today',
+    todayDone: 'Done today',
+    todaySummary: (done: number, total: number) => `${done} of ${total} tasks done`,
+    todayShort: 'today',
+    goalsHeading: 'Your goals',
+    feedHeading: 'What your friends did',
+    leaderboardHeading: 'Weekly leaderboard',
+    noTasks: 'Nothing on today.',
+    noTasksHint: 'Add a goal and it will show up here.',
+    noGoals: 'No goals yet.',
+    noFeed: 'Nothing from your friends yet.',
+    noFeedHint: 'As soon as somebody gets something done, it appears here.',
+  },
+
+  goals: {
+    heading: 'Goals',
+    new: 'New',
+    tabToday: 'Today',
+    tabGoals: 'Goals',
+    group: 'GROUP',
+    detailHeading: 'Goal details',
+    reached: 'reached',
+    contribute: 'Log today',
+    contributeDone: 'Goal reached 🎉',
+    streak: 'Streak',
+    streakDays: (days: number) => (days === 1 ? '1 day' : `${days} days`),
+    reminder: 'Reminder',
+    noReminder: 'None',
+    sharedWith: 'Together with',
+    cheer: '👏 Cheer on',
+    thisWeek: 'On it this week',
+    tasksHeading: 'Tasks',
+    steps: (done: number, total: number) => `${done} of ${total} steps`,
+    noTasksToday: 'Nothing on today.',
+    noTasksTodayHint: 'All done, or nothing planned for today.',
+    noGoals: 'No goals yet',
+    noGoalsHint: 'Add your first goal and track your progress together.',
+    notFound: 'Goal not found',
+    notFoundHint: 'We could not find that goal. It may have been removed.',
+    progressLabel: (percent: number) => `${percent}% reached`,
+    overdue: 'Overdue',
+  },
+
+  create: {
+    heading: 'New goal',
+    subtitle: 'What would you like to reach together?',
+    titleLabel: 'Title',
+    titlePlaceholder: 'e.g. 10,000 steps a day',
+    rhythmLabel: 'Rhythm',
+    iconLabel: 'Icon',
+    stepsLabel: 'Steps to reach it',
+    stepsHelp: 'How many times do you have to show up before it is done?',
+    reminderLabel: 'Daily reminder',
+    submit: 'Create goal',
+    open: 'Add a goal',
+  },
+
+  rhythm: {
+    Daily: 'Daily',
+    Weekdays: 'Mon–Fri',
+    Weekly: 'Weekly',
+    Once: 'Once',
+  },
+
+  status: {
+    Active: 'Active',
+    Completed: 'Completed',
+    Archived: 'Archived',
+  },
+
+  chats: {
+    heading: 'Chats',
+    searchPlaceholder: 'Search',
+    you: 'You',
+    members: (count: number) => (count === 1 ? '1 member' : `${count} members`),
+    online: 'Online',
+    lastSeen: (label: string) => `active ${label}`,
+    offline: 'Offline',
+    sharedGoal: 'Shared goal',
+    cheerButton: 'Cheer on 🔥',
+    messagePlaceholder: 'Message …',
+    send: 'Send',
+    clap: 'Applaud',
+    empty: 'No messages yet',
+    emptyHint: 'Write the first one — encouragement helps more than you think.',
+    noChats: 'No chats yet',
+    noChatsHint: 'A chat appears here as soon as you connect with somebody.',
+    notFound: 'Chat not found',
+    notFoundHint: 'That conversation does not exist — or it is not yours.',
+    quickCheers: [
+      { label: '💪 Strong!', text: '💪 Nicely done!' },
+      { label: '🔥 Keep going!', text: '🔥 Keep going!' },
+      { label: '👏 Kudos', text: '👏 Kudos to you!' },
+      { label: '🙌 You got this', text: '🙌 You got this!' },
+    ],
+    cheerText: '🔥 Go on — I am cheering for you!',
+  },
+
+  friends: {
+    heading: 'Friends',
+    searchPlaceholder: 'Find friends …',
+    requests: 'Requests',
+    suggestions: 'Suggested for you',
+    yours: 'Your friends',
+    mutual: (count: number) => (count === 1 ? '1 mutual friend' : `${count} mutual friends`),
+    accept: 'Accept',
+    decline: 'Decline',
+    add: 'Add',
+    requested: 'Requested',
+    message: 'Write a message',
+    streak: (days: number) => `${days}-day streak 🔥`,
+    none: 'No friends yet',
+    noneHint: 'Search above for somebody to keep at it with.',
+    noMatches: 'Nobody found',
+    noMatchesHint: 'Try a different name.',
+  },
+
+  profile: {
+    heading: 'Profile',
+    streak: 'Streak',
+    kudos: 'Kudos',
+    goals: 'Goals',
+    streakBadge: (days: number) => `${days}-day streak`,
+    badges: 'Badges',
+    badgeLocked: 'not earned yet',
+    activity: 'Recent activity',
+    noActivity: 'Nothing has happened yet.',
+    noActivityHint: 'Tick a task off and it will show up here.',
+    openSettings: 'Open settings',
+  },
+
+  badges: {
+    StreakHero: 'Streak hero',
+    EarlyBird: 'Early bird',
+    Bookworm: 'Bookworm',
+    KudosGiver: 'Kudos giver',
+    Marathon: 'Marathon',
+    WeeklyWinner: 'Weekly winner',
+  },
+
+  settings: {
+    heading: 'Settings',
+    appearance: 'Appearance',
+    theme: 'Theme',
+    themeSystem: 'System',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    language: 'Language',
+    languageGerman: 'Deutsch',
+    languageEnglish: 'English',
+    notifications: 'Notifications',
+    notifyReminders: 'Reminders',
+    notifyKudos: 'Kudos & reactions',
+    notifyMessages: 'Messages',
+    notifyWeeklyReview: 'Weekly review',
+    notificationsNote: 'q2 does not send notifications yet. Your choice is saved and applies once it does.',
+    account: 'Account',
+    editProfile: 'Edit profile',
+    privacy: 'Privacy',
+    help: 'Help & support',
+    accountNote: 'There are no accounts yet — these arrive with sign-in.',
+    version: (version: string) => `Q2 · Kudos — ${version}`,
+  },
+
+  activity: {
+    taskCompleted: (subject: string) => `completed “${subject}”`,
+    streakReached: (days: number) => `reached a ${days}-day streak 🔥`,
+    goalProgress: (subject: string, percent: number) => `is at ${percent}% on “${subject}”`,
+    goalCreated: (subject: string) => `started a new goal: ${subject}`,
+    giveKudos: 'Give kudos',
+    takeBackKudos: 'Take kudos back',
+  },
+
+  numbers: {
+    decimal: '.',
+  },
+
+  time: {
+    justNow: 'just now',
+    minutesAgo: (minutes: number) => `${minutes} min ago`,
+    hoursAgo: (hours: number) => (hours === 1 ? '1 hr ago' : `${hours} hrs ago`),
+    yesterday: 'yesterday',
+    daysAgo: (days: number) => `${days} days ago`,
+    weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    weekdayInitials: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  },
+
+  errors: {
+    title: {
+      network: 'No connection',
+      notFound: 'Not found',
+      unauthorized: 'No access',
+      other: 'Something went wrong',
+    },
+    validation: 'Please check the highlighted fields and try again.',
+    notFound: 'We could not find that. It may have been removed.',
+    conflict: 'That change conflicts with the current state. Reload and try again.',
+    unauthorized: 'You do not have access to this.',
+    network: 'We could not reach the server. Check your connection and try again.',
+    server: 'The server could not complete your request. Please try again in a moment.',
+    unknown: 'Please try again. If it keeps happening, let us know and quote the reference below.',
+    pageNotFound: 'Page not found',
+    pageNotFoundHint: 'That page does not exist. It may have been moved or removed.',
+    unexpected: 'We hit an unexpected problem. The incident has been recorded — please try again.',
+  },
+
+  toast: {
+    taskDone: { emoji: '🎉', text: 'Nicely done!' },
+    kudosSent: { emoji: '👏', text: 'Kudos sent!' },
+    progressSaved: { emoji: '💪', text: 'Progress saved!' },
+    goalReached: { emoji: '🏆', text: 'Goal reached!' },
+    goalCreated: { emoji: '✨', text: 'Goal created!' },
+    cheerSent: { emoji: '🔥', text: 'Cheer sent!' },
+    requestSent: { emoji: '✉️', text: 'Request sent!' },
+    friendAdded: (name: string) => ({ emoji: '🤝', text: `${name} is now your friend!` }),
+    titleRequired: { emoji: '✏️', text: 'Please enter a title' },
+  },
+}
+
+export const messages = { de, en }
+
+/** Maps the API's language preference onto the dictionaries above. */
+export const languageKeys = { German: 'de', English: 'en' } as const
+
+/** The error copy for a failure kind. Kept next to the kinds it covers. */
+export function errorMessage(t: Messages, kind: ApiErrorKind): string {
+  return t.errors[kind]
+}

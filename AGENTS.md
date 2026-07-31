@@ -11,8 +11,9 @@ add their own: [`app/AGENTS.md`](app/AGENTS.md),
 Kudos (short name **q2**) is a self-care application: personal goals, pursued
 together with friends or a community, with progress, encouragement and credit.
 
-This repository holds the **initial version** — one working vertical slice
-around *goals*. Read [README.md](README.md) section 1 and 2 for exactly what
+This repository holds the **initial version** — five working screens built from
+the Kudos design: goals and the tasks under them, chats about them, friends,
+and a profile. Read [README.md](README.md) sections 1 and 2 for exactly what
 exists and what is deliberately absent.
 
 The important consequence: **do not build ahead of the requirement**. No user
@@ -72,14 +73,22 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
 - No global mutable state. No hidden side effects.
 - Time and identifiers are injected (`TimeProvider`, `IIdGenerator`), never read
   from ambient state inside domain logic. This is what makes seeds and tests
-  reproducible.
+  reproducible. EF Core is told so explicitly — `Q2DbContext` marks every GUID
+  key `ValueGeneratedNever`, because the default silently downgrades an insert
+  of a new child inside a tracked aggregate.
+- Numbers people see are **derived, not stored**. A goal's percentage comes from
+  its steps and a streak from the days behind it, so the figure on screen can
+  never disagree with what it is a figure of.
 - Every automation is documented. A script that does something surprising is a
   bug in the script or in the documentation.
 
 ## 5. Conventions
 
-- **Language.** Code, comments, documentation, commit messages and UI text are
-  English.
+- **Language.** Code, comments, documentation and commit messages are English.
+  **User-facing text is not** — the product speaks German by default and English
+  on request, and every word of it lives in `app/app/i18n/messages.ts`. No
+  component or page may contain a literal user-facing string; see
+  [docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
 - **Comments** explain *why*, not *what*. A comment that restates the code is
   noise; a comment that records a decision, a constraint or a trap is valuable.
 - **Naming.** Say what a thing is for. `DatabaseResetGuard`, not `Helper`.
@@ -121,8 +130,16 @@ The rules that matter:
   `ManualTesting`, `AutomatedTest` and `E2E` may be reset, and only through
   `DatabaseResetGuard`.
 - **Seeds are central and deterministic.** One class per profile in
-  `api/src/Q2.Api/Infrastructure/Persistence/Seeding/`. No `DateTime.UtcNow`,
-  no `Guid.NewGuid()`, no randomness, no real personal data, no secrets.
+  `api/src/Q2.Api/Infrastructure/Persistence/Seeding/`, composed with
+  `SeedBuilder` so ids are handed out rather than written by hand. No
+  `DateTime.UtcNow`, no `Guid.NewGuid()`, no randomness, no real personal data,
+  no secrets.
+- **Exactly one person carries `IsCurrentUser`.** `CurrentPerson` refuses to
+  guess when that is not true, so a seed that gets it wrong fails loudly
+  ([docs/adr/0009-single-known-person.md](docs/adr/0009-single-known-person.md)).
+- **The AutomatedTest and E2E seeds contain no weekday-dependent task.** "How
+  many tasks are on today's list" would otherwise depend on the day the suite
+  runs.
 - **Never insert rows** from `Program.cs`, from a migration or inline in a test.
 - **Migrations are committed** and are applied in every environment, including
   test fixtures. `EnsureCreated` is not used anywhere.

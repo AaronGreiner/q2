@@ -126,7 +126,7 @@ with the viewport pinned to 390 × 844. There is deliberately no desktop project
 What that buys is the *width* every assertion is made at. It is not a layout
 test: the suite asserts behaviour and text, so a card overflowing horizontally
 or a control pushed off-screen would still pass ([next-steps.md](next-steps.md),
-item 5).
+item 6).
 
 ## Parallelism
 

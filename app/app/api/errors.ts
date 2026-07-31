@@ -11,7 +11,7 @@ import type { ProblemDetails, ValidationProblemDetails } from './types'
 export type ApiErrorKind
   /** 400 with field-level messages. */
   = | 'validation'
-  /** 404 — a goal that does not exist, or a stale link. */
+  /** 404 — something that does not exist, or a stale link. */
     | 'notFound'
   /** 409 — the request conflicts with the current state. */
     | 'conflict'
@@ -34,7 +34,14 @@ const expectedKinds: ReadonlySet<ApiErrorKind> = new Set<ApiErrorKind>([
   'network',
 ])
 
-/** A failed API call, normalised into something the UI can act on. */
+/**
+ * A failed API call, normalised into something the UI can act on.
+ *
+ * Note what is *not* here: a sentence to show somebody. The app speaks two
+ * languages, so the words live in the message catalogue and are chosen from
+ * `kind` at render time (app/i18n/messages.ts). `message` is the technical
+ * summary that ends up in a breadcrumb.
+ */
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status: number | null
@@ -47,14 +54,13 @@ export class ApiError extends Error {
 
   constructor(init: {
     kind: ApiErrorKind
-    message: string
     status?: number | null
     fieldErrors?: Record<string, string[]>
     traceId?: string | null
     errorId?: string | null
     cause?: unknown
   }) {
-    super(init.message, { cause: init.cause })
+    super(`API request failed (${init.kind}${init.status ? `, ${init.status}` : ''})`, { cause: init.cause })
     this.name = 'ApiError'
     this.kind = init.kind
     this.status = init.status ?? null
@@ -84,7 +90,6 @@ export function isApiError(error: unknown): error is ApiError {
  */
 export interface ApiFailure {
   kind: ApiErrorKind
-  message: string
   status: number | null
   fieldErrors: Record<string, string[]>
   traceId: string | null
@@ -95,7 +100,6 @@ export interface ApiFailure {
 export function toApiFailure(error: ApiError): ApiFailure {
   return {
     kind: error.kind,
-    message: error.message,
     status: error.status,
     fieldErrors: { ...error.fieldErrors },
     traceId: error.traceId,
@@ -113,34 +117,6 @@ function kindForStatus(status: number): ApiErrorKind {
   if (status === 409) return 'conflict'
   if (status >= 500) return 'server'
   return 'unknown'
-}
-
-/**
- * Messages a person can act on. Deliberately free of status codes, exception
- * names and backend wording — the API's `detail` is written for developers.
- *
- * These are read as the *description* under a short heading (see
- * AppErrorState), so none of them may repeat that heading. "Something went
- * wrong" followed by "Something went wrong on our side" is what this comment
- * exists to prevent.
- */
-export function messageForKind(kind: ApiErrorKind): string {
-  switch (kind) {
-    case 'validation':
-      return 'Please check the highlighted fields and try again.'
-    case 'notFound':
-      return 'We could not find that goal. It may have been removed.'
-    case 'conflict':
-      return 'That change conflicts with the current state. Reload and try again.'
-    case 'unauthorized':
-      return 'You do not have access to this.'
-    case 'network':
-      return 'We could not reach the server. Check your connection and try again.'
-    case 'server':
-      return 'The server could not complete your request. Please try again in a moment.'
-    case 'unknown':
-      return 'Please try again. If it keeps happening, let us know and quote the reference below.'
-  }
 }
 
 interface FetchLikeError {
@@ -184,23 +160,15 @@ export function normalizeApiError(error: unknown): ApiError {
 
   // No status means the request never completed: offline, CORS, DNS, abort.
   if (status === null || status === 0) {
-    return new ApiError({
-      kind: 'network',
-      message: messageForKind('network'),
-      status: null,
-      cause: error,
-    })
+    return new ApiError({ kind: 'network', status: null, cause: error })
   }
 
   const problem = readProblem(candidate.data)
-  const fieldErrors = readFieldErrors(problem)
-  const kind = kindForStatus(status)
 
   return new ApiError({
-    kind,
-    message: messageForKind(kind),
+    kind: kindForStatus(status),
     status,
-    fieldErrors,
+    fieldErrors: readFieldErrors(problem),
     traceId: typeof problem.traceId === 'string' ? problem.traceId : null,
     errorId: typeof problem.errorId === 'string' ? problem.errorId : null,
     cause: error,

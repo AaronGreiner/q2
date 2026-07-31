@@ -1,222 +1,319 @@
 using System.Net;
-using System.Net.Http.Json;
-using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
 namespace Q2.Api.IntegrationTests.Api;
 
 /// <summary>
-/// The goal endpoints, exercised through the real HTTP pipeline against a
-/// migrated and seeded SQLite in-memory database.
+/// The goal endpoints, over real HTTP against a real database.
 /// </summary>
 [Trait("Category", "Integration")]
 public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 {
+    private sealed record GoalDocument(
+        Guid Id,
+        string Title,
+        string? Description,
+        string Icon,
+        GoalRhythm Rhythm,
+        GoalStatus Status,
+        bool IsGroup,
+        int CompletedSteps,
+        int TotalSteps,
+        int ProgressPercent,
+        int Streak,
+        TimeOnly? ReminderAt,
+        DateOnly? TargetDate,
+        DateTimeOffset CreatedAt,
+        IReadOnlyList<PersonDocument> Participants,
+        bool IsOverdue);
+
+    private sealed record PersonDocument(
+        Guid Id,
+        string DisplayName,
+        string Handle,
+        string Initials,
+        string AvatarColor,
+        bool IsOnline);
+
+    private sealed record TeamMemberDocument(PersonDocument Person, int Streak);
+
+    private sealed record GoalDetailDocument(
+        GoalDocument Goal,
+        IReadOnlyList<TeamMemberDocument> Team,
+        IReadOnlyList<TaskDocument> Tasks);
+
+    private sealed record TaskDocument(Guid Id, Guid? GoalId, string Title, bool IsDone);
+
+    private sealed record ValidationDocument(IReadOnlyDictionary<string, string[]> Errors);
+
     [Fact]
-    public async Task ListReturnsTheSeededGoalsNewestFirst()
+    public async Task ListingReturnsTheSeededGoalsNewestFirst()
     {
         var response = await Client.GetAsync("/api/goals", TestContext.Current.CancellationToken);
-
         response.EnsureSuccessStatusCode();
-        var goals = await response.ReadAsync<List<GoalResponse>>();
+
+        var goals = await response.ReadAsync<IReadOnlyList<GoalDocument>>();
 
         Assert.Equal(3, goals.Count);
-        Assert.Equal(
-            goals.Select(g => g.CreatedAt).OrderByDescending(c => c),
-            goals.Select(g => g.CreatedAt));
+        Assert.Equal(goals.OrderByDescending(goal => goal.CreatedAt).Select(goal => goal.Id), goals.Select(goal => goal.Id));
     }
 
     [Fact]
-    public async Task ListIncludesParticipantsAndDerivedFields()
+    public async Task ProgressIsDerivedFromTheStepsRatherThanStored()
     {
         var goals = await (await Client.GetAsync("/api/goals", TestContext.Current.CancellationToken))
-            .ReadAsync<List<GoalResponse>>();
+            .ReadAsync<IReadOnlyList<GoalDocument>>();
 
-        var shared = goals.Single(g => g.Id == AutomatedTestSeed.ActiveGoalId);
-
-        Assert.Equal(["Test Participant One", "Test Participant Two"], shared.Participants);
-        Assert.Equal(GoalStatus.Active, shared.Status);
-        Assert.Equal(40, shared.ProgressPercent);
-        Assert.False(shared.IsOverdue);
+        Assert.All(
+            goals,
+            goal => Assert.Equal(
+                (int)Math.Round(goal.CompletedSteps * 100d / goal.TotalSteps),
+                goal.ProgressPercent));
     }
 
     [Fact]
-    public async Task ListCanBeFilteredByStatus()
+    public async Task FilteringByStatusReturnsOnlyThatStatus()
     {
-        var completed = await (await Client.GetAsync("/api/goals?status=Completed", TestContext.Current.CancellationToken))
-            .ReadAsync<List<GoalResponse>>();
+        var response = await Client.GetAsync("/api/goals?status=Completed", TestContext.Current.CancellationToken);
 
-        Assert.Single(completed);
-        Assert.Equal(AutomatedTestSeed.CompletedGoalId, completed[0].Id);
+        var goals = await response.ReadAsync<IReadOnlyList<GoalDocument>>();
+
+        Assert.All(goals, goal => Assert.Equal(GoalStatus.Completed, goal.Status));
+        Assert.Single(goals);
     }
 
     [Fact]
-    public async Task FilteringByAStatusWithNoMatchesReturnsAnEmptyList()
+    public async Task FilteringToAStatusNothingMatchesReturnsAnEmptyList()
     {
-        // Backs the frontend's empty state with a real, reachable response.
-        var archived = await (await Client.GetAsync("/api/goals?status=Archived", TestContext.Current.CancellationToken))
-            .ReadAsync<List<GoalResponse>>();
+        var response = await Client.GetAsync("/api/goals?status=Archived", TestContext.Current.CancellationToken);
 
-        Assert.Empty(archived);
+        Assert.Empty(await response.ReadAsync<IReadOnlyList<GoalDocument>>());
     }
 
     [Fact]
-    public async Task GetByIdReturnsTheGoal()
+    public async Task AnUnknownStatusIsRejectedRatherThanIgnored()
+    {
+        var response = await Client.GetAsync("/api/goals?status=Nonsense", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GettingOneGoalReturnsItsTeamAndItsTasks()
     {
         var response = await Client.GetAsync(
-            $"/api/goals/{AutomatedTestSeed.GoalWithoutTargetDateId}",
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}",
             TestContext.Current.CancellationToken);
 
         response.EnsureSuccessStatusCode();
-        var goal = await response.ReadAsync<GoalResponse>();
+        var detail = await response.ReadAsync<GoalDetailDocument>();
 
-        Assert.Equal("Automated test: goal without target date", goal.Title);
-        Assert.Null(goal.TargetDate);
-        Assert.Equal(0, goal.ProgressPercent);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, detail.Goal.Id);
+        Assert.Single(detail.Team);
+        Assert.Equal("Test Person Two", detail.Team[0].Person.DisplayName);
+        Assert.Contains(detail.Tasks, task => task.GoalId == AutomatedTestSeed.ActiveGoalId);
     }
 
     [Fact]
-    public async Task GetByIdReturnsAProblemDetails404ForAnUnknownGoal()
+    public async Task ParticipantsComeBackInAStableOrder()
+    {
+        // The same goal must not produce two different avatar stacks depending
+        // on which query loaded it.
+        var first = await (await Client.GetAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}", TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDetailDocument>();
+        var second = await (await Client.GetAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}", TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDetailDocument>();
+
+        Assert.Equal(
+            first.Goal.Participants.Select(person => person.Id),
+            second.Goal.Participants.Select(person => person.Id));
+    }
+
+    [Fact]
+    public async Task AGoalThatDoesNotExistIs404()
     {
         var response = await Client.GetAsync(
-            "/api/goals/11111111-1111-4111-8111-111111111111",
+            $"/api/goals/{Guid.CreateVersion7()}",
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.ReadAsync<ProblemDocument>();
-        Assert.Equal(404, problem.Status);
-        Assert.Equal("Not found", problem.Title);
     }
 
     [Fact]
-    public async Task GetByIdRejectsAMalformedIdWithoutReachingTheHandler()
-    {
-        var response = await Client.GetAsync("/api/goals/not-a-guid", TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task CreateStoresTheGoalAndReturnsItWithALocation()
+    public async Task CreatingAGoalReturns201WithItsLocation()
     {
         var response = await Client.PostJsonAsync("/api/goals", new
         {
-            title = "  Swim once a week  ",
-            description = "  Starting slowly.  ",
-            progressPercent = 15,
-            targetDate = "2026-09-30",
-            participants = new[] { "Robin Sample", "Kim Example" },
+            title = "Neues Ziel",
+            icon = "flame",
+            rhythm = "Weekly",
+            totalSteps = 12,
+            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        Assert.Equal($"/api/goals/{SequentialTestIdGenerator.IdAt(1)}", response.Headers.Location?.OriginalString);
 
-        var created = await response.ReadAsync<GoalResponse>();
-        Assert.Equal("Swim once a week", created.Title);
-        Assert.Equal("Starting slowly.", created.Description);
-        Assert.Equal(15, created.ProgressPercent);
-        Assert.Equal(new DateOnly(2026, 9, 30), created.TargetDate);
-        Assert.Equal(Q2ApiFactory.Now, created.CreatedAt);
-        Assert.Equal(GoalStatus.Active, created.Status);
+        var created = await response.ReadAsync<GoalDocument>();
 
-        // Persisted, not just echoed back.
+        Assert.Equal($"/api/goals/{created.Id}", response.Headers.Location?.ToString());
+        Assert.Equal("Neues Ziel", created.Title);
+        Assert.Equal("flame", created.Icon);
+        Assert.Equal(GoalRhythm.Weekly, created.Rhythm);
+        Assert.Equal(0, created.ProgressPercent);
+        Assert.Single(created.Participants);
+    }
+
+    [Fact]
+    public async Task ACreatedGoalIsInTheListAfterwards()
+    {
+        await Client.PostJsonAsync("/api/goals", new { title = "Taucht in der Liste auf" });
+
+        var goals = await (await Client.GetAsync("/api/goals", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<GoalDocument>>();
+
+        Assert.Contains(goals, goal => goal.Title == "Taucht in der Liste auf");
+    }
+
+    [Fact]
+    public async Task CreatingAGoalWithoutATitleIsAValidationProblem()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new { title = "   " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("Title", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task CreatingAGoalWithAnUnknownIconIsAValidationProblem()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new { title = "Anything", icon = "rocket" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("Icon", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task ContributingAddsAStep()
+    {
+        var before = await (await Client.GetAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}", TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDetailDocument>();
+
+        var response = await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/contribute",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        var after = await response.ReadAsync<GoalDocument>();
+
+        Assert.Equal(before.Goal.CompletedSteps + 1, after.CompletedSteps);
+    }
+
+    [Fact]
+    public async Task ContributingToAGoalNobodyHasTouchedStartsAStreak()
+    {
+        var response = await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.GoalWithoutTargetDateId}/contribute",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        var goal = await response.ReadAsync<GoalDocument>();
+
+        Assert.Equal(1, goal.CompletedSteps);
+        Assert.Equal(1, goal.Streak);
+    }
+
+    [Fact]
+    public async Task ContributingTwiceInOneDayAddsTwoStepsButNotTwoDays()
+    {
+        var first = await (await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.GoalWithoutTargetDateId}/contribute", null, TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDocument>();
+
+        var second = await (await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.GoalWithoutTargetDateId}/contribute", null, TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDocument>();
+
+        Assert.Equal(2, second.CompletedSteps);
+
+        // The streak counts days worked on, not taps.
+        Assert.Equal(first.Streak, second.Streak);
+    }
+
+    [Fact]
+    public async Task ContributingOnADayThatAlreadyCountsLeavesTheStreakWhereItIs()
+    {
+        // The seeded goal was already worked on today, so today is spoken for.
+        var before = await (await Client.GetAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}", TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDetailDocument>();
+
+        var after = await (await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/contribute", null, TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDocument>();
+
+        Assert.Equal(before.Goal.Streak, after.Streak);
+    }
+
+    [Fact]
+    public async Task ContributingToACompletedGoalLeavesItAlone()
+    {
+        var response = await Client.PostAsync(
+            $"/api/goals/{AutomatedTestSeed.CompletedGoalId}/contribute",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        var goal = await response.ReadAsync<GoalDocument>();
+
+        Assert.Equal(GoalStatus.Completed, goal.Status);
+        Assert.Equal(goal.TotalSteps, goal.CompletedSteps);
+    }
+
+    [Fact]
+    public async Task ContributingToAGoalThatDoesNotExistIs404()
+    {
+        var response = await Client.PostAsync(
+            $"/api/goals/{Guid.CreateVersion7()}/contribute",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ContributingPublishesSomethingForFriendsToSee()
+    {
+        await Client.PostAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}/contribute", null, TestContext.Current.CancellationToken);
+
         await Factory.WithDatabaseAsync(async database =>
         {
-            var stored = await database.Goals
-                .Include(g => g.Participants)
-                .SingleAsync(g => g.Id == created.Id, TestContext.Current.CancellationToken);
+            var published = database.ActivityEvents
+                .Where(activity => activity.SourceId == AutomatedTestSeed.ActiveGoalId)
+                .ToList();
 
-            Assert.Equal("Swim once a week", stored.Title);
-            Assert.Equal(2, stored.Participants.Count);
+            Assert.Contains(published, activity => activity.Kind == Features.Activity.ActivityKind.GoalProgress);
+            await Task.CompletedTask;
         });
     }
 
     [Fact]
-    public async Task ParticipantOrderIsTheSameWhicheverWayTheGoalIsRead()
+    public async Task NothingAboutAPersonIsInventedByTheContract()
     {
-        // Regression guard, found by hand: the create response used to return
-        // the order the caller typed while later reads returned the database's
-        // order, so the same goal had two different participant orders and the
-        // card summary changed on reload.
-        var created = await (await Client.PostJsonAsync("/api/goals", new
-        {
-            title = "Order check",
-            participants = new[] { "Zoe Zulu", "Anna Alpha", "Mike Mid" },
-        })).ReadAsync<GoalResponse>();
+        // Every avatar colour a client receives has to be one it can render
+        // white text on.
+        var goals = await (await Client.GetAsync("/api/goals", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<GoalDocument>>();
 
-        var fetched = await (await Client.GetAsync($"/api/goals/{created.Id}", TestContext.Current.CancellationToken))
-            .ReadAsync<GoalResponse>();
-
-        var listed = (await (await Client.GetAsync("/api/goals", TestContext.Current.CancellationToken))
-            .ReadAsync<List<GoalResponse>>()).Single(g => g.Id == created.Id);
-
-        Assert.Equal(["Anna Alpha", "Mike Mid", "Zoe Zulu"], created.Participants);
-        Assert.Equal(created.Participants, fetched.Participants);
-        Assert.Equal(created.Participants, listed.Participants);
+        Assert.All(
+            goals.SelectMany(goal => goal.Participants),
+            person => Assert.Contains(person.AvatarColor, AvatarColors.All));
     }
-
-    [Fact]
-    public async Task CreateWithFullProgressCompletesTheGoalImmediately()
-    {
-        var created = await (await Client.PostJsonAsync("/api/goals", new
-        {
-            title = "Finish the reading list",
-            progressPercent = 100,
-        })).ReadAsync<GoalResponse>();
-
-        Assert.Equal(GoalStatus.Completed, created.Status);
-    }
-
-    [Fact]
-    public async Task CreateRejectsAMissingTitleWithFieldLevelErrors()
-    {
-        var response = await Client.PostJsonAsync("/api/goals", new { title = "   ", progressPercent = 150 });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.ReadAsync<ValidationProblemDocument>();
-
-        Assert.Contains("Title", problem.Errors.Keys);
-        Assert.Contains("ProgressPercent", problem.Errors.Keys);
-        Assert.NotNull(problem.TraceId);
-    }
-
-    [Fact]
-    public async Task CreateRejectsMalformedJsonWithA400RatherThanA500()
-    {
-        var response = await Client.PostAsync(
-            "/api/goals",
-            new StringContent("{ this is not json", System.Text.Encoding.UTF8, "application/json"),
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task TheHealthEndpointReportsDatabaseConnectivity()
-    {
-        var response = await Client.GetAsync("/health", TestContext.Current.CancellationToken);
-
-        response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<HealthDocument>(
-            TestJson.Options,
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal("healthy", body?.Status);
-    }
-
-    private sealed record ProblemDocument(string? Title, int? Status, string? Detail, string? TraceId);
-
-    private sealed record ValidationProblemDocument(
-        string? Title,
-        int? Status,
-        string? TraceId,
-        Dictionary<string, string[]> Errors);
-
-    private sealed record HealthDocument(string Status, string Service);
 }

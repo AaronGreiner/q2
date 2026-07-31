@@ -16,6 +16,7 @@ import type { NuxtError } from '#app'
  */
 const props = defineProps<{ error: NuxtError }>()
 
+const t = useMessages()
 const isNotFound = computed(() => props.error.statusCode === 404)
 
 onMounted(() => {
@@ -36,13 +37,13 @@ async function goHome() {
   await clearError({ redirect: '/' })
 }
 
-useHead({ title: isNotFound.value ? 'Page not found' : 'Something went wrong' })
+useHead({ title: () => (isNotFound.value ? t.value.errors.pageNotFound : t.value.errors.title.other) })
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-(--ui-bg) px-4">
+  <div class="mx-auto flex h-dvh w-full max-w-[430px] items-center justify-center bg-(--ui-bg) px-6">
     <div
-      class="flex max-w-md flex-col items-center gap-4 text-center"
+      class="flex flex-col items-center gap-4 text-center"
       role="alert"
       data-testid="app-error"
     >
@@ -52,8 +53,8 @@ useHead({ title: isNotFound.value ? 'Page not found' : 'Something went wrong' })
         aria-hidden="true"
       />
 
-      <h1 class="text-xl font-semibold text-(--ui-text)">
-        {{ isNotFound ? 'Page not found' : 'Something went wrong' }}
+      <h1 class="text-xl font-extrabold text-(--ui-text)">
+        {{ isNotFound ? t.errors.pageNotFound : t.errors.title.other }}
       </h1>
 
       <!--
@@ -61,11 +62,7 @@ useHead({ title: isNotFound.value ? 'Page not found' : 'Something went wrong' })
         developers and can contain internals.
       -->
       <p class="text-(--ui-text-muted)">
-        {{
-          isNotFound
-            ? 'That page does not exist. It may have been moved or removed.'
-            : 'We hit an unexpected problem. The incident has been recorded — please try again.'
-        }}
+        {{ isNotFound ? t.errors.pageNotFoundHint : t.errors.unexpected }}
       </p>
 
       <UButton
@@ -73,7 +70,7 @@ useHead({ title: isNotFound.value ? 'Page not found' : 'Something went wrong' })
         data-testid="app-error-home"
         @click="goHome"
       >
-        Back to goals
+        {{ t.common.toHome }}
       </UButton>
     </div>
   </div>

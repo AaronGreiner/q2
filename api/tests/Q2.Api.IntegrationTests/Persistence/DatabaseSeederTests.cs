@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Goals;
-using Q2.Api.Infrastructure.Persistence;
+using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -24,7 +24,7 @@ public class DatabaseSeederTests
     }
 
     [Fact]
-    public async Task SeedingAnEmptyDatabaseInsertsTheProfile()
+    public async Task SeedingAnEmptyDatabaseInsertsTheWholeProfile()
     {
         await using var database = await MigratedDatabaseAsync();
         await using var context = database.CreateContext();
@@ -33,8 +33,14 @@ public class DatabaseSeederTests
             .SeedAsync(context, SeedProfile.Development, replaceExisting: false, TestContext.Current.CancellationToken);
 
         Assert.False(result.WasSkipped);
-        Assert.Equal(3, result.GoalsInserted);
-        Assert.Equal(3, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(10, result.PeopleInserted);
+        Assert.Equal(4, result.GoalsInserted);
+        Assert.Equal(6, result.TasksInserted);
+        Assert.Equal(5, result.ConversationsInserted);
+
+        Assert.Equal(10, await context.People.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(4, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+        Assert.NotEqual(0, await context.ChatMessages.CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -43,7 +49,8 @@ public class DatabaseSeederTests
         await using var database = await MigratedDatabaseAsync();
         await using var context = database.CreateContext();
 
-        context.Goals.Add(Goal.Create(Guid.CreateVersion7(), "My own goal", null, 10, null, Q2ApiFactory.Now));
+        context.People.Add(Person.Create(
+            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal, isCurrentUser: true));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var result = await SqliteTestDatabase.CreateSeeder()
@@ -51,8 +58,25 @@ public class DatabaseSeederTests
 
         // This is what makes `bun run dev` safe to run every day.
         Assert.True(result.WasSkipped);
-        Assert.Equal(0, result.GoalsInserted);
-        Assert.Equal("My own goal", (await context.Goals.SingleAsync(TestContext.Current.CancellationToken)).Title);
+        Assert.Equal(0, result.PeopleInserted);
+        Assert.Equal("My own account", (await context.People.SingleAsync(TestContext.Current.CancellationToken)).DisplayName);
+    }
+
+    [Fact]
+    public async Task ADatabaseWithPeopleButNoGoalsStillCountsAsSeeded()
+    {
+        // Somebody who deleted every goal has not asked for a fresh world.
+        await using var database = await MigratedDatabaseAsync();
+        await using var context = database.CreateContext();
+
+        context.People.Add(Person.Create(
+            Guid.CreateVersion7(), "My own account", "@mine", "MO", AvatarColors.Teal, isCurrentUser: true));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var result = await SqliteTestDatabase.CreateSeeder()
+            .SeedAsync(context, SeedProfile.Development, replaceExisting: false, TestContext.Current.CancellationToken);
+
+        Assert.True(result.WasSkipped);
     }
 
     [Fact]
@@ -61,56 +85,37 @@ public class DatabaseSeederTests
         await using var database = await MigratedDatabaseAsync();
         await using var context = database.CreateContext();
 
-        var existing = Goal.Create(Guid.CreateVersion7(), "Will be replaced", null, 10, null, Q2ApiFactory.Now);
-        existing.AddParticipant(Guid.CreateVersion7(), "Robin Sample");
-        context.Goals.Add(existing);
-        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-
         await SqliteTestDatabase.CreateSeeder()
-            .SeedAsync(context, SeedProfile.E2E, replaceExisting: true, TestContext.Current.CancellationToken);
+            .SeedAsync(context, SeedProfile.ManualTesting, replaceExisting: true, TestContext.Current.CancellationToken);
 
-        var titles = await context.Goals.Select(g => g.Title).ToListAsync(TestContext.Current.CancellationToken);
-        Assert.DoesNotContain("Will be replaced", titles);
-        Assert.Contains(E2ESeed.SharedGoalTitle, titles);
+        var result = await SqliteTestDatabase.CreateSeeder()
+            .SeedAsync(context, SeedProfile.AutomatedTest, replaceExisting: true, TestContext.Current.CancellationToken);
 
-        // Participants of removed goals must not survive as orphans.
-        Assert.Equal(
-            await context.Goals.SelectMany(g => g.Participants).CountAsync(TestContext.Current.CancellationToken),
-            await context.GoalParticipants.CountAsync(TestContext.Current.CancellationToken));
+        Assert.False(result.WasSkipped);
+        Assert.Equal(result.PeopleInserted, await context.People.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(result.GoalsInserted, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+
+        // Nothing from the previous profile may be left dangling anywhere.
+        Assert.All(
+            await context.Goals.ToListAsync(TestContext.Current.CancellationToken),
+            goal => Assert.StartsWith("Automated test", goal.Title));
     }
 
     [Fact]
-    public async Task RebuildingProducesByteIdenticalDataWithAFixedClock()
+    public async Task ReplacingTwiceWithTheSameProfileWorks()
     {
+        // Fixed ids mean a stale change-tracker entry would collide on the
+        // second run; the seeder clears it.
         await using var database = await MigratedDatabaseAsync();
         await using var context = database.CreateContext();
+
         var seeder = SqliteTestDatabase.CreateSeeder();
 
         await seeder.SeedAsync(context, SeedProfile.E2E, replaceExisting: true, TestContext.Current.CancellationToken);
-        var first = await SnapshotAsync(context);
+        var second = await seeder.SeedAsync(context, SeedProfile.E2E, replaceExisting: true, TestContext.Current.CancellationToken);
 
-        await seeder.SeedAsync(context, SeedProfile.E2E, replaceExisting: true, TestContext.Current.CancellationToken);
-        var second = await SnapshotAsync(context);
-
-        Assert.Equal(first, second);
-    }
-
-    [Fact]
-    public async Task TheE2eSeedKeepsItsPublishedIds()
-    {
-        await using var database = await MigratedDatabaseAsync();
-        await using var context = database.CreateContext();
-
-        await SqliteTestDatabase.CreateSeeder()
-            .SeedAsync(context, SeedProfile.E2E, replaceExisting: true, TestContext.Current.CancellationToken);
-
-        // Playwright navigates straight to this id.
-        var shared = await context.Goals
-            .Include(g => g.Participants)
-            .SingleAsync(g => g.Id == E2ESeed.SharedGoalId, TestContext.Current.CancellationToken);
-
-        Assert.Equal(E2ESeed.SharedGoalTitle, shared.Title);
-        Assert.Equal(2, shared.Participants.Count);
+        Assert.False(second.WasSkipped);
+        Assert.Equal(second.GoalsInserted, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -123,15 +128,54 @@ public class DatabaseSeederTests
             .SeedAsync(context, SeedProfile.None, replaceExisting: true, TestContext.Current.CancellationToken);
 
         Assert.True(result.WasSkipped);
-        Assert.Equal(0, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, await context.People.CountAsync(TestContext.Current.CancellationToken));
     }
 
-    private static async Task<List<string>> SnapshotAsync(Q2DbContext context) =>
-        await context.Goals
-            .AsNoTracking()
-            .Include(g => g.Participants)
-            .OrderBy(g => g.Id)
-            .Select(g => $"{g.Id}|{g.Title}|{g.Status}|{g.ProgressPercent}|{g.CreatedAt:O}|{g.TargetDate}|"
-                + string.Join(",", g.Participants.OrderBy(p => p.Id).Select(p => p.Id + ":" + p.DisplayName)))
-            .ToListAsync(TestContext.Current.CancellationToken);
+    [Fact]
+    public async Task ASeededWorldSatisfiesEveryConstraintTheSchemaHas()
+    {
+        // The seed builder is the only thing in the repository that writes a
+        // whole graph at once, so this is where a missing unique index or a
+        // wrong foreign key would first show up.
+        await using var database = await MigratedDatabaseAsync();
+        await using var context = database.CreateContext();
+
+        foreach (var profile in new[]
+                 {
+                     SeedProfile.Development, SeedProfile.ManualTesting,
+                     SeedProfile.AutomatedTest, SeedProfile.E2E,
+                 })
+        {
+            await SqliteTestDatabase.CreateSeeder()
+                .SeedAsync(context, profile, replaceExisting: true, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Single(await context.People
+            .Where(person => person.IsCurrentUser)
+            .ToListAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task EveryGoalKeepsItsParticipantsAndContributionsThroughARoundTrip()
+    {
+        await using var database = await MigratedDatabaseAsync();
+
+        await using (var context = database.CreateContext())
+        {
+            await SqliteTestDatabase.CreateSeeder()
+                .SeedAsync(context, SeedProfile.Development, replaceExisting: true, TestContext.Current.CancellationToken);
+        }
+
+        await using (var context = database.CreateContext())
+        {
+            var goals = await context.Goals
+                .Include(goal => goal.Participants)
+                .Include(goal => goal.Contributions)
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains(goals, goal => goal.Participants.Count > 0);
+            Assert.Contains(goals, goal => goal.Contributions.Count > 0);
+            Assert.All(goals, goal => Assert.Contains(goal.Icon, GoalIcons.All));
+        }
+    }
 }

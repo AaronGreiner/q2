@@ -2,93 +2,112 @@
 import type { Goal } from '~/api/types'
 
 /**
- * One goal, as shown in a list.
+ * One goal in the list.
  *
- * The reference component for this codebase: it takes typed props, derives
- * everything it displays from them, owns no state, fetches nothing, and can be
- * rendered in a test with a plain object. Anything that needs data or
- * navigation belongs to the page composing it.
+ * The reference component for this codebase: typed props, everything it shows
+ * derived from them, no state, no fetching, and it can be rendered in a test
+ * from a plain object. Navigation belongs to the page composing it — which is
+ * why the whole card is a link rather than a div with a click handler.
  */
-const props = defineProps<{
-  goal: Goal
-  /** Injected so rendering is deterministic in tests and identical in SSR. */
-  today?: Date
-}>()
+const props = defineProps<{ goal: Goal }>()
 
-const referenceDate = computed(() => props.today ?? new Date())
-const dueLabel = computed(() => describeTargetDate(props.goal, referenceDate.value))
-const participantsLabel = computed(() => describeParticipants(props.goal.participants))
+const t = useMessages()
+
+const subtitle = computed(() => goalSubtitle(props.goal, t.value))
+const reminder = computed(() => formatClock(props.goal.reminderAt))
 </script>
 
 <template>
-  <UCard
-    :ui="{ body: 'flex flex-col gap-3' }"
-    class="h-full"
+  <NuxtLink
+    :to="`/goals/${goal.id}`"
+    class="q2-card block p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     data-testid="goal-card"
   >
-    <div class="flex flex-col gap-2">
-      <div class="flex items-start justify-between gap-3">
-        <!--
-          h3: the list is under an h2, so this keeps the heading order intact
-          for anyone navigating by headings.
-        -->
-        <h3 class="font-semibold text-(--ui-text) text-pretty">
-          <NuxtLink
-            :to="`/goals/${goal.id}`"
-            class="hover:underline focus-visible:underline focus-visible:outline-none"
-          >
-            {{ goal.title }}
-          </NuxtLink>
-        </h3>
-
-        <GoalStatusBadge
-          :status="goal.status"
-          :overdue="goal.isOverdue"
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-11 shrink-0 items-center justify-center rounded-[13px] bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+        aria-hidden="true"
+      >
+        <UIcon
+          :name="goalIconName(goal.icon)"
+          class="size-6"
         />
+      </span>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- h3: the list sits under an h2, which keeps heading order intact. -->
+          <h3 class="text-base font-extrabold text-pretty">
+            {{ goal.title }}
+          </h3>
+
+          <span
+            v-if="goal.isGroup"
+            class="rounded-md bg-(--q2-accent-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-accent-soft-text)"
+          >
+            {{ t.goals.group }}
+          </span>
+
+          <span
+            v-if="goal.isOverdue"
+            class="rounded-md bg-(--q2-amber-soft) px-1.5 py-0.5 text-[10px] font-extrabold text-(--q2-amber)"
+            data-testid="goal-overdue"
+          >
+            {{ t.goals.overdue }}
+          </span>
+        </div>
+
+        <p class="mt-0.5 text-xs font-semibold text-(--ui-text-muted)">
+          {{ t.rhythm[goal.rhythm] }} · {{ subtitle }}
+        </p>
       </div>
 
-      <p
-        v-if="goal.description"
-        class="text-sm text-(--ui-text-muted) line-clamp-2"
+      <div
+        v-if="goal.participants.length > 0"
+        class="flex ps-2"
       >
-        {{ goal.description }}
-      </p>
+        <AppAvatar
+          v-for="participant in goal.participants"
+          :key="participant.id"
+          :initials="participant.initials"
+          :color="participant.avatarColor"
+          :size="24"
+          stacked
+        />
+      </div>
     </div>
 
-    <GoalProgress :percent="goal.progressPercent" />
+    <AppProgressBar
+      class="mt-3.5"
+      :percent="goal.progressPercent"
+      :label="t.goals.progressLabel(goal.progressPercent)"
+    />
 
-    <dl class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-(--ui-text-muted)">
-      <div
-        v-if="dueLabel"
-        class="flex items-center gap-1.5"
-      >
-        <dt class="sr-only">
-          Target date
-        </dt>
-        <UIcon
-          name="i-lucide-calendar"
-          class="size-4 shrink-0"
-          aria-hidden="true"
-        />
-        <dd :class="{ 'text-(--ui-warning) font-medium': goal.isOverdue }">
-          {{ dueLabel }}
-        </dd>
-      </div>
+    <div class="mt-2 flex items-center justify-between">
+      <span class="text-[13px] font-extrabold text-(--ui-primary)">{{ goal.progressPercent }}%</span>
 
-      <div
-        v-if="participantsLabel"
-        class="flex items-center gap-1.5"
-      >
-        <dt class="sr-only">
-          Participants
-        </dt>
-        <UIcon
-          name="i-lucide-users"
-          class="size-4 shrink-0"
-          aria-hidden="true"
-        />
-        <dd>{{ participantsLabel }}</dd>
+      <div class="flex items-center gap-3">
+        <span class="flex items-center gap-1 text-[11px] font-bold text-(--q2-amber)">
+          <UIcon
+            name="i-lucide-flame"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          {{ t.goals.streakDays(goal.streak) }}
+        </span>
+
+        <span
+          v-if="reminder"
+          class="flex items-center gap-1 text-[11px] font-semibold text-(--ui-text-muted)"
+        >
+          <UIcon
+            name="i-lucide-bell"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          {{ reminder }}
+        </span>
       </div>
-    </dl>
-  </UCard>
+    </div>
+  </NuxtLink>
 </template>

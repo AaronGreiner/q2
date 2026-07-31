@@ -1,5 +1,10 @@
+using Q2.Api.Features.Activity;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Diagnostics;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
+using Q2.Api.Features.Profile;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure;
 using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
@@ -14,7 +19,12 @@ var app = builder.Build();
 
 app.UseQ2Pipeline();
 
+app.MapProfileEndpoints();
 app.MapGoalEndpoints();
+app.MapActivityEndpoints();
+app.MapFriendsEndpoints();
+app.MapChatEndpoints();
+app.MapSettingsEndpoints();
 app.MapHealthEndpoint();
 app.MapDiagnosticsEndpoints(app.Environment);
 

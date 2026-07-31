@@ -5,9 +5,13 @@ personal goals, pursue them together with friends or inside a community, follow
 each other's progress and give each other credit for it.
 
 This repository is the **initial version**: a small, working, fully tested
-reference slice of that idea. It is deliberately not a finished product. It
-exists so that the next feature can be built on something that already works,
-is already documented, and is already verified end to end.
+reference implementation of that idea. It is deliberately not a finished
+product. It exists so that the next feature can be built on something that
+already works, is already documented, and is already verified end to end.
+
+The interface is German, with English available in the settings. That follows
+the design it is built from — see
+[docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
 
 - **`app/`** — the web frontend: Nuxt 4, Vue 3, TypeScript, Nuxt UI
 - **`api/`** — the backend: ASP.NET Core on .NET 10, EF Core, SQLite
@@ -18,30 +22,47 @@ is already documented, and is already verified end to end.
 
 ## 1. What is already implemented
 
-A vertical slice around one concept, **goals**:
+Five screens, and everything behind them:
+
+| Screen | What it does |
+| --- | --- |
+| **Start** | Streak with the current week, how much of today is done, the next tasks, a strip of goals, what friends have been up to, and the weekly leaderboard |
+| **Ziele** | Today's tasks under one tab, the goals themselves under the other; a bottom sheet creates a goal |
+| **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and reactions |
+| **Freunde** | Friends, incoming requests to accept or decline, and suggestions to ask |
+| **Profil** | Streak, kudos, completed goals, the badge collection, your own history — and the settings behind it |
 
 | Area | What exists |
 | --- | --- |
-| Domain | `Goal` with title, description, status, progress, creation date, optional target date and participants; all invariants enforced in the model |
-| API | `GET /api/goals` (with status filter), `GET /api/goals/{id}`, `POST /api/goals`, `GET /health`, OpenAPI document, Problem Details for every error |
-| Frontend | Dashboard with goal list, status filter, create form and a goal detail page; loading, empty, error and not-found states; mobile-first (developed and tested at phone width), responsive and keyboard accessible |
+| Domain | `Person`, `Goal` (progress counted in steps), `GoalTask`, streaks derived from recorded days, friendships, activity and kudos, conversations and messages, badges, preferences — all invariants enforced in the model |
+| API | Goals, tasks, feed and kudos, leaderboard, friends, chats, profile and settings; `GET /health`, OpenAPI document, Problem Details for every error |
+| Frontend | The five screens plus goal detail, chat thread and settings; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
 | Contract | OpenAPI exported from the code, TypeScript types generated from it, both committed |
-| Database | SQLite via EF Core, one initial migration, six environments, four seed profiles, guarded destructive resets |
+| Database | SQLite via EF Core, migrations, six environments, four seed profiles, guarded destructive resets |
 | Errors | Central exception handling, no internal detail in responses, a correlation id the user can quote |
 | Observability | Sentry in frontend and backend, separate projects and environments, privacy filters, a local recording transport for tests |
-| Tests | 187 backend + 116 frontend + 15 E2E, all green |
 | CI | GitHub Actions for pull requests and pushes |
 | Deployment | A `v*` tag builds, verifies and deploys both applications to a Staging host, with health-gated rollback — see [docs/deployment.md](docs/deployment.md) |
+
+Run `bun run validate` for the current test counts; the gate is the source of
+truth, not this table.
 
 ## 2. What is deliberately missing
 
 These are absent on purpose, not by oversight:
 
-- **Authentication and accounts.** Participants are display names. Adding real
-  identity is a security-relevant design step, not a quick patch — see
-  [docs/adr/0006-authentication-deferred.md](docs/adr/0006-authentication-deferred.md).
-- **Permissions, friendships, communities.** No roles, no sharing rules.
-- **Updating or deleting goals.** Only reading and creating.
+- **Authentication and accounts.** There is exactly one person the API answers
+  as, flagged in the database. Adding real identity is a security-relevant
+  design step, not a quick patch — see
+  [docs/adr/0006-authentication-deferred.md](docs/adr/0006-authentication-deferred.md)
+  and [docs/adr/0009-single-known-person.md](docs/adr/0009-single-known-person.md).
+- **Permissions.** Friendships exist; roles and sharing rules do not.
+- **Notification delivery.** The switches on the settings screen are stored and
+  honoured by nothing yet. The screen says so.
+- **Updating or deleting goals.** Only reading, creating and making progress.
+- **Time zones.** Instants are stored and reasoned about in UTC; the browser
+  shifts a displayed clock into its own zone after hydration, and nothing is
+  remembered per person. See [docs/next-steps.md](docs/next-steps.md).
 - **Location features.** Nothing collects or stores a position. See
   [docs/privacy.md](docs/privacy.md).
 - **Mobile apps.** No Capacitor packaging and no native abstractions exist yet.
@@ -50,7 +71,8 @@ These are absent on purpose, not by oversight:
   [AGENTS.md](AGENTS.md) section 5.
 - **PostgreSQL.** SQLite is the initial provider; no SQLite-specific business
   logic exists, so the switch is a provider change, not a rewrite.
-- **Localisation.** The UI is English. Real i18n belongs behind its own layer.
+- **More than two languages.** German and English are hand-written message
+  catalogues; a third would be the moment to bring in a real i18n layer.
 
 ---
 
@@ -207,18 +229,29 @@ All seed data lives in
 
 | Profile | Used by | Content |
 | --- | --- | --- |
-| `Development` | `bun run dev` | 3 goals; only inserted into an empty database |
-| `ManualTesting` | `bun run test:manual:start` | 10 goals incl. boundary and awkward cases |
-| `AutomatedTest` | API integration tests | 3 goals, minimal and deterministic |
-| `E2E` | Playwright | 4 goals with stable ids and unique titles |
+| `Development` | `bun run dev` | the demonstration world; only inserted into an empty database |
+| `ManualTesting` | `bun run test:manual:start` | the same world plus completed, overdue, archived and a title long enough to wrap |
+| `AutomatedTest` | API integration tests | the smallest world that still covers every branch |
+| `E2E` | Playwright | stable ids and unique, non-overlapping titles |
+
+A seed is a whole graph — people, goals, tasks, check-ins, activity, chats,
+friendships and preferences — composed through `SeedBuilder`, which hands out
+the ids so a seed only has to say what exists. `KudosWorld` holds the world
+Development and ManualTesting share.
 
 Seeds are **pure functions** of a `SeedContext`: no `DateTime.UtcNow`, no
 `Guid.NewGuid()`, no randomness. Ids are fixed per profile
 (`e2e00000-0000-4000-8000-000000000001` and so on). Dates are expressed
 relative to an injected reference instant, so a goal that is meant to be
 upcoming stays upcoming instead of silently becoming overdue as the calendar
-moves on; a test that needs byte-identical output injects a fixed
+moves on, and a chat's newest message is minutes old rather than timestamped at
+midnight; a test that needs byte-identical output injects a fixed
 `TimeProvider`.
+
+Every profile keeps two properties, both covered by `SeedDataTests`: exactly one
+person carries `IsCurrentUser`, and the AutomatedTest and E2E worlds contain no
+weekday-dependent task — otherwise "what is on today's list" would depend on the
+day the suite runs.
 
 To add data, edit the seed class for that profile. Never insert rows from
 `Program.cs`, from a migration or from a test.

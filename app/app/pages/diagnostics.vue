@@ -12,6 +12,11 @@ import { normalizeApiError, toApiFailure, type ApiFailure } from '~/api/errors'
  * case in development, manual testing and E2E — never in production, where the
  * matching backend routes do not exist either.
  */
+// A developer tool, not part of the product: no bottom navigation, and the
+// copy stays English because it is read by whoever is debugging q2, not by the
+// person using it.
+definePageMeta({ layout: 'plain' })
+
 const { public: config } = useRuntimeConfig()
 
 if (!config.diagnosticsEnabled) {
@@ -70,7 +75,7 @@ useHead({ title: 'Diagnostics' })
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
+  <div class="q2-scroll flex flex-1 flex-col gap-8 px-[18px] py-4">
     <section class="flex flex-col gap-2">
       <h1 class="text-2xl font-semibold">
         Diagnostics

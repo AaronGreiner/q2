@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns who you are, your streak, your badges and your recent activity. */
+        get: operations["GetProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ranks you and your friends by kudos received. */
+        get: operations["ListLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals": {
         parameters: {
             query?: never;
@@ -29,9 +63,249 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Returns a single goal. */
+        /** Returns one goal with its team and its tasks. */
         get: operations["GetGoal"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/contribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records one step of progress towards a goal. */
+        post: operations["ContributeToGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists the tasks scheduled for today, or all of them. */
+        get: operations["ListTasks"];
+        put?: never;
+        /** Creates a task. */
+        post: operations["CreateTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}/toggle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ticks a task off for today, or takes it back. */
+        post: operations["ToggleTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists what your friends have been up to, newest first. */
+        get: operations["ListFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/feed/{id}/kudos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gives kudos for an activity, or takes them back. */
+        post: operations["ToggleKudos"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns your friends, pending requests and suggestions. */
+        get: operations["GetFriends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends/requests/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accepts a pending friend request. */
+        post: operations["AcceptFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends/requests/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turns a pending friend request down. */
+        post: operations["DeclineFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/friends/suggestions/{id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Asks a suggested person to be friends. */
+        post: operations["SendFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lists your conversations, most recent first. */
+        get: operations["ListChats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns one thread and marks it as read. */
+        get: operations["GetChat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Writes a message into a conversation. */
+        post: operations["SendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/messages/{messageId}/reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds a reaction to a message, or takes it back. */
+        post: operations["ToggleMessageReaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns the current preferences. */
+        get: operations["GetSettings"];
+        /** Changes preferences. Omitted properties keep their value. */
+        put: operations["UpdateSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -43,32 +317,205 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {unknown} */
+        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated";
+        ActivityResponse: {
+            /** Format: uuid */
+            id: string;
+            actor: components["schemas"]["PersonSummary"];
+            kind: components["schemas"]["ActivityKind"];
+            subject: string | null;
+            /** Format: int32 */
+            amount: number | null;
+            /** Format: int32 */
+            kudosCount: number;
+            hasMyKudos: boolean;
+            /** Format: date-time */
+            occurredAt: string;
+        };
+        /** @enum {unknown} */
+        BadgeKey: "StreakHero" | "EarlyBird" | "Bookworm" | "KudosGiver" | "Marathon" | "WeeklyWinner";
+        BadgeResponse: {
+            key: components["schemas"]["BadgeKey"];
+            isEarned: boolean;
+            /** Format: date */
+            earnedOn: string | null;
+        };
+        ChatDetailResponse: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ConversationKind"];
+            name: string;
+            initials: string;
+            avatarColor: string;
+            isOnline: boolean;
+            /** Format: int32 */
+            memberCount: number;
+            /** Format: date-time */
+            otherLastSeenAt: string | null;
+            pinnedGoal: null | components["schemas"]["ChatPinnedGoalResponse"];
+            messages: components["schemas"]["ChatMessageResponse"][];
+        };
+        ChatMessageResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            senderId: string;
+            senderName: string | null;
+            text: string;
+            isMine: boolean;
+            /** Format: date-time */
+            sentAt: string;
+            reactions: components["schemas"]["MessageReactionResponse"][];
+        };
+        ChatPinnedGoalResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: int32 */
+            progressPercent: number;
+        };
+        ChatSummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ConversationKind"];
+            name: string;
+            initials: string;
+            avatarColor: string;
+            isOnline: boolean;
+            lastMessage: string | null;
+            lastMessageSenderName: string | null;
+            lastMessageIsMine: boolean;
+            /** Format: date-time */
+            lastMessageAt: string | null;
+            /** Format: int32 */
+            unreadCount: number;
+        };
+        /** @enum {unknown} */
+        ConversationKind: "Direct" | "Group";
         CreateGoalRequest: {
             title?: string | null;
             description?: string | null;
+            icon?: string | null;
+            rhythm?: null | components["schemas"]["GoalRhythm"];
+            isGroup?: boolean | null;
             /** Format: int32 */
-            progressPercent?: number | null;
+            totalSteps?: number | null;
+            /** Format: time */
+            reminderAt?: string | null;
             /** Format: date */
             targetDate?: string | null;
-            participants?: string[] | null;
+            participantIds?: string[] | null;
+        };
+        CreateTaskRequest: {
+            title?: string | null;
+            rhythm?: null | components["schemas"]["GoalRhythm"];
+            /** Format: uuid */
+            goalId?: string | null;
+            /** Format: time */
+            reminderAt?: string | null;
+            weeklyOn?: null | components["schemas"]["DayOfWeek"];
+            /** Format: date */
+            dueOn?: string | null;
+            /** Format: double */
+            targetValue?: number | null;
+            measureUnit?: string | null;
+        };
+        /** @enum {unknown} */
+        DayOfWeek: "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | null;
+        DaySummaryResponse: {
+            /** Format: int32 */
+            done: number;
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            percent: number;
+        };
+        FriendRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            mutualFriends: number;
+        };
+        FriendResponse: {
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            streak: number;
+            /** Format: date-time */
+            lastSeenAt: string | null;
+        };
+        FriendSuggestionResponse: {
+            /** Format: uuid */
+            id: string;
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            mutualFriends: number;
+            isInvited: boolean;
+        };
+        FriendsResponse: {
+            friends: components["schemas"]["FriendResponse"][];
+            requests: components["schemas"]["FriendRequestResponse"][];
+            suggestions: components["schemas"]["FriendSuggestionResponse"][];
+        };
+        GoalDetailResponse: {
+            goal: components["schemas"]["GoalResponse"];
+            team: components["schemas"]["GoalTeamMemberResponse"][];
+            tasks: components["schemas"]["GoalTaskResponse"][];
         };
         GoalResponse: {
             /** Format: uuid */
             id: string;
             title: string;
             description: string | null;
+            icon: string;
+            rhythm: components["schemas"]["GoalRhythm"];
             status: components["schemas"]["GoalStatus"];
+            isGroup: boolean;
+            /** Format: int32 */
+            completedSteps: number;
+            /** Format: int32 */
+            totalSteps: number;
             /** Format: int32 */
             progressPercent: number;
-            /** Format: date-time */
-            createdAt: string;
+            /** Format: int32 */
+            streak: number;
+            /** Format: time */
+            reminderAt: string | null;
             /** Format: date */
             targetDate: string | null;
-            participants: string[];
+            /** Format: date-time */
+            createdAt: string;
+            participants: components["schemas"]["PersonSummary"][];
             isOverdue: boolean;
         };
         /** @enum {unknown} */
+        GoalRhythm: "Daily" | "Weekdays" | "Weekly" | "Once";
+        /** @enum {unknown} */
         GoalStatus: "Active" | "Completed" | "Archived";
+        GoalTaskResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            goalId: string | null;
+            title: string;
+            rhythm: components["schemas"]["GoalRhythm"];
+            /** Format: time */
+            reminderAt: string | null;
+            isDone: boolean;
+            /** Format: double */
+            measuredValue: number | null;
+            /** Format: double */
+            targetValue: number | null;
+            measureUnit: string | null;
+            /** Format: int32 */
+            measurePercent: number | null;
+        };
+        GoalTeamMemberResponse: {
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            streak: number;
+        };
         HttpValidationProblemDetails: {
             type?: string | null;
             title?: string | null;
@@ -80,6 +527,31 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        /** @enum {unknown} */
+        LanguagePreference: "German" | "English";
+        LeaderboardEntryResponse: {
+            /** Format: int32 */
+            rank: number;
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            kudos: number;
+            isMe: boolean;
+        };
+        MessageReactionResponse: {
+            emoji: string;
+            /** Format: int32 */
+            count: number;
+            isMine: boolean;
+        };
+        PersonSummary: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            handle: string;
+            initials: string;
+            avatarColor: string;
+            isOnline: boolean;
+        };
         ProblemDetails: {
             type?: string | null;
             title?: string | null;
@@ -87,6 +559,47 @@ export interface components {
             status?: number | null;
             detail?: string | null;
             instance?: string | null;
+        };
+        ProfileResponse: {
+            person: components["schemas"]["PersonSummary"];
+            /** Format: int32 */
+            streak: number;
+            /** Format: int32 */
+            kudosReceived: number;
+            /** Format: int32 */
+            goalsCompleted: number;
+            weekActivity: boolean[];
+            today: components["schemas"]["DaySummaryResponse"];
+            /** Format: int32 */
+            unreadChats: number;
+            /** Format: int32 */
+            pendingFriendRequests: number;
+            badges: components["schemas"]["BadgeResponse"][];
+            recentActivity: components["schemas"]["ActivityResponse"][];
+        };
+        SendMessageRequest: {
+            text?: string | null;
+        };
+        SettingsResponse: {
+            theme: components["schemas"]["ThemePreference"];
+            language: components["schemas"]["LanguagePreference"];
+            notifyReminders: boolean;
+            notifyKudos: boolean;
+            notifyMessages: boolean;
+            notifyWeeklyReview: boolean;
+        };
+        /** @enum {unknown} */
+        ThemePreference: "System" | "Light" | "Dark";
+        ToggleReactionRequest: {
+            emoji?: string | null;
+        };
+        UpdateSettingsRequest: {
+            theme?: null | components["schemas"]["ThemePreference"];
+            language?: null | components["schemas"]["LanguagePreference"];
+            notifyReminders?: boolean | null;
+            notifyKudos?: boolean | null;
+            notifyMessages?: boolean | null;
+            notifyWeeklyReview?: boolean | null;
         };
     };
     responses: never;
@@ -97,6 +610,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    GetProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+        };
+    };
+    ListLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderboardEntryResponse"][];
+                };
+            };
+        };
+    };
     ListGoals: {
         parameters: {
             query?: {
@@ -169,6 +722,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["GoalDetailResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ContributeToGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["GoalResponse"];
                 };
             };
@@ -179,6 +763,478 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListTasks: {
+        parameters: {
+            query?: {
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalTaskResponse"][];
+                };
+            };
+        };
+    };
+    CreateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalTaskResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ToggleTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalTaskResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityResponse"][];
+                };
+            };
+        };
+    };
+    ToggleKudos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetFriends: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendsResponse"];
+                };
+            };
+        };
+    };
+    AcceptFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeclineFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SendFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendSuggestionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListChats: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatSummaryResponse"][];
+                };
+            };
+        };
+    };
+    GetChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ToggleMessageReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleReactionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+        };
+    };
+    UpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
                 };
             };
         };

@@ -4,32 +4,159 @@
 /*
  * Design tokens for q2.
  *
- * Nuxt UI reads these aliases, so components pick up the palette without any
- * per-component colour props. Keeping them here means "what does primary look
- * like?" has exactly one answer.
+ * Two layers, and the distinction matters. `--ui-*` are Nuxt UI's own aliases,
+ * so every UButton, UInput and UModal picks up the palette without a single
+ * per-component colour prop. `--q2-*` are the few things the design uses that
+ * Nuxt UI has no concept of — the card shadow, the progress track, the warm
+ * accent behind streaks.
+ *
+ * Nothing outside this file names a hex value.
  */
+
 @theme static {
-  --color-primary-50: var(--color-teal-50);
-  --color-primary-100: var(--color-teal-100);
-  --color-primary-200: var(--color-teal-200);
-  --color-primary-300: var(--color-teal-300);
-  --color-primary-400: var(--color-teal-400);
-  --color-primary-500: var(--color-teal-500);
-  --color-primary-600: var(--color-teal-600);
-  --color-primary-700: var(--color-teal-700);
-  --color-primary-800: var(--color-teal-800);
-  --color-primary-900: var(--color-teal-900);
-  --color-primary-950: var(--color-teal-950);
+  /*
+   * The q2 green. Not an alias of a Tailwind palette: 500 is the design's
+   * #00b368 exactly, and the surrounding steps were built around it rather
+   * than borrowed from a scale that happens to pass nearby.
+   */
+  --color-primary-50: #e7f9f0;
+  --color-primary-100: #c6f2dd;
+  --color-primary-200: #91e6c1;
+  --color-primary-300: #55d5a1;
+  --color-primary-400: #1fc283;
+  --color-primary-500: #00b368;
+  --color-primary-600: #00955b;
+  --color-primary-700: #00794a;
+  --color-primary-800: #0a5f3d;
+  --color-primary-900: #0a4e34;
+  --color-primary-950: #032c1e;
+
+  /*
+   * Public Sans, self-hosted by @nuxt/fonts at build time. The design links it
+   * from Google Fonts; that would make every page load tell a third party who
+   * is reading it, which docs/privacy.md rules out — and it is the same reason
+   * icons are bundled rather than fetched.
+   */
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 :root {
-  --ui-radius: 0.5rem;
+  --ui-radius: 0.75rem;
+
+  --ui-bg: #fafafa;
+  --ui-bg-muted: #f3f3f3;
+  --ui-bg-elevated: #ffffff;
+  --ui-bg-accented: #ededed;
+
+  --ui-border: #e7e7e7;
+  --ui-border-muted: #f0f0f0;
+  --ui-border-accented: #dcdcdc;
+
+  --ui-text-dimmed: #a3a3a3;
+  --ui-text-muted: #737373;
+  --ui-text-toned: #525252;
+  --ui-text: #0a0a0a;
+  --ui-text-highlighted: #000000;
+
+  /* 4.9:1 on --ui-bg. The brighter #00b368 is only ever used behind white. */
+  --ui-primary: #00955b;
+
+  --q2-surface: #ffffff;
+  --q2-track: #ededed;
+  --q2-accent-solid: #00b368;
+  --q2-accent-soft: #e7f9f0;
+  --q2-accent-soft-text: #00794a;
+  --q2-amber: #d97706;
+  --q2-amber-soft: #fff7e6;
+  --q2-online: #15803d;
+  --q2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 20px -10px rgba(16, 24, 40, 0.13);
+}
+
+.dark {
+  --ui-bg: #0a0a0a;
+  --ui-bg-muted: #131313;
+  --ui-bg-elevated: #161616;
+  --ui-bg-accented: #262626;
+
+  --ui-border: #2a2a2a;
+  --ui-border-muted: #202020;
+  --ui-border-accented: #333333;
+
+  --ui-text-dimmed: #6b6b6b;
+  --ui-text-muted: #a1a1a1;
+  --ui-text-toned: #c8c8c8;
+  --ui-text: #fafafa;
+  --ui-text-highlighted: #ffffff;
+
+  --ui-primary: #34e3a0;
+
+  --q2-surface: #161616;
+  --q2-track: #262626;
+  --q2-accent-solid: #00c16a;
+  --q2-accent-soft: rgba(0, 193, 106, 0.17);
+  --q2-accent-soft-text: #5ce6ac;
+  --q2-amber: #fbbf24;
+  --q2-amber-soft: rgba(217, 119, 6, 0.17);
+  --q2-online: #22c55e;
+  --q2-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
+}
+
+body {
+  font-family: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+
+  /*
+   * q2 is packaged with Capacitor, so this really is a phone screen: a rubber
+   * band on the whole document drags the fixed bottom bar around with it, and
+   * a stray horizontal pixel becomes a page that slides sideways under the
+   * thumb. Each scrolling region opts back in individually.
+   */
+  overscroll-behavior-y: none;
+  overflow-x: hidden;
 }
 
 /*
- * Respect the operating system's reduced-motion setting. Progress bars and
- * transitions are decorative; nobody should get motion sickness from a
- * self-care app.
+ * A card. Repeated on nearly every screen and identical every time, so it is a
+ * component class rather than eight utilities copied into forty templates.
+ */
+@utility q2-card {
+  background: var(--q2-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 1.125rem;
+  box-shadow: var(--q2-card-shadow);
+}
+
+/*
+ * A scroll area with no visible scrollbar. On a phone there is nothing to
+ * drag, and a gutter reserved for a bar that never appears steals eight
+ * pixels from every card.
+ */
+@utility q2-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+@utility q2-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.q2-scroll::-webkit-scrollbar,
+.q2-scroll-x::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/*
+ * Respect the operating system's reduced-motion setting. Progress bars,
+ * sheets and the celebration on a completed task are decorative; nobody
+ * should get motion sickness from a self-care app.
  */
 @media (prefers-reduced-motion: reduce) {
   *,

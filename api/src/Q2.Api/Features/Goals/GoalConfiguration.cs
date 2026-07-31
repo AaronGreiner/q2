@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Q2.Api.Features.People;
+using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.Goals;
 
@@ -24,31 +26,36 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
         builder.Property(g => g.Description)
             .HasMaxLength(Goal.MaxDescriptionLength);
 
-        // Stored as text: readable in the database and stable if the enum
+        builder.Property(g => g.Icon)
+            .IsRequired()
+            .HasMaxLength(40);
+
+        // Enums are stored as text: readable in the database and stable if the
         // members are ever reordered.
         builder.Property(g => g.Status)
             .IsRequired()
             .HasMaxLength(32)
             .HasConversion<string>();
 
-        builder.Property(g => g.ProgressPercent).IsRequired();
+        builder.Property(g => g.Rhythm)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
 
-        // Instants are normalised to UTC at the storage boundary. The domain
-        // keeps DateTimeOffset (it carries the offset explicitly, which is the
-        // right type for an instant), but the column is a plain UTC DateTime.
-        //
-        // This is not cosmetic: SQLite cannot ORDER BY a DateTimeOffset at all
-        // ("SQLite does not support expressions of type 'DateTimeOffset' in
-        // ORDER BY clauses"), so listing goals newest-first would fail. Storing
-        // UTC also maps cleanly onto PostgreSQL's `timestamp with time zone`
-        // later. See docs/adr/0004-sqlite-first.md.
+        builder.Property(g => g.IsGroup).IsRequired();
+        builder.Property(g => g.CompletedSteps).IsRequired();
+        builder.Property(g => g.TotalSteps).IsRequired();
+
+        // ProgressPercent is derived from the steps and deliberately has no
+        // column: a stored copy is a second source of truth waiting to drift.
+        builder.Ignore(g => g.ProgressPercent);
+
+        builder.Property(g => g.ReminderAt);
+        builder.Property(g => g.TargetDate);
+
         builder.Property(g => g.CreatedAt)
             .IsRequired()
-            .HasConversion(
-                value => value.UtcDateTime,
-                value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
-
-        builder.Property(g => g.TargetDate);
+            .HasConversion(InstantConversion.Required);
 
         builder.HasIndex(g => g.Status);
         builder.HasIndex(g => g.CreatedAt);
@@ -58,9 +65,31 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
             .HasForeignKey(p => p.GoalId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(g => g.Contributions)
+            .WithOne()
+            .HasForeignKey(c => c.GoalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Metadata
             .FindNavigation(nameof(Goal.Participants))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata
+            .FindNavigation(nameof(Goal.Contributions))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public sealed class GoalContributionConfiguration : IEntityTypeConfiguration<GoalContribution>
+{
+    public void Configure(EntityTypeBuilder<GoalContribution> builder)
+    {
+        builder.ToTable("GoalContributions");
+        builder.HasKey(c => c.Id);
+
+        builder.Property(c => c.Date).IsRequired();
+
+        // One row per goal per day is what makes the streak a count of days.
+        builder.HasIndex(c => new { c.GoalId, c.Date }).IsUnique();
     }
 }
 
@@ -71,10 +100,54 @@ public sealed class GoalParticipantConfiguration : IEntityTypeConfiguration<Goal
         builder.ToTable("GoalParticipants");
         builder.HasKey(p => p.Id);
 
-        builder.Property(p => p.DisplayName)
-            .IsRequired()
-            .HasMaxLength(Goal.MaxParticipantNameLength);
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(p => p.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(p => new { p.GoalId, p.DisplayName }).IsUnique();
+        builder.HasIndex(p => new { p.GoalId, p.PersonId }).IsUnique();
+    }
+}
+
+public sealed class GoalTaskConfiguration : IEntityTypeConfiguration<GoalTask>
+{
+    public void Configure(EntityTypeBuilder<GoalTask> builder)
+    {
+        builder.ToTable("GoalTasks");
+        builder.HasKey(t => t.Id);
+
+        builder.Property(t => t.Title)
+            .IsRequired()
+            .HasMaxLength(GoalTask.MaxTitleLength);
+
+        builder.Property(t => t.Rhythm)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Property(t => t.WeeklyOn)
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Property(t => t.MeasureUnit)
+            .HasMaxLength(GoalTask.MaxUnitLength);
+
+        builder.Property(t => t.SortOrder).IsRequired();
+
+        builder.Property(t => t.CreatedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Ignore(t => t.IsMeasurable);
+
+        // Tasks outlive nothing: deleting a goal takes its tasks with it, and a
+        // standalone task simply has no goal.
+        builder.HasOne<Goal>()
+            .WithMany()
+            .HasForeignKey(t => t.GoalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(t => t.GoalId);
+        builder.HasIndex(t => t.SortOrder);
     }
 }

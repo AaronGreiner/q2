@@ -1,155 +1,200 @@
 <script setup lang="ts">
-import { isGoalStatus, type CreateGoalRequest, type GoalStatus } from '~/api/types'
-
 /**
- * The dashboard.
+ * The start screen.
  *
- * The page composes the view and owns the wiring — filter state, loading data,
- * reacting to a submit. Rendering is entirely delegated to components, and
- * every rule about goals lives in `useGoals` or on the server.
+ * The page composes and owns the wiring — what is loaded, what happens on a
+ * tap. Rendering is delegated to components, and every rule about goals,
+ * streaks or kudos lives in `useHome` or on the server.
  */
+const t = useMessages()
+const now = useNow()
+const theme = useTheme()
 
-const route = useRoute()
-const router = useRouter()
+const { profile, tasks, goals, feed, leaderboard, error, isLoading, refresh, toggleTask, toggleKudos } = useHome()
 
-/**
- * The filter lives in the URL rather than in component state, so a filtered
- * view can be shared and bookmarked and survives a reload.
- *
- * `push`, not `replace`: changing a filter changes what the user is looking at,
- * and the back button is how people undo that. `replace` would keep the history
- * tidy at the cost of making back jump out of the app entirely — which is the
- * more surprising of the two.
- *
- * An unknown or malformed `?status=` value falls back to "all" instead of
- * sending garbage to the API.
- */
-const statusFilter = computed<GoalStatus | undefined>({
-  get: () => (isGoalStatus(route.query.status) ? route.query.status : undefined),
-  set: value => router.push({ query: value ? { status: value } : {} }),
-})
+// Only the first few: the whole list is one tap away under "Alle anzeigen",
+// and a start screen that shows everything is not a start screen.
+const nextTasks = computed(() => tasks.value.slice(0, 3))
 
-const {
-  goals,
-  isLoading,
-  error,
-  refresh,
-  create,
-  isCreating,
-  createError,
-} = useGoals(statusFilter)
+const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
 
-const form = useTemplateRef('form')
-const toast = useToast()
-
-const activeCount = computed(() => goals.value.filter(goal => goal.status === 'Active').length)
-const completedCount = computed(() => goals.value.filter(goal => goal.status === 'Completed').length)
-
-const emptyCopy = computed(() => statusFilter.value
-  ? {
-      title: `No ${goalStatusPresentation(statusFilter.value).label.toLowerCase()} goals`,
-      description: 'Nothing matches this filter right now. Try another status.',
-    }
-  : {
-      title: 'No goals yet',
-      description: 'Create your first goal to start tracking progress together.',
-    })
-
-async function onSubmit(request: CreateGoalRequest) {
-  const created = await create(request)
-  if (!created) return
-
-  form.value?.reset()
-  toast.add({
-    title: 'Goal created',
-    description: created.title,
-    icon: 'i-lucide-circle-check',
-    color: 'success',
-  })
-}
-
-useHead({ title: 'Goals' })
+useHead({ title: () => t.value.nav.home })
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <section
-      class="flex flex-col gap-2"
-      aria-labelledby="dashboard-heading"
+  <div class="flex min-h-0 flex-1 flex-col">
+    <AppScreenHeader
+      :eyebrow="greeting"
+      :title="profile ? `${profile.person.displayName} 👋` : t.app.name"
     >
-      <h1
-        id="dashboard-heading"
-        class="text-2xl font-semibold"
+      <template #actions>
+        <UButton
+          :icon="theme.isDark.value ? 'i-lucide-sun' : 'i-lucide-moon'"
+          color="neutral"
+          variant="outline"
+          size="lg"
+          :ui="{ base: 'rounded-full' }"
+          :aria-label="theme.isDark.value ? t.settings.themeLight : t.settings.themeDark"
+          data-testid="theme-toggle"
+          @click="theme.toggle()"
+        />
+      </template>
+    </AppScreenHeader>
+
+    <div class="q2-scroll flex-1 px-[18px] pt-0.5 pb-6">
+      <div
+        v-if="isLoading"
+        class="flex flex-col gap-4"
+        aria-busy="true"
+        aria-live="polite"
       >
-        Shared goals
-      </h1>
-      <p class="max-w-prose text-(--ui-text-muted)">
-        Track what you are working on, on your own or together with friends.
-        <span
-          v-if="!isLoading && !error"
-          data-testid="goal-summary"
-        >
-          {{ activeCount }} active, {{ completedCount }} completed.
-        </span>
-      </p>
-    </section>
-
-    <section
-      class="flex flex-col gap-4"
-      aria-labelledby="goals-heading"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2
-          id="goals-heading"
-          class="text-lg font-medium"
-        >
-          Your goals
-        </h2>
-
-        <div class="flex items-center gap-2">
-          <GoalStatusFilter v-model="statusFilter" />
-          <UButton
-            icon="i-lucide-rotate-cw"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            :loading="isLoading"
-            aria-label="Reload goals"
-            data-testid="reload-goals"
-            @click="refresh()"
-          />
-        </div>
+        <span class="sr-only">{{ t.common.loading }}</span>
+        <USkeleton class="h-36 w-full rounded-[22px]" />
+        <USkeleton class="h-16 w-full rounded-2xl" />
+        <USkeleton class="h-16 w-full rounded-2xl" />
       </div>
 
-      <GoalList
-        :goals="goals"
-        :loading="isLoading"
+      <AppErrorState
+        v-else-if="error"
         :error="error"
-        :empty-title="emptyCopy.title"
-        :empty-description="emptyCopy.description"
+        retryable
         @retry="refresh()"
       />
-    </section>
 
-    <section
-      class="flex flex-col gap-4"
-      aria-labelledby="create-heading"
-    >
-      <h2
-        id="create-heading"
-        class="text-lg font-medium"
-      >
-        Add a goal
-      </h2>
-
-      <UCard>
-        <GoalCreateForm
-          ref="form"
-          :submitting="isCreating"
-          :error="createError"
-          @submit="onSubmit"
+      <template v-else-if="profile">
+        <StreakHero
+          :streak="profile.streak"
+          :week="profile.weekActivity"
         />
-      </UCard>
-    </section>
+
+        <TodayProgressCard
+          class="mt-3"
+          :today="profile.today"
+          :streak="profile.streak"
+        />
+
+        <section
+          class="mt-6"
+          aria-labelledby="today-heading"
+        >
+          <div class="mb-3 flex items-center justify-between px-0.5">
+            <h2
+              id="today-heading"
+              class="text-base font-extrabold"
+            >
+              {{ t.home.todayHeading }}
+            </h2>
+            <NuxtLink
+              to="/goals"
+              class="text-[13px] font-bold text-(--ui-primary) hover:underline"
+            >
+              {{ t.common.showAll }}
+            </NuxtLink>
+          </div>
+
+          <div
+            v-if="nextTasks.length > 0"
+            class="flex flex-col gap-2.5"
+          >
+            <GoalTaskRow
+              v-for="task in nextTasks"
+              :key="task.id"
+              :task="task"
+              @toggle="toggleTask"
+            />
+          </div>
+
+          <AppStateMessage
+            v-else
+            icon="i-lucide-circle-check"
+            :title="t.home.noTasks"
+            :description="t.home.noTasksHint"
+            data-testid="home-no-tasks"
+          />
+        </section>
+
+        <section
+          v-if="goals.length > 0"
+          class="mt-6"
+          aria-labelledby="home-goals-heading"
+        >
+          <div class="mb-3 flex items-center justify-between px-0.5">
+            <h2
+              id="home-goals-heading"
+              class="text-base font-extrabold"
+            >
+              {{ t.home.goalsHeading }}
+            </h2>
+            <NuxtLink
+              to="/goals"
+              class="text-[13px] font-bold text-(--ui-primary) hover:underline"
+            >
+              {{ t.common.more }}
+            </NuxtLink>
+          </div>
+
+          <!-- Bleeds to both edges so the strip reads as scrollable. -->
+          <div class="q2-scroll-x -mx-[18px] flex gap-3 px-[18px] pb-1">
+            <GoalTile
+              v-for="goal in goals"
+              :key="goal.id"
+              :goal="goal"
+            />
+          </div>
+        </section>
+
+        <section
+          class="mt-6"
+          aria-labelledby="feed-heading"
+        >
+          <h2
+            id="feed-heading"
+            class="mb-3 px-0.5 text-base font-extrabold"
+          >
+            {{ t.home.feedHeading }}
+          </h2>
+
+          <div
+            v-if="feed.length > 0"
+            class="flex flex-col gap-2.5"
+          >
+            <ActivityRow
+              v-for="entry in feed"
+              :key="entry.id"
+              :activity="entry"
+              :now="now"
+              @kudos="toggleKudos"
+            />
+          </div>
+
+          <AppStateMessage
+            v-else
+            icon="i-lucide-users"
+            :title="t.home.noFeed"
+            :description="t.home.noFeedHint"
+          />
+        </section>
+
+        <section
+          v-if="leaderboard.length > 0"
+          class="mt-6"
+          aria-labelledby="leaderboard-heading"
+        >
+          <h2
+            id="leaderboard-heading"
+            class="mb-3 flex items-center gap-2 px-0.5 text-base font-extrabold"
+          >
+            <UIcon
+              name="i-lucide-trophy"
+              class="size-[18px] text-(--q2-amber)"
+              aria-hidden="true"
+            />
+            {{ t.home.leaderboardHeading }}
+          </h2>
+
+          <LeaderboardCard :entries="leaderboard" />
+        </section>
+      </template>
+    </div>
   </div>
 </template>

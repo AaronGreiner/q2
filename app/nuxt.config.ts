@@ -101,19 +101,45 @@ export default defineNuxtConfig({
       includeCustomCollections: true,
 
       /*
-       * `scan` only sees literal strings. These names are produced at runtime
-       * by goalStatusPresentation() in app/utils/goalDisplay.ts, so the scanner
-       * cannot find them and they have to be listed here.
+       * `scan` only sees literal strings, and two sets of icon names never
+       * appear as one:
        *
-       * If you add a status or return a new icon from a function, add it here
-       * too — otherwise it silently falls back to a network lookup and logs
+       *  - a goal's icon comes from the API (GoalIcons in the backend), so the
+       *    scanner cannot know it. The list below must stay in step with
+       *    api/src/Q2.Api/Features/Goals/Goal.cs — the server validates against
+       *    its list, this bundles against ours, and an icon in one but not the
+       *    other renders as nothing at all;
+       *  - the rest are produced by the presentation helpers in
+       *    app/utils/display.ts.
+       *
+       * Anything missing here silently falls back to a network lookup and logs
        * "failed to load icon" on every render.
        */
       icons: [
+        // GoalIcons, server-side.
+        'lucide:target',
+        'lucide:medal',
+        'lucide:book-open',
+        'lucide:sunrise',
+        'lucide:droplet',
+        'lucide:flame',
+        'lucide:trophy',
+        'lucide:sparkles',
+        'lucide:calendar',
+        'lucide:alarm-clock',
+        'lucide:hand-heart',
+        'lucide:users',
+
+        // Badges and statuses, chosen at runtime by display.ts.
         'lucide:circle-dot',
         'lucide:circle-check',
         'lucide:archive',
         'lucide:clock-alert',
+        'lucide:repeat',
+        'lucide:message-circle',
+        'lucide:user',
+        'lucide:lock',
+        'lucide:circle-help',
       ],
     },
 

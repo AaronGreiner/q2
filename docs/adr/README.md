@@ -16,3 +16,5 @@ so the reasoning at the time stays readable.
 | [0006](0006-authentication-deferred.md) | Authentication deliberately deferred | Accepted |
 | [0007](0007-testing-strategy.md) | Real providers, real pipeline, real SDK | Accepted |
 | [0008](0008-deployment-topology.md) | One host, two systemd services, one origin | Accepted |
+| [0009](0009-single-known-person.md) | One known person, flagged in the database | Accepted |
+| [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |

@@ -21,8 +21,14 @@ api/
 │   ├── Program.cs                   composition root, ~35 lines
 │   ├── appsettings.*.json           one file per environment
 │   ├── Features/
-│   │   ├── Goals/                   the domain model, DTOs, validation, service, endpoints
-│   │   └── Diagnostics/             health check and the deliberate-failure endpoints
+│   │   ├── Activity/                the feed, kudos and the leaderboard
+│   │   ├── Chats/                   conversations, messages and reactions
+│   │   ├── Diagnostics/             health check and the deliberate-failure endpoints
+│   │   ├── Goals/                   goals, the tasks under them, and their contracts
+│   │   ├── People/                  Person, friendships, badges, CurrentPerson
+│   │   ├── Profile/                 the signed-in person's own screen
+│   │   ├── Settings/                theme, language and notification preferences
+│   │   └── Streaks/                 the one definition of a streak, shared by both
 │   └── Infrastructure/
 │       ├── ApiRegistration.cs       JSON, ProblemDetails, OpenAPI, CORS, pipeline
 │       ├── CommandLineRunner.cs     `db …` and `openapi …` commands
@@ -59,21 +65,42 @@ layer projects.
 - Domain invariants live in the domain type, not in the service.
 - `Goal.Create` takes its id and timestamp as arguments. Nothing in the domain
   reads the clock or generates an id.
+- **Numbers people see are derived, never stored.** A goal's percentage comes
+  from its steps; a streak comes from the days recorded behind it. A stored copy
+  is a second source of truth waiting to drift, and it needs a nightly job to
+  notice a missed day.
+- **Identity goes through `CurrentPerson`.** No feature looks up
+  `Person.IsCurrentUser` itself, so the day a request carries a signed-in user,
+  exactly one implementation changes
+  ([../docs/adr/0009-single-known-person.md](../docs/adr/0009-single-known-person.md)).
+- **Sentences are composed by the client.** The API sends `kind`, `subject` and
+  `amount`; it never sends a line of prose. The app ships in two languages
+  ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
 
 ## 2. Feature modules
 
-Today there is one: `Features/Goals`.
+Every feature has the same shape: entities and their invariants, an EF
+configuration, contracts with their mapping, a service, and endpoints. Taking
+`Features/Goals` as the reference:
 
 | File | Responsibility |
 | --- | --- |
 | `Goal.cs` | the domain model and every invariant |
-| `GoalParticipant.cs` | a participant (a display name for now) |
-| `GoalStatus.cs` | Active / Completed / Archived |
-| `GoalContracts.cs` | `GoalResponse`, `CreateGoalRequest`, mapping |
-| `CreateGoalRequestValidator.cs` | request-shape validation with good messages |
-| `GoalService.cs` | application logic: read, write, map |
+| `GoalParticipant.cs` | a participant, and the days a goal was worked on |
+| `GoalTask.cs` | one thing to do on a day, and which days it falls on |
+| `GoalStatus.cs` `GoalRhythm.cs` | the two enums, stored as text |
+| `GoalContracts.cs` `GoalTaskContracts.cs` | responses, requests, mapping |
+| `GoalRequestValidators.cs` | request-shape validation with good messages |
+| `GoalService.cs` `GoalTaskService.cs` | application logic: read, write, map |
 | `GoalConfiguration.cs` | EF Core mapping |
-| `GoalEndpoints.cs` | the HTTP surface |
+| `GoalEndpoints.cs` | the HTTP surface for `/api/goals` and `/api/tasks` |
+
+The others follow it: `People` (with `CurrentPerson` and `FriendsService`),
+`Activity` (feed, kudos, leaderboard, and `ActivityRecorder`, which goals and
+tasks both publish through), `Chats`, `Profile`, `Settings`. `Streaks` is the
+odd one out — a single static class, because "how many days in a row" is one
+definition that both a person and a goal are counted with, and two copies of it
+would drift.
 
 ## 3. EF Core conventions
 
@@ -86,8 +113,15 @@ Today there is one: `Features/Goals`.
   cannot `ORDER BY` a `DateTimeOffset` at all, and UTC maps cleanly onto
   PostgreSQL's `timestamptz` later.
 - Explicit lengths and indexes. Foreign keys cascade where a child cannot exist
-  alone.
+  alone, and a reference that must survive its target (a pinned goal on a
+  conversation) is `SetNull` instead.
 - Queries that only read use `AsNoTracking()`.
+- **Every GUID key is `ValueGeneratedNever`**, set once in
+  `Q2DbContext.OnModelCreating`. EF Core's default is `ValueGeneratedOnAdd`, and
+  with it a *new* child discovered inside a tracked aggregate — a check-in on a
+  `Person`, a kudos on an `ActivityEvent` — reads as a row that already exists.
+  Nothing fails; the insert is silently downgraded and a streak simply never
+  grows. `PersistenceTests` has a regression test for it.
 
 ## 4. Migrations
 
@@ -116,14 +150,28 @@ the style gate rejects.
 
 | Class | Profile | Content |
 | --- | --- | --- |
-| `DevelopmentSeed` | `Development` | 3 goals, inserted only into an empty database |
-| `ManualTestingSeed` | `ManualTesting` | 10 goals: shared, overdue, archived, 0%/99%/100%, max-length title, long description, non-ASCII |
-| `AutomatedTestSeed` | `AutomatedTest` | 3 goals, minimal and deterministic |
-| `E2ESeed` | `E2E` | 4 goals with stable ids and unique, non-overlapping titles |
+| `DevelopmentSeed` | `Development` | the demonstration world, inserted only into an empty database |
+| `ManualTestingSeed` | `ManualTesting` | the same world plus completed, overdue, archived and a title long enough to wrap |
+| `AutomatedTestSeed` | `AutomatedTest` | the smallest world that still covers every branch |
+| `E2ESeed` | `E2E` | stable ids and unique, non-overlapping titles for Playwright |
 
-A seed is a **pure function** of a `SeedContext`. No clock, no randomness, no
-network, no real personal data, no secrets. Ids come from `SeedIds`, which
-gives each profile its own GUID prefix so two profiles can never collide.
+`KudosWorld` composes the world Development and ManualTesting share, so "what a
+working q2 looks like" does not have two slightly different answers.
+
+A seed is a **pure function** of a `SeedContext` — no clock, no randomness, no
+network, no real personal data, no secrets — built through `SeedBuilder`, which
+hands out ids so a seed only has to say what exists. `SeedIds` gives each
+profile its own GUID prefix and each kind of row the group after it, so two
+profiles can never collide and a row's origin is obvious at a glance.
+
+Two properties every profile has to keep, both covered by `SeedDataTests`:
+
+- **exactly one person carries `IsCurrentUser`** — `CurrentPerson` refuses to
+  guess, so getting this wrong takes every read down with it;
+- **AutomatedTest and E2E contain no weekday-dependent task.** A `Weekdays` or
+  `Weekly` task would make "how many tasks are on today's list" depend on the
+  day the suite runs, and a test that passes on Tuesday and fails on Saturday is
+  worse than no test.
 
 `DatabaseSeeder` is the only thing that writes seed rows.
 

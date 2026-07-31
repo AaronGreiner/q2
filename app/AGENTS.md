@@ -22,11 +22,14 @@ app/
 ├── app/                      ← Nuxt 4 puts application source here
 │   ├── app.vue error.vue
 │   ├── api/                  the HTTP layer (see §3)
-│   ├── components/goals/     feature components
-│   ├── components/ui/        generic building blocks
+│   ├── assets/css/main.css   the design tokens — the only file with a hex value
+│   ├── components/           chats/ friends/ goals/ home/ layout/ profile/
+│   │                         settings/ social/ ui/
 │   ├── composables/          state and side effects
-│   ├── layouts/ pages/
-│   └── utils/goalDisplay.ts  pure presentation logic
+│   ├── i18n/messages.ts      every user-facing word, in both languages
+│   ├── layouts/              default (with the tab bar) and plain (without)
+│   ├── pages/
+│   └── utils/display.ts      pure presentation logic
 └── tests/{unit,component,e2e}
 ```
 
@@ -54,18 +57,29 @@ components with logic inline is not "using the design system well".
 - Every state a component can be in is renderable from props alone — which is
   what makes the component tests short.
 
-Current components:
+**No component contains a literal user-facing string.** `const t =
+useMessages()` and `{{ t.goals.heading }}`; the words live in
+`app/i18n/messages.ts` (see §10).
+
+Current components, by folder:
 
 | Component | Responsibility |
 | --- | --- |
-| `GoalCard` | one goal in a list |
-| `GoalList` | the four list states: loading, empty, error, loaded |
-| `GoalProgress` | the progress bar and its accessible description |
-| `GoalStatusBadge` | status, plus an overdue marker |
-| `GoalStatusFilter` | filter by status (a radio group, not a select) |
-| `GoalCreateForm` | the create form, including server-side field errors |
+| `AppAvatar` | initials on a colour, with an optional presence dot |
+| `AppProgressBar` `AppProgressRing` | the two shapes progress is drawn in |
+| `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
+| `AppBottomNav` `AppScreenHeader` | the shell around every screen |
+| `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
+| `GoalCard` `GoalTile` | one goal in the list, and in the horizontal strip |
+| `GoalTaskRow` | one task with its tick box |
+| `GoalCreateSheet` | the bottom sheet that creates a goal |
+| `ActivityRow` `LeaderboardCard` | the feed and the ranking |
+| `FriendRow` `FriendRequestRow` `FriendSuggestionRow` | the three friend states |
+| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens |
+| `BadgeGrid` | the badge collection, earned and not |
+| `SettingsSection` `SettingsToggleRow` | the settings list |
 
 ## 3. The API layer
 
@@ -73,9 +87,12 @@ Current components:
 app/api/generated/schema.d.ts   GENERATED — never edit
 app/api/types.ts                named re-exports of the contract
 app/api/errors.ts               ApiError, ApiFailure, normalisation
-app/api/goals.ts                the typed goal endpoints
+app/api/client.ts               the fetch wrapper that normalises every failure
+app/api/goals.ts                goals and tasks
+app/api/social.ts               feed, kudos, leaderboard, friends, profile
+app/api/chats.ts                conversations, messages and settings
 app/api/diagnostics.ts          the diagnostics endpoints (hand-written, see below)
-app/composables/useGoalsApi.ts  the configured client
+app/composables/useQ2Api.ts     the configured client
 ```
 
 - **Nothing outside `app/api/` builds a URL or reads a response body.**
@@ -112,6 +129,10 @@ with a `kind`:
 
 *Expected* failures get a friendly message and **never** create a Sentry issue.
 
+The message itself is **not** part of `ApiError`. The app speaks two languages,
+so the words are chosen from `kind` at render time (`t.errors[failure.kind]`)
+and normalisation stays language-free.
+
 Components receive **`ApiFailure`** — plain data, not the class. Only what
 `useAsyncData` returns is serialised into the SSR payload, so a class instance
 would arrive in the browser without its prototype and a `ref` set during server
@@ -125,6 +146,11 @@ support request maps onto a Sentry issue.
 `app/error.vue` is the last line of defence for unhandled render and server
 errors. It does **not** capture to Sentry — the Nuxt integration already did,
 and capturing again would duplicate the issue.
+
+**`useAsyncData` returns a *shallow* ref.** Assigning to a property of
+`data.value` changes the object without telling anything watching it: the
+request succeeds and the screen does not move. Always replace the whole
+payload — `data.value = { ...data.value, feed: … }`.
 
 ## 6. Sentry
 
@@ -188,7 +214,7 @@ The consequence for everyday work:
 Nothing Capacitor-specific exists in the repository yet, and nothing should be
 added ahead of the requirement. This section is about the format the UI is
 designed and verified in, not about adding a native layer now
-([../docs/next-steps.md](../docs/next-steps.md), item 13).
+([../docs/next-steps.md](../docs/next-steps.md), item 14).
 
 ## 9. Tests
 
@@ -218,10 +244,33 @@ only works wide is not exercised anywhere.
 That covers the *width* the assertions are made at, not the layout itself: the
 suite asserts behaviour and text, never geometry, so an overflowing card or an
 unreachable tap target would still be green
-([../docs/next-steps.md](../docs/next-steps.md), item 5). Looking at the change
+([../docs/next-steps.md](../docs/next-steps.md), item 6). Looking at the change
 yourself remains part of the work.
 
-## 10. Commands
+## 10. The message catalogue
+
+`app/app/i18n/messages.ts` holds every user-facing word, in German and English.
+The product speaks German by default; the settings screen switches it, and the
+choice is remembered on the server
+([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
+
+Three rules keep it working:
+
+- **No literal user-facing text outside this file.** Not in a template, not in
+  a composable, not in an `aria-label`. A German string in a component cannot be
+  translated and, worse, nobody will find it.
+- **`en` is typed as `Messages`**, the type inferred from `de`, so a missing key
+  is a build error. A unit test covers what the type cannot: empty strings,
+  functions whose signatures drifted apart, and a "translation" that was pasted
+  rather than translated.
+- **The API sends structure, not sentences.** The feed sends `kind`, `subject`
+  and `amount`; `activitySentence` in `app/utils/display.ts` composes the line.
+  Anything the server phrases is a line that can only ever be one language.
+
+Presentation helpers take the catalogue as an argument rather than reaching for
+a composable, which is what keeps them pure and unit-testable.
+
+## 11. Commands
 
 ```bash
 bun run dev
@@ -235,7 +284,7 @@ bun run typecheck
 From the repository root, `bun run dev`, `bun run validate` and
 `bun run api:types` cover the same ground with the right environment.
 
-## 11. Before finishing a frontend change
+## 12. Before finishing a frontend change
 
 1. `bun run lint`
 2. `bun run typecheck`
