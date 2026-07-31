@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
+using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -30,6 +31,7 @@ public sealed class AccountService(
     CurrentPerson currentPerson,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
+    Q2Metrics metrics,
     ILogger<AccountService> logger)
 {
     /// <summary>
@@ -104,6 +106,7 @@ public sealed class AccountService(
         // The id, never the name or the address: both are personal data
         // (docs/privacy.md).
         logger.LogInformation("Account created for person {PersonId}", person.Id);
+        metrics.CountAccountRegistered();
 
         return new SessionResponse(PersonSummary.From(person, now), email);
     }
@@ -160,6 +163,7 @@ public sealed class AccountService(
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Signed in as person {PersonId}", person.Id);
+        metrics.CountAccountSignedIn();
 
         return new SessionResponse(PersonSummary.From(person, now), account.Email ?? email);
     }

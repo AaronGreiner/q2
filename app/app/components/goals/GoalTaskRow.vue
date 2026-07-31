@@ -30,6 +30,7 @@ const measure = computed(() => formatMeasure(props.task, t.value.numbers.decimal
   <div
     class="q2-card flex items-center gap-3 px-3.5 py-3"
     data-testid="task-row"
+    data-q2-block
   >
     <!--
       A real checkbox, not a div with a click handler: the tick is the whole
@@ -65,6 +66,7 @@ const measure = computed(() => formatMeasure(props.task, t.value.numbers.decimal
       <p
         class="text-sm font-bold"
         :class="task.isDone ? 'text-(--ui-text-dimmed) line-through' : 'text-(--ui-text)'"
+        data-q2-private
       >
         {{ task.title }}
       </p>

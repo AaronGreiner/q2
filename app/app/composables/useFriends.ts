@@ -58,7 +58,7 @@ export function useFriends() {
 
     await run('accept', async () => {
       await api.friends.accept(personId)
-      if (name) toast.show(t.value.toast.friendAdded(name))
+      if (name) toast.show(t.value.toast.friendAdded(name), { private: true })
     })
   }
 

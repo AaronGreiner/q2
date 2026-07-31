@@ -27,6 +27,7 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
       <span
         class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
         aria-hidden="true"
+        data-q2-block
       >
         <UIcon
           :name="goalIconName(goal.icon)"
@@ -37,7 +38,10 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
           <!-- h3: the list sits under an h2, which keeps heading order intact. -->
-          <h3 class="text-base font-extrabold text-pretty">
+          <h3
+            class="text-base font-extrabold text-pretty"
+            data-q2-private
+          >
             {{ goal.title }}
           </h3>
 
@@ -57,7 +61,10 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
           </span>
         </div>
 
-        <p class="mt-0.5 text-xs font-semibold text-(--ui-text-muted)">
+        <p
+          class="mt-0.5 text-xs font-semibold text-(--ui-text-muted)"
+          data-q2-private
+        >
           {{ t.rhythm[goal.rhythm] }} · {{ subtitle }}
         </p>
       </div>
@@ -84,10 +91,16 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
     />
 
     <div class="mt-2 flex items-center justify-between">
-      <span class="text-[13px] font-extrabold text-(--ui-primary)">{{ goal.progressPercent }}%</span>
+      <span
+        class="text-[13px] font-extrabold text-(--ui-primary)"
+        data-q2-private
+      >{{ goal.progressPercent }}%</span>
 
       <div class="flex items-center gap-3">
-        <span class="flex items-center gap-1 text-[11px] font-bold text-(--q2-amber)">
+        <span
+          class="flex items-center gap-1 text-[11px] font-bold text-(--q2-amber)"
+          data-q2-private
+        >
           <UIcon
             name="i-lucide-flame"
             class="size-3.5"
@@ -99,6 +112,7 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
         <span
           v-if="reminder"
           class="flex items-center gap-1 text-[11px] font-semibold text-(--ui-text-muted)"
+          data-q2-private
         >
           <UIcon
             name="i-lucide-bell"

@@ -32,6 +32,7 @@ const inner = computed(() => Math.round(props.size * 0.76))
     aria-valuemax="100"
     :aria-label="label"
     data-testid="progress-ring"
+    data-q2-block
   >
     <div
       class="flex flex-col items-center justify-center rounded-full bg-(--q2-surface)"

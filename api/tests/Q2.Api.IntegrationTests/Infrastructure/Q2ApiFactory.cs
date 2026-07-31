@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Q2.Api.Infrastructure;
 using Q2.Api.Infrastructure.Observability.Testing;
 using Q2.Api.Infrastructure.Persistence;
@@ -84,6 +85,64 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return SentryEvents.Events;
     }
 
+    /// <summary>
+    /// Structured logs the SDK delivered during this test, having waited for at
+    /// least one matching <paramref name="expected"/>.
+    /// </summary>
+    /// <remarks>
+    /// Logs and metrics do not leave the SDK one at a time: they are collected
+    /// in a batch buffer that is handed over when it fills or when its timer
+    /// expires, and <see cref="IHub.FlushAsync"/> does not reach into it — it
+    /// flushes the worker the batch is eventually queued on. So a test asserting
+    /// on a log has to wait for that hand-over rather than read straight after
+    /// the request.
+    ///
+    /// Waiting for a specific entry, rather than for a fixed delay, is also what
+    /// makes a negative assertion sound: emit the line that must not be sent,
+    /// then a harmless one, and wait for the harmless one. Once it has arrived,
+    /// the batch containing both has been processed, so "the secret is not in
+    /// this collection" means it was dropped rather than still queued.
+    /// </remarks>
+    public Task<IReadOnlyList<RecordedSentryLog>> RecordedLogsAsync(Func<RecordedSentryLog, bool> expected) =>
+        WaitForAsync(() => SentryEvents.Logs, expected);
+
+    /// <summary>Metrics the SDK delivered during this test, having waited for a matching one.</summary>
+    public Task<IReadOnlyList<RecordedSentryMetric>> RecordedMetricsAsync(Func<RecordedSentryMetric, bool> expected) =>
+        WaitForAsync(() => SentryEvents.Metrics, expected);
+
+    private async Task<IReadOnlyList<T>> WaitForAsync<T>(
+        Func<IReadOnlyList<T>> read,
+        Func<T, bool> expected)
+    {
+        var deadline = DateTimeOffset.UtcNow + FlushTimeout;
+
+        while (true)
+        {
+            await FlushSentryAsync();
+
+            var recorded = read();
+            if (recorded.Any(expected) || DateTimeOffset.UtcNow >= deadline)
+            {
+                // Returned rather than asserted on: a test that waited in vain
+                // should fail on its own assertion, which names what it wanted.
+                return recorded;
+            }
+
+            await Task.Delay(25, TestContext.Current.CancellationToken);
+        }
+    }
+
+    /// <summary>The hub under test, for the tests that emit a metric themselves.</summary>
+    public IHub Hub => Services.GetRequiredService<IHub>();
+
+    /// <summary>
+    /// A logger from the running application, for the tests that need a log line
+    /// with a specific shape. It is the same <c>ILogger</c> pipeline the services
+    /// use, so what happens to the line here is what happens to theirs.
+    /// </summary>
+    public ILogger Logger(string category) =>
+        Services.GetRequiredService<ILoggerFactory>().CreateLogger(category);
+
     public async ValueTask InitializeAsync()
     {
         // Open before anything else touches the database, otherwise the
@@ -121,6 +180,12 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// Waits for the SDK's background worker to hand everything it has queued
     /// to the transport.
     /// </summary>
+    /// <remarks>
+    /// Logs and metrics are batched separately from events — they leave in
+    /// container envelopes once a buffer fills or a timer expires — so their own
+    /// buffers have to be pushed out first. Without that, a test asserting on a
+    /// log would be waiting for a timer rather than for the SDK.
+    /// </remarks>
     private Task FlushSentryAsync() =>
         Services.GetRequiredService<IHub>().FlushAsync(FlushTimeout);
 

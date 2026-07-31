@@ -15,6 +15,8 @@ defineProps<{
   title: string
   description: string
   confirmLabel: string
+  /** The description interpolates a name or other personal value. */
+  privateDescription?: boolean
 }>()
 
 const emit = defineEmits<{ confirm: [] }>()
@@ -36,6 +38,12 @@ function onConfirm() {
     :description="description"
     :ui="{ content: 'max-w-[360px]' }"
   >
+    <template #description>
+      <span :data-q2-private="privateDescription ? '' : undefined">
+        {{ description }}
+      </span>
+    </template>
+
     <template #footer>
       <div
         class="flex w-full gap-2"

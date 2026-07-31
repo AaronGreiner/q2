@@ -28,11 +28,36 @@ public static partial class SensitiveData
     private static partial Regex SensitiveKeyPattern { get; }
 
     /// <summary>
-    /// Keys carrying user-authored goal content. Goal titles and descriptions
-    /// are personal by nature and are never useful for debugging a stack trace.
+    /// Keys carrying content or identity written by a person. These values are
+    /// personal by nature and are never useful for debugging a stack trace.
     /// </summary>
     private static readonly string[] UserContentKeys =
-        ["goal.title", "goal.description", "goal_title", "goal_description"];
+    [
+        "title",
+        "description",
+        "goal.title",
+        "goal.description",
+        "goalTitle",
+        "goalDescription",
+        "goal_title",
+        "goal_description",
+        "task.title",
+        "taskTitle",
+        "task_title",
+        "message.text",
+        "messageText",
+        "message_text",
+        "chat.name",
+        "chatName",
+        "chat_name",
+        "conversation.name",
+        "conversationName",
+        "conversation_name",
+        "displayName",
+        "display_name",
+        "handle",
+        "email",
+    ];
 
     [GeneratedRegex(
         @"(?i)\b(data\s*source|initial\s*catalog|user\s*id|password|pwd)\s*=\s*[^;""'\s]+",
@@ -58,6 +83,16 @@ public static partial class SensitiveData
         @"(?i)\b(password|passwd|pwd|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|apikey|authorization|cookie|session|credential|dsn)\b(""?\s*[=:]\s*""?)[^&\s""';,}]+",
         RegexOptions.CultureInvariant)]
     private static partial Regex SensitiveAssignmentPattern { get; }
+
+    /// <summary>
+    /// User content written into a formatted object or an improvised log line.
+    /// Structured parameters are rejected by key as well; this covers the
+    /// stringified-object case from console and framework integrations.
+    /// </summary>
+    [GeneratedRegex(
+        @"(?i)\b(title|description|goal[._-]?title|goal[._-]?description|task[._-]?title|message[._-]?text|chat[._-]?name|conversation[._-]?name|display[_-]?name|handle|email)\b(""?\s*[=:]\s*)(?:""[^""]*""|'[^']*'|[^,;}\r\n]+)",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex UserContentAssignmentPattern { get; }
 
     /// <summary>
     /// The query part of any URL appearing in free text. Query strings are
@@ -112,6 +147,7 @@ public static partial class SensitiveData
         result = BearerTokenPattern.Replace(result, Placeholder);
         result = JsonWebTokenPattern.Replace(result, Placeholder);
         result = SensitiveAssignmentPattern.Replace(result, $"$1$2{Placeholder}");
+        result = UserContentAssignmentPattern.Replace(result, $"$1$2{Placeholder}");
         result = EmailPattern.Replace(result, Placeholder);
         result = CoordinatePattern.Replace(result, Placeholder);
 

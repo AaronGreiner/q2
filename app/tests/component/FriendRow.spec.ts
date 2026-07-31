@@ -50,7 +50,9 @@ describe('FriendRow', () => {
 
     const message = wrapper.find('[data-testid="friend-message"]')
     const remove = wrapper.find('[data-testid="friend-remove"]')
+    const identity = wrapper.find('[data-q2-private]')
 
+    expect(identity.text()).toContain('Jonas Weber')
     expect(message.attributes('aria-label')).toContain('Jonas Weber')
     expect(remove.attributes('aria-label')).toContain('Jonas Weber')
 

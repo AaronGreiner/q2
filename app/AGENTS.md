@@ -211,12 +211,21 @@ payload — `data.value = { ...data.value, feed: … }`.
   a goal title.
 - Session Replay records **every** session, and `sendDefaultPii` is on, so the
   browser SDK attaches the IP address. Both are deliberate; both are frontend
-  only. Two consequences when touching this code: the sample rates do nothing
-  without `Sentry.replayIntegration()` in `sentry.client.config.ts`, and the
-  masking options (`maskAllText`, `maskAllInputs`, `blockAllMedia`) are what
-  keeps goal content out of a recording — do not remove them to "see more".
-- Do not reinstate `delete event.user` in `scrubEvent`. It would silently undo
-  `sendDefaultPii` while the configuration still claims to be on.
+  only. The sample rates do nothing without `Sentry.replayIntegration()` in
+  `sentry.client.config.ts`.
+- Replay is selectively private: product copy stays readable, every element
+  rendering somebody's words or identity has `data-q2-private`, and personal
+  state whose shape leaks information (messages, progress, activity, avatars)
+  has `data-q2-block`. All inputs remain masked. A component that renders a new
+  personal value must add one of those attributes and a component test. The two
+  non-component exceptions are `head > title` in the mask selector and
+  `.sentry-mask` on Nuxt UI's teleported personal-name toasts.
+- `scrubEvent` preserves only `user.ip_address`. Do not remove it and silently
+  undo `sendDefaultPii`; do not preserve the account id, name or email either.
+- Structured logs and metrics are enabled. Browser and Nitro capture only
+  `console.warn`/`console.error`, and attributes still pass through
+  `beforeSendLog`. A metric must be an anonymous operational counter, never a
+  place to attach an id or free text.
 - `useErrorReporter` decides what deserves an issue: expected failures never do;
   a 5xx that already carries an `errorId` becomes a breadcrumb rather than a
   second issue for one incident.

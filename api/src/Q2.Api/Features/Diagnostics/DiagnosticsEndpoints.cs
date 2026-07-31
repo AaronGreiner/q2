@@ -53,11 +53,18 @@ public static class DiagnosticsEndpoints
             .WithTags("Diagnostics")
             .ExcludeFromDescription();
 
-        group.MapGet("/sentry", (SentrySettings settings) => Results.Ok(new SentryStatusResponse(
-                settings.Enabled && !string.IsNullOrWhiteSpace(settings.Dsn),
-                settings.Environment,
-                settings.Release,
-                settings.UseRecordingTransport)))
+        group.MapGet("/sentry", (SentrySettings settings) =>
+            {
+                var sending = settings.Enabled && !string.IsNullOrWhiteSpace(settings.Dsn);
+
+                return Results.Ok(new SentryStatusResponse(
+                    sending,
+                    settings.Environment,
+                    settings.Release,
+                    settings.UseRecordingTransport,
+                    sending && settings.EnableLogs,
+                    sending && settings.EnableMetrics));
+            })
             .WithName("SentryStatus")
             .WithSummary("Reports whether Sentry would send an event, without revealing the DSN.")
             .Produces<SentryStatusResponse>();
@@ -80,4 +87,12 @@ public sealed record HealthResponse(string Status, string Service);
 
 /// <param name="Enabled">True when a DSN is configured and sending is on.</param>
 /// <param name="RecordingTransport">True when events stay in-process.</param>
-public sealed record SentryStatusResponse(bool Enabled, string Environment, string Release, bool RecordingTransport);
+/// <param name="Logs">True when ILogger output is sent as structured logs.</param>
+/// <param name="Metrics">True when the counters in Q2Metrics are sent.</param>
+public sealed record SentryStatusResponse(
+    bool Enabled,
+    string Environment,
+    string Release,
+    bool RecordingTransport,
+    bool Logs,
+    bool Metrics);

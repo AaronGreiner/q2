@@ -44,6 +44,7 @@ export default defineNuxtConfig({
    *   sentry.release          -> NUXT_PUBLIC_SENTRY_RELEASE
    *   sentry.enabled          -> NUXT_PUBLIC_SENTRY_ENABLED
    *   sentry.tracesSampleRate -> NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
+   *   sentry.profileSessionSampleRate -> NUXT_PUBLIC_SENTRY_PROFILE_SESSION_SAMPLE_RATE
    *
    * SENTRY_AUTH_TOKEN is deliberately absent: it is a build-time CI secret and
    * must never reach the client bundle.
@@ -71,8 +72,29 @@ export default defineNuxtConfig({
         release: '',
         enabled: false,
         tracesSampleRate: 1,
+
+        // A sampled session is profiled only while a sampled root span runs;
+        // see profileLifecycle in sentry.client.config.ts.
+        profileSessionSampleRate: 1,
       },
     },
+  },
+
+  /**
+   * What lets Sentry's browser profiling actually run.
+   *
+   * The JS Self-Profiling API is gated behind a document policy: a page may
+   * only sample its own stack when it was *served* with this header, and there
+   * is no way to opt in from script afterwards. Without it
+   * `browserProfilingIntegration()` in sentry.client.config.ts initialises,
+   * finds no profiler, and silently produces nothing.
+   *
+   * It grants the page a capability over itself and discloses nothing — the
+   * samples are stacks of our own bundle. Only Chromium implements it; other
+   * browsers ignore both the header and the integration.
+   */
+  routeRules: {
+    '/**': { headers: { 'Document-Policy': 'js-profiling' } },
   },
 
   // 'hidden' emits source maps for the Sentry upload but does not reference

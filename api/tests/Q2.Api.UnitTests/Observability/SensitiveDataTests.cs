@@ -22,6 +22,7 @@ public class SensitiveDataTests
     [InlineData("longitude")]
     [InlineData("coordinates")]
     [InlineData("goal.description")]
+    [InlineData("GoalTitle")]
     public void SensitiveKeysAreRecognised(string key)
     {
         Assert.True(SensitiveData.IsSensitiveKey(key));
@@ -115,6 +116,17 @@ public class SensitiveDataTests
 
         Assert.DoesNotContain("abc123secret", redacted);
         Assert.DoesNotContain("zzz", redacted);
+    }
+
+    [Theory]
+    [InlineData("GoalTitle: Therapy appointment every Tuesday")]
+    [InlineData("{\"messageText\":\"I feel overwhelmed today\"}")]
+    public void UserContentAssignmentsInFreeTextAreRedacted(string text)
+    {
+        var redacted = SensitiveData.Redact(text);
+
+        Assert.DoesNotContain("Therapy appointment", redacted);
+        Assert.DoesNotContain("I feel overwhelmed", redacted);
     }
 
     [Fact]

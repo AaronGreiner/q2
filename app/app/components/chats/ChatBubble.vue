@@ -29,6 +29,7 @@ const time = computed(() => formatClock(props.message.sentAt, zone.value))
     class="flex max-w-[80%] list-none flex-col"
     :class="message.isMine ? 'items-end self-end' : 'items-start self-start'"
     data-testid="chat-bubble"
+    data-q2-block
   >
     <span
       v-if="message.senderName"

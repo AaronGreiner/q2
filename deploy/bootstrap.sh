@@ -94,6 +94,8 @@ Sentry__Debug=false
 # traces are kept in full too — appsettings.Staging.json defaults to 0.5.
 Sentry__SampleRate=1.0
 Sentry__TracesSampleRate=1.0
+Sentry__EnableLogs=true
+Sentry__EnableMetrics=true
 EOF
   chmod 600 "$SHARED/api.env"
   info "api.env created"
@@ -117,6 +119,7 @@ NUXT_PUBLIC_DIAGNOSTICS_ENABLED=false
 NUXT_PUBLIC_SENTRY_DSN=${Q2_APP_DSN:-}
 NUXT_PUBLIC_SENTRY_ENVIRONMENT=staging
 NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=1
+NUXT_PUBLIC_SENTRY_PROFILE_SESSION_SAMPLE_RATE=1
 EOF
   chmod 600 "$SHARED/app.env"
   info "app.env created"

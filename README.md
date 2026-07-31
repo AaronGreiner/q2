@@ -465,10 +465,16 @@ This is enforced centrally — `SentryEventScrubber` on the backend,
 `sentry.shared.ts` on the frontend — and covered by tests in both.
 
 **Two deliberate exceptions:** `sendDefaultPii` is on for both halves, so the IP
-address is attached, and Session Replay records every frontend session with text
-and inputs masked. Everything else about a user — id, email, username — is still
-removed on both sides. The reasoning, and what has to be decided before real
-users are involved, is in [docs/privacy.md](docs/privacy.md) section 4.
+address is attached, and Session Replay records every frontend session. Product
+UI text stays readable; personal text is masked and personal visual state such
+as messages, progress and avatars is blocked. Inputs are always masked.
+Everything else about a user — id, email, username — is removed on both sides.
+
+Sentry Logs and Metrics are enabled too. Logs pass through the central
+scrubbers, while metrics are anonymous allow-listed counters. Browser UI
+Profiling follows sampled traces; no additional server profiler is installed in
+this version. The reasoning, and what has to be decided before real users are
+involved, is in [docs/privacy.md](docs/privacy.md) section 4.
 
 ---
 

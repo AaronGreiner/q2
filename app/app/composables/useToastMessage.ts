@@ -13,11 +13,17 @@ export interface ToastMessage {
 export function useToastMessage() {
   const toast = useToast()
 
-  function show(message: ToastMessage) {
+  function show(message: ToastMessage, options: { private?: boolean } = {}) {
     toast.add({
       title: `${message.emoji} ${message.text}`,
       color: 'primary',
       duration: 2200,
+
+      // Nuxt UI renders toasts in a teleport outside the calling component,
+      // where a data attribute cannot be placed. `.sentry-mask` is Replay's
+      // built-in equivalent and only goes on the two messages containing a
+      // person's name.
+      ui: options.private ? { title: 'sentry-mask' } : undefined,
     })
   }
 

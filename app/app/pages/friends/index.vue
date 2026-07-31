@@ -325,6 +325,7 @@ useHead({ title: () => t.value.friends.heading })
       :title="t.friends.remove"
       :description="t.friends.removeConfirm(pendingRemoval.name)"
       :confirm-label="t.friends.remove"
+      private-description
       @confirm="confirmRemove"
     />
   </div>

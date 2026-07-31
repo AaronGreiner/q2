@@ -33,7 +33,10 @@ const t = useMessages()
       :size="42"
     />
 
-    <div class="min-w-0 flex-1">
+    <div
+      class="min-w-0 flex-1"
+      data-q2-private
+    >
       <p class="truncate text-sm font-bold">
         {{ request.person.displayName }}
       </p>

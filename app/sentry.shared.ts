@@ -1,4 +1,4 @@
-import type { Breadcrumb, ErrorEvent, EventHint } from '@sentry/nuxt'
+import type { Breadcrumb, ErrorEvent, EventHint, Log, Metric } from '@sentry/nuxt'
 
 /**
  * Sentry rules shared by the browser and the Nuxt server.
@@ -21,8 +21,48 @@ export interface SentryRuntimeConfig {
 const sensitiveKeyPattern
   = /(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|session|credential|dsn|latitude|longitude|coordinates?|geolocation)/i
 
-/** User-authored goal content: personal, and never useful in a stack trace. */
-const userContentKeys = ['goal.title', 'goal.description', 'title', 'description']
+/** User-authored content: personal, and never useful in telemetry. */
+const userContentKeys = [
+  'title',
+  'description',
+  'goal.title',
+  'goal.description',
+  'goaltitle',
+  'goaldescription',
+  'goal_title',
+  'goal_description',
+  'task.title',
+  'tasktitle',
+  'task_title',
+  'message.text',
+  'messagetext',
+  'message_text',
+  'chat.name',
+  'chatname',
+  'chat_name',
+  'conversation.name',
+  'conversationname',
+  'conversation_name',
+  'displayname',
+  'display_name',
+  'handle',
+  'email',
+]
+
+/**
+ * Attributes the SDK attaches by itself and that identify a person or a
+ * machine. The backend removes the same set from its logs — see
+ * `SentryEventScrubber.ScrubLog`.
+ */
+const identifyingKeys = [
+  'user.id',
+  'user.name',
+  'user.username',
+  'user.email',
+  'server.address',
+  'server.name',
+  'host.name',
+]
 
 /**
  * Order matters. The specific token shapes have to run before the generic
@@ -37,6 +77,7 @@ const redactionPatterns: RegExp[] = [
   /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g,
   // key=value / "key": "value" in free text.
   /\b(password|passwd|pwd|secret|token|access[_-]?token|api[_-]?key|authorization|cookie|session)\b("?\s*[=:]\s*"?)[^&\s"';,}]+/gi,
+  /\b(title|description|goal[._-]?title|goal[._-]?description|task[._-]?title|message[._-]?text|chat[._-]?name|conversation[._-]?name|display[_-]?name|handle|email)\b("?\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^,;}\r\n]+)/gi,
   /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}/g,
   /\b(lat|lon|lng|latitude|longitude)\b\s*[:=]\s*-?\d{1,3}\.\d+/gi,
 ]
@@ -44,7 +85,11 @@ const redactionPatterns: RegExp[] = [
 export const redactionPlaceholder = '[redacted]'
 
 export function isSensitiveKey(key: string): boolean {
-  return sensitiveKeyPattern.test(key) || userContentKeys.includes(key.toLowerCase())
+  const lowered = key.toLowerCase()
+
+  return sensitiveKeyPattern.test(key)
+    || userContentKeys.includes(lowered)
+    || identifyingKeys.includes(lowered)
 }
 
 /** Removes credential-, token-, email- and coordinate-shaped substrings. */
@@ -109,10 +154,14 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
     return null
   }
 
-  // event.user is deliberately *not* removed: sendDefaultPii is on, so the IP
-  // address the SDK attaches is wanted. Deleting it here would silently undo
-  // that option. There are still no accounts, so the only thing this carries
-  // today is the address. See docs/privacy.md.
+  // sendDefaultPii is on so Sentry may attach the IP address. Keep exactly that
+  // field, while removing account identity which is not needed to diagnose an
+  // incident. This mirrors the backend scrubber.
+  if (event.user) {
+    event.user = event.user.ip_address
+      ? { ip_address: event.user.ip_address }
+      : {}
+  }
 
   // Never the machine or container the code ran on.
   delete event.server_name
@@ -185,6 +234,84 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
 }
 
 /**
+ * The single `beforeSendLog` for both runtimes.
+ *
+ * Structured logs say what the app was doing; the event says what broke. A log
+ * is written by hand, so the first rule is the same as for a backend log line:
+ * no user content goes into one. This is the net underneath that — it redacts
+ * the message and drops identifying or credential-shaped attributes, including
+ * the ones the SDK adds by itself.
+ */
+export function scrubLog(log: Log): Log | null {
+  const scrubbed: Log = { ...log }
+
+  if (typeof scrubbed.message === 'string') {
+    scrubbed.message = redactText(scrubbed.message)
+  }
+
+  if (scrubbed.attributes) {
+    scrubbed.attributes = sanitiseRecord(scrubbed.attributes)
+  }
+
+  return scrubbed
+}
+
+export const sentryMetricNames = {
+  apiFailure: 'q2.api.failure',
+} as const
+
+const allowedSentryMetricNames = new Set<string>(Object.values(sentryMetricNames))
+
+/**
+ * Metrics are aggregated operational signals, never an alternate event body.
+ * An allow-list makes a new name a deliberate privacy decision, and the same
+ * attribute scrubber removes identity the SDK may add from its current scope.
+ */
+export function scrubMetric(metric: Metric): Metric | null {
+  if (!allowedSentryMetricNames.has(metric.name)) {
+    return null
+  }
+
+  return {
+    ...metric,
+    attributes: metric.attributes
+      ? sanitiseRecord(metric.attributes)
+      : metric.attributes,
+  }
+}
+
+/**
+ * Elements whose text is somebody's own — goal and task titles, messages,
+ * names, handles — and stays masked in a Session Replay.
+ *
+ * The replay shows the app; it does not show what is written in it. Marking the
+ * content rather than masking everything is what makes a recording worth
+ * watching: layout, navigation, which button was pressed and what state a
+ * screen was in are all visible, while the personal part is not.
+ *
+ * `data-q2-private` is an attribute rather than a class so it cannot be lost to
+ * a styling change, and it is added at the element that renders the content —
+ * `app/AGENTS.md` section 7 lists what counts. `.sentry-mask` and
+ * `[data-sentry-mask]` keep working alongside it; they are the SDK's own
+ * defaults and are always in the selector list.
+ */
+export const replayMaskSelectors = [
+  '[data-q2-private]',
+
+  // Goal and chat pages use personal titles in the browser tab. The <title>
+  // element lives in <head>, outside every component that can carry the data
+  // attribute, so it needs the one structural selector in this policy.
+  'head > title',
+]
+
+/**
+ * Stateful visuals whose shape itself is personal: messages, progress,
+ * activity history and avatars. Masking only their text would still reveal a
+ * message's length, a checked task or a progress percentage.
+ */
+export const replayBlockSelectors = ['[data-q2-block]']
+
+/**
  * Resolves what to pass to `Sentry.init`.
  *
  * Sentry is never switched off just because the environment is local: if a DSN
@@ -218,15 +345,26 @@ export function resolveSentryOptions(config: SentryRuntimeConfig) {
      * Session Replay records the screen — every session, not only the ones
      * that fail — which is the most privacy-invasive thing q2 does.
      *
-     * What still protects the user: beforeSend and beforeBreadcrumb below run
-     * on every event, ui.input breadcrumbs are dropped, and the replay
-     * integration is configured to mask text and inputs. See docs/privacy.md.
+     * What still protects the user: beforeSend, beforeBreadcrumb and
+     * beforeSendLog run on everything that leaves, ui.input breadcrumbs are
+     * dropped, inputs stay masked in the replay, and every element rendering
+     * somebody's own words carries `data-q2-private`. See docs/privacy.md.
      */
     sendDefaultPii: true,
     replaysSessionSampleRate: 1,
     replaysOnErrorSampleRate: 1,
 
+    /*
+     * Structured logs, in addition to events — the frontend counterpart of
+     * `EnableLogs` in the API. What produces them is `useErrorReporter` and
+     * the console integration wired up in sentry.client.config.ts.
+     */
+    enableLogs: true,
+    enableMetrics: true,
+
     beforeSend: scrubEvent,
     beforeBreadcrumb: scrubBreadcrumb,
+    beforeSendLog: scrubLog,
+    beforeSendMetric: scrubMetric,
   }
 }

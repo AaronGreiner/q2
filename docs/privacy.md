@@ -18,12 +18,12 @@ aspirational.
 
 | GDPR principle | How it shows up here |
 | --- | --- |
-| Data minimisation (Art. 5(1)(c)) | An account is an address and a password hash, and nothing else. No profiles, no analytics, no tracking, no location. |
-| Purpose limitation (Art. 5(1)(b)) | Stored data is used to render goals. It is not sent to Sentry, not logged and not aggregated. |
+| Data minimisation (Art. 5(1)(c)) | An account is an address and a password hash, and nothing else. No product analytics, no tracking, no location. |
+| Purpose limitation (Art. 5(1)(b)) | Stored content renders the product. It is not sent to telemetry; only anonymous operational counters are aggregated. |
 | Transparency (Art. 5(1)(a)) | The environment is visible in the UI; the diagnostics page states plainly what reporting is active. |
 | Storage limitation (Art. 5(1)(e)) | Local and test databases are throwaway by design. Production retention is an open decision — section 8. |
 | Integrity and confidentiality (Art. 5(1)(f)) | Secrets never in source; internal detail never in responses; central scrubbing before anything leaves the process. |
-| Data protection by default (Art. 25) | No request-body logging, no location, no analytics. **Two switches are deliberately not on the private setting in the frontend** — `sendDefaultPii` and Session Replay — see section 4. |
+| Data protection by default (Art. 25) | No request-body logging, no location, no product analytics. **Two switches are deliberately not on the private setting in the frontend** — `sendDefaultPii` and Session Replay — see section 4. |
 
 ## 2. What is processed
 
@@ -115,7 +115,8 @@ The complete filtering behaviour is in
 
 **Sent:** exception type and stack, route template, HTTP method and status,
 environment, release, service name, a correlation id, and — in test runs — the
-run id and seed profile.
+run id and seed profile. Structured operational logs and anonymous counters are
+also sent; they follow the rules in sections 3 and 4 and contain no user content.
 
 ### IP addresses and Session Replay
 
@@ -125,7 +126,7 @@ can be reconstructed rather than guessed at.
 | | Frontend | Backend |
 | --- | --- | --- |
 | `sendDefaultPii` | `true` — the SDK attaches the IP address | `true` — same |
-| User id, email, username | never set; the app does not tell the SDK who is signed in | cleared by `ScrubUser`; the SDK would otherwise fill the id with an installation identifier that identifies *our host* |
+| User id, email, username | cleared by `scrubEvent`; only the IP survives | cleared by `ScrubUser`; the SDK would otherwise fill the id with an installation identifier that identifies *our host* |
 | Session Replay | every session (`replaysSessionSampleRate: 1`) | not applicable — replay is browser-only |
 | Request bodies | never attached | never attached (`MaxRequestBodySize.None`, unaffected by `SendDefaultPii`) |
 
@@ -135,15 +136,24 @@ deliberately rather than by oversight.
 
 What still limits the damage:
 
-- **Replay masks text and inputs** (`maskAllText`, `maskAllInputs`,
-  `blockAllMedia`). A goal title is personal — AGENTS.md section 9 — and must
-  not reach Sentry through a screen recording any more than through an event.
-  The replay therefore shows layout, navigation and interaction, not content.
+- **Replay exposes application UI, not personal content.** Static headings,
+  labels, navigation, empty states and error messages are readable. Elements
+  with `data-q2-private` mask names, handles, goal/task/chat text and personal
+  values. Elements with `data-q2-block` replace messages, progress, activity
+  histories and avatars, because their shape or visual state reveals data even
+  after text masking. All inputs remain masked. `blockAllMedia` is off because
+  q2 has no user photographs or uploads; application icons stay visible.
 - **`beforeSend` and `beforeBreadcrumb` still run on every event.** Everything
   in the "never sent" list above is still removed.
 - **`ui.input` breadcrumbs are still dropped**, so keystrokes are not captured.
 - **Cookies and all but a handful of headers are still stripped**, on both
   sides, and request bodies never leave the process.
+
+Logs and metrics use the same central filters. Metrics are an allow-list of
+business-action counters with closed attributes (`rhythm`, `shared`, `done`),
+never a user id or a value somebody typed. Browser profiles contain sampled
+JavaScript stacks from the shipped application code and are active only during
+sampled traces; they do not contain DOM text or input values.
 
 Both halves also upload their build artefacts to Sentry so a stack trace has
 line numbers — source maps from the frontend, debug symbols and **sources**

@@ -69,6 +69,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           <span
             class="flex size-14 shrink-0 items-center justify-center rounded-(--q2-radius-lg) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
             aria-hidden="true"
+            data-q2-block
           >
             <UIcon
               :name="goalIconName(goal.icon)"
@@ -76,7 +77,10 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             />
           </span>
 
-          <div class="min-w-0 flex-1">
+          <div
+            class="min-w-0 flex-1"
+            data-q2-private
+          >
             <h1 class="text-xl leading-tight font-extrabold text-pretty">
               {{ goal.title }}
             </h1>
@@ -89,6 +93,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
         <p
           v-if="goal.description"
           class="mt-3 text-sm text-(--ui-text-muted)"
+          data-q2-private
         >
           {{ goal.description }}
         </p>
@@ -137,7 +142,10 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
               />
               {{ t.goals.streak }}
             </p>
-            <p class="mt-1 text-[22px] font-extrabold">
+            <p
+              class="mt-1 text-[22px] font-extrabold"
+              data-q2-private
+            >
               {{ t.goals.streakDays(goal.streak) }}
             </p>
           </div>
@@ -151,7 +159,10 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
               />
               {{ t.goals.reminder }}
             </p>
-            <p class="mt-1 text-lg font-extrabold">
+            <p
+              class="mt-1 text-lg font-extrabold"
+              data-q2-private
+            >
               {{ reminder ?? t.goals.noReminder }}
             </p>
           </div>
@@ -206,7 +217,10 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
                 :online="member.person.isOnline"
               />
 
-              <div class="min-w-0 flex-1">
+              <div
+                class="min-w-0 flex-1"
+                data-q2-private
+              >
                 <p class="truncate text-sm font-bold">
                   {{ member.person.displayName }}
                 </p>

@@ -45,7 +45,10 @@ const preview = computed(() => {
       :online="chat.isOnline"
     />
 
-    <div class="min-w-0 flex-1 border-b border-(--ui-border) pb-2.5">
+    <div
+      class="min-w-0 flex-1 border-b border-(--ui-border) pb-2.5"
+      data-q2-private
+    >
       <div class="flex items-center justify-between gap-2">
         <span
           class="truncate text-[15px]"
@@ -63,6 +66,7 @@ const preview = computed(() => {
         <span
           v-if="chat.unreadCount > 0"
           class="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-white"
+          data-q2-block
         >{{ chat.unreadCount }}</span>
       </div>
     </div>

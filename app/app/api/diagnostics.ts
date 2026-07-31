@@ -11,6 +11,8 @@ import { normalizeApiError } from './errors'
  */
 export interface SentryStatus {
   enabled: boolean
+  logs: boolean
+  metrics: boolean
   environment: string
   release: string
   recordingTransport: boolean

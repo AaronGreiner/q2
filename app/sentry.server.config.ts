@@ -22,6 +22,12 @@ Sentry.init({
     tracesSampleRate: Number(process.env.NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? 1),
   }),
 
+  integrations: [
+    // Match the browser: warnings and errors are useful operational logs,
+    // while debug/info commonly contain whole application objects.
+    Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] }),
+  ],
+
   initialScope: {
     tags: {
       'service.name': 'q2-app',

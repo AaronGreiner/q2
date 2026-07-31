@@ -94,6 +94,13 @@ test.describe('error handling', () => {
     expect(event.tags?.['test.run_id']).toBeTruthy()
   })
 
+  test('the diagnostics page reports logs and metrics as active', async ({ page }) => {
+    await page.goto('/diagnostics')
+
+    await expect(page.getByTestId('sentry-logs')).toHaveText('yes')
+    await expect(page.getByTestId('sentry-metrics')).toHaveText('yes')
+  })
+
   test('the recorded event contains no sensitive data', async ({ page }) => {
     await page.goto('/diagnostics')
     await page.getByTestId('trigger-server-error').click()
@@ -153,7 +160,7 @@ test.describe('error handling', () => {
 })
 
 test.describe('frontend Sentry', () => {
-  test('a client error is sent with the e2e environment, identity and replay, and no secrets', async ({ page }) => {
+  test('a client error is sent with the e2e environment, IP and replay, and no secrets', async ({ page }) => {
     const envelopes: string[] = []
 
     // Intercepted in the browser, so nothing leaves the machine even though a
@@ -187,5 +194,7 @@ test.describe('frontend Sentry', () => {
 
     // What must still never be attached.
     expect(payload).not.toContain('"cookies"')
+    expect(payload).not.toContain('"email"')
+    expect(payload).not.toContain('"username"')
   })
 })

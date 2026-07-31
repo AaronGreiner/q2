@@ -28,6 +28,7 @@ const value = computed(() => clampProgress(props.percent))
     aria-valuemax="100"
     :aria-label="label"
     data-testid="progress-bar"
+    data-q2-block
   >
     <div
       class="h-full rounded-full bg-(--ui-primary) transition-[width] duration-300"

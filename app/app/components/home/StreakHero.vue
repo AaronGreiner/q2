@@ -36,12 +36,18 @@ const t = useMessages()
       {{ t.home.streakLabel }}
     </h2>
 
-    <p class="mt-0.5 flex items-baseline gap-2">
+    <p
+      class="mt-0.5 flex items-baseline gap-2"
+      data-q2-private
+    >
       <span class="text-[46px] leading-none font-extrabold">{{ streak }}</span>
       <span class="text-[17px] font-bold">{{ t.home.streakDays(streak) }}</span>
     </p>
 
-    <p class="mt-2 text-[13px] font-medium opacity-95">
+    <p
+      class="mt-2 text-[13px] font-medium opacity-95"
+      data-q2-private
+    >
       {{ streak > 0 ? t.home.streakEncouragement : t.home.streakStart }}
     </p>
 
@@ -53,6 +59,7 @@ const t = useMessages()
     <ul
       class="mt-3.5 flex list-none gap-1.5 p-0"
       aria-hidden="true"
+      data-q2-block
     >
       <li
         v-for="(active, index) in week"

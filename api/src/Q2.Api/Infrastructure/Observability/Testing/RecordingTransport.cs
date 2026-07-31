@@ -59,6 +59,60 @@ public sealed record RecordedSentryEvent(string RawJson)
 }
 
 /// <summary>
+/// One Sentry structured log, as it would have gone over the wire.
+/// </summary>
+/// <remarks>
+/// Logs travel in a container item — one envelope item holding many logs — so
+/// this is one entry out of that container, not a whole envelope item.
+/// </remarks>
+public sealed record RecordedSentryLog(string RawJson)
+{
+    private JsonElement Root { get; } = JsonDocument.Parse(RawJson).RootElement.Clone();
+
+    /// <summary>"trace", "debug", "info", "warning", "error" or "fatal".</summary>
+    public string? Level => GetString("level");
+
+    /// <summary>The formatted message.</summary>
+    public string? Body => GetString("body");
+
+    public bool Contains(string text) => RawJson.Contains(text, StringComparison.OrdinalIgnoreCase);
+
+    private string? GetString(string property) =>
+        Root.TryGetProperty(property, out var value) ? value.GetString() : null;
+}
+
+/// <summary>
+/// One Sentry metric, as it would have gone over the wire.
+/// </summary>
+public sealed record RecordedSentryMetric(string RawJson)
+{
+    private JsonElement Root { get; } = JsonDocument.Parse(RawJson).RootElement.Clone();
+
+    public string? Name => GetString("name");
+
+    /// <summary>"counter", "gauge" or "distribution".</summary>
+    public string? Type => GetString("type");
+
+    public double? Value =>
+        Root.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : null;
+
+    /// <summary>Attribute values, by name, as serialised.</summary>
+    public IReadOnlyDictionary<string, string> Attributes =>
+        Root.TryGetProperty("attributes", out var attributes) && attributes.ValueKind == JsonValueKind.Object
+            ? attributes.EnumerateObject().ToDictionary(
+                p => p.Name,
+                p => p.Value.TryGetProperty("value", out var value) ? value.ToString() : p.Value.ToString())
+            : new Dictionary<string, string>();
+
+    public bool Contains(string text) => RawJson.Contains(text, StringComparison.OrdinalIgnoreCase);
+
+    private string? GetString(string property) =>
+        Root.TryGetProperty(property, out var value) ? value.GetString() : null;
+}
+
+/// <summary>
 /// Replaces the HTTP transport with an in-process recorder.
 /// </summary>
 /// <remarks>
@@ -79,6 +133,8 @@ public sealed record RecordedSentryEvent(string RawJson)
 public sealed class RecordingTransport(string? filePath = null) : ITransport
 {
     private readonly ConcurrentQueue<RecordedSentryEvent> _events = new();
+    private readonly ConcurrentQueue<RecordedSentryLog> _logs = new();
+    private readonly ConcurrentQueue<RecordedSentryMetric> _metrics = new();
     private readonly Lock _fileLock = new();
 
     // No byte order mark: the file is JSON Lines, and a BOM on the first line
@@ -93,7 +149,18 @@ public sealed class RecordingTransport(string? filePath = null) : ITransport
 
     public IReadOnlyList<RecordedSentryEvent> Events => [.. _events];
 
-    public void Clear() => _events.Clear();
+    /// <summary>Structured logs delivered during this run.</summary>
+    public IReadOnlyList<RecordedSentryLog> Logs => [.. _logs];
+
+    /// <summary>Metrics delivered during this run.</summary>
+    public IReadOnlyList<RecordedSentryMetric> Metrics => [.. _metrics];
+
+    public void Clear()
+    {
+        _events.Clear();
+        _logs.Clear();
+        _metrics.Clear();
+    }
 
     public async Task SendEnvelopeAsync(Envelope envelope, CancellationToken cancellationToken = default)
     {
@@ -105,26 +172,56 @@ public sealed class RecordingTransport(string? filePath = null) : ITransport
         using var buffer = new MemoryStream();
         await envelope.SerializeAsync(buffer, null, cancellationToken);
 
-        foreach (var payload in ExtractEventPayloads(Encoding.UTF8.GetString(buffer.ToArray())))
+        foreach (var (type, payload) in ExtractItems(Encoding.UTF8.GetString(buffer.ToArray())))
         {
-            var recorded = new RecordedSentryEvent(payload);
-            _events.Enqueue(recorded);
-            AppendToFile(payload);
+            switch (type)
+            {
+                case EventItemType:
+                    _events.Enqueue(new RecordedSentryEvent(payload));
+
+                    // Only events go to the file: it is read by the Playwright
+                    // suite, which asserts on error reporting.
+                    AppendToFile(payload);
+                    break;
+
+                case LogItemType:
+                    foreach (var entry in ExtractContainerEntries(payload))
+                    {
+                        _logs.Enqueue(new RecordedSentryLog(entry));
+                    }
+
+                    break;
+
+                case MetricItemType:
+                    foreach (var entry in ExtractContainerEntries(payload))
+                    {
+                        _metrics.Enqueue(new RecordedSentryMetric(entry));
+                    }
+
+                    break;
+            }
         }
     }
 
+    private const string EventItemType = "event";
+
+    /// <summary>Logs and metrics travel as containers of many entries.</summary>
+    private const string LogItemType = "log";
+
+    private const string MetricItemType = "trace_metric";
+
     /// <summary>
     /// Envelopes are newline-delimited: an envelope header, then alternating
-    /// item headers and item payloads. We keep the payloads whose item header
-    /// declares <c>"type":"event"</c>.
+    /// item headers and item payloads. Yields the payloads of the item types
+    /// this recorder knows about, each with the type its header declared.
     /// </summary>
-    private static IEnumerable<string> ExtractEventPayloads(string envelope)
+    private static IEnumerable<(string Type, string Payload)> ExtractItems(string envelope)
     {
         var lines = envelope.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
         for (var i = 1; i < lines.Length - 1; i++)
         {
-            if (!IsEventItemHeader(lines[i]))
+            if (ItemType(lines[i]) is not { } type)
             {
                 continue;
             }
@@ -132,16 +229,16 @@ public sealed class RecordingTransport(string? filePath = null) : ITransport
             var payload = lines[i + 1];
             if (IsJsonObject(payload))
             {
-                yield return payload;
+                yield return (type, payload);
             }
         }
     }
 
-    private static bool IsEventItemHeader(string line)
+    private static string? ItemType(string line)
     {
         if (!IsJsonObject(line))
         {
-            return false;
+            return null;
         }
 
         try
@@ -149,11 +246,44 @@ public sealed class RecordingTransport(string? filePath = null) : ITransport
             using var document = JsonDocument.Parse(line);
             return document.RootElement.TryGetProperty("type", out var type)
                 && type.ValueKind == JsonValueKind.String
-                && type.GetString() == "event";
+                ? type.GetString()
+                : null;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A log or metric item is <c>{"items":[…]}</c>. Yields each entry as its
+    /// own JSON document so assertions can be made per log line.
+    /// </summary>
+    private static IEnumerable<string> ExtractContainerEntries(string payload)
+    {
+        JsonDocument document;
+
+        try
+        {
+            document = JsonDocument.Parse(payload);
+        }
+        catch (JsonException)
+        {
+            yield break;
+        }
+
+        using (document)
+        {
+            if (!document.RootElement.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+            {
+                yield break;
+            }
+
+            foreach (var item in items.EnumerateArray())
+            {
+                yield return item.GetRawText();
+            }
         }
     }
 

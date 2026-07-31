@@ -41,6 +41,14 @@ Backend: single-line console locally and in ManualTesting, JSON everywhere else
 so a log shipper can parse it. Message templates carry named values
 (`{GoalId}`, `{SeedProfile}`), never string concatenation.
 
+Sentry Logs is enabled on both halves. The API forwards the `ILogger` levels
+already selected by its ordinary logging configuration. The browser and Nitro
+forward `console.warn` and `console.error`; `debug` and `info` stay local because
+those are the levels at which frontend code is most likely to inspect a whole
+application object. Hand-written frontend operational logs use
+`Sentry.logger`. `beforeSendLog` applies the same content and identity rules as
+events, and a backend log containing a sensitive parameter is dropped whole.
+
 Request logging with headers or bodies is deliberately **not** enabled.
 
 What may be logged: ids, counts, durations, status codes, environment and
@@ -49,6 +57,36 @@ release, migration and seed names, which code path ran.
 What may **not** be logged: goal titles and descriptions, participant names,
 credentials, tokens, connection strings, cookies, headers, request bodies,
 email addresses, IP addresses, exact locations.
+
+## Metrics
+
+Sentry Metrics is enabled on both SDKs. The API currently emits the useful
+operational counters: goals created and progressed, tasks completed or reopened,
+and accounts registered or signed in. Every name is declared in `Q2Metrics`;
+`beforeSendMetric` drops any other name. Attributes come from closed values
+such as rhythm, `shared` and `done` — never ids, names, titles, addresses or
+free text.
+
+The frontend does not duplicate those successful business actions: the API is
+the one place that knows they succeeded. It emits one browser-only counter,
+`q2.api.failure`, for requests that failed at the UI — including offline calls
+that never reached the API — with only error kind, expected/unexpected and HTTP
+status. Its `beforeSendMetric` also allow-lists the name and strips SDK-added
+identity attributes.
+
+## Profiles
+
+Browser UI Profiling is enabled with `browserProfilingIntegration`,
+`profileSessionSampleRate` and `profileLifecycle: 'trace'`. A sampled browser
+session is profiled only while a sampled root span runs. The required
+`Document-Policy: js-profiling` header is served for every frontend route;
+browsers without the Self-Profiling API simply produce no profile.
+
+There is deliberately no separate Nitro or .NET profiler in this version.
+Those would add native/legacy profiler packages and operational deployment work,
+while the browser is the product's actual interaction surface. Traces, logs and
+metrics cover both servers. Add a server profiler when a measured server-side
+performance problem makes that dependency worthwhile.
 
 ## Projects and environments
 
@@ -95,14 +133,14 @@ Additional tags: `service.name` (`q2-app` / `q2-api`), plus `test.run_id`,
 
 ## Sampling
 
-| Environment | Error events | Traces |
-| --- | --- | --- |
-| `local-development` | 1.0 | 1.0 |
-| `manual-testing` | 1.0 | 1.0 |
-| `automated-test` | 1.0 | 1.0 |
-| `e2e` | 1.0 | 1.0 |
-| `staging` | 1.0 | 0.5 |
-| `production` | 1.0 | 0.1 |
+| Environment | Error events | Traces | Browser profile sessions |
+| --- | --- | --- | --- |
+| `local-development` | 1.0 | 1.0 | 1.0 |
+| `manual-testing` | 1.0 | 1.0 | 1.0 |
+| `automated-test` | 1.0 | 1.0 | 1.0 |
+| `e2e` | 1.0 | 1.0 | 1.0 |
+| `staging` | 1.0 | 1.0 | 1.0 |
+| `production` | 1.0 | 0.1 | budget decision before launch |
 
 Error events are never sampled away: volume is low, and a test waiting for a
 specific event must not lose it to chance. Trace volume is the part that needs
@@ -110,7 +148,10 @@ a budget. A dynamic sampler additionally drops health checks and `favicon.ico`
 so they never consume it.
 
 Values are configurable per environment (`Sentry__TracesSampleRate`,
-`NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`) and are not scattered through the code.
+`NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`,
+`NUXT_PUBLIC_SENTRY_PROFILE_SESSION_SAMPLE_RATE`) and are not scattered through
+the code. Profiling follows tracing, so its effective rate cannot exceed the
+trace rate even when the session rate is 1.
 
 ## Behaviour without configuration
 
@@ -142,7 +183,7 @@ rather than a copy of it.
 - known browser noise: `Failed to fetch`, `AbortError`, `ResizeObserver loop…`
 - `ui.input` breadcrumbs — they record what was typed into a goal title
 
-**Removed from every event:**
+**Removed from every event and log:**
 
 - cookies, and all request headers except a small allow-list (`Accept`,
   `Content-Type`, `User-Agent`, `traceparent`, `tracestate`, `X-Request-Id`)
@@ -153,7 +194,7 @@ rather than a copy of it.
   undo it; see [privacy.md](privacy.md#4-sentry-rules)
 - `server_name`, and the device name from the device context
 - any key matching a credential, session, connection-string or location pattern
-- any key carrying goal content
+- any key carrying goal, task, chat, message or person content
 
 **Redacted inside free text** (messages, exception values, breadcrumbs):
 connection strings, `Bearer` tokens, JWTs, email addresses, coordinate pairs,
@@ -258,10 +299,16 @@ Two things are easy to get wrong here:
 - **The sample rates alone do nothing.** `Sentry.replayIntegration()` has to be
   in the `integrations` array in `sentry.client.config.ts`. Without it the
   configuration looks complete and records nothing.
-- **Masking is part of the configuration, not a default to be tidied away.**
-  `maskAllText`, `maskAllInputs` and `blockAllMedia` are set explicitly. A goal
-  title is personal content and must not reach Sentry through a screen
-  recording any more than through an event payload.
+- **Selective privacy is part of the configuration.** `maskAllText` is false so
+  headings, labels, navigation, empty states and error messages remain useful.
+  `data-q2-private` masks personal text, while `data-q2-block` replaces messages,
+  progress, activity and avatars whose geometry or state is itself personal.
+  Personal browser-tab titles are masked through `head > title`; the two
+  name-bearing Nuxt UI toasts use Replay's built-in `.sentry-mask` because the
+  library teleports their DOM outside the calling component.
+  `maskAllInputs` remains true. `blockAllMedia` is false because q2 has no user
+  photographs or uploads; its icons are application UI, while avatars are
+  blocked explicitly.
 
 Replay is browser-only; there is no server-side equivalent.
 

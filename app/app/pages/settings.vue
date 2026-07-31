@@ -182,6 +182,7 @@ useHead({ title: () => t.value.settings.heading })
           v-if="person"
           class="mb-2.5 px-1 text-center text-xs font-semibold text-(--ui-text-muted)"
           data-testid="signed-in-as"
+          data-q2-private
         >
           {{ t.auth.signedInAs(person.displayName) }} · {{ person.handle }}
         </p>

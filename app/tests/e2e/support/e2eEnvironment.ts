@@ -110,6 +110,7 @@ export function appEnvironment(): Record<string, string> {
     // in the browser, so no event ever leaves the machine.
     NUXT_PUBLIC_SENTRY_DSN: 'https://0000000000000000000000000000000@sentry.q2.invalid/1',
     NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: '1',
+    NUXT_PUBLIC_SENTRY_PROFILE_SESSION_SAMPLE_RATE: '1',
     NITRO_PORT: String(appPort),
     NITRO_HOST: '127.0.0.1',
     Q2_E2E_RUN_ID: runId,

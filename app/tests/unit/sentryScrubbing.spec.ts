@@ -1,11 +1,16 @@
-import type { Breadcrumb, ErrorEvent } from '@sentry/nuxt'
+import type { Breadcrumb, ErrorEvent, Log, Metric } from '@sentry/nuxt'
 import { describe, expect, it } from 'vitest'
 import {
   isSensitiveKey,
+  replayBlockSelectors,
+  replayMaskSelectors,
   redactText,
   resolveSentryOptions,
   scrubBreadcrumb,
   scrubEvent,
+  scrubLog,
+  scrubMetric,
+  sentryMetricNames,
 } from '../../sentry.shared'
 
 /**
@@ -37,6 +42,8 @@ describe('redactText', () => {
     ['jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig', 'eyJhbGciOiJIUzI1NiJ9'],
     ['mail robin.sample@example.com', 'robin.sample@example.com'],
     ['lat=48.1372 lon=11.5756', '48.1372'],
+    ['GoalTitle: Therapy appointment every Tuesday', 'Therapy appointment'],
+    ['{"messageText":"I feel overwhelmed today"}', 'I feel overwhelmed'],
   ])('redacts %s', (input, secret) => {
     expect(redactText(input)).not.toContain(secret)
   })
@@ -48,7 +55,7 @@ describe('redactText', () => {
 })
 
 describe('isSensitiveKey', () => {
-  it.each(['password', 'apiKey', 'Authorization', 'cookie', 'latitude', 'goal.description'])(
+  it.each(['password', 'apiKey', 'Authorization', 'cookie', 'latitude', 'goal.description', 'GoalTitle'])(
     'recognises %s',
     key => expect(isSensitiveKey(key)).toBe(true),
   )
@@ -60,15 +67,13 @@ describe('isSensitiveKey', () => {
 })
 
 describe('scrubEvent', () => {
-  it('removes the machine name but keeps the user, because sendDefaultPii is on', () => {
+  it('keeps only the IP address from the Sentry user context', () => {
     const event = scrubEvent(errorEvent({
       user: { id: '42', email: 'robin.sample@example.com', ip_address: '203.0.113.9' },
       server_name: 'build-agent-7',
     }))
 
-    // Deleting event.user here would silently undo sendDefaultPii: true.
-    expect(event?.user).toBeDefined()
-    expect(event?.user?.ip_address).toBe('203.0.113.9')
+    expect(event?.user).toEqual({ ip_address: '203.0.113.9' })
 
     // The host the code ran on is still never reported.
     expect(event?.server_name).toBeUndefined()
@@ -125,6 +130,47 @@ describe('scrubEvent', () => {
 
   it('keeps a genuine application error', () => {
     expect(scrubEvent(errorEvent())).not.toBeNull()
+  })
+})
+
+describe('scrubLog', () => {
+  it('redacts the message and drops personal or identifying attributes', () => {
+    const log = scrubLog({
+      level: 'warn',
+      message: 'request failed for robin.sample@example.com',
+      attributes: {
+        'q2.feature': 'goals',
+        'goal_title': 'Therapy appointment',
+        'user.id': '42',
+      },
+    } as Log)
+
+    expect(log?.message).not.toContain('robin.sample@example.com')
+    expect(log?.attributes).toEqual({ 'q2.feature': 'goals' })
+  })
+})
+
+describe('scrubMetric', () => {
+  it('keeps the declared counter but removes SDK-added identity', () => {
+    const metric = scrubMetric({
+      type: 'counter',
+      name: sentryMetricNames.apiFailure,
+      value: 1,
+      attributes: { 'kind': 'Offline', 'user.id': '42', 'user.email': 'robin@example.com' },
+    } as Metric)
+
+    expect(metric?.attributes).toEqual({ kind: 'Offline' })
+  })
+
+  it('drops an undeclared metric', () => {
+    expect(scrubMetric({ type: 'counter', name: 'anything.dynamic', value: 1 } as Metric)).toBeNull()
+  })
+})
+
+describe('Session Replay privacy selectors', () => {
+  it('masks personal text and blocks stateful personal visuals', () => {
+    expect(replayMaskSelectors).toEqual(['[data-q2-private]', 'head > title'])
+    expect(replayBlockSelectors).toEqual(['[data-q2-block]'])
   })
 })
 
@@ -203,5 +249,9 @@ describe('resolveSentryOptions', () => {
 
     expect(options.beforeSend).toBe(scrubEvent)
     expect(options.beforeBreadcrumb).toBe(scrubBreadcrumb)
+    expect(options.beforeSendLog).toBe(scrubLog)
+    expect(options.beforeSendMetric).toBe(scrubMetric)
+    expect(options.enableLogs).toBe(true)
+    expect(options.enableMetrics).toBe(true)
   })
 })

@@ -33,6 +33,7 @@ const medals = ['#f59e0b', '#94a3b8', '#b45309'] as const
       :key="entry.person.id"
       class="flex items-center gap-3 rounded-(--q2-radius-md) px-2.5 py-2.5"
       :class="entry.isMe ? 'bg-(--q2-accent-soft)' : ''"
+      data-q2-private
     >
       <span
         class="w-5 text-center text-sm font-extrabold"

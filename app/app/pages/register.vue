@@ -47,7 +47,7 @@ async function onSubmit() {
 
     // Registering signs you in, so there is no second form to fill in.
     await navigateTo('/', { replace: true })
-    toast.show(t.value.toast.welcome(session.person.displayName))
+    toast.show(t.value.toast.welcome(session.person.displayName), { private: true })
   }
   catch (caught) {
     failure.value = isApiError(caught) ? toApiFailure(caught) : null

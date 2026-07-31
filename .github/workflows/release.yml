@@ -291,6 +291,8 @@ jobs:
           Sentry__Debug=false
           Sentry__SampleRate=1.0
           Sentry__TracesSampleRate=1.0
+          Sentry__EnableLogs=true
+          Sentry__EnableMetrics=true
           EOF
 
           cat > upload/app.env <<EOF
@@ -300,6 +302,7 @@ jobs:
           NUXT_PUBLIC_SENTRY_DSN=$SENTRY_DSN_APP
           NUXT_PUBLIC_SENTRY_ENVIRONMENT=staging
           NUXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=1
+          NUXT_PUBLIC_SENTRY_PROFILE_SESSION_SAMPLE_RATE=1
           EOF
 
           echo "Rendered api.env ($(wc -l < upload/api.env) lines) and app.env ($(wc -l < upload/app.env) lines)."

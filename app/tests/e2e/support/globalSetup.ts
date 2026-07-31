@@ -28,7 +28,13 @@ import {
  * failures later.
  */
 export default async function globalSetup() {
-  const status = await fetchJson<{ enabled: boolean, environment: string, release: string }>(
+  const status = await fetchJson<{
+    enabled: boolean
+    environment: string
+    release: string
+    logs: boolean
+    metrics: boolean
+  }>(
     `${apiBaseUrl}/api/diagnostics/sentry`,
   )
 
@@ -36,6 +42,12 @@ export default async function globalSetup() {
     throw new Error(
       `The API reports Sentry environment '${status.environment}', expected 'e2e'. `
       + 'The suite is talking to the wrong server.',
+    )
+  }
+
+  if (!status.enabled || !status.logs || !status.metrics) {
+    throw new Error(
+      'The E2E API must send Sentry events, logs and metrics through its local recording transport.',
     )
   }
 

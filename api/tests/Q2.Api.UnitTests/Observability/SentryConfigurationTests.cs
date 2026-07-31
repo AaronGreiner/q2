@@ -152,6 +152,30 @@ public class SentrySettingsTests
     }
 
     [Fact]
+    public void LogsAndMetricsAreOnUnlessAnEnvironmentTurnsThemOff()
+    {
+        var settings = SentrySettings.FromConfiguration(Configuration(), Environment(ApplicationEnvironments.Development));
+
+        Assert.True(settings.EnableLogs);
+        Assert.True(settings.EnableMetrics);
+    }
+
+    [Theory]
+    [InlineData("Sentry:EnableLogs", true)]
+    [InlineData("SENTRY_ENABLE_LOGS", true)]
+    [InlineData("Sentry:EnableMetrics", false)]
+    [InlineData("SENTRY_ENABLE_METRICS", false)]
+    public void LogsAndMetricsCanBeTurnedOffFromEitherConfigurationSource(string key, bool turnsOffLogs)
+    {
+        var settings = SentrySettings.FromConfiguration(
+            Configuration((key, "false")),
+            Environment(ApplicationEnvironments.Production));
+
+        Assert.Equal(!turnsOffLogs, settings.EnableLogs);
+        Assert.Equal(turnsOffLogs, settings.EnableMetrics);
+    }
+
+    [Fact]
     public void TestTagsAreAttachedWhenTheHarnessSuppliesThem()
     {
         var settings = SentrySettings.FromConfiguration(

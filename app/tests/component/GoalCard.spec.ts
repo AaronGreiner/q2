@@ -50,6 +50,7 @@ describe('GoalCard', () => {
     expect(wrapper.text()).toContain('Wöchentlich')
     expect(wrapper.text()).toContain('14 von 21 Schritten')
     expect(wrapper.text()).toContain('67%')
+    expect(wrapper.find('h3').attributes()).toHaveProperty('data-q2-private')
   })
 
   it('links to the goal detail page', async () => {
@@ -68,6 +69,7 @@ describe('GoalCard', () => {
     expect(progressbar.attributes('aria-valuenow')).toBe('67')
     expect(progressbar.attributes('aria-valuemin')).toBe('0')
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
+    expect(progressbar.attributes()).toHaveProperty('data-q2-block')
   })
 
   it('shows the streak and the reminder', async () => {

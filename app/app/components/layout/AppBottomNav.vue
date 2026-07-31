@@ -64,6 +64,7 @@ function badgeFor(to: string, unreadChats?: number, pendingRequests?: number): n
       <span
         v-if="badgeFor(item.to, unreadChats, pendingRequests) > 0"
         class="absolute top-0 start-1/2 ms-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1 text-[9px] font-extrabold text-white"
+        data-q2-block
       >
         {{ badgeFor(item.to, unreadChats, pendingRequests) }}
       </span>

@@ -3,6 +3,7 @@ using Q2.Api.Features.Activity;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Streaks;
 using Q2.Api.Infrastructure.Errors;
+using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -25,6 +26,7 @@ public sealed class GoalService(
     ActivityRecorder activity,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
+    Q2Metrics metrics,
     ILogger<GoalService> logger)
 {
     public async Task<IReadOnlyList<GoalResponse>> ListAsync(GoalStatus? status, CancellationToken cancellationToken)
@@ -158,6 +160,9 @@ public sealed class GoalService(
             goal.TotalSteps,
             goal.Participants.Count);
 
+        // How often, and of which rhythm. Never which goal, and never whose.
+        metrics.CountGoalCreated(goal.Rhythm, goal.IsGroup);
+
         var people = await LoadParticipantsAsync([goal], cancellationToken);
         return GoalResponse.From(goal, people, now);
     }
@@ -198,6 +203,8 @@ public sealed class GoalService(
                 goal.Id,
                 goal.CompletedSteps,
                 goal.TotalSteps);
+
+            metrics.CountGoalProgress();
         }
 
         var people = await LoadParticipantsAsync([goal], cancellationToken);

@@ -44,6 +44,107 @@ public sealed class SentryEventScrubber
         return sentryEvent;
     }
 
+    /// <summary>
+    /// The <c>BeforeSendLog</c> filter: what a structured log may carry.
+    /// </summary>
+    /// <remarks>
+    /// Logs are the high-volume channel — every <c>ILogger</c> line the
+    /// configured levels let through becomes one — so they are the likeliest
+    /// place for a value to slip out. The rule from docs/privacy.md section 3
+    /// still comes first: user content and secrets do not go into a log message
+    /// at all. This is the net underneath it.
+    ///
+    /// Framework logs are what make that net necessary rather than theoretical:
+    /// "Request starting … GET /path?token=…" is written by ASP.NET Core, not
+    /// by us.
+    ///
+    /// Unlike an event, a log cannot be edited on its way out — <c>Message</c>,
+    /// <c>Template</c> and <c>Parameters</c> are init-only, and the attributes
+    /// the SDK copied from the message parameters cannot be enumerated at all.
+    /// So the choice here is binary, and it is made in the safe direction: if
+    /// the redactor would have changed anything, the whole log is dropped
+    /// instead of sent. A line that disappears from Sentry Logs is a line that
+    /// should not have been written that way.
+    /// </remarks>
+    public SentryLog? ScrubLog(SentryLog log)
+    {
+        if (CarriesSensitiveText(log.Message) || CarriesSensitiveText(log.Template))
+        {
+            return null;
+        }
+
+        if (!log.Parameters.IsDefaultOrEmpty
+            && log.Parameters.Any(parameter =>
+                SensitiveData.IsSensitiveKey(parameter.Key)
+                || CarriesSensitiveText(parameter.Value as string)))
+        {
+            return null;
+        }
+
+        foreach (var attribute in IdentifyingLogAttributes)
+        {
+            // Only when it is actually there: SetAttribute adds what it cannot
+            // find, and a "[redacted]" user on every anonymous log line would be
+            // noise pretending to be a redaction.
+            if (log.TryGetAttribute(attribute, out _))
+            {
+                log.SetAttribute(attribute, SensitiveData.Placeholder);
+            }
+        }
+
+        return log;
+    }
+
+    /// <summary>
+    /// Attributes the SDK attaches to every log by itself, and that the event
+    /// scrubber removes from events for the same reasons.
+    /// </summary>
+    /// <remarks>
+    /// This is the one place where logs are genuinely more dangerous than
+    /// events. <c>SendDefaultPii</c> makes the SDK copy the signed-in user onto
+    /// each log — <c>user.email</c> really is the address somebody signs in with
+    /// — and <c>server.address</c> is the machine name that
+    /// <see cref="Scrub"/> strips as <c>ServerName</c>. Neither is visible in
+    /// the configuration, and both are exactly what docs/privacy.md says never
+    /// leaves the process.
+    ///
+    /// They are overwritten rather than removed because that is what the log API
+    /// offers: attributes can be set by name, and there is no way to enumerate
+    /// or delete one. Which is also why the list is written out here — an
+    /// attribute nobody named stays.
+    ///
+    /// The IP address is deliberately not in the list, exactly as in
+    /// <see cref="ScrubUser"/>: it is the one identifying value q2 does send.
+    /// </remarks>
+    private static readonly string[] IdentifyingLogAttributes =
+    [
+        "user.id",
+        "user.name",
+        "user.username",
+        "user.email",
+        "server.address",
+        "server.name",
+        "host.name",
+    ];
+
+    /// <summary>
+    /// The <c>BeforeSendMetric</c> filter: only the counters q2 declares are
+    /// sent.
+    /// </summary>
+    /// <remarks>
+    /// An allow-list rather than a redaction pass, because a metric name is
+    /// chosen by whoever emits it and there is no way to sanitise a name
+    /// meaningfully. Everything q2 counts goes through <see cref="Q2Metrics"/>,
+    /// which is also where the names live; a metric from anywhere else is
+    /// dropped rather than transmitted unexamined.
+    /// </remarks>
+    public SentryMetric? ScrubMetric(SentryMetric metric) =>
+        Q2Metrics.Names.Contains(metric.Name) ? metric : null;
+
+    /// <summary>True when redacting would change the value, i.e. there is something in it to hide.</summary>
+    private static bool CarriesSensitiveText(string? value) =>
+        !string.IsNullOrEmpty(value) && !string.Equals(SensitiveData.Redact(value), value, StringComparison.Ordinal);
+
     public Breadcrumb? ScrubBreadcrumb(Breadcrumb breadcrumb)
     {
         // The message needs scrubbing even when there is no data dictionary:
@@ -135,12 +236,9 @@ public sealed class SentryEventScrubber
         // would silently undo that option while the configuration still reads
         // true. See docs/privacy.md section 4.
         //
-        // Everything else still goes. There are no accounts, so Id, Email and
-        // Username cannot hold a real identity — Id would be the SDK's
-        // installation identifier, which on a server identifies *our own host*,
-        // the same thing ServerName is removed for. When authentication
-        // arrives, an opaque user id may be kept here; never an email address
-        // or a name.
+        // Everything else still goes. The authenticated account is real, so an
+        // id, email address or name here would identify the person behind the
+        // request. None is needed to diagnose the exception.
         sentryEvent.User.Id = null;
         sentryEvent.User.Email = null;
         sentryEvent.User.Username = null;

@@ -26,6 +26,7 @@ useHead({ title: () => t.value.nav.home })
     <AppScreenHeader
       :eyebrow="greeting"
       :title="profile ? `${profile.person.displayName} 👋` : t.app.name"
+      :private-title="Boolean(profile)"
     >
       <template #actions>
         <UButton

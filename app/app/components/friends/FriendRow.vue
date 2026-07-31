@@ -46,7 +46,10 @@ const subtitle = computed(() => {
       :online="friend.person.isOnline"
     />
 
-    <div class="min-w-0 flex-1">
+    <div
+      class="min-w-0 flex-1"
+      data-q2-private
+    >
       <p class="truncate text-sm font-bold">
         {{ friend.person.displayName }}
       </p>

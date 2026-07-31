@@ -30,7 +30,10 @@ const t = useMessages()
       <span class="text-[10px] font-semibold text-(--ui-text-muted)">{{ t.home.todayShort }}</span>
     </AppProgressRing>
 
-    <div class="min-w-0 flex-1">
+    <div
+      class="min-w-0 flex-1"
+      data-q2-private
+    >
       <h2
         id="today-progress-heading"
         class="text-[17px] font-extrabold"

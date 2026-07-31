@@ -119,6 +119,22 @@ useHead({ title: 'Diagnostics' })
           </div>
           <div>
             <dt class="text-sm text-(--ui-text-muted)">
+              Sending logs
+            </dt>
+            <dd data-testid="sentry-logs">
+              {{ backendStatus.logs ? 'yes' : 'no' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm text-(--ui-text-muted)">
+              Sending metrics
+            </dt>
+            <dd data-testid="sentry-metrics">
+              {{ backendStatus.metrics ? 'yes' : 'no' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm text-(--ui-text-muted)">
               Release
             </dt>
             <dd>{{ backendStatus.release }}</dd>

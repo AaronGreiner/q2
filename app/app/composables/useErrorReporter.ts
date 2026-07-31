@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nuxt'
+import { sentryMetricNames } from '../../sentry.shared'
 import type { ApiFailure } from '~/api/errors'
 import { isApiError, normalizeApiError, toApiFailure } from '~/api/errors'
 
@@ -41,6 +42,40 @@ export function useErrorReporter() {
       data: {
         kind: normalized.kind,
         status: normalized.status ?? 'none',
+      },
+    })
+
+    /*
+     * The same line as a structured log, which is a different question from
+     * "is this an issue?": a breadcrumb is only ever read inside an event, so
+     * an expected failure that never becomes one — every offline request, for
+     * instance — is invisible without this. Searchable in Sentry Logs, and it
+     * carries what the breadcrumb carries: feature, action, kind, status. No
+     * message, no field, no title.
+     */
+    const message = `${context.feature}.${context.action} failed (${normalized.kind})`
+    const attributes = {
+      'q2.feature': context.feature,
+      'q2.action': context.action,
+      'q2.error_kind': normalized.kind,
+      'status': normalized.status ?? 'none',
+    }
+
+    if (normalized.isExpected) {
+      Sentry.logger.info(message, attributes)
+    }
+    else {
+      Sentry.logger.error(message, attributes)
+    }
+
+    // Browser-only visibility the API cannot provide: failed requests that
+    // were offline, cancelled or otherwise never reached it. Attributes are a
+    // closed error vocabulary, never the feature's data or the signed-in user.
+    Sentry.metrics.count(sentryMetricNames.apiFailure, 1, {
+      attributes: {
+        kind: normalized.kind,
+        expected: normalized.isExpected,
+        status: normalized.status ?? 0,
       },
     })
 

@@ -43,6 +43,7 @@ const style = computed(() => ({
   <span
     class="relative inline-flex shrink-0"
     :class="stacked ? '-ms-2 rounded-full ring-2 ring-(--q2-surface) first:ms-0' : ''"
+    data-q2-block
   >
     <span
       class="flex items-center justify-center rounded-full font-extrabold leading-none select-none"

@@ -84,7 +84,10 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         :online="chat.isOnline"
       />
 
-      <div class="min-w-0 flex-1">
+      <div
+        class="min-w-0 flex-1"
+        data-q2-private
+      >
         <h1 class="truncate text-[15px] font-extrabold">
           {{ chat.name }}
         </h1>

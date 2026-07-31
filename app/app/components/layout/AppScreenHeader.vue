@@ -13,10 +13,13 @@ withDefaults(defineProps<{
   backLabel?: string
   /** Small line above the title, e.g. the greeting on the start screen. */
   eyebrow?: string
+  /** The title contains a person's name rather than product copy. */
+  privateTitle?: boolean
 }>(), {
   backTo: undefined,
   backLabel: undefined,
   eyebrow: undefined,
+  privateTitle: false,
 })
 </script>
 
@@ -49,6 +52,7 @@ withDefaults(defineProps<{
       <h1
         class="truncate font-extrabold tracking-tight"
         :class="backTo ? 'text-base' : 'text-[23px]'"
+        :data-q2-private="privateTitle ? '' : undefined"
       >
         {{ title }}
       </h1>

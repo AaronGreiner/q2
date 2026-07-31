@@ -36,10 +36,14 @@ const t = useMessages()
       <NuxtLink
         :to="`/goals/${goal.id}`"
         class="-my-3 min-w-0 truncate py-3 text-[15px] font-extrabold text-(--ui-text) hover:underline focus-visible:underline focus-visible:outline-none"
+        data-q2-private
       >
         {{ goal.title }}
       </NuxtLink>
-      <span class="shrink-0 text-sm font-extrabold text-(--ui-primary)">{{ goal.progressPercent }}%</span>
+      <span
+        class="shrink-0 text-sm font-extrabold text-(--ui-primary)"
+        data-q2-private
+      >{{ goal.progressPercent }}%</span>
     </div>
 
     <AppProgressBar

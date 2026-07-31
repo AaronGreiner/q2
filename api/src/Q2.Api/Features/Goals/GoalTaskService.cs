@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
+using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -22,6 +23,7 @@ public sealed class GoalTaskService(
     ActivityRecorder activity,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
+    Q2Metrics metrics,
     ILogger<GoalTaskService> logger)
 {
     /// <summary>
@@ -106,6 +108,8 @@ public sealed class GoalTaskService(
 
         // The title is user content and may be personal — log the id only.
         logger.LogInformation("Task {TaskId} is now {TaskState}", task.Id, task.IsDoneOn(today) ? "done" : "open");
+
+        metrics.CountTaskCompleted(task.IsDoneOn(today));
 
         return GoalTaskResponse.From(task, today);
     }

@@ -24,6 +24,7 @@ const subtitle = computed(() => goalSubtitle(props.goal, t.value))
       <span
         class="flex size-9 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
         aria-hidden="true"
+        data-q2-block
       >
         <UIcon
           :name="goalIconName(goal.icon)"
@@ -46,10 +47,16 @@ const subtitle = computed(() => goalSubtitle(props.goal, t.value))
       </div>
     </div>
 
-    <h3 class="mt-3 text-[15px] leading-tight font-extrabold text-pretty">
+    <h3
+      class="mt-3 text-[15px] leading-tight font-extrabold text-pretty"
+      data-q2-private
+    >
       {{ goal.title }}
     </h3>
-    <p class="mt-0.5 text-[11px] font-semibold text-(--ui-text-muted)">
+    <p
+      class="mt-0.5 text-[11px] font-semibold text-(--ui-text-muted)"
+      data-q2-private
+    >
       {{ subtitle }}
     </p>
 
@@ -61,7 +68,10 @@ const subtitle = computed(() => goalSubtitle(props.goal, t.value))
     />
 
     <div class="mt-1.5 flex items-center justify-between">
-      <span class="text-[11px] font-bold text-(--ui-primary)">{{ goal.progressPercent }}%</span>
+      <span
+        class="text-[11px] font-bold text-(--ui-primary)"
+        data-q2-private
+      >{{ goal.progressPercent }}%</span>
       <span class="text-[11px] font-semibold text-(--ui-text-muted)">{{ t.rhythm[goal.rhythm] }}</span>
     </div>
   </NuxtLink>

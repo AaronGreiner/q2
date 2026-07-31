@@ -30,6 +30,7 @@ describe('GoalTaskRow', () => {
     expect(wrapper.text()).toContain('Joggen 5 km')
     expect(wrapper.text()).toContain('Täglich')
     expect(wrapper.text()).toContain('07:00')
+    expect(wrapper.find('[data-testid="task-row"]').attributes()).toHaveProperty('data-q2-block')
   })
 
   it('offers the tick as a checkbox a keyboard can reach', async () => {

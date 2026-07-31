@@ -45,6 +45,7 @@ public static class ObservabilityRegistration
 
         builder.Services.AddSingleton(settings);
         builder.Services.AddSingleton(scrubber);
+        builder.Services.AddSingleton<Q2Metrics>();
 
         RecordingTransport? recordingTransport = settings.UseRecordingTransport
             ? new RecordingTransport(settings.RecordingFilePath)
@@ -83,6 +84,29 @@ public static class ObservabilityRegistration
             // Errors become events; lower levels only ever become breadcrumbs.
             options.MinimumEventLevel = LogLevel.Error;
             options.MinimumBreadcrumbLevel = LogLevel.Information;
+
+            /*
+             * Structured logs, in addition to events.
+             *
+             * Every ILogger line the configured levels let through is also sent
+             * to Sentry, which is what makes an issue readable: the event says
+             * what broke, the logs around it say what the request was doing.
+             * The levels stay the ones in appsettings — this does not add a
+             * second, invisible logging configuration.
+             *
+             * BeforeSendLog applies the same redaction as BeforeSend. It has to:
+             * framework log lines such as "Request starting … GET /x?token=…"
+             * are written by ASP.NET Core, not by us.
+             */
+            options.EnableLogs = settings.EnableLogs;
+            options.SetBeforeSendLog(scrubber.ScrubLog);
+
+            /*
+             * Counters, from Q2Metrics and nowhere else. BeforeSendMetric drops
+             * anything whose name is not declared there.
+             */
+            options.EnableMetrics = settings.EnableMetrics;
+            options.SetBeforeSendMetric(scrubber.ScrubMetric);
 
             options.AttachStacktrace = true;
 
@@ -144,11 +168,14 @@ public static class ObservabilityRegistration
 
         logger.LogInformation(
             "Sentry active via {Transport}. Environment={SentryEnvironment}, Release={Release}, "
-            + "SampleRate={SampleRate}, TracesSampleRate={TracesSampleRate}",
+            + "SampleRate={SampleRate}, TracesSampleRate={TracesSampleRate}, Logs={LogsEnabled}, "
+            + "Metrics={MetricsEnabled}",
             transport,
             settings.Environment,
             settings.Release,
             settings.SampleRate,
-            settings.TracesSampleRate);
+            settings.TracesSampleRate,
+            settings.EnableLogs,
+            settings.EnableMetrics);
     }
 }

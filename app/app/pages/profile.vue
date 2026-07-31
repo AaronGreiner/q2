@@ -54,11 +54,13 @@ useHead({ title: () => t.value.profile.heading })
         <section
           class="flex flex-col items-center py-1.5 text-center"
           aria-labelledby="profile-name"
+          data-q2-private
         >
           <span
             class="flex size-22 items-center justify-center rounded-full text-[32px] font-extrabold text-white"
             :style="{ background: profile.person.avatarColor }"
             aria-hidden="true"
+            data-q2-block
           >{{ profile.person.initials }}</span>
 
           <h2
@@ -81,7 +83,10 @@ useHead({ title: () => t.value.profile.heading })
           </p>
         </section>
 
-        <dl class="mt-4 flex list-none gap-2.5">
+        <dl
+          class="mt-4 flex list-none gap-2.5"
+          data-q2-private
+        >
           <div class="q2-card flex-1 px-2 py-3.5 text-center">
             <dd class="text-[22px] font-extrabold">
               {{ profile.streak }}

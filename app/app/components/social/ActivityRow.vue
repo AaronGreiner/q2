@@ -34,8 +34,15 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
       :size="40"
     />
 
-    <div class="min-w-0 flex-1">
-      <p class="text-[13px] leading-snug">
+    <div
+      class="min-w-0 flex-1"
+      data-q2-private
+    >
+      <!-- The whole sentence: it names the person and quotes what they did it
+           to, which is a goal or task title. -->
+      <p
+        class="text-[13px] leading-snug"
+      >
         <b class="font-extrabold">{{ activity.actor.displayName }}</b> {{ sentence }}
       </p>
       <p class="mt-0.5 text-[11px] font-semibold text-(--ui-text-dimmed)">
@@ -53,6 +60,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
       :aria-pressed="activity.hasMyKudos"
       :aria-label="activity.hasMyKudos ? t.activity.takeBackKudos : t.activity.giveKudos"
       data-testid="kudos-button"
+      data-q2-block
       @click="emit('kudos', activity.id)"
     >
       <UIcon
@@ -66,6 +74,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
     <span
       v-else
       class="flex shrink-0 items-center gap-1 text-xs font-bold text-(--ui-text-muted)"
+      data-q2-block
     >
       <UIcon
         name="i-lucide-hand-heart"

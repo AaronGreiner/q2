@@ -35,6 +35,23 @@ public sealed record SentrySettings
 
     public required bool Debug { get; init; }
 
+    /// <summary>
+    /// Whether <c>ILogger</c> output is additionally sent as Sentry structured
+    /// logs. Events answer "what went wrong"; logs answer "what was the system
+    /// doing" — see docs/observability.md.
+    /// </summary>
+    /// <remarks>
+    /// On by default, and switchable per environment for the same reason the
+    /// sample rates are: log volume is the part that needs a budget, not the
+    /// question of whether the integration exists.
+    /// </remarks>
+    public required bool EnableLogs { get; init; }
+
+    /// <summary>
+    /// Whether the counters emitted through <c>SentrySdk.Metrics</c> are sent.
+    /// </summary>
+    public required bool EnableMetrics { get; init; }
+
     /// <summary>Share of error events kept. 1.0 everywhere except production.</summary>
     public required float SampleRate { get; init; }
 
@@ -113,6 +130,8 @@ public sealed record SentrySettings
             Environment = FirstNonEmpty(section["Environment"], SentryEnvironments.For(hostEnvironment.EnvironmentName))!,
             Release = ReleaseIdentity.Resolve(configuration),
             Debug = bool.TryParse(section["Debug"], out var debug) && debug,
+            EnableLogs = ParseSwitch(FirstNonEmpty(section["EnableLogs"], configuration["SENTRY_ENABLE_LOGS"]), true),
+            EnableMetrics = ParseSwitch(FirstNonEmpty(section["EnableMetrics"], configuration["SENTRY_ENABLE_METRICS"]), true),
             SampleRate = float.TryParse(section["SampleRate"], out var sample) ? sample : DefaultSampleRate,
             TracesSampleRate = double.TryParse(section["TracesSampleRate"], out var traces)
                 ? traces
@@ -145,6 +164,9 @@ public sealed record SentrySettings
         Uri.TryCreate(value, UriKind.Absolute, out var uri)
         && !string.IsNullOrEmpty(uri.UserInfo)
         && uri.AbsolutePath.Trim('/').Length > 0;
+
+    private static bool ParseSwitch(string? value, bool fallback) =>
+        bool.TryParse(value, out var parsed) ? parsed : fallback;
 
     private static string? FirstNonEmpty(params string?[] candidates) =>
         candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));

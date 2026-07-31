@@ -27,6 +27,7 @@ const icons: Record<BadgeKey, string> = {
   <ul
     class="grid list-none grid-cols-3 gap-2.5 p-0"
     data-testid="badge-grid"
+    data-q2-block
   >
     <li
       v-for="badge in badges"

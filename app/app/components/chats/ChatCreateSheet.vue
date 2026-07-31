@@ -126,7 +126,10 @@ defineExpose({ reset })
                   :online="friend.person.isOnline"
                 />
 
-                <span class="min-w-0 flex-1">
+                <span
+                  class="min-w-0 flex-1"
+                  data-q2-private
+                >
                   <span class="block truncate text-sm font-bold">{{ friend.person.displayName }}</span>
                   <span class="mt-0.5 block truncate text-[11px] font-semibold text-(--ui-text-muted)">
                     {{ friend.person.handle }}
@@ -219,7 +222,10 @@ defineExpose({ reset })
                     :size="32"
                   />
 
-                  <span class="min-w-0 flex-1 truncate text-sm font-bold">
+                  <span
+                    class="min-w-0 flex-1 truncate text-sm font-bold"
+                    data-q2-private
+                  >
                     {{ friend.person.displayName }}
                   </span>
                 </label>
