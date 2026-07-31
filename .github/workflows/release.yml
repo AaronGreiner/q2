@@ -366,6 +366,23 @@ jobs:
             exit 1
           fi
 
+          # /health only opens the database, and an empty database opens
+          # perfectly well — which is why a release once passed every check here
+          # while every screen in it was an error. An anonymous request to a
+          # guarded route must be *refused*, with 401; a 5xx means the API
+          # cannot work out who is asking. No -f, because it would turn the 401
+          # this wants to see into a curl failure.
+          echo "--- $PUBLIC_URL/api/profile (anonymous) ---"
+          guarded=$(curl -sS -o /dev/null -w '%{http_code}' \
+            --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/api/profile")
+          printf 'HTTP %s\n' "$guarded"
+
+          if [[ $guarded != 401 ]]; then
+            echo "::error::$PUBLIC_URL/api/profile answered $guarded; expected 401. The API is running but cannot serve a request."
+            exit 1
+          fi
+          echo "API refuses an anonymous request with 401."
+
           echo "--- $PUBLIC_URL/ ---"
           # Captured into a variable rather than piped into `grep -q`.
           #
@@ -380,7 +397,10 @@ jobs:
           # --retry made it worse rather than better: every retry re-downloaded
           # into the same closed pipe, so one race produced six identical
           # errors and no useful information.
-          page=$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/")
+          #
+          # -L: an anonymous request to "/" is answered with a 302 to the
+          # sign-in screen, and a redirect carries no markup to assert on.
+          page=$(curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "$PUBLIC_URL/")
 
           if [[ $page != *'<!DOCTYPE html>'* ]]; then
             echo "::error::$PUBLIC_URL/ did not serve HTML. First 500 bytes:"
@@ -388,6 +408,17 @@ jobs:
             exit 1
           fi
           echo "Frontend served HTML."
+
+          # Serving a document is not the same as serving a screen. The error
+          # state is well-formed HTML, so the check above passes on an app whose
+          # every screen has failed — exactly how a broken release once reported
+          # success. `data-testid="error-state"` is AppErrorState, the component
+          # every failed screen renders; the E2E suite depends on the same id.
+          if [[ $page == *'data-testid="error-state"'* ]]; then
+            echo "::error::$PUBLIC_URL/ rendered its error state. The app is up but broken — check the API logs on the host."
+            exit 1
+          fi
+          echo "Frontend rendered a screen, not an error state."
 
       - name: Summary
         if: always()

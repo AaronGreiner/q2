@@ -102,14 +102,26 @@ being spread across YAML steps that abort wherever they happen to be.
    answers — `/health` must report `healthy`, the frontend must return HTML. A
    deployment that reports success without a request having been served is not
    a deployment.
+7. **Prove it is a working release, not merely a running one.** Two more
+   assertions, because the two above are both satisfied by an application that
+   is up and useless — see section 7:
+   - an anonymous `GET /api/profile` must answer **401**. A 5xx there means the
+     API cannot work out who is asking.
+   - the page served at `/` must not contain `data-testid="error-state"`. That
+     is `AppErrorState`, the component every failed screen renders.
 
 **Any failure from step 3 onwards rolls back**: the previous binaries *and* the
 previous configuration are restored, the services are restarted, and the script
-exits non-zero so the workflow fails. The configuration is part of the rollback
-deliberately — restoring the old binaries while leaving the new `release.env` in
-place would leave the service reporting a release to Sentry that was never
-successfully deployed, and every later error would be filed under a version that
-does not exist.
+exits non-zero so the workflow fails. That includes a failed health check or
+proof: `fail` triggers the rollback itself once it is armed, because `exit` does
+not fire an `ERR` trap, and a failing check that ended the script without
+restoring anything would leave precisely the broken release it just rejected
+still running.
+
+The configuration is part of the rollback deliberately — restoring the old
+binaries while leaving the new `release.env` in place would leave the service
+reporting a release to Sentry that was never successfully deployed, and every
+later error would be filed under a version that does not exist.
 
 The release that failed is kept in `/var/www/q2/failed/` rather than deleted,
 because otherwise the evidence is gone by the time anyone looks.
@@ -190,9 +202,50 @@ bash deploy/bootstrap.sh
 
 **The A record has to exist before that runs.** The script refuses to configure
 Caddy without it, and proves a certificate was issued before it reports
-success — see the next section for why.
+success — see section 8 for why.
 
-## 7. When the release deploys but the URL does not answer
+## 7. When the release deploys, the URL answers, and the app is broken anyway
+
+This is what happened to **v0.0.3**, and it is the reason steps 6 and 7 of the
+deployment now assert more than "something answered".
+
+The release deployed cleanly and every check passed: `/health` reported
+`healthy`, the frontend returned a valid HTML document, and the workflow went
+green. The site was nevertheless unusable — `/api/profile`, `/api/feed` and
+`/api/leaderboard` all answered **500**, so every screen rendered the error
+state.
+
+The cause was a design mismatch rather than a deployment fault. v0.0.3 shipped
+the model in [adr/0009](adr/0009-single-known-person.md): identity was a single
+`Person` row flagged `IsCurrentUser`, and `CurrentPerson` threw an ordinary
+`InvalidOperationException` — a 500 — when that row was missing. **Staging is
+never seeded**: its `SeedProfile` is `None`, there is no Staging seed profile to
+choose, and `DatabaseResetGuard` refuses destructive work in a protected
+environment. So the row could not exist there, and that release could not work
+on this host no matter how well it deployed.
+
+Both checks were satisfied by the broken app for the same reason — they asserted
+liveness, not correctness:
+
+| Check | Why it passed anyway |
+| --- | --- |
+| `/health` reports `healthy` | It only calls `CanConnectAsync`, and an empty database connects perfectly well. |
+| The frontend returns HTML | The SSR error state is a well-formed HTML document. |
+
+The fix for the site is [adr/0011](adr/0011-authentication-with-identity.md),
+which supersedes 0009: real accounts, `CurrentPerson` reads the session, and an
+unauthenticated request is refused with **401** instead of failing with 500.
+Staging needs no seed — an account is created through `/register`.
+
+The fix for the *pipeline* is the two proofs in section 3. Both were run against
+this host while it was broken, and both fail it.
+
+Note for the next release: an anonymous `GET /` is now answered with a **302**
+to the sign-in screen, so anything checking that page has to follow redirects.
+`deploy.sh` and the workflow both use `curl -L`; a check without it sees an
+empty redirect body and reports a healthy release as broken.
+
+## 8. When the release deploys but the URL does not answer
 
 The deploy job's last step requests `$PUBLIC_URL` from GitHub's runner. When it
 is the *only* failing step, both services are already running and healthy on
@@ -236,7 +289,7 @@ Issuance takes a few seconds. `bootstrap.sh` now checks DNS before it touches
 Caddy and waits for the certificate afterwards, so a host prepared with it
 cannot end up in this state without saying so.
 
-## 8. Sentry on this host
+## 9. Sentry on this host
 
 Both services report to Sentry with environment `staging` and the release id of
 the running deployment. Error and trace sampling are both `1.0`: this host
@@ -262,7 +315,7 @@ Two things are deliberately **not** available here:
 
 Real errors report normally; that is what the environment is for.
 
-## 9. What this deliberately is not
+## 10. What this deliberately is not
 
 - **No zero-downtime deployment.** Services stop, files swap, services start —
   a few seconds. Two SSR processes behind a load balancer would be a different

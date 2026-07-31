@@ -38,7 +38,19 @@ readonly RELEASE="${1:?Usage: deploy.sh <release-id>}"
 
 log()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
-fail() { printf '\n\033[31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
+
+# Set once the rollback is armed, and read by `fail`. `exit` does not fire an
+# ERR trap, so a `fail` after the swap would otherwise end the deployment
+# leaving the new, broken release in place and the previous one stranded in
+# previous/ — which is the one outcome step 2 exists to prevent. Every `fail`
+# before the trap is armed still just exits, because nothing has been touched.
+rollback_armed=false
+
+fail() {
+  printf '\n\033[31mERROR: %s\033[0m\n' "$*" >&2
+  $rollback_armed && rollback
+  exit 1
+}
 
 # Two deployments at once would interleave the swap and leave a mixed tree.
 exec 9>/var/lock/q2-deploy.lock
@@ -130,6 +142,7 @@ rollback() {
 }
 
 trap 'rollback' ERR
+rollback_armed=true
 
 # ---------------------------------------------------------------------------
 # 3. Configuration. The workflow renders both files from GitHub secrets, so a
@@ -202,12 +215,27 @@ info "Migrations applied"
 # ---------------------------------------------------------------------------
 # 6. Start and prove it actually works. A deployment that reports success
 #    without a request having been served is not a deployment.
+#
+#    "Up" is not "working", and the difference is not academic: v0.0.3 started
+#    cleanly, reported healthy and served a page — and every screen in it was
+#    an error. /health only opens the database, and an empty database opens
+#    perfectly well; the frontend's error state is a well-formed HTML document,
+#    so a check for '<!DOCTYPE html>' passes on an app that renders nothing but
+#    failures. Both proofs below assert what that release actually broke.
 # ---------------------------------------------------------------------------
+
+# The guarded endpoint the proof below uses. Any of them would do — this one is
+# the start screen's first request, so a failure here is a failure the first
+# visitor sees.
+readonly GUARDED_ROUTE=/api/profile
+
 wait_for() {
   local name=$1 url=$2 expect=$3 attempts=${4:-30}
 
   for ((i = 1; i <= attempts; i++)); do
-    if body=$(curl -fsS --max-time 5 "$url" 2>/dev/null) && [[ $body == *"$expect"* ]]; then
+    # -L: an anonymous request to the frontend's "/" is answered with a 302 to
+    # the sign-in screen, and a redirect carries no markup to match against.
+    if body=$(curl -fsSL --max-time 5 "$url" 2>/dev/null) && [[ $body == *"$expect"* ]]; then
       info "$name healthy after ${i}s"
       return 0
     fi
@@ -219,13 +247,54 @@ wait_for() {
   return 1
 }
 
+# No credentials, no seed, no state: an anonymous request to a guarded route
+# must be refused with 401. A 5xx means the API cannot work out who is asking,
+# which is how a release can be "healthy" and useless at the same time.
+#
+# No -f: it would turn the 401 this wants to see into a curl failure.
+prove_api_refuses_anonymously() {
+  local status
+  status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$API_URL$GUARDED_ROUTE" 2>/dev/null) \
+    || status=000
+
+  if [ "$status" = 401 ]; then
+    info "$GUARDED_ROUTE refuses an anonymous request with 401"
+    return 0
+  fi
+
+  printf '\n%s answered %s; expected 401.\n' "$GUARDED_ROUTE" "$status" >&2
+  printf -- '--- last 40 log lines: q2-api.service ---\n' >&2
+  journalctl -u q2-api.service -n 40 --no-pager >&2 || true
+  return 1
+}
+
+# The frontend served *a* document; this asks whether that document is a screen
+# or an apology. `data-testid="error-state"` is AppErrorState, the component
+# every failed screen renders, and the E2E suite already depends on that id.
+prove_app_rendered_a_screen() {
+  local page
+  page=$(curl -fsSL --max-time 10 "$APP_URL/" 2>/dev/null) || return 1
+
+  if [[ $page != *'data-testid="error-state"'* ]]; then
+    info "the frontend rendered a screen, not an error state"
+    return 0
+  fi
+
+  printf '\nThe frontend rendered its error state — the app is up but broken.\n' >&2
+  printf -- '--- last 40 log lines: q2-app.service ---\n' >&2
+  journalctl -u q2-app.service -n 40 --no-pager >&2 || true
+  return 1
+}
+
 log "Starting q2-api"
 systemctl start q2-api.service
 wait_for q2-api.service "$API_URL/health" '"healthy"' || fail "The API did not become healthy."
+prove_api_refuses_anonymously || fail "The API is running but cannot answer a request."
 
 log "Starting q2-app"
 systemctl start q2-app.service
 wait_for q2-app.service "$APP_URL/" '<!DOCTYPE html>' || fail "The frontend did not become healthy."
+prove_app_rendered_a_screen || fail "The frontend is running but every screen is an error."
 
 trap - ERR
 
