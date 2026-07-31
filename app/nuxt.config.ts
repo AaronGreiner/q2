@@ -1,10 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { de } from './app/i18n/messages'
+import { themeColors } from './app/utils/themeColors'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
     '@nuxt/eslint',
     '@nuxt/test-utils/module',
     '@sentry/nuxt/module',
+    '@vite-pwa/nuxt',
   ],
 
   /**
@@ -159,6 +163,130 @@ export default defineNuxtConfig({
 
     serverBundle: {
       collections: ['lucide'],
+    },
+  },
+
+  /**
+   * q2 as an installable application.
+   *
+   * This is the web half of what [next-steps.md](../docs/next-steps.md) item
+   * 15 will finish with Capacitor: the same UI, installed from the browser
+   * rather than from a store. It buys the standalone window, the icon on the
+   * home screen and a start that does not wait for the network — and it
+   * deliberately buys nothing else. See docs/adr/0012-installable-pwa.md.
+   *
+   * `injectManifest` rather than the default `generateSW`: what to cache is
+   * the one interesting decision here and it is not a Workbox preset, so the
+   * worker is written out in service-worker/sw.ts and the module only
+   * substitutes the precache list into it.
+   */
+  pwa: {
+    strategies: 'injectManifest',
+
+    // Resolved against Nuxt's srcDir (app/app), so this is app/service-worker.
+    // The worker lives outside the application source because it is not part
+    // of it: different global scope, different lib, its own tsconfig.
+    srcDir: '../service-worker',
+    filename: 'sw.ts',
+
+    // Our worker calls skipWaiting itself; this makes the registration agree
+    // with it instead of waiting for a reload that will never be asked for.
+    registerType: 'autoUpdate',
+
+    /*
+     * Adds the Nitro route rules for /sw.js and /manifest.webmanifest.
+     *
+     * The one that matters is `Cache-Control: max-age=0, must-revalidate` on
+     * the worker. Without it Nitro sends no cache header at all, which leaves
+     * the browser free to guess a freshness lifetime from Last-Modified — and
+     * a stale worker is a deployment that quietly does not arrive. The 24-hour
+     * cap in the specification is a backstop, not a plan.
+     */
+    registerWebManifestInRouteRules: true,
+
+    manifest: {
+      id: '/',
+      name: `${de.app.name} (q2)`,
+      short_name: de.app.name,
+      description: de.app.description,
+
+      // The manifest cannot be translated per person — it is read once, at
+      // install time, by the operating system. German is what q2 speaks by
+      // default (docs/adr/0010-german-first-interface.md).
+      lang: 'de',
+      dir: 'ltr',
+
+      start_url: '/',
+      scope: '/',
+
+      // No browser chrome. The app draws its own header and tab bar, and both
+      // already account for the safe areas a notch leaves behind.
+      display: 'standalone',
+
+      /*
+       * Orientation is deliberately unset. A phone layout is what q2 is
+       * designed for, but locking rotation would also lock out somebody using
+       * the device in a stand or mounted sideways, and the layout survives it.
+       */
+
+      /*
+       * The light value of both, because `:root` in main.css is the light
+       * theme and `.dark` is the override. A manifest holds one colour and is
+       * read before anything has rendered, so it cannot follow the scheme —
+       * the theme-color metas in app/app.vue do that afterwards.
+       */
+      background_color: themeColors.light,
+      theme_color: themeColors.light,
+
+      icons: [
+        { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+
+        // Cropped by the platform to its own shape; drawn with the safe zone
+        // that needs. See app/scripts/generate-icons.ts.
+        { src: '/maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+
+    injectManifest: {
+      /*
+       * The precache list, and the reason it names extensions instead of
+       * saying "everything".
+       *
+       * These are the files that are identical for every person and carry a
+       * content hash in their name, so a cached copy is always a correct copy.
+       * No HTML is produced into the public directory at all — q2 renders on
+       * the server — and if a prerendered page ever appears, this pattern will
+       * not quietly start caching somebody's screen.
+       */
+      globPatterns: ['**/*.{js,css,woff,woff2,png,svg,ico}'],
+
+      // Emitted as 'hidden' for the Sentry upload and deleted from the
+      // artefact after it; never served to a browser.
+      globIgnores: ['**/*.map'],
+
+      /*
+       * Two files are in the precache without appearing above, and both are
+       * put there by the module rather than by these patterns:
+       *
+       *  - manifest.webmanifest, so that the install offer survives a bad
+       *    connection. Listing it here as well would only add a duplicate;
+       *  - _nuxt/builds/latest.json, Nuxt's own build manifest. Route
+       *    resolution fetches it, so without a cached copy a navigation on a
+       *    dead connection fails before the offline page can be reached.
+       */
+    },
+
+    // Nothing in the UI asks to install; the browser's own affordance does.
+    client: {
+      installPrompt: false,
+    },
+
+    devOptions: {
+      // A worker that caches assets while Vite is hot-reloading them is a
+      // debugging session nobody asked for. `bun run build && bun run preview`
+      // is where the PWA is tried out, which is also what E2E does.
+      enabled: false,
     },
   },
 

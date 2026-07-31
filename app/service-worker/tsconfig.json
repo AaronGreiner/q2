@@ -1,0 +1,24 @@
+{
+  // The service worker runs in a worker, not in a document: no `window`, no
+  // `document`, and a `self` that is a ServiceWorkerGlobalScope. Nuxt's
+  // generated configuration says the opposite, which is why this directory sits
+  // outside app/ and is checked on its own — `bun run typecheck` runs both.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    // The message catalogue is shared with the application and imports the
+    // contract types through Nuxt's alias, which nothing resolves out here.
+    "paths": {
+      "~/*": ["../app/*"]
+    }
+  },
+  "include": ["sw.ts"]
+}

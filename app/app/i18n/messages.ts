@@ -1,5 +1,9 @@
-import type { ApiErrorKind } from '~/api/errors'
-import type { BadgeKey, GoalRhythm, GoalStatus } from '~/api/types'
+// Relative rather than `~/`, which is the convention everywhere else in the
+// app: this file is also read from outside the Nuxt alias — nuxt.config.ts
+// takes the app name and description for the web app manifest, and the service
+// worker takes the offline page's words — and neither resolves `~`.
+import type { ApiErrorKind } from '../api/errors'
+import type { BadgeKey, GoalRhythm, GoalStatus } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -310,6 +314,20 @@ export const de = {
     pageNotFound: 'Seite nicht gefunden',
     pageNotFoundHint: 'Diese Seite gibt es nicht. Vielleicht wurde sie verschoben oder entfernt.',
     unexpected: 'Wir sind auf ein unerwartetes Problem gestoßen. Es wurde aufgezeichnet — bitte versuch es erneut.',
+  },
+
+  /*
+   * The page the service worker shows when a navigation cannot reach the
+   * server. It is the one screen in q2 that is rendered without the
+   * application running, so it repeats what `errors.network` says rather than
+   * reusing it — the wording there is an inline notice next to content that
+   * did load, and this is the whole window.
+   */
+  offline: {
+    title: 'Offline',
+    heading: 'Du bist offline',
+    body: 'Kudos braucht eine Verbindung, um deine Ziele zu laden. Sobald du wieder Empfang hast, geht es weiter.',
+    retry: 'Erneut versuchen',
   },
 
   toast: {
@@ -623,6 +641,13 @@ export const en: Messages = {
     pageNotFound: 'Page not found',
     pageNotFoundHint: 'That page does not exist. It may have been moved or removed.',
     unexpected: 'We hit an unexpected problem. The incident has been recorded — please try again.',
+  },
+
+  offline: {
+    title: 'Offline',
+    heading: 'You are offline',
+    body: 'Kudos needs a connection to load your goals. As soon as you have signal again, you can pick up where you left off.',
+    retry: 'Try again',
   },
 
   toast: {

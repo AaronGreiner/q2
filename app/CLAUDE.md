@@ -45,6 +45,14 @@ tests/component/GoalCard.spec.ts     how to write a component test
   incoming request during SSR. Drop either and the app renders signed-out and
   then flickers.
 - **Do not disable Sentry outside production.**
+- **The service worker caches build output only.** Every rendered page in q2 is
+  somebody's signed-in one, so no HTML and no API response may go into a cache
+  — [AGENTS.md](AGENTS.md) section 9a and
+  [../docs/adr/0012-installable-pwa.md](../docs/adr/0012-installable-pwa.md).
+  It is also **off in `bun run dev`**: try the PWA with `bun run build && bun
+  run preview`.
+- **`public/` is generated.** `bun run icons` draws the whole icon set from
+  `scripts/generate-icons.ts`; never hand-edit a file in there.
 
 ## Verifying a change
 

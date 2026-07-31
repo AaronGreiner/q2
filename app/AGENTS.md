@@ -13,16 +13,19 @@ by default.
 
 ```
 app/
-├── nuxt.config.ts            modules, runtime config, Sentry, source maps
+├── nuxt.config.ts            modules, runtime config, Sentry, source maps, PWA
 ├── sentry.client.config.ts   browser SDK
 ├── sentry.server.config.ts   Nitro SDK
 ├── sentry.shared.ts          the filters both use — unit-tested directly
 ├── vitest.config.ts          two projects: unit and component
 ├── playwright.config.ts      E2E, own ports, own database
+├── public/                   the icons — generated, committed, never edited
+├── scripts/generate-icons.ts what generates them (§9a)
+├── service-worker/sw.ts      not application source: worker scope, own tsconfig
 ├── app/                      ← Nuxt 4 puts application source here
 │   ├── app.vue error.vue
 │   ├── api/                  the HTTP layer (see §3)
-│   ├── assets/css/main.css   the design tokens — the only file with a hex value
+│   ├── assets/css/main.css   the design tokens — almost the only file with a hex
 │   ├── components/           chats/ friends/ goals/ home/ layout/ profile/
 │   │                         settings/ social/ ui/
 │   ├── composables/          state and side effects
@@ -30,7 +33,8 @@ app/
 │   ├── i18n/messages.ts      every user-facing word, in both languages
 │   ├── layouts/              default (with the tab bar) and plain (without)
 │   ├── pages/
-│   └── utils/display.ts      pure presentation logic
+│   ├── utils/display.ts      pure presentation logic
+│   └── utils/themeColors.ts  the two colours main.css cannot serve (§9a)
 └── tests/{unit,component,e2e}
 ```
 
@@ -248,7 +252,43 @@ The consequence for everyday work:
 Nothing Capacitor-specific exists in the repository yet, and nothing should be
 added ahead of the requirement. This section is about the format the UI is
 designed and verified in, not about adding a native layer now
-([../docs/next-steps.md](../docs/next-steps.md), item 14).
+([../docs/next-steps.md](../docs/next-steps.md), item 15).
+
+## 9a. Installable, and deliberately not offline
+
+q2 installs from the browser: a web app manifest, a set of sparkles icons and a
+service worker. What that buys is the standalone window, the home screen icon
+and a start that does not wait for the network. It does **not** buy offline use,
+and that is a decision rather than an omission
+([../docs/adr/0012-installable-pwa.md](../docs/adr/0012-installable-pwa.md)).
+
+```
+nuxt.config.ts               the `pwa` block: manifest, precache patterns
+service-worker/sw.ts         the worker — outside app/, own tsconfig, own lib
+service-worker/tsconfig.json WebWorker types; `bun run typecheck` runs it too
+public/                      the icons, committed
+scripts/generate-icons.ts    what drew them — `bun run icons`
+app/utils/themeColors.ts     the two hex values main.css cannot provide
+```
+
+The rules that matter:
+
+- **The service worker caches the build output and nothing else.** Every screen
+  in q2 is somebody's signed-in one, so a cached document is one person's goals
+  left on a device the next person may pick up. Navigations are `NetworkOnly`;
+  API responses are never touched. `tests/e2e/pwa.spec.ts` asserts this against
+  what the browser actually stored — do not relax it without reading the ADR.
+- **The PWA is off in `bun run dev`** (`devOptions.enabled: false`). A worker
+  caching assets while Vite hot-reloads them is its own debugging session. Try
+  it with `bun run build && bun run preview`, which is what E2E does.
+- **An icon change is `bun run app:icons`,** and the regenerated files are part
+  of the same change. Never hand-edit anything in `public/`.
+- **`--ui-bg` has one copy**, in `app/utils/themeColors.ts`, because a manifest
+  is JSON and a status bar is painted before any stylesheet exists. Change them
+  together; main.css says so too.
+- **The offline page lives in the worker**, takes its words from the catalogue
+  like everything else, and names no colour — it uses the `Canvas` and
+  `CanvasText` system colours, which follow the OS setting on their own.
 
 ## 10. Tests
 
@@ -320,10 +360,11 @@ bun run preview
 bun run lint
 bun run lint:fix
 bun run typecheck
+bun run icons
 ```
 
-From the repository root, `bun run dev`, `bun run validate` and
-`bun run api:types` cover the same ground with the right environment.
+From the repository root, `bun run dev`, `bun run validate`, `bun run api:types`
+and `bun run app:icons` cover the same ground with the right environment.
 
 ## 13. Before finishing a frontend change
 
@@ -336,6 +377,7 @@ From the repository root, `bun run dev`, `bun run validate` and
 7. check the loading, empty and error states, not just the happy path
 8. look at the change at 390 × 844 — E2E runs there too, but it never asserts
    layout (section 9)
-9. confirm no user content reaches Sentry
+9. confirm no user content reaches Sentry, and none reaches the service worker's
+   cache either (section 9a)
 
 Or `bun run validate` from the root, and report what it actually printed.

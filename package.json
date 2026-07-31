@@ -24,6 +24,7 @@
     "test:manual:start": "bun scripts/manual-testing.ts",
     "api:openapi": "bun scripts/openapi.ts",
     "api:types": "bun scripts/openapi.ts --types-only",
+    "app:icons": "bun run --cwd app icons",
     "lint": "bun scripts/tasks.ts lint",
     "lint:fix": "bun run --cwd app lint:fix",
     "typecheck": "bun run --cwd app typecheck",

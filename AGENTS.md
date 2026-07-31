@@ -106,8 +106,9 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
 Add one only when it earns its place *now*.
 
 Wanted, and already present: Nuxt, Nuxt UI, Vue, TypeScript, ESLint, Vitest,
-Playwright, `@sentry/nuxt`; ASP.NET Core, EF Core, SQLite, `Sentry.AspNetCore`,
-xunit.
+Playwright, `@sentry/nuxt`, `@vite-pwa/nuxt` with the `workbox-*` runtime it
+needs ([docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md));
+ASP.NET Core, EF Core, SQLite, `Sentry.AspNetCore`, xunit.
 
 Not wanted without a discussion first:
 

@@ -40,6 +40,7 @@ Five screens, and everything behind them:
 | Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your tasks, your friends' feed, the conversations you are in |
 | API | Register/sign in/sign out/session; goals, tasks, feed and kudos, leaderboard, friends with search and requests, chats including starting and leaving them, profile and settings; `GET /health`, OpenAPI document, Problem Details for every error |
 | Frontend | Sign-in and registration, the five screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
+| Installable | A web app manifest, sparkles icons and a service worker make q2 installable from the browser: its own window, an icon on the home screen, and the build already on the device. The worker caches the build output and nothing else — see [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md) |
 | Contract | OpenAPI exported from the code, TypeScript types generated from it, both committed |
 | Database | SQLite via EF Core, migrations, six environments, four seed profiles, guarded destructive resets |
 | Errors | Central exception handling, no internal detail in responses, a correlation id the user can quote |
@@ -77,9 +78,15 @@ These are absent on purpose, not by oversight:
   remembered per person. See [docs/next-steps.md](docs/next-steps.md).
 - **Location features.** Nothing collects or stores a position. See
   [docs/privacy.md](docs/privacy.md).
-- **Mobile apps.** No Capacitor packaging and no native abstractions exist yet.
-  The *format* is not missing, though: q2 is designed for a phone, and the
-  browser is only where it is developed and tested — always at phone width. See
+- **Working offline.** q2 installs as a PWA, and a person who opens it with no
+  connection gets an offline page rather than a stale dashboard. The service
+  worker keeps the build output and deliberately no content: every rendered
+  screen is somebody's signed-in one. See
+  [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
+- **Mobile apps.** No Capacitor packaging and no native abstractions exist yet —
+  installing from the browser is as far as it goes today. The *format* is not
+  missing, though: q2 is designed for a phone, and the browser is only where it
+  is developed and tested — always at phone width. See
   [AGENTS.md](AGENTS.md) section 5.
 - **PostgreSQL.** SQLite is the initial provider; no SQLite-specific business
   logic exists, so the switch is a provider change, not a rewrite.

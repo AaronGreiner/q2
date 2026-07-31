@@ -66,6 +66,19 @@ that need a retention and erasure answer before real people are in the database.
 The initial version does not have one; see [next-steps.md](next-steps.md)
 items 7 and 8.
 
+**Stored on the device:** the service worker's cache holds the build output —
+JavaScript, CSS, fonts, icons, the web app manifest — and no rendered page and
+no API response. That is a deliberate limit and the reason the PWA does not
+work offline: a cached document would be one person's goals sitting on a device
+somebody else may pick up, and it would outlive the session cookie. It is also
+what makes signing out complete: there is no content cache to purge.
+`app/tests/e2e/pwa.spec.ts` asserts it against what the browser actually
+stored, rather than against the configuration that was meant to produce it. See
+[adr/0012-installable-pwa.md](adr/0012-installable-pwa.md).
+
+Anything that changes this — offline use, a write queue, cached feeds — makes
+sign-out a data-deletion path, and that has to be designed before the cache is.
+
 ## 3. Logging rules
 
 **May be logged:** goal, task, conversation, activity and person *ids*,

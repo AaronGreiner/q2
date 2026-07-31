@@ -19,3 +19,4 @@ so the reasoning at the time stays readable.
 | [0009](0009-single-known-person.md) | One known person, flagged in the database | Superseded by [0011](0011-authentication-with-identity.md) |
 | [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |
 | [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted |
+| [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |

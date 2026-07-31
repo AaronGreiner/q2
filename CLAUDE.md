@@ -46,6 +46,13 @@ to working in Claude Code.
   behaviour, not geometry, so a green run is not a look at the layout. See
   [AGENTS.md](AGENTS.md) section 5 and [app/AGENTS.md](app/AGENTS.md)
   section 8.
+- **The service worker caches build output only, and is off in `dev`.** No
+  rendered page and no API response may enter a cache: every screen in q2 is
+  somebody's signed-in one. Try the PWA with `bun run build && bun run preview`,
+  never `bun run dev`. See
+  [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
+- **`app/public/` is generated.** `bun run app:icons` redraws the whole icon set
+  from `app/scripts/generate-icons.ts`; never hand-edit a file in there.
 
 ## Running things
 

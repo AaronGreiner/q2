@@ -9,7 +9,8 @@
     "build": "nuxt build",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck",
+    "icons": "bun scripts/generate-icons.ts",
+    "typecheck": "nuxt typecheck && tsc --noEmit --project service-worker",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
@@ -33,12 +34,16 @@
     "@nuxt/eslint": "1.16.0",
     "@nuxt/test-utils": "4.1.0",
     "@playwright/test": "1.62.0",
+    "@vite-pwa/nuxt": "1.1.1",
     "@vue/test-utils": "2.4.11",
     "eslint": "9.39.5",
     "happy-dom": "20.11.1",
     "openapi-typescript": "7.13.0",
     "typescript": "5.9.3",
     "vitest": "4.1.10",
-    "vue-tsc": "3.3.8"
+    "vue-tsc": "3.3.8",
+    "workbox-precaching": "7.4.1",
+    "workbox-routing": "7.4.1",
+    "workbox-strategies": "7.4.1"
   }
 }

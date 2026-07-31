@@ -43,6 +43,12 @@
 :root {
   --ui-radius: 0.75rem;
 
+  /*
+   * --ui-bg has one copy elsewhere, in app/utils/themeColors.ts. Installed,
+   * this value is the splash screen and the status bar, and both are painted
+   * before a stylesheet exists to read a custom property from. Change them
+   * together.
+   */
   --ui-bg: #fafafa;
   --ui-bg-muted: #f3f3f3;
   --ui-bg-elevated: #ffffff;
@@ -73,6 +79,7 @@
 }
 
 .dark {
+  /* The dark half of app/utils/themeColors.ts; see the note on :root above. */
   --ui-bg: #0a0a0a;
   --ui-bg-muted: #131313;
   --ui-bg-elevated: #161616;
