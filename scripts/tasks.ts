@@ -21,8 +21,22 @@ const appLint = app('app lint (eslint incl. formatting)', ['lint'])
 const appTypecheck = app('app typecheck (vue-tsc, strict)', ['typecheck'])
 const appUnitTests = app('app unit tests', ['test:unit'])
 const appComponentTests = app('app component tests', ['test:component'])
+const appCoverageTests = app('app tests with 80% coverage thresholds', ['test:coverage'])
 const appBuild = app('app production build', ['build'])
 const dotnetFormatCheck = dotnet('api format check', ['format', apiSolution, '--verify-no-changes'])
+const apiCoverageTests = dotnet('api integration tests with 80% line coverage threshold', [
+  'test',
+  'api/tests/Q2.Api.IntegrationTests',
+  '--nologo',
+  '-c',
+  'Release',
+  '--no-restore',
+  '/p:CollectCoverage=true',
+  '/p:CoverletOutputFormat=cobertura',
+  '/p:CoverletOutput=TestResults/coverage/',
+  '/p:Threshold=80',
+  '/p:ThresholdType=line',
+])
 
 const tasks: Record<string, { description: string, steps: Step[] }> = {
   'lint': {
@@ -40,6 +54,10 @@ const tasks: Record<string, { description: string, steps: Step[] }> = {
   'test:component': {
     description: 'Vue component tests rendered in a Nuxt environment',
     steps: [appComponentTests],
+  },
+  'test:coverage': {
+    description: 'Frontend coverage on all metrics and backend line coverage, each at least 80%',
+    steps: [apiCoverageTests, appCoverageTests],
   },
   'test:integration': {
     description: 'API integration tests against the real pipeline and SQLite in-memory',
@@ -83,9 +101,8 @@ const tasks: Record<string, { description: string, steps: Step[] }> = {
       appLint,
       appTypecheck,
       apiUnitTests,
-      apiIntegrationTests,
-      appUnitTests,
-      appComponentTests,
+      apiCoverageTests,
+      appCoverageTests,
       apiBuild,
       appBuild,
       app('e2e tests (fresh temporary SQLite database)', ['test:e2e']),

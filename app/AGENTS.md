@@ -338,6 +338,7 @@ in a desktop run ([../docs/adr/0013-app-like-input.md](../docs/adr/0013-app-like
 bun run test             # unit + component
 bun run test:unit
 bun run test:component
+bun run test:coverage
 bun run test:sentry
 bun run test:e2e
 ```
@@ -346,8 +347,13 @@ bun run test:e2e
   environment, no Nuxt, milliseconds.
 - **component** — real Nuxt environment via `mountSuspended`, so auto-imports,
   Nuxt UI and runtime config behave as in the app.
+- **coverage** — both Vitest projects with an 80% threshold for statements,
+  branches, functions and lines across the API layer, composables, components,
+  i18n, utilities and the shared Sentry configuration.
 - **e2e** — Playwright against the production build and a real API on ports
-  3001/5081, with its own freshly seeded temporary SQLite database.
+  3001/5081, with its own freshly seeded temporary SQLite database. Besides
+  user flows it checks server-rendered content, the reviewed WCAG A/AA baseline,
+  horizontal overflow and touch-target sizes at phone width.
 
 **Every spec starts signed in.** `globalSetup` signs in once through the real
 form and Playwright's `storageState` carries that session into every test;
@@ -364,11 +370,10 @@ descriptor (Chromium, touch, mobile emulation) with the viewport pinned to the
 390 × 844 reference from section 8. There is no desktop project; a flow that
 only works wide is not exercised anywhere.
 
-That covers the *width* the assertions are made at, not the layout itself: the
-suite asserts behaviour and text, never geometry, so an overflowing card or an
-unreachable tap target would still be green
-([../docs/next-steps.md](../docs/next-steps.md), item 6). Looking at the change
-yourself remains part of the work.
+The quality spec also checks horizontal overflow on every signed-in screen and
+touch-target sizes on representative screens. It cannot judge visual hierarchy,
+spacing quality or every transient state, so looking at a change yourself
+remains part of the work.
 
 ## 11. The message catalogue
 
@@ -412,13 +417,13 @@ and `bun run app:icons` cover the same ground with the right environment.
 
 1. `bun run lint`
 2. `bun run typecheck`
-3. `bun run test`
+3. `bun run test:coverage`
 4. `bun run build`
 5. `bun run test:e2e` if a user-visible flow changed
 6. if the API surface changed: `bun run api:openapi`, keeping both artefacts
 7. check the loading, empty and error states, not just the happy path
-8. look at the change at 390 × 844 — E2E runs there too, but it never asserts
-   layout (section 9)
+8. look at the change at 390 × 844 — E2E guards basic geometry, not visual
+   quality (section 9)
 9. confirm no user content reaches Sentry, and none reaches the service worker's
    cache either (section 9a)
 

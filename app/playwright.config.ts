@@ -76,7 +76,10 @@ export default defineConfig({
   webServer: [
     {
       // No build step: `dotnet run` is enough and keeps the loop short.
-      command: `dotnet run --project ${apiProject} --no-launch-profile --verbosity quiet`,
+      // Keep the E2E build away from a developer's `dotnet watch` output. Both
+      // are legitimate parallel workflows, and sharing bin/obj lets one lock
+      // the other's deps file on macOS.
+      command: `dotnet run --project ${apiProject} --no-launch-profile --artifacts-path ${repoRoot}/.artifacts/e2e --verbosity quiet`,
       cwd: repoRoot,
       url: `${apiBaseUrl}/health`,
       env: apiEnvironment(),

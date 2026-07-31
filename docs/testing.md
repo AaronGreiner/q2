@@ -19,6 +19,7 @@ What is tested, how, and the properties every test here has to have.
 bun run test              # everything except E2E
 bun run test:unit
 bun run test:component
+bun run test:coverage      # backend lines and all frontend metrics >= 80%
 bun run test:integration
 bun run test:migrations
 bun run test:sentry
@@ -129,10 +130,10 @@ Playwright has one project, `mobile-chromium`: the Pixel 7 descriptor — Chromi
 because that is the one engine CI installs, plus touch and mobile emulation —
 with the viewport pinned to 390 × 844. There is deliberately no desktop project.
 
-What that buys is the *width* every assertion is made at. It is not a layout
-test: the suite asserts behaviour and text, so a card overflowing horizontally
-or a control pushed off-screen would still pass ([next-steps.md](next-steps.md),
-item 6).
+The quality spec additionally checks horizontal overflow on every signed-in
+screen and measures representative touch targets. Those checks guard basic
+geometry, not visual hierarchy or spacing quality; manual inspection at the
+same viewport remains necessary.
 
 ## Parallelism
 
@@ -148,7 +149,7 @@ item 6).
 
 ## What is actually covered
 
-### Backend (187 tests)
+### Backend (449 tests)
 
 - **Domain** — every `Goal` invariant: title required and bounded, description
   bounded, progress 0-100, status transitions, archived goals staying archived,
@@ -178,7 +179,7 @@ item 6).
   so it cannot be turned off again unnoticed — and a broken transport not
   breaking the API.
 
-### Frontend (116 tests)
+### Frontend (210 tests)
 
 - **Presentation logic** — clamping, progress descriptions, day arithmetic at
   the boundaries, date formatting, participant phrasing.
@@ -195,15 +196,30 @@ item 6).
   exclusive, retry), `GoalCreateForm` (emitted payload, trimming, participant
   parsing, server field errors, double-submit prevention, reset).
 
-### E2E (15 tests)
+### E2E (81 tests)
 
-Seeded goals and their states, environment badge, detail navigation, the empty
-filter, creating a goal and finding it after a reload, an empty title being
-refused client-side, a missing goal, a server error showing a friendly message
-with no internals, the backend recording that failure with `environment=e2e`
-and no sensitive data, health checks producing no events, the error page, and
-the browser SDK sending a client error with the right environment and no
-identity.
+Authentication and registration; seeded goals, tasks and all their states;
+goal creation and contribution; chats and messages; friendships and search;
+profile and settings; expected and unexpected errors; Sentry privacy; PWA
+assets; server-rendered content; and the phone shell. The quality spec also
+pins the reviewed WCAG A/AA findings, checks horizontal overflow on every
+signed-in screen and verifies representative touch targets.
+
+## Coverage gate
+
+`bun run test:coverage` is a permanent gate, not a one-off report:
+
+- Backend integration coverage instruments the production API assembly and
+  requires at least 80% line coverage. The pure backend unit suite still runs
+  separately because coverage does not replace its focused invariant tests.
+- Frontend coverage requires at least 80% for statements, branches, functions
+  and lines across the HTTP layer, composables, components, message catalogue,
+  utilities and shared Sentry configuration. Route pages and layouts are
+  exercised as complete screens by Playwright rather than counted as isolated
+  Vitest modules.
+
+`bun run validate` runs both thresholds, all unit tests, both production builds
+and the complete E2E suite.
 
 ## What automated tests did not catch
 

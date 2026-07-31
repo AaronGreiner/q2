@@ -35,6 +35,7 @@
     "test:api": "bun scripts/tasks.ts test:api",
     "test:unit": "bun scripts/tasks.ts test:unit",
     "test:component": "bun scripts/tasks.ts test:component",
+    "test:coverage": "bun scripts/tasks.ts test:coverage",
     "test:integration": "bun scripts/tasks.ts test:integration",
     "test:migrations": "bun scripts/tasks.ts test:migrations",
     "test:sentry": "bun scripts/tasks.ts test:sentry",
