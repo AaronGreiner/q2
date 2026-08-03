@@ -17,7 +17,17 @@ import type { NuxtError } from '#app'
 const props = defineProps<{ error: NuxtError }>()
 
 const t = useMessages()
+const feedback = useFeedback()
 const isNotFound = computed(() => props.error.statusCode === 404)
+
+/*
+ * The one screen where somebody knows something Sentry does not: what they were
+ * doing when it broke. Not offered for a 404, which is a mistyped URL rather
+ * than a defect, and not offered without a DSN, where there is nothing to open.
+ * The message is tagged `error-page` and carries the session replay with it, so
+ * the words land next to the recording of what produced them.
+ */
+const canGiveFeedback = computed(() => !isNotFound.value && feedback.isAvailable.value)
 
 onMounted(() => {
   if (isNotFound.value) {
@@ -65,13 +75,28 @@ useHead({ title: () => (isNotFound.value ? t.value.errors.pageNotFound : t.value
         {{ isNotFound ? t.errors.pageNotFoundHint : t.errors.unexpected }}
       </p>
 
-      <UButton
-        icon="i-lucide-house"
-        data-testid="app-error-home"
-        @click="goHome"
-      >
-        {{ t.common.toHome }}
-      </UButton>
+      <div class="flex flex-col items-center gap-2">
+        <UButton
+          icon="i-lucide-house"
+          data-testid="app-error-home"
+          @click="goHome"
+        >
+          {{ t.common.toHome }}
+        </UButton>
+
+        <UButton
+          v-if="canGiveFeedback"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-message-square-heart"
+          class="min-h-11"
+          :loading="feedback.isOpening.value"
+          data-testid="app-error-feedback"
+          @click="feedback.open('error-page')"
+        >
+          {{ t.feedback.fromErrorPage }}
+        </UButton>
+      </div>
     </div>
   </div>
 </template>

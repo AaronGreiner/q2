@@ -74,6 +74,26 @@ that never reached the API — with only error kind, expected/unexpected and HTT
 status. Its `beforeSendMetric` also allow-lists the name and strips SDK-added
 identity attributes.
 
+## User feedback
+
+Sentry's User Feedback dialog is wired up in the browser SDK and opened from two
+of q2's own controls — the settings screen and the error page — never from the
+SDK's injected floating button, which is switched off.
+
+It is the **one path that deliberately sends user-authored text**. A feedback
+event has `type: 'feedback'`, and `beforeSend` is only called for error events,
+so `scrubEvent` never sees one: what the person typed is what is transmitted.
+That is the point of the feature, and it is the reason the form collects nothing
+else — no name, no address, no screenshot, nothing read out of the Sentry scope.
+The event carries the message, the page URL, the session replay id and a
+`q2.feedback_source` tag (`settings` or `error-page`).
+
+What that means for anyone changing it: the guard is the shape of the form, not
+a filter downstream. `sentry.feedback.ts` holds it and
+`tests/unit/sentryFeedback.spec.ts` asserts it; `tests/e2e/feedback.spec.ts`
+asserts the same thing against the envelope on the wire. See
+[adr/0014-user-feedback.md](adr/0014-user-feedback.md).
+
 ## Profiles
 
 Browser UI Profiling is enabled with `browserProfilingIntegration`,

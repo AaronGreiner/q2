@@ -273,6 +273,30 @@ export const de = {
     version: (version: string) => `Q2 · Kudos — ${version}`,
   },
 
+  /**
+   * The feedback dialog is Sentry's, not ours: it renders in its own shadow DOM
+   * from the strings handed to it. These are those strings — see
+   * sentry.feedback.ts, which maps them onto the SDK's option names.
+   */
+  feedback: {
+    section: 'Feedback',
+    open: 'Feedback senden',
+    note: 'Deine Nachricht geht an unser Fehler-Reporting, zusammen mit der Seite, auf der du gerade bist. Name und E-Mail schicken wir nicht mit.',
+    fromErrorPage: 'Sag uns, was passiert ist',
+    title: 'Feedback geben',
+    messageLabel: 'Was möchtest du uns sagen?',
+    messagePlaceholder: 'Was hat nicht funktioniert, oder was fehlt dir? Bitte ohne persönliche Angaben.',
+    submit: 'Absenden',
+    cancel: 'Abbrechen',
+    success: 'Danke! Deine Nachricht ist angekommen.',
+    required: '(Pflichtfeld)',
+    errorEmpty: 'Bitte schreib noch etwas, bevor du absendest.',
+    errorUnavailable: 'Feedback ist gerade nicht verfügbar.',
+    errorTimeout: 'Das hat zu lange gedauert. Bitte versuch es noch einmal.',
+    errorForbidden: 'Von hier aus können wir dein Feedback nicht annehmen.',
+    errorGeneric: 'Wir konnten deine Nachricht nicht senden. Bitte versuch es noch einmal.',
+  },
+
   activity: {
     taskCompleted: (subject: string) => `hat „${subject}“ abgeschlossen`,
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht 🔥`,
@@ -345,6 +369,7 @@ export const de = {
     groupLeft: { emoji: '👋', text: 'Gruppe verlassen' },
     welcome: (name: string) => ({ emoji: '👋', text: `Willkommen, ${name}!` }),
     titleRequired: { emoji: '✏️', text: 'Bitte gib einen Titel ein' },
+    feedbackUnavailable: { emoji: '😕', text: 'Feedback lässt sich gerade nicht öffnen' },
   },
 }
 
@@ -601,6 +626,25 @@ export const en: Messages = {
     version: (version: string) => `Q2 · Kudos — ${version}`,
   },
 
+  feedback: {
+    section: 'Feedback',
+    open: 'Send feedback',
+    note: 'Your message goes to our error reporting, together with the page you are on. Your name and address are not sent with it.',
+    fromErrorPage: 'Tell us what happened',
+    title: 'Give feedback',
+    messageLabel: 'What would you like to tell us?',
+    messagePlaceholder: 'What did not work, or what is missing? Please leave personal details out.',
+    submit: 'Send',
+    cancel: 'Cancel',
+    success: 'Thank you! Your message arrived.',
+    required: '(required)',
+    errorEmpty: 'Please write something before sending.',
+    errorUnavailable: 'Feedback is not available right now.',
+    errorTimeout: 'That took too long. Please try again.',
+    errorForbidden: 'We cannot accept your feedback from here.',
+    errorGeneric: 'We could not send your message. Please try again.',
+  },
+
   activity: {
     taskCompleted: (subject: string) => `completed “${subject}”`,
     streakReached: (days: number) => `reached a ${days}-day streak 🔥`,
@@ -665,6 +709,7 @@ export const en: Messages = {
     groupLeft: { emoji: '👋', text: 'Left the group' },
     welcome: (name: string) => ({ emoji: '👋', text: `Welcome, ${name}!` }),
     titleRequired: { emoji: '✏️', text: 'Please enter a title' },
+    feedbackUnavailable: { emoji: '😕', text: 'Feedback cannot be opened right now' },
   },
 }
 

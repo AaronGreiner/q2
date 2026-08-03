@@ -29,11 +29,29 @@ const { chat, error, isMissing, isLoading, refresh, send, cheer, react, leave, i
 
 const thread = useTemplateRef<HTMLElement>('thread')
 
-/** A new message belongs at the bottom, where a thread is read from. */
-async function scrollToLatest() {
-  await nextTick()
+/** A thread is read from the bottom, so that is where it opens and stays. */
+function scrollToLatest() {
   if (thread.value) thread.value.scrollTop = thread.value.scrollHeight
 }
+
+/*
+ * Both moments that put the newest message out of sight, in one place.
+ *
+ * `thread` is the scroll region, and it only exists once the conversation has
+ * loaded — which, on a tap from the list, is *after* this page is mounted.
+ * Scrolling in `onMounted` therefore ran against nothing and left the
+ * conversation sitting on its oldest message; watching the element itself
+ * catches the render it appears in, whether that is the first one (the payload
+ * came from the server) or a later one.
+ *
+ * The message count covers everything written from here — sending, and the
+ * pinned goal's "Anfeuern", which is a message like any other. A reaction
+ * leaves the count alone and does not move the thread under the reader.
+ *
+ * `flush: 'post'` because the height being measured is the one after Vue has
+ * patched the DOM, not before.
+ */
+watch([thread, () => chat.value?.messages.length], scrollToLatest, { flush: 'post' })
 
 const status = computed(() => {
   if (!chat.value) return ''
@@ -45,11 +63,6 @@ const status = computed(() => {
   return t.value.chats.offline
 })
 
-async function onSend(text: string) {
-  await send(text)
-  await scrollToLatest()
-}
-
 /**
  * Leaving is not undoable from inside the app — somebody in the group would
  * have to start a new one — so it asks first.
@@ -57,8 +70,6 @@ async function onSend(text: string) {
 const isLeaveOpen = ref(false)
 
 onMounted(async () => {
-  await scrollToLatest()
-
   // The badge in the tab bar counts unread conversations, and this one is not
   // one any more.
   await refreshNuxtData('profile')
@@ -200,7 +211,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
 
       <ChatComposer
         :busy="isSending"
-        @send="onSend"
+        @send="send"
       />
     </template>
 

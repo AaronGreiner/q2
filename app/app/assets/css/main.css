@@ -226,6 +226,45 @@ body > [role="dialog"] {
 }
 
 /*
+ * The Sentry feedback dialog, which is the one overlay in q2 that the rule
+ * above cannot reach: it renders inside a shadow DOM, so no document rule
+ * applies to it and `body > [role="dialog"]` never matches. What is left is its
+ * host element — the `<div id="sentry-feedback">` the SDK appends to <body>,
+ * named in sentry.feedback.ts — and two things have to be said to it.
+ *
+ * Inherited properties do cross into a shadow tree, and `user-select: none` on
+ * <body> is one of them: without this, the caret cannot be placed in the
+ * message field and a typo cannot be corrected. It is the case ADR 0013 predicts
+ * — a component that needs selectable content and cannot opt back in through the
+ * `input, textarea` rule below, because that rule does not reach inside either.
+ */
+body > #sentry-feedback {
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/*
+ * And the keyboard. The dialog inside is `position: fixed` against the display,
+ * so it keeps its full height while a keyboard covers a third of it, and the
+ * focused field ends up underneath — with nothing for WebKit to scroll but the
+ * page, which useKeyboardViewport then scrolls back. Clipping the host to what
+ * the keyboard leaves over, and making it the containing block those fixed
+ * children resolve against (which is what the transform is for), shrinks the
+ * dialog into the visible strip instead. It already scrolls inside itself.
+ *
+ * Only while q2 has the dialog open, because the host stays in <body> once it
+ * has been created: an always-on full-screen box would swallow every tap in the
+ * app, and one that appears whenever a keyboard is up would swallow them in the
+ * chat composer. `useFeedback` sets the attribute when it opens the form and
+ * removes it when the form closes.
+ */
+body > #sentry-feedback[data-q2-open] {
+  position: fixed;
+  inset: 0 0 var(--q2-keyboard-inset, 0px) 0;
+  transform: translateZ(0);
+}
+
+/*
  * For a screen whose top edge is a --q2-surface bar rather than the page.
  *
  * Nothing inside the app reads the body's background — the shell paints over

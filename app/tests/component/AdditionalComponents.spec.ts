@@ -15,6 +15,7 @@ import FriendRequestRow from '~/components/friends/FriendRequestRow.vue'
 import FriendSuggestionRow from '~/components/friends/FriendSuggestionRow.vue'
 import GoalTile from '~/components/goals/GoalTile.vue'
 import LeaderboardCard from '~/components/social/LeaderboardCard.vue'
+import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
 import StreakHero from '~/components/home/StreakHero.vue'
@@ -288,6 +289,26 @@ describe('feature cards and rows', () => {
     })
     await row.get('[role="switch"]').trigger('click')
     expect(row.emitted('update:modelValue')?.[0]).toEqual([true])
+  })
+
+  it('asks a settings action row to act, and stops asking while it is busy', async () => {
+    const row = await mountSuspended(SettingsActionRow, {
+      props: { icon: 'i-lucide-message-square-heart', label: 'Feedback senden' },
+    })
+
+    // A real button, so it is reachable by keyboard and announces itself as one.
+    const button = row.get('button')
+    expect(button.attributes('type')).toBe('button')
+    expect(button.text()).toContain('Feedback senden')
+
+    await button.trigger('click')
+    expect(row.emitted('activate')).toHaveLength(1)
+
+    await row.setProps({ busy: true })
+    expect(button.attributes('disabled')).toBeDefined()
+
+    await button.trigger('click')
+    expect(row.emitted('activate')).toHaveLength(1)
   })
 
   it('uses real destinations and shows both navigation counters', async () => {

@@ -21,3 +21,4 @@ so the reasoning at the time stays readable.
 | [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted |
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
+| [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |

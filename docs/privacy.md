@@ -102,7 +102,7 @@ to a goal, it refers to its **id** — see `GoalService.CreateAsync`.
 The complete filtering behaviour is in
 [observability.md](observability.md#filtering); the privacy-relevant summary:
 
-**Never sent:**
+**Never sent** (with one exception, below):
 
 - passwords, tokens, API keys, `Authorization` headers, cookies, session ids
 - database connection strings, DSNs, any secret

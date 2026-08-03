@@ -22,6 +22,7 @@ const { settings, update } = useAppSettings()
 
 const config = useRuntimeConfig()
 const { person, logout } = useSession()
+const feedback = useFeedback()
 
 const isSigningOut = ref(false)
 
@@ -175,6 +176,26 @@ useHead({ title: () => t.value.settings.heading })
           </span>
           <span class="min-w-0 flex-1 text-sm font-semibold">{{ row.label }}</span>
         </div>
+      </SettingsSection>
+
+      <!--
+        Only when there is a dialog behind it. Without a DSN the Sentry client
+        sets up no integrations, and a row that opens nothing is worse than no
+        row — the same reason the account rows above are visibly unavailable
+        rather than quietly dead.
+      -->
+      <SettingsSection
+        v-if="feedback.isAvailable.value"
+        :title="t.feedback.section"
+        :note="t.feedback.note"
+      >
+        <SettingsActionRow
+          icon="i-lucide-message-square-heart"
+          :label="t.feedback.open"
+          :busy="feedback.isOpening.value"
+          data-testid="open-feedback"
+          @activate="feedback.open('settings')"
+        />
       </SettingsSection>
 
       <div class="mt-5">

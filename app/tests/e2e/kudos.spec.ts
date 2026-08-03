@@ -187,6 +187,28 @@ test.describe('chats', () => {
     await expect(page.getByTestId('nav-chats')).toHaveText('Chats')
   })
 
+  test('opening a thread that is longer than the screen lands on the newest message', async ({ page }) => {
+    await page.goto('/chats')
+    await page.getByTestId('chat-row').filter({ hasText: seeded.groupChat }).click()
+
+    // The seeded thread fits on the screen, and a thread that fits is at its
+    // newest message whatever it does. Make it longer than the screen first.
+    const newest = `E2E newest ${Date.now()}`
+    for (let index = 1; index <= 12; index++) {
+      await page.getByTestId('chat-input').fill(index === 12 ? newest : `E2E filler ${index}`)
+      await page.getByTestId('chat-send').click()
+      await expect(page.getByTestId('chat-input')).toHaveValue('')
+    }
+
+    // Leaving and coming back is the moment this is about: the conversation is
+    // fetched after the screen is already on display.
+    await page.getByTestId('back-link').click()
+    await page.getByTestId('chat-row').filter({ hasText: seeded.groupChat }).click()
+
+    await expect(page.getByTestId('chat-bubble').last()).toContainText(newest)
+    await expect(page.getByTestId('chat-bubble').last()).toBeInViewport()
+  })
+
   test('a message can be sent and appears in the thread', async ({ page }) => {
     await page.goto('/chats')
     await page.getByTestId('chat-row').filter({ hasText: seeded.friend }).click()

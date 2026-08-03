@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nuxt'
+import { feedbackFormOptions } from './sentry.feedback'
 import {
   replayBlockSelectors,
   replayMaskSelectors,
@@ -84,6 +85,20 @@ Sentry.init({
       maskAllInputs: true,
       blockAllMedia: false,
     }),
+
+    /*
+     * User Feedback. `feedbackIntegration` is the synchronous build, so the
+     * dialog is part of our bundle and nothing is fetched from a CDN when
+     * somebody opens it — the app has no runtime third-party script, and an
+     * installed q2 that is slow to reach the network still opens the form.
+     *
+     * What the form collects and why is in sentry.feedback.ts; the text is not
+     * here because it is translated and applied when the dialog is opened, in
+     * `useFeedback`. The integration only exists when a DSN is configured — a
+     * disabled client sets up no integrations at all — which is what the
+     * `isAvailable` check in that composable is about.
+     */
+    Sentry.feedbackIntegration({ ...feedbackFormOptions }),
   ],
 
   initialScope: {
