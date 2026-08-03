@@ -24,9 +24,13 @@ withDefaults(defineProps<{
 </script>
 
 <template>
+  <!-- A pushed screen gets a hairline under the bar, the way the chat thread
+       has one: its title is small and sits right on top of the content, so
+       without a rule the two run together. A main screen carries a large title
+       that reads as a heading of the page rather than a bar over it. -->
   <header
     class="flex shrink-0 items-center gap-2 px-[18px] pt-1.5 pb-2"
-    :class="backTo ? '' : 'items-start justify-between'"
+    :class="backTo ? 'border-b border-(--ui-border)' : 'items-start justify-between'"
   >
     <NuxtLink
       v-if="backTo"

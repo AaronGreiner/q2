@@ -332,6 +332,51 @@ in a desktop run ([../docs/adr/0013-app-like-input.md](../docs/adr/0013-app-like
   leaves a compact tab bar hovering above the screen edge. Use the token; do
   not reach for `env()` directly.
 
+## 9b. Anywhere a keyboard can open
+
+**A web view is never told a keyboard is coming.** A native app gets a
+notification and lays itself out again; WebKit has one lever instead, and it is
+to scroll the page until the focused field is visible. The q2 shell is exactly
+one viewport tall with nothing to scroll inside it, so what WebKit scrolls is
+the whole app: the header slides up behind the status bar and stays there until
+the field is blurred. It reads as a broken layout because it is not a layout at
+all, it is a scroll.
+
+The visual viewport does know where the keyboard is.
+[`useKeyboardViewport`](app/composables/useKeyboardViewport.ts) runs once in
+`app.vue` and publishes two custom properties while a keyboard is up, and
+nothing while it is not:
+
+| property | is | used by |
+| --- | --- | --- |
+| `--q2-viewport-height` | what is left of the screen | the shell in both layouts |
+| `--q2-keyboard-inset` | how much is covered | anything pinned to the viewport |
+
+**What you have to do when you add something that can take typed input:**
+
+- **Inside a layout — nothing.** Both shells are already sized with
+  `h-[var(--q2-viewport-height,100dvh)]`. A form on a page is carried by that,
+  and the fallback to `100dvh` is what the server renders and what the first
+  frame uses, which on iOS must not be disturbed (see `app/app.vue`).
+- **A new overlay — check it is reached by the rule in `main.css`.** Overlays
+  are teleported to `<body>` and pinned to the viewport, so the shell shrinking
+  around them means nothing: a drawer stays behind the keyboard with its submit
+  button under the number row. `body > [role="dialog"]` pulls the bottom edge up
+  by `--q2-keyboard-inset`, which covers UModal and UDrawer as Nuxt UI renders
+  them today. Something that positions itself differently needs the inset
+  applied by hand — and needs its own scroll region, because the fix only works
+  if the field can come into view without the *page* moving.
+- **Verify it with a real keyboard**, not a hardware one. A simulator defaults
+  to the Mac's keyboard and then nothing covers anything; turn that off first
+  (⌘K in Simulator). Check three things: the header stays put, the focused
+  field is visible, and the submit control can still be reached.
+
+Two things no viewport API reports, so do not go looking for them: iOS draws the
+form-navigation bar (‹ › Done) floating *over* the page above the keyboard, and
+it is not subtracted from `visualViewport.height` — budget roughly 60pt of your
+own padding if a control must sit at the very bottom edge. And
+`env(keyboard-inset-*)` is Chrome-only; it is not an option here.
+
 ## 10. Tests
 
 ```bash

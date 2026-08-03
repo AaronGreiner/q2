@@ -12,6 +12,10 @@ const { settings } = useAppSettings()
 const language = useLanguage()
 const t = useMessages()
 
+// Both layouts size themselves off --q2-viewport-height, so the one place that
+// wraps both is where the keyboard has to be watched.
+useKeyboardViewport()
+
 useHead({
   titleTemplate: title => (title ? `${title} · Kudos` : 'Kudos (q2)'),
   htmlAttrs: { lang: computed(() => languageKeys[language.value]) },
@@ -45,10 +49,34 @@ useHead({
     { name: 'theme-color', content: themeColors.dark, media: '(prefers-color-scheme: dark)' },
     { name: 'mobile-web-app-capable', content: 'yes' },
 
-    // iOS reads its own spelling of the above. 'black-translucent' is what lets
-    // the layout paint under the status bar, which viewport-fit=cover asked for.
+    // iOS reads its own spelling of the above.
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
-    { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+
+    /*
+     * Deliberately NOT 'black-translucent', which is the setting that lets a
+     * page paint under the status bar.
+     *
+     * Installed, black-translucent makes WebKit lay out the first frame as if
+     * the status bar were opaque and only correct itself a moment later, once
+     * it applies the full-screen layout. Measured on an iPhone 17 Pro
+     * (874pt tall) in a home-screen web app: at first paint innerHeight,
+     * 100dvh, 100svh, 100lvh and visualViewport.height all read 812 — short by
+     * exactly the 62pt status bar — and only then jump to 874. Nothing readable
+     * from CSS or JS has the right number before that, so an `h-dvh` shell
+     * opens 62pt too short and the tab bar visibly snaps down to the bottom of
+     * the screen on the first scroll. -webkit-fill-available is not a way out:
+     * it read 874 on one launch and 812 on the next, and went stale afterwards.
+     *
+     * With the status bar left opaque the viewport is 812 from the first frame
+     * and stays there, so there is nothing to snap. The look survives: iOS
+     * tints the status bar with the page's own background colour and picks a
+     * contrasting time and battery on top of it, so the bar follows --ui-bg
+     * into dark mode by itself — which is all black-translucent was buying.
+     *
+     * viewport-fit=cover above stays: env(safe-area-inset-bottom) is still what
+     * keeps the tab bar off the home indicator, and Android still needs it.
+     */
+    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
     { name: 'apple-mobile-web-app-title', content: 'Kudos' },
   ],
 

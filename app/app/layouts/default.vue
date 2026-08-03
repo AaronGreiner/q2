@@ -3,10 +3,11 @@
  * The application frame for the five main screens: a phone-shaped column with
  * the navigation pinned to the bottom.
  *
- * `h-dvh` with an inner scroll region rather than a page that scrolls: this is
- * what makes the bottom bar stay put under a thumb instead of sliding away, and
- * `dvh` rather than `vh` is what keeps it above the browser chrome when that
- * chrome hides on scroll.
+ * One viewport tall with an inner scroll region, rather than a page that
+ * scrolls: this is what makes the bottom bar stay put under a thumb instead of
+ * sliding away, and `dvh` rather than `vh` is what keeps it above the browser
+ * chrome when that chrome hides on scroll. While a keyboard is up
+ * `--q2-viewport-height` takes over — see useKeyboardViewport.
  *
  * On a wide screen the column is centred at phone width. q2 is a phone
  * application that currently happens to run in a browser (app/AGENTS.md
@@ -21,7 +22,7 @@ const { profile } = useProfile()
 </script>
 
 <template>
-  <div class="mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text)">
+  <div class="mx-auto flex h-[var(--q2-viewport-height,100dvh)] w-full max-w-[430px] flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text)">
     <!-- First tab stop: lets keyboard users jump past the header of each screen. -->
     <a
       href="#main"

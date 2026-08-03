@@ -22,7 +22,9 @@ function submit() {
 </script>
 
 <template>
-  <div class="shrink-0 border-t border-(--ui-border) bg-(--q2-surface)">
+  <!-- Pads its own safe area, so the surface reaches the home indicator rather
+       than a strip of --ui-bg — see app/layouts/plain.vue. -->
+  <div class="shrink-0 border-t border-(--ui-border) bg-(--q2-surface) pb-(--q2-safe-bottom)">
     <div class="q2-scroll-x flex gap-2 px-[18px] pt-2.5 pb-1">
       <button
         v-for="cheer in t.chats.quickCheers"

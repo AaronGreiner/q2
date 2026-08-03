@@ -65,6 +65,11 @@ tests/component/GoalCard.spec.ts     how to write a component test
 - **Use `--q2-safe-bottom`, not `env(safe-area-inset-bottom)`.** The token caps
   the inset; using it raw puts a wide empty band under the tab bar on a phone
   with a home indicator, which is invisible in a desktop browser.
+- **Anything that can open a keyboard has a rule** — [AGENTS.md](AGENTS.md)
+  section 9b. A field inside a layout needs nothing; a new overlay has to be
+  reached by the `--q2-keyboard-inset` rule in `main.css`, or the keyboard
+  covers it and iOS scrolls the whole app up behind the status bar. A hardware
+  keyboard hides all of this, so turn it off in Simulator (⌘K) before checking.
 
 ## Verifying a change
 

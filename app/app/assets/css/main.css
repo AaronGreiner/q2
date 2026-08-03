@@ -197,6 +197,47 @@ body {
 }
 
 /*
+ * Every overlay is a fixed child of <body>, teleported clean out of the shell,
+ * so shrinking the shell around the keyboard does not reach it: a drawer stays
+ * pinned to the bottom of the display with the keyboard drawn on top of it, and
+ * its submit button ends up somewhere under the number row. WebKit then does
+ * what it does when a focused field is covered and scrolls the whole page, so
+ * the screen behind slides up under the status bar too.
+ *
+ * Pulling the bottom edge of the overlay up by the covered strip is the whole
+ * fix. A drawer lands on top of the keyboard instead of behind it and a modal
+ * re-centres in what is left; both already scroll inside, so the focused field
+ * is visible and WebKit has no reason to scroll anything.
+ *
+ * Matched on the role rather than on a component, because the point is to cover
+ * whatever gets teleported next without anybody having to remember — see
+ * app/AGENTS.md section 9b. The drawer needs the second rule as well: its
+ * height is capped against the display, which is no longer what it can use.
+ *
+ * Unlayered on purpose: the utilities these override live in a Tailwind cascade
+ * layer, and an unlayered rule beats a layered one whatever the specificity.
+ */
+body > [role="dialog"] {
+  bottom: var(--q2-keyboard-inset, 0px);
+}
+
+[data-vaul-drawer][data-vaul-drawer-direction="bottom"] {
+  max-height: calc(96% - var(--q2-keyboard-inset, 0px));
+}
+
+/*
+ * For a screen whose top edge is a --q2-surface bar rather than the page.
+ *
+ * Nothing inside the app reads the body's background — the shell paints over
+ * all of it. Installed on iOS the system does: it tints the status bar with
+ * this colour, so a screen with a header on the edge sets this and the bar
+ * above the header stops being a seam. See app/pages/chats/[id].vue.
+ */
+body.q2-body-surface {
+  background: var(--q2-surface);
+}
+
+/*
  * Everything a person types in stays selectable, because selection is how text
  * is corrected: without this, placing a caret mid-word or picking a wrong word
  * out of a goal title becomes impossible.

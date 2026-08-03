@@ -75,7 +75,9 @@ useHead({ title: 'Diagnostics' })
 </script>
 
 <template>
-  <div class="q2-scroll flex flex-1 flex-col gap-8 px-[18px] py-4">
+  <!-- The bottom padding clears the home indicator, because the layout no
+       longer pads underneath — see app/layouts/plain.vue. -->
+  <div class="q2-scroll flex flex-1 flex-col gap-8 px-[18px] pt-4 pb-[max(1rem,var(--q2-safe-bottom))]">
     <section class="flex flex-col gap-2">
       <h1 class="text-2xl font-semibold">
         Diagnostics

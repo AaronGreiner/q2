@@ -6,7 +6,19 @@
  * refreshed afterwards — the count lives on the profile, and it has just
  * changed under it.
  */
-definePageMeta({ layout: 'plain' })
+// The header and the composer sit on the edges of the display and pad
+// themselves — see app/layouts/plain.vue.
+definePageMeta({ layout: 'plain', edgeToEdge: true })
+
+/*
+ * Installed on iOS the status bar has no colour of its own: the system tints it
+ * with the page's background and picks a contrasting clock to sit on it. Every
+ * other screen has --ui-bg at the top and gets that for free; here the top of
+ * the screen is the header, so without this the bar above it comes out --ui-bg
+ * and reads as a seam across the top of the conversation. See app/app.vue for
+ * why the status bar is the system's to paint at all.
+ */
+useHead({ bodyAttrs: { class: 'q2-body-surface' } })
 
 const route = useRoute()
 const t = useMessages()
@@ -59,7 +71,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
   <div class="flex min-h-0 flex-1 flex-col">
     <header
       v-if="chat"
-      class="flex shrink-0 items-center gap-2.5 border-b border-(--ui-border) bg-(--q2-surface) px-[18px] py-2"
+      class="flex shrink-0 items-center gap-2.5 border-b border-(--ui-border) bg-(--q2-surface) px-[18px] py-2 pt-[calc(0.5rem+env(safe-area-inset-top))]"
     >
       <!-- `-ms-2` for the same reason as in AppScreenHeader: the arrow's box is
            bigger than the arrow, and lining up the box would leave the glyph
