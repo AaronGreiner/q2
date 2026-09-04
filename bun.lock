@@ -17,7 +17,7 @@
         "vue-router": "5.2.0",
       },
       "devDependencies": {
-        "@axe-core/playwright": "^4.12.1",
+        "@axe-core/playwright": "4.12.1",
         "@iconify-json/lucide": "1.2.120",
         "@nuxt/eslint": "1.16.0",
         "@nuxt/test-utils": "4.1.0",
