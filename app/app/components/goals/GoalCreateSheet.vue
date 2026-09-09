@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, GoalRhythm } from '~/api/types'
-import { goalIcons, goalRhythms } from '~/api/types'
+import type { CreateGoalRequest, GoalScheduleRequest } from '~/api/types'
+import { goalIcons } from '~/api/types'
 
 /**
  * The sheet that slides up from the bottom to create a goal.
@@ -28,10 +28,14 @@ const t = useMessages()
 const maxTitleLength = 120
 
 const title = ref('')
-const rhythm = ref<GoalRhythm>('Daily')
 const icon = ref<string>(goalIcons[0]!)
-const totalSteps = ref(30)
 const withReminder = ref(true)
+
+/*
+ * Every day, which is what most people mean by a new habit and the one the
+ * server assumes when a request says nothing about it.
+ */
+const schedule = ref<GoalScheduleRequest>({ kind: 'Interval', everyDays: 1 })
 
 /** Server-reported messages for one field, matched case-insensitively. */
 function fieldError(field: string): string | undefined {
@@ -48,9 +52,8 @@ function onSubmit() {
 
   emit('submit', {
     title: title.value.trim(),
-    rhythm: rhythm.value,
+    schedule: schedule.value,
     icon: icon.value,
-    totalSteps: totalSteps.value,
 
     // A daily nudge at nine, or none at all. Choosing the hour is a setting
     // this version does not have, and inventing a time picker for it would be
@@ -62,9 +65,8 @@ function onSubmit() {
 /** Called by the page after a successful create. */
 function reset() {
   title.value = ''
-  rhythm.value = 'Daily'
   icon.value = goalIcons[0]!
-  totalSteps.value = 30
+  schedule.value = { kind: 'Interval', everyDays: 1 }
   withReminder.value = true
 }
 
@@ -104,30 +106,11 @@ defineExpose({ reset })
         </UFormField>
 
         <UFormField
-          :label="t.create.rhythmLabel"
-          name="rhythm"
+          :label="t.create.scheduleLabel"
+          name="schedule"
+          :error="fieldError('schedule')"
         >
-          <div
-            class="flex flex-wrap gap-2"
-            role="radiogroup"
-            :aria-label="t.create.rhythmLabel"
-          >
-            <button
-              v-for="option in goalRhythms"
-              :key="option"
-              type="button"
-              role="radio"
-              :aria-checked="rhythm === option"
-              class="rounded-full border px-3.5 py-2 text-[13px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-              :class="rhythm === option
-                ? 'border-transparent bg-(--q2-accent-solid) text-white'
-                : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
-              :data-testid="`rhythm-${option}`"
-              @click="rhythm = option"
-            >
-              {{ t.rhythm[option] }}
-            </button>
-          </div>
+          <SchedulePicker v-model="schedule" />
         </UFormField>
 
         <UFormField
@@ -149,7 +132,7 @@ defineExpose({ reset })
               :aria-label="option"
               class="flex aspect-square items-center justify-center rounded-(--q2-radius-md) border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
               :class="icon === option
-                ? 'border-transparent bg-(--q2-accent-solid) text-white'
+                ? 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
                 : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
               :data-testid="`icon-${option}`"
               @click="icon = option"
@@ -162,27 +145,11 @@ defineExpose({ reset })
           </div>
         </UFormField>
 
-        <UFormField
-          :label="t.create.stepsLabel"
-          name="totalSteps"
-          :help="t.create.stepsHelp"
-          :error="fieldError('totalSteps')"
-        >
-          <UInputNumber
-            v-model="totalSteps"
-            :min="1"
-            :max="1000"
-            size="xl"
-            class="w-full"
-            data-testid="goal-steps-input"
-          />
-        </UFormField>
-
         <div class="flex items-center justify-between rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-4 py-3">
           <span class="flex items-center gap-2.5">
             <UIcon
               name="i-lucide-bell"
-              class="size-5 text-(--ui-primary)"
+              class="size-5 text-(--ui-text-muted)"
               aria-hidden="true"
             />
             <span class="text-sm font-semibold">{{ t.create.reminderLabel }}</span>

@@ -18,23 +18,23 @@ const seeded = {
 
 test.describe('signed out', () => {
   test('every screen sends you to the sign-in rather than showing an error', async ({ page }) => {
-    for (const path of ['/', '/goals', '/chats', '/friends', '/profile']) {
+    for (const path of ['/', '/goals', '/chats', '/search', '/profile']) {
       await page.goto(path)
       await expect(page.getByTestId('login-form')).toBeVisible()
     }
   })
 
   test('where you were heading survives the detour', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     // The router does not percent-encode a slash inside a query value.
-    await expect(page).toHaveURL('/login?next=/friends')
+    await expect(page).toHaveURL('/login?next=/search')
 
     await page.getByTestId('demo-fill').click()
     await page.getByTestId('login-submit').click()
 
     // Not the start screen: the link somebody actually followed.
-    await expect(page).toHaveURL('/friends')
+    await expect(page).toHaveURL('/search')
   })
 
   test('signing in lands on the start screen with that person\'s data', async ({ page }) => {

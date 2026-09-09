@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Q2.Api.Features.Accounts;
 
@@ -35,6 +36,14 @@ public static class AccountEndpoints
             .WithSummary("Ends the session. Succeeds even when there was none.")
             .Produces(StatusCodes.Status204NoContent);
 
+        group.MapDelete("/account", DeleteAccount)
+            .RequireAuthorization()
+            .WithName("DeleteAccount")
+            .WithSummary("Deletes the signed-in account and everything personal behind it. Asks for the password again.")
+            .Produces<AccountDeletionResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/session", Session)
             .RequireAuthorization()
             .WithName("GetSession")
@@ -62,6 +71,19 @@ public static class AccountEndpoints
         var result = await accounts.LoginAsync(request, cancellationToken);
         return TypedResults.Ok(result);
     }
+
+    /// <remarks>
+    /// <c>[FromBody]</c> is required rather than decorative: ASP.NET Core will
+    /// not infer a body on DELETE, because a body on DELETE is unusual enough
+    /// that inferring one is more likely to be a mistake than an intention.
+    /// Here it is the intention — the password is what authorises this, and the
+    /// verb is still the honest one for erasing a resource.
+    /// </remarks>
+    private static async Task<Ok<AccountDeletionResponse>> DeleteAccount(
+        AccountService accounts,
+        [FromBody] DeleteAccountRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await accounts.DeleteAsync(request, cancellationToken));
 
     private static async Task<NoContent> Logout(AccountService accounts)
     {

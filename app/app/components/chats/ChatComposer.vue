@@ -30,7 +30,7 @@ function submit() {
         v-for="cheer in t.chats.quickCheers"
         :key="cheer.label"
         type="button"
-        class="shrink-0 rounded-full bg-(--q2-accent-soft) px-3.5 py-2 text-[13px] font-bold whitespace-nowrap text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="shrink-0 rounded-full border border-(--ui-border) bg-(--ui-bg-elevated) px-3.5 py-2 text-[13px] font-bold whitespace-nowrap text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         data-testid="quick-cheer"
         @click="emit('send', cheer.text)"
       >
@@ -57,10 +57,18 @@ function submit() {
         data-testid="chat-input"
       >
 
+      <!--
+        Disabled is drawn as an outline rather than as a faded accent fill. A
+        washed-out accent reads as a mistake — as though the colour had failed
+        — while an outline reads as "not yet", which is what it means.
+      -->
       <button
         type="submit"
         :disabled="busy || draft.trim().length === 0"
-        class="flex size-11 shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) text-white transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary) disabled:opacity-40"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :class="busy || draft.trim().length === 0
+          ? 'border-(--ui-border-accented) bg-transparent text-(--ui-text-dimmed)'
+          : 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'"
         :aria-label="t.chats.send"
         data-testid="chat-send"
       >

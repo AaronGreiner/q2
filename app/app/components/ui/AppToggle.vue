@@ -22,7 +22,7 @@ const model = defineModel<boolean>({ required: true })
     :aria-checked="model"
     :aria-label="label"
     class="flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-    :class="model ? 'justify-end bg-(--q2-accent-solid)' : 'justify-start bg-(--q2-track)'"
+    :class="model ? 'justify-end bg-(--ui-text)' : 'justify-start bg-(--q2-track)'"
     data-testid="toggle"
     @click="model = !model"
   >

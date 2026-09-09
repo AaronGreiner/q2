@@ -13,7 +13,7 @@ const model = defineModel<boolean>({ required: true })
 <template>
   <div class="flex items-center gap-3 border-b border-(--ui-border) px-4 py-3 last:border-b-0">
     <span
-      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-soft) text-(--q2-accent-soft-text)"
+      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--ui-bg-accented) text-(--ui-text)"
       aria-hidden="true"
     >
       <UIcon

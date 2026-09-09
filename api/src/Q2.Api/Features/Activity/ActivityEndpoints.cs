@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Q2.Api.Features.Activity;
 
-/// <summary>HTTP surface for the feed, kudos and the leaderboard.</summary>
+/// <summary>HTTP surface for the feed and the kudos on it.</summary>
 public static class ActivityEndpoints
 {
     public static IEndpointRouteBuilder MapActivityEndpoints(this IEndpointRouteBuilder endpoints)
@@ -19,13 +19,6 @@ public static class ActivityEndpoints
             .WithSummary("Gives kudos for an activity, or takes them back.")
             .Produces<ActivityResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
-
-        endpoints.MapGet("/api/leaderboard", ListLeaderboard)
-            .RequireAuthorization()
-            .WithTags("Activity")
-            .WithName("ListLeaderboard")
-            .WithSummary("Ranks you and your friends by kudos received.")
-            .Produces<IReadOnlyList<LeaderboardEntryResponse>>();
 
         return endpoints;
     }
@@ -44,14 +37,6 @@ public static class ActivityEndpoints
         CancellationToken cancellationToken)
     {
         var result = await activity.ToggleKudosAsync(id, cancellationToken);
-        return TypedResults.Ok(result);
-    }
-
-    private static async Task<Ok<IReadOnlyList<LeaderboardEntryResponse>>> ListLeaderboard(
-        ActivityService activity,
-        CancellationToken cancellationToken)
-    {
-        var result = await activity.ListLeaderboardAsync(cancellationToken);
         return TypedResults.Ok(result);
     }
 }

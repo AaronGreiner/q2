@@ -1,5 +1,7 @@
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.UnitTests.Goals;
 
@@ -16,29 +18,33 @@ public class GoalTests
 
     /// <summary>Whoever it belongs to. Fixed, so a failure names the same id twice.</summary>
     private static readonly Guid Owner = new("11111111-1111-4111-8111-111111111111");
+
+    /// <summary>A Monday.</summary>
     private static readonly DateOnly Today = new(2026, 6, 15);
 
-    private static Goal Build(int completedSteps = 0, int totalSteps = 10, DateOnly? targetDate = null) =>
-        Goal.Create(
-            Guid.CreateVersion7(),
-            Owner,
-            "Walk 8.000 steps a day",
-            null,
-            "target",
-            GoalRhythm.Daily,
-            isGroup: false,
-            completedSteps,
-            totalSteps,
-            reminderAt: null,
-            targetDate,
-            Created);
+    private static readonly LocalCalendar Utc = new(TimeZoneInfo.Utc);
+
+
+    /// <summary>
+    /// Delivers a photograph and has it believed — the only way a window moves
+    /// now that a proof is a picture other people vote on.
+    /// </summary>
+    /// <remarks>
+    /// Written out rather than hidden behind a fixture: these tests are about
+    /// what a window does with a *confirmed* proof, and the two steps are
+    /// exactly the two things that have to happen for one to count.
+    /// </remarks>
+    private static bool Deliver(Goal goal, DateTimeOffset now)
+    {
+        var proof = goal.SubmitProof(Guid.NewGuid(), Guid.NewGuid(), capturedInApp: true, now);
+
+        return proof is not null && goal.ApplyProofOutcome(proof, VotingResult.Confirmed, now);
+    }
 
     [Fact]
     public void ATitleIsRequiredAndIsTrimmed()
     {
-        var goal = Goal.Create(
-            Guid.CreateVersion7(), Owner, "  Read every day  ", null, "book-open", GoalRhythm.Daily,
-            false, 0, 30, null, null, Created);
+        var goal = Build(title: "  Read every day  ");
 
         Assert.Equal("Read every day", goal.Title);
     }
@@ -48,8 +54,7 @@ public class GoalTests
     [InlineData("   ")]
     public void ABlankTitleIsRejected(string title)
     {
-        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, title, null, "target", GoalRhythm.Daily, false, 0, 10, null, null, Created));
+        var error = Assert.Throws<DomainValidationException>(() => Build(title: title));
 
         Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
     }
@@ -57,188 +62,236 @@ public class GoalTests
     [Fact]
     public void ATitleLongerThanTheLimitIsRejected()
     {
-        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, new string('a', Goal.MaxTitleLength + 1), null, "target", GoalRhythm.Daily,
-            false, 0, 10, null, null, Created));
+        var error = Assert.Throws<DomainValidationException>(
+            () => Build(title: new string('a', Goal.MaxTitleLength + 1)));
 
         Assert.Contains(nameof(Goal.Title), error.Errors.Keys);
     }
 
     [Fact]
-    public void AnUnknownIconIsRejected()
+    public void AnUnknownIconIsRejectedAndAMissingOneFallsBack()
+    {
+        Assert.Throws<DomainValidationException>(() => Build(icon: "not-an-icon"));
+        Assert.Equal(GoalIcons.Default, Build(icon: null).Icon);
+    }
+
+    [Fact]
+    public void AGoalNeedsSomebodyItBelongsTo()
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Anything", null, "rocket", GoalRhythm.Daily, false, 0, 10, null, null, Created));
+            Guid.CreateVersion7(), Guid.Empty, "Anything", null, "target",
+            GoalSchedule.EveryNDays(1), false, null, null, Created));
 
-        Assert.Contains(nameof(Goal.Icon), error.Errors.Keys);
+        Assert.Contains(nameof(Goal.OwnerPersonId), error.Errors.Keys);
+    }
+
+    /// <summary>
+    /// A repeating goal derives every day it is due, so a target date on one
+    /// would be a second answer to the same question.
+    /// </summary>
+    [Fact]
+    public void ATargetDateOnlyStaysOnAOneOff()
+    {
+        var due = Today.AddDays(10);
+
+        Assert.Equal(due, Build(schedule: GoalSchedule.Once(), targetDate: due).TargetDate);
+        Assert.Null(Build(schedule: GoalSchedule.EveryNDays(1), targetDate: due).TargetDate);
     }
 
     [Fact]
-    public void AMissingIconFallsBackToTheDefaultRatherThanFailing()
+    public void OnlyOneWindowIsEverOpen()
     {
-        var goal = Goal.Create(
-            Guid.CreateVersion7(), Owner, "Anything", null, null, GoalRhythm.Daily, false, 0, 10, null, null, Created);
+        var goal = Build();
+        var first = Open(goal, Today);
 
-        Assert.Equal(GoalIcons.Default, goal.Icon);
+        Assert.NotNull(first);
+        Assert.Null(Open(goal, Today.AddDays(1)));
+        Assert.Single(goal.Instances);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(Goal.MaxSteps + 1)]
-    public void AnImpossibleNumberOfStepsIsRejected(int totalSteps)
+    /// <summary>
+    /// The property that makes the maintenance job safe to run twice: the same
+    /// window cannot be opened again even after the first one has closed.
+    /// </summary>
+    [Fact]
+    public void TheSameWindowIsNeverOpenedTwice()
     {
-        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Anything", null, "target", GoalRhythm.Daily, false, 0, totalSteps, null, null, Created));
+        var goal = Build();
+        var window = Open(goal, Today)!;
+        window.Miss(Utc.EndOfDay(Today).AddTicks(1));
 
-        Assert.Contains(nameof(Goal.TotalSteps), error.Errors.Keys);
+        Assert.Null(Open(goal, Today));
+        Assert.Single(goal.Instances);
     }
 
     [Fact]
-    public void MoreCompletedStepsThanTotalStepsIsRejected()
+    public void AWindowCloseWhenItsLastProofArrives()
     {
-        var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Anything", null, "target", GoalRhythm.Daily, false, 11, 10, null, null, Created));
+        var goal = Build(schedule: GoalSchedule.TimesPer(3, QuotaPeriod.Week));
+        var window = Open(goal, Today, GoalSchedule.TimesPer(3, QuotaPeriod.Week))!;
 
-        Assert.Contains(nameof(Goal.CompletedSteps), error.Errors.Keys);
-    }
+        Assert.True(Deliver(goal, Created));
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+        Assert.Equal(2, window.RemainingProofs);
 
-    [Theory]
-    [InlineData(0, 10, 0)]
-    [InlineData(5, 10, 50)]
-    [InlineData(14, 21, 67)]
-    [InlineData(10, 10, 100)]
-    public void ProgressIsDerivedFromTheSteps(int completed, int total, int expected)
-    {
-        Assert.Equal(expected, Build(completed, total).ProgressPercent);
-    }
+        Assert.True(Deliver(goal, Created));
+        Assert.True(Deliver(goal, Created));
 
-    [Fact]
-    public void AGoalThatStartsAtItsTotalIsAlreadyCompleted()
-    {
-        Assert.Equal(GoalStatus.Completed, Build(10, 10).Status);
+        Assert.Equal(GoalInstanceStatus.Done, window.Status);
+        Assert.Equal(0, window.RemainingProofs);
+
+        // And nothing more goes into a window that has closed.
+        Assert.False(Deliver(goal, Created));
     }
 
     [Fact]
-    public void ContributingAddsOneStepAndOneDay()
+    public void AOneOffIsFinishedWhenItsOnlyWindowIs()
     {
-        var goal = Build(4, 10);
+        var goal = Build(schedule: GoalSchedule.Once(), targetDate: Today);
+        Open(goal, Today, GoalSchedule.Once());
 
-        Assert.True(goal.Contribute(Guid.CreateVersion7(), Today));
+        Assert.True(Deliver(goal, Created));
+        Assert.Equal(GoalStatus.Completed, goal.Status);
+    }
 
-        Assert.Equal(5, goal.CompletedSteps);
-        Assert.Equal(50, goal.ProgressPercent);
-        Assert.Single(goal.Contributions);
+    [Fact]
+    public void ARepeatingGoalStaysActiveWhenAWindowCloses()
+    {
+        var goal = Build();
+        Open(goal, Today);
+
+        Assert.True(Deliver(goal, Created));
         Assert.Equal(GoalStatus.Active, goal.Status);
     }
 
+    /// <summary>
+    /// The chain, and what breaks it. This is the number the whole product
+    /// hangs on, so it is asserted rather than assumed.
+    /// </summary>
     [Fact]
-    public void ASecondContributionOnTheSameDayCountsAsAStepButNotAsADay()
-    {
-        var goal = Build(4, 10);
-
-        goal.Contribute(Guid.CreateVersion7(), Today);
-        goal.Contribute(Guid.CreateVersion7(), Today);
-
-        Assert.Equal(6, goal.CompletedSteps);
-        Assert.Single(goal.Contributions);
-        Assert.Equal(1, goal.StreakOn(Today));
-    }
-
-    [Fact]
-    public void TheLastStepCompletesTheGoal()
-    {
-        var goal = Build(9, 10);
-
-        goal.Contribute(Guid.CreateVersion7(), Today);
-
-        Assert.Equal(GoalStatus.Completed, goal.Status);
-        Assert.Equal(100, goal.ProgressPercent);
-    }
-
-    [Fact]
-    public void ContributingToACompletedGoalChangesNothingAndSaysSo()
-    {
-        var goal = Build(10, 10);
-
-        Assert.False(goal.Contribute(Guid.CreateVersion7(), Today));
-        Assert.Equal(10, goal.CompletedSteps);
-    }
-
-    [Fact]
-    public void AnArchivedGoalIsNotReopenedByContributing()
-    {
-        var goal = Build(4, 10);
-        goal.Archive();
-
-        Assert.False(goal.Contribute(Guid.CreateVersion7(), Today));
-        Assert.Equal(GoalStatus.Archived, goal.Status);
-    }
-
-    [Fact]
-    public void TheStreakCountsConsecutiveDaysEndingToday()
-    {
-        var goal = Build(4, 10);
-
-        foreach (var offset in new[] { 0, 1, 2, 4 })
-        {
-            goal.RecordContribution(Guid.CreateVersion7(), Today.AddDays(-offset));
-        }
-
-        // Three days back to back, then a gap: the day before the gap does not
-        // extend the run.
-        Assert.Equal(3, goal.StreakOn(Today));
-    }
-
-    [Fact]
-    public void AParticipantIsAddedOnceHoweverOftenTheyAreOffered()
+    public void TheStreakCountsBackAndStopsAtAMiss()
     {
         var goal = Build();
-        var person = Guid.CreateVersion7();
 
-        goal.AddParticipant(Guid.CreateVersion7(), person);
-        goal.AddParticipant(Guid.CreateVersion7(), person);
+        Deliver(goal, Today.AddDays(-4));
+        Deliver(goal, Today.AddDays(-3));
+        Miss(goal, Today.AddDays(-2));
+        Deliver(goal, Today.AddDays(-1));
+
+        Assert.Equal(1, goal.Streak);
+
+        Deliver(goal, Today);
+        Assert.Equal(2, goal.Streak);
+    }
+
+    /// <summary>
+    /// A window that is still running has not failed. Counting it would be a
+    /// claim about the rest of the day.
+    /// </summary>
+    [Fact]
+    public void AnOpenWindowNeitherAddsToTheStreakNorBreaksIt()
+    {
+        var goal = Build();
+        Deliver(goal, Today.AddDays(-1));
+        Open(goal, Today);
+
+        Assert.Equal(1, goal.Streak);
+    }
+
+    [Fact]
+    public void TheBalanceCountsBothOutcomes()
+    {
+        var goal = Build();
+        Deliver(goal, Today.AddDays(-3));
+        Deliver(goal, Today.AddDays(-2));
+        Miss(goal, Today.AddDays(-1));
+
+        Assert.Equal((2, 1), goal.Balance);
+    }
+
+    [Fact]
+    public void AGoalIsOverdueOnceItsOpenWindowHasExpired()
+    {
+        var goal = Build();
+        Open(goal, Today);
+
+        Assert.False(goal.IsOverdueAt(Utc.EndOfDay(Today)));
+        Assert.True(goal.IsOverdueAt(Utc.EndOfDay(Today).AddTicks(1)));
+    }
+
+    [Fact]
+    public void ParticipantsAreAddedOnceAndNeverIncludeTheOwner()
+    {
+        var goal = Build();
+        var friend = Guid.CreateVersion7();
+
+        goal.AddParticipant(Guid.CreateVersion7(), friend);
+        goal.AddParticipant(Guid.CreateVersion7(), friend);
+        goal.AddParticipant(Guid.CreateVersion7(), Owner);
 
         Assert.Single(goal.Participants);
+        Assert.True(goal.IsVisibleTo(friend));
+        Assert.True(goal.IsVisibleTo(Owner));
+        Assert.False(goal.IsVisibleTo(Guid.CreateVersion7()));
     }
 
     [Fact]
-    public void MoreParticipantsThanTheLimitAreRejected()
+    public void AGoalCannotTakeMoreParticipantsThanItsLimit()
     {
         var goal = Build();
 
-        for (var i = 0; i < Goal.MaxParticipants; i++)
+        for (var index = 0; index < Goal.MaxParticipants; index++)
         {
             goal.AddParticipant(Guid.CreateVersion7(), Guid.CreateVersion7());
         }
 
-        var error = Assert.Throws<DomainValidationException>(
+        Assert.Throws<DomainValidationException>(
             () => goal.AddParticipant(Guid.CreateVersion7(), Guid.CreateVersion7()));
-
-        Assert.Contains(nameof(Goal.Participants), error.Errors.Keys);
     }
 
     [Fact]
-    public void AGoalIsOverdueOnceItsTargetDateHasPassed()
+    public void AnArchivedGoalOpensNoFurtherWindows()
     {
-        Assert.True(Build(targetDate: Today.AddDays(-1)).IsOverdue(Today));
+        var goal = Build();
+        goal.Close(completed: false, Created);
+
+        Assert.Null(Open(goal, Today));
     }
 
-    [Fact]
-    public void AGoalDueTodayIsNotOverdueYet()
+    private static Goal Build(
+        string title = "Walk 8.000 steps a day",
+        string? icon = "target",
+        GoalSchedule? schedule = null,
+        DateOnly? targetDate = null) =>
+        Goal.Create(
+            Guid.CreateVersion7(),
+            Owner,
+            title,
+            null,
+            icon,
+            schedule ?? GoalSchedule.EveryNDays(1),
+            isGroup: false,
+            reminderAt: null,
+            targetDate,
+            Created);
+
+    private static GoalInstance? Open(Goal goal, DateOnly day, GoalSchedule? schedule = null)
     {
-        Assert.False(Build(targetDate: Today).IsOverdue(Today));
+        var window = (schedule ?? GoalSchedule.EveryNDays(1)).FirstWindow(day, day);
+
+        return goal.OpenWindow(
+            Guid.CreateVersion7(),
+            window,
+            Utc.StartOfDay(window.Start),
+            Utc.EndOfDay(window.End));
     }
 
-    [Fact]
-    public void ACompletedGoalIsNeverOverdue()
+    private static void Deliver(Goal goal, DateOnly day)
     {
-        Assert.False(Build(10, 10, Today.AddDays(-30)).IsOverdue(Today));
+        Open(goal, day);
+        Deliver(goal, Utc.EndOfDay(day));
     }
 
-    [Fact]
-    public void AGoalWithoutATargetDateIsNeverOverdue()
-    {
-        Assert.False(Build().IsOverdue(Today));
-    }
+    private static void Miss(Goal goal, DateOnly day) =>
+        Open(goal, day)!.Miss(Utc.EndOfDay(day).AddTicks(1));
 }

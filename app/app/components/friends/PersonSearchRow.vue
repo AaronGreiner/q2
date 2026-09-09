@@ -30,13 +30,21 @@ const t = useMessages()
     <AppAvatar
       :initials="result.person.initials"
       :color="result.person.avatarColor"
+      :image-id="result.person.avatarImageId"
       :size="42"
       :online="result.person.isOnline"
     />
 
-    <div
-      class="min-w-0 flex-1"
+    <!--
+      The name is the way into their profile, where their record with you is.
+      A row that only offered "add" would make somebody decide before they
+      could see anything about the person.
+    -->
+    <NuxtLink
+      :to="`/people/${result.person.id}`"
+      class="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       data-q2-private
+      data-testid="person-link"
     >
       <p class="truncate text-sm font-bold">
         {{ result.person.displayName }}
@@ -47,12 +55,12 @@ const t = useMessages()
           · {{ t.friends.mutual(result.mutualFriends) }}
         </template>
       </p>
-    </div>
+    </NuxtLink>
 
     <button
       v-if="result.state === 'None'"
       type="button"
-      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.add}: ${result.person.displayName}`"
       data-testid="result-request"
       @click="emit('request', result.person.id)"
@@ -74,7 +82,7 @@ const t = useMessages()
     <button
       v-else-if="result.state === 'RequestReceived'"
       type="button"
-      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.accept}: ${result.person.displayName}`"
       data-testid="result-accept"
       @click="emit('accept', result.person.id)"

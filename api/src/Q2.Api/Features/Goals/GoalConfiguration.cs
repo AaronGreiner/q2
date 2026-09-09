@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.Goals;
@@ -37,18 +38,57 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
             .HasMaxLength(32)
             .HasConversion<string>();
 
-        builder.Property(g => g.Rhythm)
-            .IsRequired()
-            .HasMaxLength(32)
-            .HasConversion<string>();
-
         builder.Property(g => g.IsGroup).IsRequired();
-        builder.Property(g => g.CompletedSteps).IsRequired();
-        builder.Property(g => g.TotalSteps).IsRequired();
 
-        // ProgressPercent is derived from the steps and deliberately has no
-        // column: a stored copy is a second source of truth waiting to drift.
-        builder.Ignore(g => g.ProgressPercent);
+        /*
+         * The schedule is owned rather than referenced: it has no identity of
+         * its own, it is never queried without its goal, and the alternative —
+         * four nullable columns nobody can see belong together — is how
+         * "everyDays" ends up set on a goal that runs on weekdays.
+         *
+         * It still lands in the Goals table, one column per field, so a person
+         * reading the database sees the whole goal in one row.
+         */
+        builder.OwnsOne(g => g.Schedule, schedule =>
+        {
+            schedule.Property(s => s.Kind)
+                .HasColumnName("ScheduleKind")
+                .IsRequired()
+                .HasMaxLength(32)
+                .HasConversion<string>();
+
+            schedule.Property(s => s.EveryDays).HasColumnName("ScheduleEveryDays");
+
+            schedule.Property(s => s.WeekdayList)
+                .HasColumnName("ScheduleWeekdays")
+                .IsRequired()
+                .HasMaxLength(32);
+
+            schedule.Property(s => s.Times).HasColumnName("ScheduleTimes");
+
+            schedule.Property(s => s.Period)
+                .HasColumnName("SchedulePeriod")
+                .HasMaxLength(16)
+                .HasConversion<string>();
+
+            // Parsed from WeekdayList on the way out; a second copy in the
+            // database would be a second thing to keep in step.
+            schedule.Ignore(s => s.Weekdays);
+            schedule.Ignore(s => s.RequiredProofs);
+            schedule.Ignore(s => s.Repeats);
+        });
+
+        builder.Navigation(g => g.Schedule).IsRequired();
+
+        // Derived from the windows, and deliberately without a column each: a
+        // stored streak needs a nightly job to notice a missed day, and a job
+        // that runs twice invents one.
+        builder.Ignore(g => g.Streak);
+        builder.Ignore(g => g.Balance);
+        builder.Ignore(g => g.CurrentInstance);
+        builder.Ignore(g => g.LatestInstance);
+        builder.Ignore(g => g.DeliveredDays);
+        builder.Ignore(g => g.IsClosed);
 
         builder.Property(g => g.ReminderAt);
         builder.Property(g => g.TargetDate);
@@ -56,6 +96,9 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
         builder.Property(g => g.CreatedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);
+
+        builder.Property(g => g.ClosedAt)
+            .HasConversion(InstantConversion.Optional);
 
         builder.HasOne<Person>()
             .WithMany()
@@ -74,31 +117,159 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
             .HasForeignKey(p => p.GoalId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasMany(g => g.Contributions)
+        builder.HasMany(g => g.Instances)
             .WithOne()
-            .HasForeignKey(c => c.GoalId)
+            .HasForeignKey(i => i.GoalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(g => g.Pauses)
+            .WithOne()
+            .HasForeignKey(pause => pause.GoalId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Metadata
             .FindNavigation(nameof(Goal.Participants))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
         builder.Metadata
-            .FindNavigation(nameof(Goal.Contributions))!
+            .FindNavigation(nameof(Goal.Instances))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata
+            .FindNavigation(nameof(Goal.Pauses))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 
-public sealed class GoalContributionConfiguration : IEntityTypeConfiguration<GoalContribution>
+public sealed class GoalPauseConfiguration : IEntityTypeConfiguration<GoalPause>
 {
-    public void Configure(EntityTypeBuilder<GoalContribution> builder)
+    public void Configure(EntityTypeBuilder<GoalPause> builder)
     {
-        builder.ToTable("GoalContributions");
-        builder.HasKey(c => c.Id);
+        builder.ToTable("GoalPauses");
+        builder.HasKey(pause => pause.Id);
 
-        builder.Property(c => c.Date).IsRequired();
+        builder.Property(pause => pause.Reason)
+            .IsRequired()
+            .HasMaxLength(PauseRules.MaxReasonLength);
 
-        // One row per goal per day is what makes the streak a count of days.
-        builder.HasIndex(c => new { c.GoalId, c.Date }).IsUnique();
+        builder.Property(pause => pause.StartsOn).IsRequired();
+        builder.Property(pause => pause.EndsOn).IsRequired();
+
+        builder.Property(pause => pause.StartsAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(pause => pause.EndsAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(pause => pause.CreatedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(pause => pause.Status)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Ignore(pause => pause.VetoCount);
+        builder.Ignore(pause => pause.Days);
+
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(pause => pause.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // No foreign key to the window on purpose. The pause outlives it: a
+        // goal deleted from the archive takes both, but a window that somehow
+        // went without its pause would leave an objection pointing at nothing.
+        builder.Property(pause => pause.GoalInstanceId);
+
+        builder.HasMany(pause => pause.Vetoes)
+            .WithOne()
+            .HasForeignKey(veto => veto.GoalPauseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalPause.Vetoes))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        // "Is this goal paused right now" is asked on every read of every goal.
+        builder.HasIndex(pause => new { pause.GoalId, pause.Status });
+    }
+}
+
+public sealed class PauseVetoConfiguration : IEntityTypeConfiguration<PauseVeto>
+{
+    public void Configure(EntityTypeBuilder<PauseVeto> builder)
+    {
+        builder.ToTable("PauseVetoes");
+        builder.HasKey(veto => veto.Id);
+
+        builder.Property(veto => veto.CreatedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(veto => veto.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One objection per person and pause. Taking one back removes the row,
+        // so the uniqueness is what makes "toggle" mean toggle.
+        builder.HasIndex(veto => new { veto.GoalPauseId, veto.PersonId }).IsUnique();
+    }
+}
+
+public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalInstance>
+{
+    public void Configure(EntityTypeBuilder<GoalInstance> builder)
+    {
+        builder.ToTable("GoalInstances");
+        builder.HasKey(i => i.Id);
+
+        builder.Property(i => i.StartsOn).IsRequired();
+        builder.Property(i => i.DueOn).IsRequired();
+
+        builder.Property(i => i.StartsAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(i => i.DueAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(i => i.ResolvedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(i => i.RiskNotifiedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(i => i.RequiredProofs).IsRequired();
+        builder.Property(i => i.ConfirmedProofs).IsRequired();
+
+        builder.Property(i => i.Status)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Ignore(i => i.RemainingProofs);
+        builder.Ignore(i => i.PendingProof);
+        builder.Ignore(i => i.NextAttempt);
+        builder.Ignore(i => i.AcceptsProof);
+
+        builder.HasMany(i => i.Proofs)
+            .WithOne()
+            .HasForeignKey(proof => proof.GoalInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalInstance.Proofs))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        // One window per goal per period. This is what makes the maintenance
+        // job safe to run twice: the second insert cannot happen.
+        builder.HasIndex(i => new { i.GoalId, i.StartsOn, i.DueOn }).IsUnique();
+
+        // The job asks "what is open and overdue" across every goal there is,
+        // which is the one query in the app that is not scoped to one person.
+        builder.HasIndex(i => new { i.Status, i.DueAt });
     }
 }
 
@@ -115,56 +286,5 @@ public sealed class GoalParticipantConfiguration : IEntityTypeConfiguration<Goal
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(p => new { p.GoalId, p.PersonId }).IsUnique();
-    }
-}
-
-public sealed class GoalTaskConfiguration : IEntityTypeConfiguration<GoalTask>
-{
-    public void Configure(EntityTypeBuilder<GoalTask> builder)
-    {
-        builder.ToTable("GoalTasks");
-        builder.HasKey(t => t.Id);
-
-        builder.Property(t => t.Title)
-            .IsRequired()
-            .HasMaxLength(GoalTask.MaxTitleLength);
-
-        builder.Property(t => t.Rhythm)
-            .IsRequired()
-            .HasMaxLength(32)
-            .HasConversion<string>();
-
-        builder.Property(t => t.WeeklyOn)
-            .HasMaxLength(16)
-            .HasConversion<string>();
-
-        builder.Property(t => t.MeasureUnit)
-            .HasMaxLength(GoalTask.MaxUnitLength);
-
-        builder.Property(t => t.SortOrder).IsRequired();
-
-        builder.Property(t => t.CreatedAt)
-            .IsRequired()
-            .HasConversion(InstantConversion.Required);
-
-        builder.Ignore(t => t.IsMeasurable);
-
-        // Tasks outlive nothing: deleting a goal takes its tasks with it, and a
-        // standalone task simply has no goal.
-        builder.HasOne<Goal>()
-            .WithMany()
-            .HasForeignKey(t => t.GoalId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasOne<Person>()
-            .WithMany()
-            .HasForeignKey(t => t.OwnerPersonId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.HasIndex(t => t.GoalId);
-        builder.HasIndex(t => t.SortOrder);
-
-        // "What is on my list today" reads by owner before anything else.
-        builder.HasIndex(t => t.OwnerPersonId);
     }
 }

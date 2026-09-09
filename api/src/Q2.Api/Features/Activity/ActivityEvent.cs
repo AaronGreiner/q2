@@ -21,6 +21,28 @@ public enum ActivityKind
 
     /// <summary>Started something new. <c>Subject</c> is the goal title.</summary>
     GoalCreated,
+
+    /// <summary>
+    /// A window is about to be missed. <c>Subject</c> is the goal title and
+    /// <c>Amount</c> how many proofs are still outstanding.
+    /// </summary>
+    /// <remarks>
+    /// The one entry in this feed that is not somebody's good news, and the
+    /// reason it is here rather than in a notification table is that q2 sends
+    /// nothing yet: until stage 9 the feed *is* the delivery. When push
+    /// arrives, this row is what it reads.
+    ///
+    /// It is deliberately the flattest of the kinds — what is missing, and
+    /// nothing else. No streak of past misses, no "schon wieder". The numbers
+    /// are unpleasant enough on their own, and at this point nothing has
+    /// actually gone wrong yet.
+    ///
+    /// There is deliberately no companion kind for a window that *was* missed.
+    /// A finished failure is not announced: it is counted, and the balance on a
+    /// profile is where it shows. Publishing it would be the one thing this
+    /// product is not allowed to do to somebody ("kein Nachtreten").
+    /// </remarks>
+    WindowAtRisk,
 }
 
 /// <summary>

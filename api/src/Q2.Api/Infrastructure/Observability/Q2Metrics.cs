@@ -23,7 +23,8 @@ public sealed class Q2Metrics(IHub hub)
 {
     public const string GoalCreated = "q2.goal.created";
     public const string GoalProgress = "q2.goal.progress";
-    public const string TaskCompleted = "q2.task.completed";
+    public const string WindowResolved = "q2.goal.window_resolved";
+    public const string ChallengeEntry = "q2.challenge.entry";
     public const string AccountRegistered = "q2.account.registered";
     public const string AccountSignedIn = "q2.account.signed_in";
 
@@ -32,20 +33,34 @@ public sealed class Q2Metrics(IHub hub)
     {
         GoalCreated,
         GoalProgress,
-        TaskCompleted,
+        WindowResolved,
+        ChallengeEntry,
         AccountRegistered,
         AccountSignedIn,
     };
 
-    /// <summary>A goal was created, counted by the rhythm it was given.</summary>
-    public void CountGoalCreated(GoalRhythm rhythm, bool isGroup) =>
-        Count(GoalCreated, ("rhythm", rhythm.ToString()), ("shared", isGroup));
+    /// <summary>A goal was created, counted by the kind of schedule it was given.</summary>
+    public void CountGoalCreated(ScheduleKind kind, bool isGroup) =>
+        Count(GoalCreated, ("schedule", kind.ToString()), ("shared", isGroup));
 
-    /// <summary>Somebody moved a goal one step along.</summary>
+    /// <summary>Somebody delivered a proof into a goal's open window.</summary>
     public void CountGoalProgress() => Count(GoalProgress);
 
-    /// <summary>A task was ticked off, or ticked back open again.</summary>
-    public void CountTaskCompleted(bool done) => Count(TaskCompleted, ("done", done));
+    /// <summary>A window closed, either delivered or missed.</summary>
+    public void CountWindowResolved(GoalInstanceStatus status) =>
+        Count(WindowResolved, ("outcome", status.ToString()));
+
+    /// <summary>
+    /// Somebody contributed to the daily challenge, counted by whether the
+    /// camera or the file picker produced it.
+    /// </summary>
+    /// <remarks>
+    /// The one number worth having about the challenge, because it is the one
+    /// that says whether the feature is doing its job. Never the prompt: that is
+    /// authored text, and a metric is read by everyone.
+    /// </remarks>
+    public void CountChallengeEntry(bool capturedInApp) =>
+        Count(ChallengeEntry, ("captured", capturedInApp));
 
     public void CountAccountRegistered() => Count(AccountRegistered);
 

@@ -7,6 +7,15 @@ export type ApiFetch = <T>(url: string, options?: {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   query?: Record<string, string | undefined>
   body?: unknown
+  /**
+   * Per-call headers, merged over the client's own.
+   *
+   * Only one thing needs this: an image upload sends its file as the request
+   * body and has to say what the bytes are. That media type is also the
+   * endpoint's CSRF defence — a cross-site form can send multipart, never
+   * `image/jpeg` — so it is not a detail the caller may leave to a default.
+   */
+  headers?: Record<string, string>
 }) => Promise<T>
 
 /**

@@ -22,8 +22,8 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
         builder.Property(c => c.Title)
             .HasMaxLength(Conversation.MaxTitleLength);
 
-        builder.Property(c => c.Emoji)
-            .HasMaxLength(Conversation.MaxEmojiLength);
+        builder.Property(c => c.Icon)
+            .HasMaxLength(Conversation.MaxIconLength);
 
         builder.Property(c => c.CreatedAt)
             .IsRequired()
@@ -114,15 +114,16 @@ public sealed class MessageReactionConfiguration : IEntityTypeConfiguration<Mess
         builder.ToTable("MessageReactions");
         builder.HasKey(r => r.Id);
 
-        builder.Property(r => r.Emoji)
+        builder.Property(r => r.Kind)
             .IsRequired()
-            .HasMaxLength(8);
+            .HasMaxLength(16)
+            .HasConversion<string>();
 
         builder.HasOne<Person>()
             .WithMany()
             .HasForeignKey(r => r.PersonId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(r => new { r.MessageId, r.PersonId, r.Emoji }).IsUnique();
+        builder.HasIndex(r => new { r.MessageId, r.PersonId, r.Kind }).IsUnique();
     }
 }

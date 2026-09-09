@@ -7,7 +7,7 @@ public sealed record SeedResult(
     SeedProfile Profile,
     int PeopleInserted,
     int GoalsInserted,
-    int TasksInserted,
+    int WindowsInserted,
     int ConversationsInserted,
     bool WasSkipped,
     string Reason);
@@ -74,20 +74,24 @@ public sealed class DatabaseSeeder(
         database.Users.AddRange(data.Accounts);
         database.Friendships.AddRange(data.Friendships);
         database.Goals.AddRange(data.Goals);
-        database.GoalTasks.AddRange(data.Tasks);
         database.ActivityEvents.AddRange(data.Activity);
         database.Conversations.AddRange(data.Conversations);
         database.UserSettings.AddRange(data.Settings);
 
+        // Last, and independent of everything above it: a challenge belongs to
+        // a day rather than to a person, and nothing else in the graph points
+        // at one.
+        database.Challenges.AddRange(data.Challenges);
+
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "Seeded profile {SeedProfile}: {PersonCount} people, {GoalCount} goals, {TaskCount} tasks, "
+            "Seeded profile {SeedProfile}: {PersonCount} people, {GoalCount} goals, {WindowCount} windows, "
             + "{ConversationCount} conversations — {SeedDescription}",
             profile,
             data.People.Count,
             data.Goals.Count,
-            data.Tasks.Count,
+            data.Goals.Sum(goal => goal.Instances.Count),
             data.Conversations.Count,
             source.Description);
 
@@ -95,7 +99,7 @@ public sealed class DatabaseSeeder(
             profile,
             data.People.Count,
             data.Goals.Count,
-            data.Tasks.Count,
+            data.Goals.Sum(goal => goal.Instances.Count),
             data.Conversations.Count,
             WasSkipped: false,
             source.Description);
@@ -113,20 +117,38 @@ public sealed class DatabaseSeeder(
     /// </remarks>
     private static async Task ClearAsync(Q2DbContext database, CancellationToken cancellationToken)
     {
+        await database.ChallengeReactions.ExecuteDeleteAsync(cancellationToken);
+        await database.ChallengeEntries.ExecuteDeleteAsync(cancellationToken);
+        await database.Challenges.ExecuteDeleteAsync(cancellationToken);
         await database.MessageReactions.ExecuteDeleteAsync(cancellationToken);
         await database.ChatMessages.ExecuteDeleteAsync(cancellationToken);
         await database.ConversationParticipants.ExecuteDeleteAsync(cancellationToken);
         await database.Conversations.ExecuteDeleteAsync(cancellationToken);
         await database.ActivityKudos.ExecuteDeleteAsync(cancellationToken);
         await database.ActivityEvents.ExecuteDeleteAsync(cancellationToken);
-        await database.GoalTasks.ExecuteDeleteAsync(cancellationToken);
-        await database.GoalContributions.ExecuteDeleteAsync(cancellationToken);
+        await database.GoalInstances.ExecuteDeleteAsync(cancellationToken);
         await database.GoalParticipants.ExecuteDeleteAsync(cancellationToken);
         await database.Goals.ExecuteDeleteAsync(cancellationToken);
         await database.UserSettings.ExecuteDeleteAsync(cancellationToken);
         await database.Friendships.ExecuteDeleteAsync(cancellationToken);
         await database.PersonBadges.ExecuteDeleteAsync(cancellationToken);
         await database.DailyCheckIns.ExecuteDeleteAsync(cancellationToken);
+
+        /*
+         * The rows only, not the files.
+         *
+         * A reset owns the database; it does not own the image directory, which
+         * lives outside it and outside any transaction. Deleting files here
+         * would make a reset destructive over something the guard never checked
+         * — and the two environments this ever runs in are the ones whose
+         * directory is a temporary one anyway (the test fixture makes its own,
+         * ManualTesting starts from nothing).
+         *
+         * What is left behind is unreferenced bytes on a scratch host. What
+         * this line prevents is a stale row surviving a reseed and colliding
+         * with the next id the sequential generator hands out.
+         */
+        await database.Images.ExecuteDeleteAsync(cancellationToken);
 
         // Before People: the account's foreign key is Restrict, so a person
         // with an account cannot be deleted while it still exists.

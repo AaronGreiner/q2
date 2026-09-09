@@ -3,16 +3,22 @@ import type {
   Activity,
   Friend,
   Friends,
-  LeaderboardEntry,
   PersonSearchResult,
+  PersonProfile,
   Profile,
+  UpdateProfileRequest,
 } from './types'
 
-/** The feed, kudos and the leaderboard. */
+/**
+ * The feed and the kudos on it.
+ *
+ * There is no ranking here, and its absence is the product decision: q2 tells
+ * your friends when you miss, so a table sorting everybody by how well they are
+ * doing would be a scoreboard somebody comes last on.
+ */
 export interface ActivityApi {
   feed: () => Promise<Activity[]>
   toggleKudos: (id: string) => Promise<Activity>
-  leaderboard: () => Promise<LeaderboardEntry[]>
 }
 
 /**
@@ -32,9 +38,25 @@ export interface FriendsApi {
   remove: (personId: string) => Promise<void>
 }
 
-/** The signed-in person's own profile. */
+/** The signed-in person's own profile, and other people's. */
 export interface ProfileApi {
   get: () => Promise<Profile>
+
+  /**
+   * Somebody else's profile.
+   *
+   * The balance that comes back covers only the goals the two of them share —
+   * scoped by the server, never by the screen. A client that filtered it would
+   * be a client that could stop filtering it.
+   */
+  person: (personId: string) => Promise<PersonProfile>
+
+  /**
+   * Changes the name or the picture. Omitted properties keep their value, and
+   * the whole profile comes back — the screen that called this is already
+   * showing the rest of it.
+   */
+  update: (request: UpdateProfileRequest) => Promise<Profile>
 }
 
 export function createActivityApi(call: ApiCaller): ActivityApi {
@@ -42,8 +64,6 @@ export function createActivityApi(call: ApiCaller): ActivityApi {
     feed: () => call<Activity[]>('/api/feed', { method: 'GET' }),
 
     toggleKudos: id => call<Activity>(`/api/feed/${encodeURIComponent(id)}/kudos`, { method: 'POST' }),
-
-    leaderboard: () => call<LeaderboardEntry[]>('/api/leaderboard', { method: 'GET' }),
   }
 }
 
@@ -81,5 +101,9 @@ export function createFriendsApi(call: ApiCaller): FriendsApi {
 export function createProfileApi(call: ApiCaller): ProfileApi {
   return {
     get: () => call<Profile>('/api/profile', { method: 'GET' }),
+
+    person: personId => call<PersonProfile>(`/api/people/${encodeURIComponent(personId)}`, { method: 'GET' }),
+
+    update: request => call<Profile>('/api/profile', { method: 'PUT', body: request }),
   }
 }

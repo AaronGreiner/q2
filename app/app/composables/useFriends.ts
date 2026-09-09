@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { Friends, PersonSearchResult } from '~/api/types'
+import type { Friends, PersonSearchResult, Profile, UpdateProfileRequest } from '~/api/types'
 
 interface FriendsPayload {
   friends: Friends
@@ -162,11 +162,14 @@ function empty(): Friends {
 }
 
 /**
- * The signed-in person's own profile: stats, badges and recent activity.
+ * The signed-in person's own profile: stats, badges and recent activity — and
+ * the two things about it somebody can change.
  */
 export function useProfile() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
+  const toast = useToastMessage()
+  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData(
     'profile',
@@ -181,9 +184,113 @@ export function useProfile() {
     { default: () => ({ profile: null, failure: null }) },
   )
 
+  const isSaving = ref(false)
+
+  /**
+   * Puts the answer in place of what was there.
+   *
+   * `useAsyncData` hands back a **shallow** ref, so assigning to a property of
+   * `data.value` changes the object without telling anything watching it: the
+   * request succeeds and the screen does not move.
+   */
+  function put(profile: Profile) {
+    data.value = { profile, failure: null }
+  }
+
+  async function update(request: UpdateProfileRequest) {
+    if (isSaving.value) return false
+
+    isSaving.value = true
+
+    try {
+      put(await api.profile.update(request))
+      toast.show(t.value.toast.profileSaved)
+      return true
+    }
+    catch (caught) {
+      report(caught, { feature: 'profile', action: 'update' })
+      return false
+    }
+    finally {
+      isSaving.value = false
+    }
+  }
+
   return {
     profile: computed(() => data.value?.profile ?? null),
     error: computed(() => data.value?.failure ?? null),
+    isLoading: computed(() => status.value === 'pending'),
+    isSaving: computed(() => isSaving.value),
+    refresh,
+
+    rename: (displayName: string) => update({ displayName }),
+
+    chooseAvatar: (imageId: string) => update({ avatarImageId: imageId }),
+
+    /**
+     * Deletes the picture itself rather than merely unpointing the profile at
+     * it. That is the whole "remove" path in q2: an image nothing points at
+     * would still be sitting in somebody's storage allowance, and the profile
+     * reference is cleared by the same request (ImageService.DeleteAsync).
+     */
+    async removeAvatar(imageId: string) {
+      if (isSaving.value) return
+
+      isSaving.value = true
+
+      try {
+        await api.images.remove(imageId)
+        put(await api.profile.get())
+        toast.show(t.value.toast.photoRemoved)
+      }
+      catch (caught) {
+        report(caught, { feature: 'images', action: 'delete' })
+      }
+      finally {
+        isSaving.value = false
+      }
+    },
+  }
+}
+
+/**
+ * Somebody else's profile.
+ *
+ * The balance it carries is scoped by the server to the goals the two people
+ * share. Nothing here narrows it, and nothing here may: a screen that filtered
+ * would be a screen that could stop filtering.
+ */
+export function usePersonProfile(id: Ref<string>) {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+
+  const { data, status, refresh } = useAsyncData(
+    () => `person:${id.value}`,
+    async () => {
+      try {
+        return { person: await api.profile.person(id.value), failure: null }
+      }
+      catch (caught) {
+        return { person: null, failure: report(caught, { feature: 'people', action: 'load' }) }
+      }
+    },
+    {
+      // Without this, tapping from one search result to another leaves the
+      // first person's numbers on screen under the second person's name.
+      watch: [id],
+      default: () => ({ person: null, failure: null }),
+    },
+  )
+
+  const failure = computed(() => data.value?.failure ?? null)
+
+  return {
+    person: computed(() => data.value?.person ?? null),
+
+    // A stale link is an ordinary outcome, so it gets its own calm state rather
+    // than the generic "something went wrong".
+    isMissing: computed(() => failure.value?.kind === 'notFound'),
+    error: computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null)),
     isLoading: computed(() => status.value === 'pending'),
     refresh,
   }

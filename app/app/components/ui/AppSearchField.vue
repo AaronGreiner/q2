@@ -42,7 +42,7 @@ const model = defineModel<string>({ required: true })
       <UIcon
         :name="icon"
         class="size-[18px] shrink-0"
-        :class="accent ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)'"
+        :class="accent ? 'text-(--ui-text)' : 'text-(--ui-text-dimmed)'"
         aria-hidden="true"
       />
 

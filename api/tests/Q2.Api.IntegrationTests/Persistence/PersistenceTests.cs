@@ -4,6 +4,7 @@ using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
+using Q2.Api.Infrastructure.Time;
 using Q2.Api.IntegrationTests.Infrastructure;
 
 namespace Q2.Api.IntegrationTests.Persistence;
@@ -41,9 +42,22 @@ public class PersistenceTests
     /// putting that person in the database — the owner is part of the fixture
     /// rather than of each individual assertion.
     /// </summary>
-    private static Goal BuildGoal(Person owner, DateOnly? targetDate = null) => Goal.Create(
+    private static Goal BuildGoal(Person owner, GoalSchedule? schedule = null) => Goal.Create(
         Guid.CreateVersion7(), owner.Id, "Walk 8.000 steps a day", "Every day counts.", "target",
-        GoalRhythm.Daily, false, 4, 10, new TimeOnly(18, 0), targetDate, Now);
+        schedule ?? GoalSchedule.EveryNDays(1), false, new TimeOnly(18, 0), null, Now);
+
+    /// <summary>Opens one single-day window on <paramref name="day"/>.</summary>
+    private static GoalInstance OpenWindow(Goal goal, DateOnly day)
+    {
+        var calendar = new LocalCalendar(TimeZoneInfo.Utc);
+        var window = goal.Schedule.FirstWindow(day, day);
+
+        return goal.OpenWindow(
+            Guid.CreateVersion7(),
+            window,
+            calendar.StartOfDay(window.Start),
+            calendar.EndOfDay(window.End))!;
+    }
 
     [Fact]
     public async Task EveryGuidPrimaryKeyIsSuppliedByTheApplication()
@@ -67,9 +81,9 @@ public class PersistenceTests
 
         var person = BuildPerson();
         var owner = BuildPerson("@owner");
-        var goal = BuildGoal(owner, Today.AddDays(30));
+        var goal = BuildGoal(owner);
         goal.AddParticipant(Guid.CreateVersion7(), person.Id);
-        goal.RecordContribution(Guid.CreateVersion7(), Today);
+        OpenWindow(goal, Today);
 
         await using (var context = database.CreateContext())
         {
@@ -82,15 +96,15 @@ public class PersistenceTests
         {
             var stored = await context.Goals
                 .Include(g => g.Participants)
-                .Include(g => g.Contributions)
+                .Include(g => g.Instances)
                 .SingleAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal(goal.Title, stored.Title);
             Assert.Equal(new TimeOnly(18, 0), stored.ReminderAt);
-            Assert.Equal(Today.AddDays(30), stored.TargetDate);
-            Assert.Equal(40, stored.ProgressPercent);
+            Assert.Equal(ScheduleKind.Interval, stored.Schedule.Kind);
+            Assert.Equal(1, stored.Schedule.EveryDays);
             Assert.Single(stored.Participants);
-            Assert.Single(stored.Contributions);
+            Assert.Single(stored.Instances);
         }
     }
 
@@ -178,7 +192,7 @@ public class PersistenceTests
     }
 
     [Fact]
-    public async Task DeletingAGoalTakesItsParticipantsAndTasksWithIt()
+    public async Task DeletingAGoalTakesItsParticipantsAndWindowsWithIt()
     {
         await using var database = await MigratedAsync();
 
@@ -187,15 +201,12 @@ public class PersistenceTests
         var participant = BuildPerson("@participant");
         goal.AddParticipant(Guid.CreateVersion7(), participant.Id);
 
-        var task = GoalTask.Create(
-            Guid.CreateVersion7(), person.Id, goal.Id, "Joggen", GoalRhythm.Daily,
-            null, null, null, null, null, null, 0, Now);
+        OpenWindow(goal, Today);
 
         await using (var context = database.CreateContext())
         {
             context.People.AddRange(person, participant);
             context.Goals.Add(goal);
-            context.GoalTasks.Add(task);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
@@ -208,7 +219,7 @@ public class PersistenceTests
         await using (var context = database.CreateContext())
         {
             Assert.Equal(0, await context.GoalParticipants.CountAsync(TestContext.Current.CancellationToken));
-            Assert.Equal(0, await context.GoalTasks.CountAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(0, await context.GoalInstances.CountAsync(TestContext.Current.CancellationToken));
 
             // The people are not details of the goal and stay.
             Assert.Equal(2, await context.People.CountAsync(TestContext.Current.CancellationToken));

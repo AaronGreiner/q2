@@ -103,6 +103,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       <AppAvatar
         :initials="chat.initials"
         :color="chat.avatarColor"
+        :image-id="chat.avatarImageId"
         :size="38"
         :online="chat.isOnline"
       />
@@ -114,7 +115,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         <h1 class="truncate text-[15px] font-extrabold">
           {{ chat.name }}
         </h1>
-        <p class="truncate text-[11px] font-bold text-(--ui-primary)">
+        <p class="truncate text-[11px] font-bold text-(--ui-text-muted)">
           {{ status }}
         </p>
       </div>

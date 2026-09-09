@@ -18,6 +18,7 @@ function activity(overrides: Partial<Activity> = {}): Activity {
       handle: '@jonas.w',
       initials: 'JW',
       avatarColor: '#4f46e5',
+      avatarImageId: null,
       isOnline: true,
     },
     kind: 'TaskCompleted',

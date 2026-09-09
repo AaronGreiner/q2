@@ -64,17 +64,17 @@ public sealed class ChatMessage
     }
 
     /// <summary>
-    /// Adds <paramref name="emoji"/> from this person, or removes it if they
+    /// Adds <paramref name="kind"/> from this person, or removes it if they
     /// had already reacted with it. Returns the new state.
     /// </summary>
-    public bool ToggleReaction(Guid id, Guid personId, string emoji)
+    public bool ToggleReaction(Guid id, Guid personId, KudosKind kind)
     {
-        if (!MessageReactions.IsAllowed(emoji))
+        if (!Enum.IsDefined(kind))
         {
             throw new DomainValidationException(nameof(Reactions), "That reaction is not available.");
         }
 
-        var existing = _reactions.FirstOrDefault(r => r.PersonId == personId && r.Emoji == emoji);
+        var existing = _reactions.FirstOrDefault(r => r.PersonId == personId && r.Kind == kind);
 
         if (existing is not null)
         {
@@ -82,7 +82,7 @@ public sealed class ChatMessage
             return false;
         }
 
-        _reactions.Add(new MessageReaction(id, Id, personId, emoji));
+        _reactions.Add(new MessageReaction(id, Id, personId, kind));
         return true;
     }
 }
@@ -93,15 +93,14 @@ public sealed class MessageReaction
     // EF Core materialisation only.
     private MessageReaction()
     {
-        Emoji = string.Empty;
     }
 
-    internal MessageReaction(Guid id, Guid messageId, Guid personId, string emoji)
+    internal MessageReaction(Guid id, Guid messageId, Guid personId, KudosKind kind)
     {
         Id = id;
         MessageId = messageId;
         PersonId = personId;
-        Emoji = emoji;
+        Kind = kind;
     }
 
     public Guid Id { get; private set; }
@@ -110,24 +109,33 @@ public sealed class MessageReaction
 
     public Guid PersonId { get; private set; }
 
-    public string Emoji { get; private set; }
+    public KudosKind Kind { get; private set; }
 }
 
 /// <summary>
-/// The reactions a message can carry.
+/// The three ways one person tells another they saw it.
 /// </summary>
 /// <remarks>
-/// A closed set, so the column has a known width, the frontend can render every
-/// value it will ever see, and nobody can store arbitrary text in what looks
-/// like a one-tap control.
+/// This is what q2 is named after, and there are three of them rather than one
+/// because "well done" has more than one register: <see cref="Fire"/> is for
+/// something impressive, <see cref="Strong"/> for something hard, and
+/// <see cref="Applause"/> for something finished. They are counted together as
+/// kudos on a profile — the split is expression, not accounting.
+///
+/// Stored as a name rather than as the emoji it used to be. An emoji is a
+/// picture with a language and a platform behind it: 👏 is a different drawing
+/// on Android, has no accessible name we control, and cannot be styled. A name
+/// renders as whichever icon the design says today, reads out as a word in both
+/// languages, and survives the interface being redrawn.
 /// </remarks>
-public static class MessageReactions
+public enum KudosKind
 {
-    public const string Clap = "\U0001F44F";
-    public const string Fire = "\U0001F525";
-    public const string Heart = "❤️";
+    /// <summary>Impressive.</summary>
+    Fire,
 
-    public static readonly IReadOnlyList<string> All = [Clap, Fire, Heart];
+    /// <summary>That looked hard.</summary>
+    Strong,
 
-    public static bool IsAllowed(string? emoji) => emoji is not null && All.Contains(emoji);
+    /// <summary>Finished — well done.</summary>
+    Applause,
 }

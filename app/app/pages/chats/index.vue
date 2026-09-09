@@ -61,7 +61,7 @@ async function open(work: () => Promise<{ id: string }>, action: string) {
 const onDirect = (personId: string) =>
   open(() => api.chats.startDirect(personId), 'startDirect')
 
-const onGroup = (value: { title: string, emoji: string, memberIds: string[] }) =>
+const onGroup = (value: { title: string, icon: string, memberIds: string[] }) =>
   open(async () => {
     const chat = await api.chats.createGroup(value)
     toast.show(t.value.toast.groupCreated)
@@ -77,9 +77,12 @@ useHead({ title: () => t.value.chats.heading })
   <div class="flex min-h-0 flex-1 flex-col">
     <AppScreenHeader :title="t.chats.heading">
       <template #actions>
+        <!-- An outline: the filled accent belongs to the tab bar's create
+             button, which is on this screen too and is the louder of the two. -->
         <UButton
           icon="i-lucide-plus"
           size="lg"
+          variant="outline"
           class="min-h-11 rounded-full font-extrabold"
           data-testid="new-chat"
           @click="isSheetOpen = true"

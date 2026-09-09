@@ -3,6 +3,7 @@ import type {
   ChatDetail,
   ChatSummary,
   CreateGroupChatRequest,
+  KudosKind,
   Settings,
   UpdateSettingsRequest,
 } from './types'
@@ -12,7 +13,7 @@ export interface ChatsApi {
   list: (options?: { search?: string }) => Promise<ChatSummary[]>
   get: (id: string) => Promise<ChatDetail>
   send: (id: string, text: string) => Promise<ChatDetail>
-  react: (id: string, messageId: string, emoji: string) => Promise<ChatDetail>
+  react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatDetail>
   startDirect: (personId: string) => Promise<ChatDetail>
   createGroup: (request: CreateGroupChatRequest) => Promise<ChatDetail>
   leave: (id: string) => Promise<void>
@@ -43,9 +44,9 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
       body: { text },
     }),
 
-    react: (id, messageId, emoji) => call<ChatDetail>(
+    react: (id, messageId, kind) => call<ChatDetail>(
       `/api/chats/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/reactions`,
-      { method: 'POST', body: { emoji } },
+      { method: 'POST', body: { kind } },
     ),
 
     // Opens the one conversation with that person, creating it the first time.

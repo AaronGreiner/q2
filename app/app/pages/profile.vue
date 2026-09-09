@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Image } from '~/api/types'
+
 /**
  * Your own profile: who you are, how you are doing, and what you have earned.
  *
@@ -8,15 +10,62 @@
 const t = useMessages()
 const now = useNow()
 
-const { profile, error, isLoading, refresh } = useProfile()
+const { profile, error, isLoading, isSaving, refresh, rename, chooseAvatar, removeAvatar } = useProfile()
+
+/*
+ * Two sheets, and never both at once.
+ *
+ * Editing owns the name and the picture; taking the picture is its own sheet.
+ * They are siblings here rather than nested because two open `UDrawer`s
+ * deadlock — see `PhotoCapture` for what that looks like — and because a sheet
+ * on top of a sheet does not fit on a phone.
+ */
+const editing = ref(false)
+const capturing = ref(false)
 
 useHead({ title: () => t.value.profile.heading })
+
+async function onSave(value: { displayName: string }) {
+  if (await rename(value.displayName)) editing.value = false
+}
+
+function onCapture() {
+  editing.value = false
+  capturing.value = true
+}
+
+/**
+ * Brings the edit sheet back once the camera is gone, whether a picture was
+ * taken or the sheet was simply dismissed. Watching the flag rather than
+ * handling the two cases separately is what makes "swiped it away" behave like
+ * "pressed cancel" without a third path to forget.
+ */
+watch(capturing, (open) => {
+  if (!open) editing.value = true
+})
+
+async function onPhoto(image: Image) {
+  capturing.value = false
+  await chooseAvatar(image.id)
+}
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
     <AppScreenHeader :title="t.profile.heading">
       <template #actions>
+        <UButton
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="outline"
+          size="lg"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
+          :aria-label="t.profileEdit.open"
+          :disabled="!profile"
+          data-testid="open-profile-edit"
+          @click="editing = true"
+        />
+
         <UButton
           to="/settings"
           icon="i-lucide-settings"
@@ -56,12 +105,12 @@ useHead({ title: () => t.value.profile.heading })
           aria-labelledby="profile-name"
           data-q2-private
         >
-          <span
-            class="flex size-22 items-center justify-center rounded-full text-[32px] font-extrabold text-white"
-            :style="{ background: profile.person.avatarColor }"
-            aria-hidden="true"
-            data-q2-block
-          >{{ profile.person.initials }}</span>
+          <AppAvatar
+            :initials="profile.person.initials"
+            :color="profile.person.avatarColor"
+            :image-id="profile.person.avatarImageId"
+            :size="88"
+          />
 
           <h2
             id="profile-name"
@@ -73,7 +122,7 @@ useHead({ title: () => t.value.profile.heading })
             {{ profile.person.handle }}
           </p>
 
-          <p class="mt-2.5 flex items-center gap-1.5 rounded-full bg-(--q2-amber-soft) px-3 py-1.5 text-xs font-extrabold text-(--q2-amber)">
+          <p class="mt-2.5 flex items-center gap-1.5 rounded-full bg-(--q2-flame-soft) px-3 py-1.5 text-xs font-extrabold text-(--q2-flame-text)">
             <UIcon
               name="i-lucide-flame"
               class="size-3.5"
@@ -96,7 +145,7 @@ useHead({ title: () => t.value.profile.heading })
             </dt>
           </div>
           <div class="q2-card flex-1 px-2 py-3.5 text-center">
-            <dd class="text-[22px] font-extrabold text-(--ui-primary)">
+            <dd class="text-[22px] font-extrabold">
               {{ profile.kudosReceived }}
             </dd>
             <dt class="mt-0.5 text-[11px] font-bold text-(--ui-text-muted)">
@@ -112,6 +161,11 @@ useHead({ title: () => t.value.profile.heading })
             </dt>
           </div>
         </dl>
+
+        <BalanceCard
+          class="mt-3"
+          :balance="profile.balance"
+        />
 
         <section
           class="mt-6"
@@ -161,5 +215,22 @@ useHead({ title: () => t.value.profile.heading })
         </section>
       </template>
     </div>
+
+    <template v-if="profile">
+      <ProfileEditSheet
+        v-model:open="editing"
+        :person="profile.person"
+        :submitting="isSaving"
+        @save="onSave"
+        @capture="onCapture"
+        @remove="profile.person.avatarImageId && removeAvatar(profile.person.avatarImageId)"
+      />
+
+      <PhotoCapture
+        v-model:open="capturing"
+        purpose="Avatar"
+        @uploaded="onPhoto"
+      />
+    </template>
   </div>
 </template>

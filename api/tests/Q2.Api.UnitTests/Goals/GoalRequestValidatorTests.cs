@@ -20,9 +20,8 @@ public class CreateGoalRequestValidatorTests
             Title: "Halbmarathon im Mai",
             Description: "Drei Läufe pro Woche.",
             Icon: "medal",
-            Rhythm: GoalRhythm.Weekly,
+            Schedule: new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 3, Period: QuotaPeriod.Week),
             IsGroup: false,
-            TotalSteps: 21,
             ReminderAt: new TimeOnly(18, 0),
             TargetDate: new DateOnly(2026, 12, 24),
             ParticipantIds: [Guid.CreateVersion7()]));
@@ -59,6 +58,29 @@ public class CreateGoalRequestValidatorTests
         Assert.Empty(errors);
     }
 
+    public static TheoryData<GoalScheduleRequest> BrokenSchedules =>
+    [
+        new GoalScheduleRequest(Kind: ScheduleKind.Interval, EveryDays: 0),
+        new GoalScheduleRequest(Kind: ScheduleKind.Interval, EveryDays: GoalSchedule.MaxEveryDays + 1),
+        new GoalScheduleRequest(Kind: ScheduleKind.Interval),
+        new GoalScheduleRequest(Kind: ScheduleKind.Weekdays),
+        new GoalScheduleRequest(Kind: ScheduleKind.Weekdays, Weekdays: []),
+        new GoalScheduleRequest(Kind: ScheduleKind.Weekdays, Weekdays: [(Weekday)9]),
+        new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 0, Period: QuotaPeriod.Week),
+        new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 2),
+        new GoalScheduleRequest(Kind: (ScheduleKind)42),
+    ];
+
+    public static TheoryData<GoalScheduleRequest> GoodSchedules =>
+    [
+        new GoalScheduleRequest(Kind: ScheduleKind.Once),
+        new GoalScheduleRequest(Kind: ScheduleKind.Interval, EveryDays: 1),
+        new GoalScheduleRequest(Kind: ScheduleKind.Interval, EveryDays: 3),
+        new GoalScheduleRequest(Kind: ScheduleKind.Weekdays, Weekdays: [Weekday.Monday, Weekday.Thursday]),
+        new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 3, Period: QuotaPeriod.Week),
+        new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 2, Period: QuotaPeriod.Month),
+    ];
+
     [Fact]
     public void AnUnknownIconIsReported()
     {
@@ -79,15 +101,40 @@ public class CreateGoalRequestValidatorTests
         }
     }
 
+    [Fact]
+    public void ASayingNothingAboutTheScheduleIsAllowedAndMeansEveryDay()
+    {
+        var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(Title: "Anything"));
+
+        Assert.Empty(errors);
+
+        var schedule = CreateGoalRequestValidator.ToSchedule(null);
+        Assert.Equal(ScheduleKind.Interval, schedule.Kind);
+        Assert.Equal(1, schedule.EveryDays);
+    }
+
     [Theory]
-    [InlineData(0)]
-    [InlineData(Goal.MaxSteps + 1)]
-    public void AnImpossibleNumberOfStepsIsReported(int steps)
+    [MemberData(nameof(BrokenSchedules))]
+    public void AScheduleThatCannotMeanAnythingIsReported(GoalScheduleRequest schedule)
     {
         var errors = CreateGoalRequestValidator.Validate(
-            new CreateGoalRequest(Title: "Anything", TotalSteps: steps));
+            new CreateGoalRequest(Title: "Anything", Schedule: schedule));
 
-        Assert.Contains(nameof(CreateGoalRequest.TotalSteps), errors.Keys);
+        Assert.Contains(nameof(CreateGoalRequest.Schedule), errors.Keys);
+    }
+
+    [Theory]
+    [MemberData(nameof(GoodSchedules))]
+    public void AScheduleTheServerWouldAcceptPassesItsOwnValidator(GoalScheduleRequest schedule)
+    {
+        var errors = CreateGoalRequestValidator.Validate(
+            new CreateGoalRequest(Title: "Anything", Schedule: schedule));
+
+        Assert.Empty(errors);
+
+        // And converts without throwing, which is the half a field message
+        // cannot cover.
+        Assert.NotNull(CreateGoalRequestValidator.ToSchedule(schedule));
     }
 
     [Fact]
@@ -97,44 +144,5 @@ public class CreateGoalRequestValidatorTests
             new CreateGoalRequest(Title: "Anything", ParticipantIds: [Guid.Empty]));
 
         Assert.Contains(nameof(CreateGoalRequest.ParticipantIds), errors.Keys);
-    }
-}
-
-public class CreateTaskRequestValidatorTests
-{
-    [Fact]
-    public void ATitleIsRequired()
-    {
-        var errors = CreateTaskRequestValidator.Validate(new CreateTaskRequest());
-
-        Assert.Contains(nameof(CreateTaskRequest.Title), errors.Keys);
-    }
-
-    [Fact]
-    public void AUnitWithoutATargetIsReported()
-    {
-        // "· L" under a task would measure nothing.
-        var errors = CreateTaskRequestValidator.Validate(
-            new CreateTaskRequest(Title: "Wasser trinken", MeasureUnit: "L"));
-
-        Assert.Contains(nameof(CreateTaskRequest.TargetValue), errors.Keys);
-    }
-
-    [Fact]
-    public void ATargetOfZeroIsReported()
-    {
-        var errors = CreateTaskRequestValidator.Validate(
-            new CreateTaskRequest(Title: "Wasser trinken", TargetValue: 0, MeasureUnit: "L"));
-
-        Assert.Contains(nameof(CreateTaskRequest.TargetValue), errors.Keys);
-    }
-
-    [Fact]
-    public void AMeasurableTaskWithBothPartsIsValid()
-    {
-        var errors = CreateTaskRequestValidator.Validate(
-            new CreateTaskRequest(Title: "Wasser trinken", TargetValue: 2, MeasureUnit: "L"));
-
-        Assert.Empty(errors);
     }
 }

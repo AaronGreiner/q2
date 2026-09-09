@@ -25,11 +25,22 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// <param name="PendingFriendRequests">
 /// How many people are waiting for an answer.
 /// </param>
+/// <param name="Balance">
+/// Everything this person has delivered and everything they have missed, over
+/// all of their own goals. Unscoped, because it is their own profile — the
+/// scoped version is what somebody else sees
+/// (<see cref="PersonProfileResponse"/>).
+/// </param>
+/// <param name="AtRisk">
+/// Their own windows that are close enough to failing to say so, right now.
+/// Empty for most of the day: the rule only turns on in the evening.
+/// </param>
 /// <remarks>
-/// The last two are here rather than on their own endpoint because they are
-/// what the bottom navigation puts a badge on, and it is on every screen. A
-/// dedicated "counts" call would be a second request on every page load to
-/// answer a question this one already had the data for.
+/// <see cref="UnreadChats"/> and <see cref="PendingFriendRequests"/> are here
+/// rather than on their own endpoint because they are what the bottom
+/// navigation puts a badge on, and it is on every screen. A dedicated "counts"
+/// call would be a second request on every page load to answer a question this
+/// one already had the data for.
 /// </remarks>
 public sealed record ProfileResponse(
     PersonSummary Person,
@@ -41,4 +52,33 @@ public sealed record ProfileResponse(
     int UnreadChats,
     int PendingFriendRequests,
     IReadOnlyList<BadgeResponse> Badges,
-    IReadOnlyList<ActivityResponse> RecentActivity);
+    IReadOnlyList<ActivityResponse> RecentActivity,
+    BalanceResponse Balance,
+    IReadOnlyList<GoalResponse> AtRisk);
+
+/// <summary>
+/// Changes to the signed-in person's own profile. Omitted properties keep
+/// their value.
+/// </summary>
+/// <param name="DisplayName">
+/// The name friends see. The initials beside it are re-derived from it, so
+/// renaming does not leave the old ones behind.
+/// </param>
+/// <param name="AvatarImageId">
+/// An image uploaded with <c>purpose=Avatar</c> by this person. It has to be
+/// theirs and it has to be an avatar; anything else is answered 404, because
+/// otherwise "set my avatar to this id" would be a way to read somebody else's
+/// photograph through their own profile.
+/// </param>
+/// <remarks>
+/// There is no way to say "remove my picture" here, and that is deliberate:
+/// removing it is <c>DELETE /api/images/{id}</c>, which also stops it counting
+/// against the person's storage. One path rather than two, and the one that
+/// actually gets rid of the photograph.
+///
+/// Both properties carry a default, so each is genuinely optional in the
+/// contract — a request that only renames does not have to send a null picture,
+/// and the generated client does not make one required. Nullable as well, so a
+/// body that omits everything is an empty change rather than a binding failure.
+/// </remarks>
+public sealed record UpdateProfileRequest(string? DisplayName = null, Guid? AvatarImageId = null);

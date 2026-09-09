@@ -1,7 +1,12 @@
 import { createCaller, type ApiFetch } from '~/api/client'
 import { createAccountsApi } from '~/api/accounts'
+import { createChallengesApi } from '~/api/challenges'
 import { createChatsApi, createSettingsApi } from '~/api/chats'
-import { createGoalsApi, createTasksApi } from '~/api/goals'
+import { createGoalsApi } from '~/api/goals'
+import { createImagesApi } from '~/api/images'
+import { createInviteApi, createModerationApi } from '~/api/moderation'
+import { createNotificationsApi } from '~/api/notifications'
+import { createProofsApi } from '~/api/proofs'
 import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/social'
 
 /**
@@ -53,7 +58,12 @@ export function useQ2Api() {
   return {
     accounts: createAccountsApi(call),
     goals: createGoalsApi(call),
-    tasks: createTasksApi(call),
+    images: createImagesApi(call),
+    proofs: createProofsApi(call),
+    challenges: createChallengesApi(call),
+    moderation: createModerationApi(call),
+    invite: createInviteApi(call),
+    notifications: createNotificationsApi(call),
     activity: createActivityApi(call),
     friends: createFriendsApi(call),
     chats: createChatsApi(call),

@@ -2,9 +2,11 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
 import { useChatThread, useChats } from '~/composables/useChats'
-import { useFriends, usePersonSearch, useProfile } from '~/composables/useFriends'
+import { useFriends, usePersonProfile, usePersonSearch, useProfile } from '~/composables/useFriends'
+import { useGoalArchive, useGoalLifecycle } from '~/composables/useGoalLifecycle'
 import { useGoalDetail, useGoals } from '~/composables/useGoals'
 import { useHome } from '~/composables/useHome'
+import { usePendingProofs, useProofDelivery } from '~/composables/useProofs'
 
 const failure = {
   kind: 'network' as const,
@@ -16,18 +18,16 @@ const failure = {
   reason: null,
 }
 
-function task(overrides: Record<string, unknown> = {}) {
+function window(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'task-1',
-    goalId: 'goal-1',
-    title: 'Run',
-    rhythm: 'Daily',
-    reminderAt: null,
-    isDone: false,
-    measuredValue: null,
-    targetValue: null,
-    measureUnit: null,
-    measurePercent: null,
+    id: 'window-1',
+    startsOn: '2026-07-31',
+    dueOn: '2026-07-31',
+    dueAt: '2026-07-31T21:59:59Z',
+    requiredProofs: 1,
+    confirmedProofs: 0,
+    remainingProofs: 1,
+    status: 'Open',
     ...overrides,
   }
 }
@@ -51,7 +51,11 @@ function goal(overrides: Record<string, unknown> = {}) {
     id: 'goal-1',
     title: 'Run',
     status: 'Active',
-    progressPercent: 20,
+    schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
+    current: window(),
+    streak: 2,
+    windowsDone: 4,
+    windowsMissed: 1,
     ...overrides,
   }
 }
@@ -127,14 +131,12 @@ describe('useHome', () => {
   function homeApi() {
     return {
       profile: { get: vi.fn().mockResolvedValue({ displayName: 'Mara' }) },
-      tasks: {
-        list: vi.fn().mockResolvedValue([task()]),
-        toggle: vi.fn().mockResolvedValue(task({ isDone: true })),
+      goals: {
+        list: vi.fn().mockResolvedValue([goal()]),
+        today: vi.fn().mockResolvedValue([goal()]),
       },
-      goals: { list: vi.fn().mockResolvedValue([goal()]) },
       activity: {
         feed: vi.fn().mockResolvedValue([activity()]),
-        leaderboard: vi.fn().mockResolvedValue([{ person: { id: 'person-1' }, score: 4 }]),
         toggleKudos: vi.fn().mockResolvedValue(activity({ kudosCount: 1, hasMyKudos: true })),
       },
     }
@@ -146,16 +148,11 @@ describe('useHome', () => {
     const home = useHome()
 
     await vi.waitFor(() => expect(home.profile.value).toMatchObject({ displayName: 'Mara' }))
-    expect(home.tasks.value).toHaveLength(1)
+    expect(home.due.value).toHaveLength(1)
     expect(home.goals.value).toHaveLength(1)
     expect(home.feed.value).toHaveLength(1)
-    expect(home.leaderboard.value).toHaveLength(1)
     expect(home.error.value).toBeNull()
     expect(home.isLoading.value).toBe(false)
-
-    await home.toggleTask('task-1')
-    expect(api.tasks.toggle).toHaveBeenCalledWith('task-1')
-    expect(show).toHaveBeenCalledWith(de.toast.taskDone)
 
     await home.toggleKudos('activity-1')
     expect(home.feed.value[0]).toMatchObject({ kudosCount: 1, hasMyKudos: true })
@@ -169,15 +166,12 @@ describe('useHome', () => {
     const home = useHome()
 
     await vi.waitFor(() => expect(home.error.value).toEqual(failure))
-    expect(home.tasks.value).toEqual([])
+    expect(home.due.value).toEqual([])
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'home', action: 'load' })
 
-    api.tasks.toggle.mockRejectedValueOnce(new Error('toggle'))
     api.activity.toggleKudos.mockRejectedValueOnce(new Error('kudos'))
-    await home.toggleTask('task-1')
     await home.toggleKudos('activity-1')
 
-    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'tasks', action: 'toggle' })
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'feed', action: 'kudos' })
   })
 })
@@ -187,26 +181,20 @@ describe('goal composables', () => {
     return {
       goals: {
         list: vi.fn().mockResolvedValue([goal()]),
+        today: vi.fn().mockResolvedValue([goal()]),
         create: vi.fn().mockResolvedValue(goal({ id: 'goal-new' })),
-        get: vi.fn().mockResolvedValue({ ...goal(), tasks: [task()] }),
-        contribute: vi.fn().mockResolvedValue(goal({ progressPercent: 100, status: 'Completed' })),
-      },
-      tasks: {
-        list: vi.fn().mockResolvedValue([task()]),
-        toggle: vi.fn().mockResolvedValue(task({ isDone: true })),
+        get: vi.fn().mockResolvedValue({ goal: goal(), team: [], history: [] }),
       },
     }
   }
 
-  it('loads goals, updates a task and creates a goal', async () => {
+  it('loads goals and creates one', async () => {
     const api = goalsApi()
     const { show } = installFeatureGlobals(api)
     const state = useGoals()
     await vi.waitFor(() => expect(state.goals.value).toHaveLength(1))
 
-    await state.toggleTask('task-1')
-    expect(state.tasks.value[0]).toMatchObject({ isDone: true })
-    expect(show).toHaveBeenCalledWith(de.toast.taskDone)
+    expect(state.due.value).toHaveLength(1)
 
     const created = await state.create({ title: 'New goal' })
     expect(created).toMatchObject({ id: 'goal-new' })
@@ -215,41 +203,25 @@ describe('goal composables', () => {
     expect(show).toHaveBeenCalledWith(de.toast.goalCreated)
   })
 
-  it('keeps create and toggle failures visible without changing product data', async () => {
+  it('keeps a create failure visible without changing product data', async () => {
     const api = goalsApi()
     const { report } = installFeatureGlobals(api)
     const state = useGoals()
-    await vi.waitFor(() => expect(state.tasks.value).toHaveLength(1))
+    await vi.waitFor(() => expect(state.due.value).toHaveLength(1))
 
     api.goals.create.mockRejectedValueOnce(new Error('create'))
-    api.tasks.toggle.mockRejectedValueOnce(new Error('toggle'))
     await expect(state.create({ title: 'Nope' })).resolves.toBeNull()
-    await state.toggleTask('task-1')
 
     expect(state.createError.value).toEqual(failure)
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'create' })
-    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'tasks', action: 'toggle' })
   })
 
-  it('distinguishes a missing detail and refreshes after writes', async () => {
+  it('distinguishes a missing detail from a real failure', async () => {
     const api = goalsApi()
-    const { report, show } = installFeatureGlobals(api)
+    installFeatureGlobals(api)
     const id = ref('goal-1')
     const detail = useGoalDetail(id)
     await vi.waitFor(() => expect(detail.detail.value).not.toBeNull())
-
-    await detail.contribute()
-    expect(show).toHaveBeenCalledWith(de.toast.goalReached)
-    expect(detail.isContributing.value).toBe(false)
-
-    await detail.toggleTask('task-1')
-    expect(show).toHaveBeenCalledWith(de.toast.taskDone)
-
-    api.goals.contribute.mockRejectedValueOnce(new Error('contribute'))
-    api.tasks.toggle.mockRejectedValueOnce(new Error('toggle'))
-    await detail.contribute()
-    await detail.toggleTask('task-1')
-    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'contribute' })
 
     vi.stubGlobal('useErrorReporter', () => ({
       report: vi.fn(() => ({ ...failure, kind: 'notFound' as const })),
@@ -258,6 +230,107 @@ describe('goal composables', () => {
     const missing = useGoalDetail(ref('missing'))
     await vi.waitFor(() => expect(missing.isMissing.value).toBe(true))
     expect(missing.error.value).toBeNull()
+  })
+})
+
+describe('the exits a goal has', () => {
+  function lifecycleApi() {
+    return {
+      goals: {
+        pause: vi.fn().mockResolvedValue(goal({ pause: { id: 'pause-1', vetoedByMe: false } })),
+        endPause: vi.fn().mockResolvedValue(goal({ pause: null })),
+        vetoPause: vi.fn().mockResolvedValue(goal({ pause: { id: 'pause-1', vetoedByMe: true } })),
+        close: vi.fn().mockResolvedValue(goal({ status: 'Completed' })),
+        archive: vi.fn().mockResolvedValue([goal({ status: 'Completed' })]),
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
+    }
+  }
+
+  it('sets a goal aside and lets it go again', async () => {
+    const api = lifecycleApi()
+    const { show } = installFeatureGlobals(api)
+    const lifecycle = useGoalLifecycle()
+
+    await lifecycle.pause('goal-1', 'Grippe, seit Freitag im Bett.', 3)
+
+    expect(api.goals.pause).toHaveBeenCalledWith(
+      'goal-1',
+      { reason: 'Grippe, seit Freitag im Bett.', days: 3 },
+    )
+    expect(show).toHaveBeenCalledWith(de.toast.goalPaused)
+    expect(lifecycle.isBusy.value).toBe(false)
+    expect(lifecycle.error.value).toBeNull()
+
+    await lifecycle.endPause('goal-1')
+    expect(show).toHaveBeenCalledWith(de.toast.pauseEnded)
+  })
+
+  /**
+   * The same request raises an objection and takes it back, so only the answer
+   * knows which of the two just happened.
+   */
+  it('reads which way an objection went from the response', async () => {
+    const api = lifecycleApi()
+    const { show } = installFeatureGlobals(api)
+    const lifecycle = useGoalLifecycle()
+
+    await lifecycle.toggleVeto('goal-1')
+    expect(show).toHaveBeenCalledWith(de.toast.pauseVetoed)
+
+    api.goals.vetoPause.mockResolvedValueOnce(goal({ pause: { id: 'pause-1', vetoedByMe: false } }))
+    await lifecycle.toggleVeto('goal-1')
+    expect(show).toHaveBeenCalledWith(de.toast.pauseVetoWithdrawn)
+  })
+
+  it('keeps a refused pause visible as a failure with its field messages', async () => {
+    const api = lifecycleApi()
+    const { report } = installFeatureGlobals(api)
+    const lifecycle = useGoalLifecycle()
+
+    api.goals.pause.mockRejectedValueOnce(new Error('no allowance left'))
+    await expect(lifecycle.pause('goal-1', 'Grippe, seit Freitag im Bett.', 3)).resolves.toBeNull()
+
+    expect(lifecycle.error.value).toEqual(failure)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'pause' })
+  })
+
+  it('stops a goal and says which ending it was', async () => {
+    const api = lifecycleApi()
+    const { show } = installFeatureGlobals(api)
+    const lifecycle = useGoalLifecycle()
+
+    await lifecycle.close('goal-1', false)
+
+    expect(api.goals.close).toHaveBeenCalledWith('goal-1', { completed: false })
+    expect(show).toHaveBeenCalledWith(de.toast.goalClosed)
+  })
+
+  it('loads the archive and deletes from it', async () => {
+    const api = lifecycleApi()
+    const { show } = installFeatureGlobals(api)
+    const archive = useGoalArchive()
+
+    await vi.waitFor(() => expect(archive.goals.value).toHaveLength(1))
+    expect(archive.error.value).toBeNull()
+
+    await expect(archive.remove('goal-1')).resolves.toBe(true)
+    expect(api.goals.remove).toHaveBeenCalledWith('goal-1')
+    expect(show).toHaveBeenCalledWith(de.toast.goalDeleted)
+  })
+
+  it('reports a refused deletion without emptying the list', async () => {
+    const api = lifecycleApi()
+    const { report } = installFeatureGlobals(api)
+    const archive = useGoalArchive()
+
+    await vi.waitFor(() => expect(archive.goals.value).toHaveLength(1))
+
+    api.goals.remove.mockRejectedValueOnce(new Error('still running'))
+    await expect(archive.remove('goal-1')).resolves.toBe(false)
+
+    expect(archive.goals.value).toHaveLength(1)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'delete' })
   })
 })
 
@@ -458,5 +531,129 @@ describe('chat composables', () => {
     const missing = useChatThread(ref('missing'))
     await vi.waitFor(() => expect(missing.isMissing.value).toBe(true))
     expect(missing.error.value).toBeNull()
+  })
+})
+
+/**
+ * The two composables stage 4 added.
+ *
+ * The interesting behaviour is not "it calls the endpoint" — it is what happens
+ * to the queue afterwards. A card that stayed after a vote would be voted on
+ * twice; a card that vanished on a failure would be an abstention nobody chose.
+ */
+describe('proof composables', () => {
+  function card(id: string) {
+    return { proof: { id }, goalTitle: 'Laufen', goalIcon: 'medal' }
+  }
+
+  function proofsApi() {
+    return {
+      proofs: {
+        pending: vi.fn().mockResolvedValue([card('proof-1'), card('proof-2')]),
+        vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
+        submit: vi.fn().mockResolvedValue({ id: 'proof-9', status: 'Voting' }),
+      },
+    }
+  }
+
+  it('drops a card as soon as it has been voted on', async () => {
+    const api = proofsApi()
+    const { show } = installFeatureGlobals(api)
+    const state = usePendingProofs()
+
+    await vi.waitFor(() => expect(state.proofs.value).toHaveLength(2))
+
+    await state.vote('proof-1', 'Doubt')
+
+    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Doubt')
+    expect(state.proofs.value.map(entry => entry.proof.id)).toEqual(['proof-2'])
+    expect(show).toHaveBeenCalledWith(de.toast.voteCast)
+  })
+
+  it('reloads rather than dropping a card when the vote failed', async () => {
+    const api = proofsApi()
+    const { report } = installFeatureGlobals(api)
+    const state = usePendingProofs()
+
+    await vi.waitFor(() => expect(state.proofs.value).toHaveLength(2))
+
+    api.proofs.vote.mockRejectedValueOnce(new Error('closed'))
+    await state.vote('proof-1', 'Confirm')
+
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'vote' })
+
+    // Something is out of step — the vote closed, or somebody got there first.
+    // Silently dropping the card would be an abstention nobody chose.
+    expect(state.proofs.value).toHaveLength(2)
+  })
+
+  it('says whether a delivered photograph is waiting or already believed', async () => {
+    const api = proofsApi()
+    const { show } = installFeatureGlobals(api)
+    const delivery = useProofDelivery()
+
+    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(true)
+    expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', 'image-1', true)
+    expect(show).toHaveBeenCalledWith(de.toast.proofDelivered)
+
+    // A goal nobody shares has nobody to ask, so it comes back believed.
+    api.proofs.submit.mockResolvedValueOnce({ id: 'proof-10', status: 'Confirmed' })
+    await delivery.deliver('goal-1', { id: 'image-2' })
+    expect(show).toHaveBeenCalledWith(de.toast.proofConfirmed)
+  })
+
+  it('keeps a refused delivery visible as a failure', async () => {
+    const api = proofsApi()
+    const { report } = installFeatureGlobals(api)
+    const delivery = useProofDelivery()
+
+    api.proofs.submit.mockRejectedValueOnce(new Error('window full'))
+
+    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
+  })
+})
+
+describe('somebody else\'s profile', () => {
+  it('asks for the person and keeps a stale link calm', async () => {
+    const api = {
+      profile: {
+        person: vi.fn().mockResolvedValue({
+          person: { id: 'person-2', displayName: 'Lena' },
+          balance: { done: 3, missed: 1 },
+          sharedGoals: 2,
+        }),
+      },
+    }
+
+    installFeatureGlobals(api)
+    const id = ref('person-2')
+    const state = usePersonProfile(id)
+
+    await vi.waitFor(() => expect(state.person.value).not.toBeNull())
+
+    expect(api.profile.person).toHaveBeenCalledWith('person-2')
+
+    // Nothing here narrows the balance. The scoping is the server's, and a
+    // screen that could filter is a screen that could stop filtering.
+    expect(state.person.value).toMatchObject({ sharedGoals: 2, balance: { done: 3, missed: 1 } })
+    expect(state.isMissing.value).toBe(false)
+  })
+
+  it('treats a person who is gone as a calm state rather than an error', async () => {
+    const api = { profile: { person: vi.fn().mockRejectedValue(new Error('gone')) } }
+
+    installFeatureGlobals(api)
+
+    // After the globals, not before: `installFeatureGlobals` installs its own
+    // reporter and would overwrite this one.
+    vi.stubGlobal('useErrorReporter', () => ({
+      report: vi.fn(() => ({ ...failure, kind: 'notFound' as const })),
+    }))
+
+    const state = usePersonProfile(ref('nobody'))
+
+    await vi.waitFor(() => expect(state.isMissing.value).toBe(true))
+    expect(state.error.value).toBeNull()
   })
 })

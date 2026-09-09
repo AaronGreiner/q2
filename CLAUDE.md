@@ -27,6 +27,12 @@ to working in Claude Code.
 - **`app/app/api/generated/schema.d.ts` is generated.** Never edit it. Run
   `bun run api:openapi` after changing an endpoint or DTO; the regenerated
   contract and types are part of the same change.
+- **A goal is a schedule and a chain of windows, not a counter.** There is no
+  percentage and there are no steps: a window is delivered or missed, and the
+  streak and the balance are counted from that. Anything that has to happen
+  while nobody is looking goes through `GoalMaintenance`, which is idempotent
+  and catches up — see
+  [docs/adr/0016-windows-instead-of-steps.md](docs/adr/0016-windows-instead-of-steps.md).
 - **The Development database is never reset automatically**, and
   `bun run db:reset` refuses to run in Development. That is deliberate; do not
   "fix" it.
@@ -53,6 +59,12 @@ to working in Claude Code.
   [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
 - **`app/public/` is generated.** `bun run app:icons` redraws the whole icon set
   from `app/scripts/generate-icons.ts`; never hand-edit a file in there.
+- **Colour is rationed, and the rule is written down.** The accent means "you
+  can do this now", the flame gradient means a streak, red means something
+  final; a state is grey or white. No emoji anywhere in the interface. Before
+  reaching for `--ui-primary`, read
+  [docs/adr/0015-qdos-design-language.md](docs/adr/0015-qdos-design-language.md)
+  — the same rule had to be walked back through 67 places once already.
 
 ## Running things
 

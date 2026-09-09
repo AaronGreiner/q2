@@ -23,6 +23,7 @@ const t = useMessages()
     <AppAvatar
       :initials="request.person.initials"
       :color="request.person.avatarColor"
+      :image-id="request.person.avatarImageId"
       :size="42"
     />
 

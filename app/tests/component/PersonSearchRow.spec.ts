@@ -15,6 +15,7 @@ function person(overrides: Partial<Person> = {}): Person {
     handle: '@jonas.w',
     initials: 'JW',
     avatarColor: '#4f46e5',
+    avatarImageId: null,
     isOnline: true,
     ...overrides,
   }

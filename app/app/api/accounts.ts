@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { LoginRequest, RegisterRequest, Session } from './types'
+import type { AccountDeletion, LoginRequest, RegisterRequest, Session } from './types'
 
 /**
  * Registering, signing in, signing out, and asking who is signed in.
@@ -13,6 +13,16 @@ export interface AccountsApi {
   login: (request: LoginRequest) => Promise<Session>
   logout: () => Promise<void>
   session: () => Promise<Session>
+
+  /**
+   * Deletes the account and everything personal behind it.
+   *
+   * Takes the password again, and the body is why this is worth a comment: a
+   * session cookie authorises reading somebody's screens, not erasing their
+   * year from a borrowed phone. The session is already gone by the time this
+   * resolves — the server clears the cookie with the account.
+   */
+  remove: (password: string) => Promise<AccountDeletion>
 }
 
 export function createAccountsApi(call: ApiCaller): AccountsApi {
@@ -27,5 +37,10 @@ export function createAccountsApi(call: ApiCaller): AccountsApi {
     },
 
     session: () => call<Session>('/api/auth/session', { method: 'GET' }),
+
+    remove: password => call<AccountDeletion>('/api/auth/account', {
+      method: 'DELETE',
+      body: { password },
+    }),
   }
 }

@@ -14,7 +14,6 @@ import ChatListRow from '~/components/chats/ChatListRow.vue'
 import FriendRequestRow from '~/components/friends/FriendRequestRow.vue'
 import FriendSuggestionRow from '~/components/friends/FriendSuggestionRow.vue'
 import GoalTile from '~/components/goals/GoalTile.vue'
-import LeaderboardCard from '~/components/social/LeaderboardCard.vue'
 import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
@@ -28,7 +27,6 @@ import type {
   FriendRequest,
   FriendSuggestion,
   Goal,
-  LeaderboardEntry,
   Person,
 } from '~/api/types'
 
@@ -39,6 +37,7 @@ function person(overrides: Partial<Person> = {}): Person {
     handle: '@mara',
     initials: 'MB',
     avatarColor: '#4f46e5',
+    avatarImageId: null,
     isOnline: true,
     ...overrides,
   }
@@ -50,18 +49,31 @@ function goal(): Goal {
     title: 'Halbmarathon',
     description: null,
     icon: 'medal',
-    rhythm: 'Weekly',
+    schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     status: 'Active',
     isGroup: true,
-    completedSteps: 2,
-    totalSteps: 10,
-    progressPercent: 20,
+    current: {
+      id: 'window-1',
+      startsOn: '2026-07-27',
+      dueOn: '2026-08-02',
+      dueAt: '2026-08-02T21:59:59Z',
+      requiredProofs: 3,
+      confirmedProofs: 1,
+      remainingProofs: 2,
+      status: 'Open',
+    },
     streak: 2,
+    windowsDone: 6,
+    windowsMissed: 1,
     reminderAt: null,
     targetDate: null,
     createdAt: '2026-07-31T09:00:00Z',
     participants: [person()],
     isOverdue: false,
+    isMine: true,
+    closedAt: null,
+    pause: null,
+    remainingPauses: 2,
   }
 }
 
@@ -144,28 +156,35 @@ describe('chat presentation', () => {
       text: 'Du schaffst das!',
       sentAt: '2026-07-31T09:00:00Z',
       isMine: false,
-      reactions: [{ emoji: '👏', count: 2, isMine: true }],
+      reactions: [{ kind: 'Applause' as const, count: 2, isMine: true }],
       ...overrides,
     }
   }
 
-  it('renders a private message and emits the one-tap reaction', async () => {
+  it('renders a private message and offers all three kinds of kudos', async () => {
     const wrapper = await mountSuspended(ChatBubble, {
       props: { message: message(), now: Date.parse('2026-07-31T10:00:00Z') },
     })
 
     expect(wrapper.text()).toContain('Du schaffst das!')
     expect(wrapper.attributes()).toHaveProperty('data-q2-block')
-    expect(wrapper.get('[data-testid="chat-clap"]').attributes('aria-pressed')).toBe('true')
-    await wrapper.get('[data-testid="chat-clap"]').trigger('click')
-    expect(wrapper.emitted('react')?.[0]).toEqual(['message-1', '👏'])
+
+    // The one already given is pressed; the other two are there to be given.
+    expect(wrapper.get('[data-testid="chat-kudos-Applause"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-testid="chat-kudos-Fire"]').attributes('aria-pressed')).toBe('false')
+
+    // An icon is not a name: each button says which kudos it gives.
+    expect(wrapper.get('[data-testid="chat-kudos-Fire"]').attributes('aria-label')).toBe('Stark gemacht')
+
+    await wrapper.get('[data-testid="chat-kudos-Fire"]').trigger('click')
+    expect(wrapper.emitted('react')?.[0]).toEqual(['message-1', 'Fire'])
   })
 
   it('does not offer a reaction on your own message', async () => {
     const wrapper = await mountSuspended(ChatBubble, {
       props: { message: message({ isMine: true, senderName: null }), now: Date.now() },
     })
-    expect(wrapper.find('[data-testid="chat-clap"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="chat-kudos-Fire"]').exists()).toBe(false)
   })
 
   it('trims a composed message, clears the field and offers quick cheers', async () => {
@@ -182,11 +201,18 @@ describe('chat presentation', () => {
   })
 
   it('links a pinned goal and emits encouragement', async () => {
-    const pinned = { id: 'goal-1', title: 'Halbmarathon', progressPercent: 20 } as ChatPinnedGoal
+    const pinned = {
+      id: 'goal-1',
+      title: 'Halbmarathon',
+      current: goal().current,
+      streak: 2,
+    } as ChatPinnedGoal
     const wrapper = await mountSuspended(ChatGoalBanner, { props: { goal: pinned } })
 
     expect(wrapper.get('a').attributes('href')).toBe('/goals/goal-1')
-    expect(wrapper.text()).toContain('20%')
+
+    // What the window still wants, not a percentage of a counter.
+    expect(wrapper.text()).toContain('Noch 2 von 3')
     await wrapper.get('[data-testid="chat-cheer"]').trigger('click')
     expect(wrapper.emitted('cheer')).toHaveLength(1)
   })
@@ -197,6 +223,7 @@ describe('chat presentation', () => {
       name: 'Jonas',
       initials: 'JW',
       avatarColor: '#4f46e5',
+      avatarImageId: null,
       isOnline: true,
       isGroup: false,
       lastMessage: 'Bis morgen',
@@ -232,6 +259,8 @@ describe('feature cards and rows', () => {
     const tile = await mountSuspended(GoalTile, { props: { goal: goal() } })
     expect(tile.get('a').attributes('href')).toBe('/goals/goal-1')
     expect(tile.findAll('[data-testid="avatar"]')).toHaveLength(1)
+    expect(tile.text()).toContain('3× pro Woche')
+    expect(tile.text()).toContain('Noch 2 von 3')
   })
 
   it('emits both answers to a friend request and a suggestion', async () => {
@@ -250,19 +279,6 @@ describe('feature cards and rows', () => {
     const suggestionRow = await mountSuspended(FriendSuggestionRow, { props: { suggestion } })
     await suggestionRow.get('[data-testid="suggestion-request"]').trigger('click')
     expect(suggestionRow.emitted('request')?.[0]).toEqual(['suggestion-1'])
-  })
-
-  it('shows the top three and still keeps the signed-in person findable', async () => {
-    const entries = [1, 2, 3, 4].map(rank => ({
-      rank,
-      person: person({ id: `person-${rank}`, displayName: `Person ${rank}` }),
-      kudos: 10 - rank,
-      isMe: rank === 4,
-    })) as LeaderboardEntry[]
-    const wrapper = await mountSuspended(LeaderboardCard, { props: { entries } })
-
-    expect(wrapper.findAll('li')).toHaveLength(4)
-    expect(wrapper.text()).toContain('Du')
   })
 
   it('names earned and locked badges in words', async () => {
@@ -317,9 +333,14 @@ describe('feature cards and rows', () => {
       route: '/',
     })
 
+    // Four destinations and the create button, which is a link too so that the
+    // sheet it opens survives a reload and closes with the back gesture.
     expect(wrapper.findAll('a')).toHaveLength(5)
     expect(wrapper.get('[data-testid="nav-home"]').attributes('href')).toBe('/')
+    expect(wrapper.get('[data-testid="nav-create"]').attributes('href')).toBe('/goals?create=1')
     expect(wrapper.get('[data-testid="nav-chats"]').text()).toContain('3')
-    expect(wrapper.get('[data-testid="nav-friends"]').text()).toContain('2')
+
+    // Friend requests followed the friends screen into search.
+    expect(wrapper.get('[data-testid="nav-search"]').text()).toContain('2')
   })
 })

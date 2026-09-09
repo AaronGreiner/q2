@@ -4,12 +4,17 @@ using Microsoft.AspNetCore.Mvc;
 namespace Q2.Api.Features.Goals;
 
 /// <summary>
-/// HTTP surface for goals and the tasks under them.
+/// HTTP surface for goals and what is due today.
 /// </summary>
 /// <remarks>
 /// Endpoints stay thin: bind, validate, delegate, map. Anything that looks
 /// like a decision belongs in <see cref="GoalService"/> or in
 /// <see cref="Goal"/> itself.
+///
+/// Delivering a proof is not here. It is mapped by
+/// <see cref="Proofs.ProofEndpoints"/> onto <c>/api/goals/{id}/proof</c>, so
+/// the route reads the way people think about it while the code sits with the
+/// photograph and the vote it belongs to.
 /// </remarks>
 public static class GoalEndpoints
 {
@@ -22,9 +27,16 @@ public static class GoalEndpoints
             .WithSummary("Lists goals, newest first.")
             .Produces<IReadOnlyList<GoalResponse>>();
 
+        // Before the id route only for readability: "archive" is not a GUID,
+        // so the constraint already keeps the two apart.
+        goals.MapGet("/archive", ListArchive)
+            .WithName("ListArchivedGoals")
+            .WithSummary("Lists the goals that have stopped, most recently stopped first.")
+            .Produces<IReadOnlyList<GoalResponse>>();
+
         goals.MapGet("/{id:guid}", GetGoal)
             .WithName("GetGoal")
-            .WithSummary("Returns one goal with its team and its tasks.")
+            .WithSummary("Returns one goal with its team and its resolved windows.")
             .Produces<GoalDetailResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -34,31 +46,47 @@ public static class GoalEndpoints
             .Produces<GoalResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem();
 
-        goals.MapPost("/{id:guid}/contribute", Contribute)
-            .WithName("ContributeToGoal")
-            .WithSummary("Records one step of progress towards a goal.")
+        goals.MapPost("/{id:guid}/pause", PauseGoal)
+            .WithName("PauseGoal")
+            .WithSummary("Sets a goal aside for whole days, with a reason its friends read.")
             .Produces<GoalResponse>()
-            .ProducesProblem(StatusCodes.Status404NotFound);
-
-        var tasks = endpoints.MapGroup("/api/tasks").WithTags("Tasks").RequireAuthorization();
-
-        tasks.MapGet("/", ListTasks)
-            .WithName("ListTasks")
-            .WithSummary("Lists the tasks scheduled for today, or all of them.")
-            .Produces<IReadOnlyList<GoalTaskResponse>>();
-
-        tasks.MapPost("/", CreateTask)
-            .WithName("CreateTask")
-            .WithSummary("Creates a task.")
-            .Produces<GoalTaskResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        tasks.MapPost("/{id:guid}/toggle", ToggleTask)
-            .WithName("ToggleTask")
-            .WithSummary("Ticks a task off for today, or takes it back.")
-            .Produces<GoalTaskResponse>()
+        goals.MapDelete("/{id:guid}/pause", EndPause)
+            .WithName("EndGoalPause")
+            .WithSummary("Ends the running pause early.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapPost("/{id:guid}/pause/veto", VetoPause)
+            .WithName("VetoGoalPause")
+            .WithSummary("Objects to a running pause, or takes the objection back. Anonymous.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapPost("/{id:guid}/close", CloseGoal)
+            .WithName("CloseGoal")
+            .WithSummary("Stops a goal for good and moves it to the archive.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapDelete("/{id:guid}", DeleteGoal)
+            .WithName("DeleteGoal")
+            .WithSummary("Deletes a stopped goal outright, for everybody on it.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        endpoints.MapGet("/api/today", ListDueToday)
+            .RequireAuthorization()
+            .WithTags("Goals")
+            .WithName("ListDueToday")
+            .WithSummary("Lists the goals whose current window covers today.")
+            .Produces<IReadOnlyList<GoalResponse>>();
 
         return endpoints;
     }
@@ -99,46 +127,60 @@ public static class GoalEndpoints
         return TypedResults.Created($"/api/goals/{created.Id}", created);
     }
 
-    private static async Task<Ok<GoalResponse>> Contribute(
+    private static async Task<Ok<IReadOnlyList<GoalResponse>>> ListArchive(
+        GoalService goals,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.ListArchiveAsync(cancellationToken));
+
+    private static async Task<Results<Ok<GoalResponse>, ValidationProblem>> PauseGoal(
         GoalService goals,
         Guid id,
+        RequestPauseRequest request,
         CancellationToken cancellationToken)
     {
-        var goal = await goals.ContributeAsync(id, cancellationToken);
-        return TypedResults.Ok(goal);
-    }
-
-    private static async Task<Ok<IReadOnlyList<GoalTaskResponse>>> ListTasks(
-        GoalTaskService tasks,
-        [FromQuery] bool? all,
-        CancellationToken cancellationToken)
-    {
-        var result = await tasks.ListAsync(scheduledOnly: all is not true, cancellationToken);
-        return TypedResults.Ok(result);
-    }
-
-    private static async Task<Results<Created<GoalTaskResponse>, ValidationProblem>> CreateTask(
-        GoalTaskService tasks,
-        CreateTaskRequest request,
-        CancellationToken cancellationToken)
-    {
-        var errors = CreateTaskRequestValidator.Validate(request);
+        var errors = RequestPauseValidator.Validate(request);
 
         if (errors.Count > 0)
         {
             return TypedResults.ValidationProblem(errors);
         }
 
-        var created = await tasks.CreateAsync(request, cancellationToken);
-        return TypedResults.Created($"/api/tasks/{created.Id}", created);
+        return TypedResults.Ok(await goals.PauseAsync(id, request, cancellationToken));
     }
 
-    private static async Task<Ok<GoalTaskResponse>> ToggleTask(
-        GoalTaskService tasks,
+    private static async Task<Ok<GoalResponse>> EndPause(
+        GoalService goals,
+        Guid id,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.EndPauseAsync(id, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> VetoPause(
+        GoalService goals,
+        Guid id,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.VetoPauseAsync(id, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> CloseGoal(
+        GoalService goals,
+        Guid id,
+        CloseGoalRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.CloseAsync(id, request, cancellationToken));
+
+    private static async Task<NoContent> DeleteGoal(
+        GoalService goals,
         Guid id,
         CancellationToken cancellationToken)
     {
-        var task = await tasks.ToggleAsync(id, cancellationToken);
-        return TypedResults.Ok(task);
+        await goals.DeleteAsync(id, cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<Ok<IReadOnlyList<GoalResponse>>> ListDueToday(
+        GoalService goals,
+        CancellationToken cancellationToken)
+    {
+        var result = await goals.ListDueTodayAsync(cancellationToken);
+        return TypedResults.Ok(result);
     }
 }

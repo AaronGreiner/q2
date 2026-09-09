@@ -24,7 +24,7 @@ const inner = computed(() => Math.round(props.size * 0.76))
     :style="{
       width: `${size}px`,
       height: `${size}px`,
-      background: `conic-gradient(var(--ui-primary) ${value * 3.6}deg, var(--q2-track) 0deg)`,
+      background: `conic-gradient(var(--ui-text) ${value * 3.6}deg, var(--q2-track) 0deg)`,
     }"
     role="progressbar"
     :aria-valuenow="value"

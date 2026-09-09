@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
@@ -19,12 +20,13 @@ public sealed class ChatService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     FriendsService friends,
+    BlockList blockList,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ChatService> logger)
 {
-    /// <summary>The emoji a group gets when none was chosen.</summary>
-    public const string DefaultGroupEmoji = "\U0001F4AC";
+    /// <summary>The icon a group gets when none was chosen.</summary>
+    public const string DefaultGroupIcon = ConversationIcons.Default;
 
     public async Task<IReadOnlyList<ChatSummaryResponse>> ListAsync(string? search, CancellationToken cancellationToken)
     {
@@ -33,6 +35,24 @@ public sealed class ChatService(
         var term = search?.Trim();
 
         var conversations = await LoadMineAsync(me.Id, cancellationToken);
+        var hidden = await blockList.HiddenFromMeAsync(cancellationToken);
+
+        /*
+         * A direct thread with somebody blocked is gone from the list, not
+         * deleted from the database.
+         *
+         * Blocking is reversible and erasing is not: lifting it puts the thread
+         * back where it was. Destroying somebody's copy of a shared history is
+         * what deleting an account does, and it is not a decision one person
+         * gets to make about another's.
+         *
+         * A group both of them are in stays. It is other people's conversation
+         * too, and quietly removing one member's half of it would rewrite
+         * something that is not only yours — leaving is the answer there, and
+         * it is a decision rather than a side effect.
+         */
+        conversations = [.. conversations.Where(conversation => !IsHiddenDirect(conversation, me.Id, hidden))];
+
         var people = await LoadPeopleAsync(conversations, cancellationToken);
 
         var summaries = new List<ChatSummaryResponse>(conversations.Count);
@@ -53,7 +73,9 @@ public sealed class ChatService(
                 conversation.Kind,
                 identity.Name,
                 identity.Initials,
+                identity.Icon,
                 identity.AvatarColor,
+                identity.AvatarImageId,
                 identity.IsOnline,
                 last?.Text,
 
@@ -94,6 +116,7 @@ public sealed class ChatService(
 
         var conversation = await LoadOneAsync(id, cancellationToken);
         EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
         conversation.MarkRead(me.Id, now);
         await database.SaveChangesAsync(cancellationToken);
@@ -110,6 +133,7 @@ public sealed class ChatService(
 
         var conversation = await LoadOneAsync(id, cancellationToken);
         EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
         conversation.AddMessage(idGenerator.NewId(), me.Id, request.Text ?? string.Empty, now);
         conversation.MarkRead(me.Id, now);
@@ -135,11 +159,12 @@ public sealed class ChatService(
 
         var conversation = await LoadOneAsync(id, cancellationToken);
         EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
         var message = conversation.Messages.SingleOrDefault(m => m.Id == messageId)
             ?? throw new ResourceNotFoundException("Message", messageId);
 
-        message.ToggleReaction(idGenerator.NewId(), me.Id, request.Emoji ?? string.Empty);
+        message.ToggleReaction(idGenerator.NewId(), me.Id, request.Kind ?? default);
         await database.SaveChangesAsync(cancellationToken);
 
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
@@ -150,7 +175,7 @@ public sealed class ChatService(
     /// </summary>
     /// <remarks>
     /// Idempotent, and it has to be: the message button appears on the friends
-    /// screen, on a leaderboard row and on a goal's team list, and all three
+    /// screen, on a feed row and on a goal's team list, and all three
     /// have to land in the same thread.
     ///
     /// Only friends. A stranger being able to open a thread with anybody is
@@ -179,6 +204,17 @@ public sealed class ChatService(
         {
             throw new ResourceNotFoundException("Person", personId);
         }
+
+        /*
+         * Before the friendship check, and answering 404 rather than "you are
+         * not friends".
+         *
+         * Blocking already ended the friendship, so the check below would
+         * refuse this anyway — but with a different sentence for a blocked
+         * person than for a stranger, and a refusal that reads differently is a
+         * notification.
+         */
+        await EnsureNotHiddenAsync(personId, cancellationToken);
 
         var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
 
@@ -282,14 +318,14 @@ public sealed class ChatService(
             }
         }
 
-        var emoji = string.IsNullOrWhiteSpace(request.Emoji) ? DefaultGroupEmoji : request.Emoji.Trim();
+        var icon = string.IsNullOrWhiteSpace(request.Icon) ? DefaultGroupIcon : request.Icon.Trim();
 
-        // Conversation.CreateGroup enforces the title itself, so an empty one
-        // becomes a 400 without a second copy of the rule here.
+        // Conversation.CreateGroup enforces the title and the icon itself, so
+        // an empty one becomes a 400 without a second copy of the rule here.
         var conversation = Conversation.CreateGroup(
             idGenerator.NewId(),
             request.Title ?? string.Empty,
-            emoji,
+            icon,
             request.GoalId,
             now);
 
@@ -355,6 +391,9 @@ public sealed class ChatService(
         var goal = conversation.GoalId is { } goalId
             ? await database.Goals
                 .AsNoTracking()
+                .Include(g => g.Instances)
+                .ThenInclude(instance => instance.Proofs)
+                .Include(g => g.Pauses)
                 .SingleOrDefaultAsync(
                     g => g.Id == goalId
                         && (g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId)),
@@ -387,19 +426,28 @@ public sealed class ChatService(
             conversation.Kind,
             identity.Name,
             identity.Initials,
+            identity.Icon,
             identity.AvatarColor,
+            identity.AvatarImageId,
             identity.IsOnline,
             conversation.Participants.Count,
             other?.LastSeenAt,
-            goal is null ? null : new ChatPinnedGoalResponse(goal.Id, goal.Title, goal.ProgressPercent),
+            goal is null
+                ? null
+                : new ChatPinnedGoalResponse(
+                    goal.Id,
+                    goal.Title,
+                    goal.CurrentInstance is { } window ? GoalInstanceResponse.From(window) : null,
+                    goal.Streak,
+                    goal.ActivePauseAt(now)?.EndsOn),
             messages);
     }
 
     private static IReadOnlyList<MessageReactionResponse> SummariseReactions(ChatMessage message, Guid meId) =>
     [
         .. message.Reactions
-            .GroupBy(r => r.Emoji)
-            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .GroupBy(r => r.Kind)
+            .OrderBy(group => group.Key)
             .Select(group => new MessageReactionResponse(
                 group.Key,
                 group.Count(),
@@ -419,7 +467,7 @@ public sealed class ChatService(
     /// The name, avatar and presence a conversation is shown with: its own for
     /// a group, the other person's for a direct chat.
     /// </summary>
-    private static (string Name, string Initials, string AvatarColor, bool IsOnline) ResolveIdentity(
+    private static ChatIdentity ResolveIdentity(
         Conversation conversation,
         IReadOnlyDictionary<Guid, Person> people,
         Guid meId,
@@ -427,22 +475,52 @@ public sealed class ChatService(
     {
         if (conversation.Kind == ConversationKind.Group)
         {
-            return (
+            return new ChatIdentity(
                 conversation.Title ?? string.Empty,
-                conversation.Emoji ?? "#",
+
+                // Initials are what a client without the icon set falls back
+                // to, and they come from the name for the same reason a
+                // person's do.
+                ProfileDefaults.Initials(conversation.Title),
+                conversation.Icon ?? ConversationIcons.Default,
 
                 // A group is not a person and has no avatar colour of its own;
-                // the client renders it in the accent colour instead.
+                // the client renders it on a neutral surface instead.
                 AvatarColors.Teal,
+
+                // And no photograph: a group's avatar is its icon, and lending
+                // it one member's face would say something untrue about it.
+                null,
                 false);
         }
 
         var other = OtherPerson(conversation, people, meId);
 
         return other is null
-            ? (string.Empty, "?", AvatarColors.Teal, false)
-            : (other.DisplayName, other.Initials, other.AvatarColor, other.IsOnlineAt(now));
+            ? new ChatIdentity(string.Empty, "?", null, AvatarColors.Teal, null, false)
+            : new ChatIdentity(
+                other.DisplayName,
+                other.Initials,
+                null,
+                other.AvatarColor,
+                other.AvatarImageId,
+                other.IsOnlineAt(now));
     }
+
+    /// <summary>
+    /// What a conversation is drawn as, whichever kind it is.
+    /// </summary>
+    /// <remarks>
+    /// A named record rather than a tuple: six positional values is where
+    /// "which one was the colour again" starts costing more than the type.
+    /// </remarks>
+    private sealed record ChatIdentity(
+        string Name,
+        string Initials,
+        string? Icon,
+        string AvatarColor,
+        Guid? AvatarImageId,
+        bool IsOnline);
 
     private async Task<List<Conversation>> LoadMineAsync(Guid meId, CancellationToken cancellationToken) =>
         await database.Conversations
@@ -469,6 +547,36 @@ public sealed class ChatService(
         if (conversation.Participants.All(p => p.PersonId != meId))
         {
             throw new ResourceNotFoundException("Conversation", conversation.Id);
+        }
+    }
+
+    /// <summary>
+    /// Whether this is a direct thread with somebody who must not be seen.
+    /// </summary>
+    /// <remarks>
+    /// Groups are deliberately not covered: a group is other people's
+    /// conversation as well, and hiding it because one member was blocked would
+    /// take a thread away from everybody who is still in it.
+    /// </remarks>
+    private static bool IsHiddenDirect(Conversation conversation, Guid meId, IReadOnlySet<Guid> hidden) =>
+        conversation.Kind == ConversationKind.Direct
+        && conversation.Participants.Any(participant =>
+            participant.PersonId != meId && hidden.Contains(participant.PersonId));
+
+    /// <summary>Refuses a hidden thread the way a thread that never existed is refused.</summary>
+    private async Task EnsureVisibleAsync(Conversation conversation, Guid meId, CancellationToken cancellationToken)
+    {
+        if (IsHiddenDirect(conversation, meId, await blockList.HiddenFromMeAsync(cancellationToken)))
+        {
+            throw new ResourceNotFoundException("Conversation", conversation.Id);
+        }
+    }
+
+    private async Task EnsureNotHiddenAsync(Guid personId, CancellationToken cancellationToken)
+    {
+        if (await blockList.IsHiddenFromMeAsync(personId, cancellationToken))
+        {
+            throw new ResourceNotFoundException("Person", personId);
         }
     }
 

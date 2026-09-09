@@ -8,13 +8,20 @@ add their own: [`app/AGENTS.md`](app/AGENTS.md),
 
 ## 1. What q2 is
 
-Kudos (short name **q2**) is a self-care application: personal goals, pursued
-together with friends or a community, with progress, encouragement and credit.
+Qdos (short name **q2**, spoken "kudos") is an application for keeping the
+commitments you make to yourself, by making them in front of people: you say
+what you intend to do, your friends are invited to it, and they see whether it
+happened.
 
-This repository holds the **initial version** — five working screens built from
-the Kudos design: goals and the tasks under them, chats about them, friends,
-and a profile. Read [README.md](README.md) sections 1 and 2 for exactly what
-exists and what is deliberately absent.
+This repository holds the **initial version** — six working screens: goals and
+the tasks under them, chats about them, search and friends, and a profile. Read
+[README.md](README.md) sections 1 and 2 for exactly what exists and what is
+deliberately absent, and `QDOS-UEBERNAHME.md` for the stages still ahead.
+
+**The look is not negotiable per screen.** Black, dark by default, one accent
+used only for something the person can do right now, the flame gradient only for
+a streak, red only for something final, and no emoji anywhere in the interface —
+[docs/adr/0015-qdos-design-language.md](docs/adr/0015-qdos-design-language.md).
 
 The important consequence: **do not build ahead of the requirement**. No
 permissions engine, no event sourcing, no microservices, no generic
@@ -76,9 +83,14 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
   reproducible. EF Core is told so explicitly — `Q2DbContext` marks every GUID
   key `ValueGeneratedNever`, because the default silently downgrades an insert
   of a new child inside a tracked aggregate.
-- Numbers people see are **derived, not stored**. A goal's percentage comes from
-  its steps and a streak from the days behind it, so the figure on screen can
-  never disagree with what it is a figure of.
+- Numbers people see are **derived, not stored**. A streak is counted from the
+  windows behind it and a balance from their outcomes, so the figure on screen
+  can never disagree with what it is a figure of.
+- **A deadline is a whole day or a whole period, never a clock time**, and it is
+  counted in the *owner's* time zone through `LocalCalendar` — the only place
+  instants and local days are converted into each other. `DateOnly.FromDateTime(
+  now.UtcDateTime)` is "today" only for somebody living in UTC
+  ([docs/adr/0016](docs/adr/0016-windows-instead-of-steps.md)).
 - Every automation is documented. A script that does something surprising is a
   bug in the script or in the documentation.
 

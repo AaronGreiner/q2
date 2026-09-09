@@ -7,12 +7,14 @@ using Q2.Api.Infrastructure.Time;
 namespace Q2.Api.Features.Activity;
 
 /// <summary>
-/// The friends' feed, the kudos on it, and the weekly leaderboard.
+/// The friends' feed and the kudos on it.
 /// </summary>
 /// <remarks>
-/// Kudos and the leaderboard live together because they are the same number
-/// seen twice: giving one moves a row. Splitting them would mean two services
-/// writing to <see cref="Person.KudosReceived"/>.
+/// There is deliberately no ranking here. q2 tells your friends when you miss a
+/// window, and a table that sorts everybody by how well they are doing turns
+/// that into a scoreboard somebody comes last on. The balance on a profile is
+/// the counterpart, and it is scoped to the viewer for the same reason: a
+/// failure concerns the people it was promised to, and nobody else.
 /// </remarks>
 public sealed class ActivityService(
     Q2DbContext database,
@@ -24,9 +26,6 @@ public sealed class ActivityService(
 {
     /// <summary>How many entries the feed shows before it stops being a feed.</summary>
     public const int FeedLimit = 30;
-
-    /// <summary>How many people a leaderboard is worth ranking.</summary>
-    public const int LeaderboardLimit = 10;
 
     public async Task<IReadOnlyList<ActivityResponse>> ListFeedAsync(CancellationToken cancellationToken)
     {
@@ -124,39 +123,6 @@ public sealed class ActivityService(
             activity.KudosCount);
 
         return ActivityResponse.From(activity, actor, me.Id, now);
-    }
-
-    /// <summary>
-    /// You and your friends, ranked by kudos.
-    /// </summary>
-    /// <remarks>
-    /// Ranks are assigned here rather than in the client so that ties break the
-    /// same way on every screen — by name, once the numbers are equal.
-    /// </remarks>
-    public async Task<IReadOnlyList<LeaderboardEntryResponse>> ListLeaderboardAsync(CancellationToken cancellationToken)
-    {
-        var me = await currentPerson.GetAsync(cancellationToken);
-        var now = timeProvider.GetUtcNow();
-
-        var friendIds = await friends.FriendIdsAsync(me.Id, cancellationToken);
-
-        var people = await database.People
-            .AsNoTracking()
-            .Where(p => p.Id == me.Id || friendIds.Contains(p.Id))
-            .ToListAsync(cancellationToken);
-
-        return
-        [
-            .. people
-                .OrderByDescending(p => p.KudosReceived)
-                .ThenBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Take(LeaderboardLimit)
-                .Select((person, index) => new LeaderboardEntryResponse(
-                    index + 1,
-                    PersonSummary.From(person, now),
-                    person.KudosReceived,
-                    person.Id == me.Id)),
-        ];
     }
 
     private async Task<IReadOnlyDictionary<Guid, Person>> LoadActorsAsync(

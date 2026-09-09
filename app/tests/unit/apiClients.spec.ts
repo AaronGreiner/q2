@@ -4,7 +4,9 @@ import { createChatsApi, createSettingsApi } from '~/api/chats'
 import { createCaller, type ApiCaller, type ApiFetch } from '~/api/client'
 import { createDiagnosticsApi } from '~/api/diagnostics'
 import { ApiError } from '~/api/errors'
-import { createGoalsApi, createTasksApi } from '~/api/goals'
+import { createGoalsApi } from '~/api/goals'
+import { createImagesApi, imageUrl, uploadContentType } from '~/api/images'
+import { createProofsApi } from '~/api/proofs'
 import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/social'
 
 /**
@@ -56,63 +58,77 @@ describe('the API modules', () => {
     ])
   })
 
-  it('maps every goal and task action, including safe path encoding', async () => {
+  it('maps every goal action, including safe path encoding', async () => {
     const goals = createGoalsApi(caller)
-    const tasks = createTasksApi(caller)
     const goalRequest = {
       title: 'Run',
       description: null,
       icon: 'flame',
-      totalSteps: 10,
-      rhythm: 'Daily' as const,
+      schedule: { kind: 'Times' as const, times: 3, period: 'Week' as const },
       targetDate: null,
       reminderAt: null,
       participantIds: [],
     }
-    const taskRequest = {
-      title: 'Shoes',
-      goalId: null,
-      rhythm: 'Daily' as const,
-      weekdays: [],
-      reminderAt: null,
-      targetValue: null,
-      measureUnit: null,
-    }
 
     await goals.list()
     await goals.list({ status: 'Archived' })
+    await goals.today()
+    await goals.archive()
     await goals.get('goal/one')
     await goals.create(goalRequest)
-    await goals.contribute('goal/two')
-    await tasks.list()
-    await tasks.list({ all: true })
-    await tasks.create(taskRequest)
-    await tasks.toggle('task/one')
+    await goals.pause('goal/one', { reason: 'Grippe, seit Freitag im Bett.', days: 3 })
+    await goals.endPause('goal/one')
+    await goals.vetoPause('goal/one')
+    await goals.close('goal/one', { completed: true })
+    await goals.remove('goal/one')
 
     expect(call.mock.calls).toEqual([
       ['/api/goals', { method: 'GET', query: { status: undefined } }],
       ['/api/goals', { method: 'GET', query: { status: 'Archived' } }],
+      ['/api/today', { method: 'GET' }],
+      ['/api/goals/archive', { method: 'GET' }],
       ['/api/goals/goal%2Fone', { method: 'GET' }],
       ['/api/goals', { method: 'POST', body: goalRequest }],
-      ['/api/goals/goal%2Ftwo/contribute', { method: 'POST' }],
-      ['/api/tasks', { method: 'GET', query: { all: undefined } }],
-      ['/api/tasks', { method: 'GET', query: { all: 'true' } }],
-      ['/api/tasks', { method: 'POST', body: taskRequest }],
-      ['/api/tasks/task%2Fone/toggle', { method: 'POST' }],
+      ['/api/goals/goal%2Fone/pause', {
+        method: 'POST',
+        body: { reason: 'Grippe, seit Freitag im Bett.', days: 3 },
+      }],
+      ['/api/goals/goal%2Fone/pause', { method: 'DELETE' }],
+      ['/api/goals/goal%2Fone/pause/veto', { method: 'POST' }],
+      ['/api/goals/goal%2Fone/close', { method: 'POST', body: { completed: true } }],
+      ['/api/goals/goal%2Fone', { method: 'DELETE' }],
+    ])
+  })
+
+  it('maps every proof action, including the route that still reads as a goal', async () => {
+    const api = createProofsApi(caller)
+
+    await api.submit('goal/two', 'image-1', true)
+    await api.get('proof/one')
+    await api.pending()
+    await api.vote('proof/one', 'Doubt')
+    await api.react('proof/one', 'Fire')
+
+    expect(call.mock.calls).toEqual([
+      ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', capturedInApp: true } }],
+      ['/api/proofs/proof%2Fone', { method: 'GET' }],
+      ['/api/proofs/pending', { method: 'GET' }],
+      ['/api/proofs/proof%2Fone/vote', { method: 'POST', body: { value: 'Doubt' } }],
+      ['/api/proofs/proof%2Fone/reactions', { method: 'POST', body: { kind: 'Fire' } }],
     ])
   })
 
   it('maps every chat and settings action', async () => {
     const chats = createChatsApi(caller)
     const settings = createSettingsApi(caller)
-    const group = { title: 'Crew', emoji: '🌱', participantIds: ['person-1'] }
+    const group = { title: 'Crew', icon: 'sprout', participantIds: ['person-1'] }
     const update = { language: 'English' as const }
 
     await chats.list()
     await chats.list({ search: 'Mara' })
     await chats.get('chat/one')
     await chats.send('chat/one', 'Hello')
-    await chats.react('chat/one', 'message/one', '👏')
+    await chats.react('chat/one', 'message/one', 'Applause')
     await chats.startDirect('person/one')
     await chats.createGroup(group)
     await chats.leave('chat/one')
@@ -124,7 +140,7 @@ describe('the API modules', () => {
       ['/api/chats', { method: 'GET', query: { search: 'Mara' } }],
       ['/api/chats/chat%2Fone', { method: 'GET' }],
       ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { text: 'Hello' } }],
-      ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { emoji: '👏' } }],
+      ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { kind: 'Applause' } }],
       ['/api/chats/direct', { method: 'POST', body: { personId: 'person/one' } }],
       ['/api/chats/groups', { method: 'POST', body: group }],
       ['/api/chats/chat%2Fone/leave', { method: 'POST' }],
@@ -140,7 +156,6 @@ describe('the API modules', () => {
 
     await activity.feed()
     await activity.toggleKudos('activity/one')
-    await activity.leaderboard()
     await friends.get()
     await friends.search('Mara')
     await friends.request('person/one')
@@ -149,11 +164,11 @@ describe('the API modules', () => {
     await friends.decline('person/one')
     await friends.remove('person/one')
     await profile.get()
+    await profile.update({ displayName: 'Mara Sommer' })
 
     expect(call.mock.calls).toEqual([
       ['/api/feed', { method: 'GET' }],
       ['/api/feed/activity%2Fone/kudos', { method: 'POST' }],
-      ['/api/leaderboard', { method: 'GET' }],
       ['/api/friends', { method: 'GET' }],
       ['/api/friends/search', { method: 'GET', query: { query: 'Mara' } }],
       ['/api/friends/person%2Fone/request', { method: 'POST' }],
@@ -162,7 +177,53 @@ describe('the API modules', () => {
       ['/api/friends/person%2Fone/decline', { method: 'POST' }],
       ['/api/friends/person%2Fone', { method: 'DELETE' }],
       ['/api/profile', { method: 'GET' }],
+      ['/api/profile', { method: 'PUT', body: { displayName: 'Mara Sommer' } }],
     ])
+  })
+
+  it('sends an upload as the raw body under its own media type', async () => {
+    const api = createImagesApi(caller)
+    const file = new Blob([new Uint8Array([1, 2, 3])], { type: uploadContentType })
+
+    await api.upload(file, 'Avatar')
+    await api.quota()
+    await api.remove('image/one')
+
+    expect(call.mock.calls).toEqual([
+      ['/api/images', {
+        method: 'POST',
+        query: { purpose: 'Avatar' },
+        body: file,
+        headers: { 'Content-Type': uploadContentType },
+      }],
+      ['/api/images/quota', { method: 'GET' }],
+      ['/api/images/image%2Fone', { method: 'DELETE' }],
+    ])
+  })
+
+  it('falls back to a media type when the browser gave the blob none', async () => {
+    // A canvas that refused the requested format hands back a blob with an
+    // empty type, and an upload with no media type is a 415 rather than a
+    // picture.
+    const api = createImagesApi(caller)
+
+    await api.upload(new Blob([new Uint8Array([1])]), 'Proof')
+
+    expect(call.mock.calls[0]?.[1]).toMatchObject({ headers: { 'Content-Type': uploadContentType } })
+  })
+})
+
+describe('an image address', () => {
+  it('is absolute, because an img resolves against the page and not the client', () => {
+    expect(imageUrl('http://localhost:5080', 'abc')).toBe('http://localhost:5080/api/images/abc')
+  })
+
+  it('does not double the separator when the base already ends in one', () => {
+    expect(imageUrl('http://localhost:5080/', 'abc')).toBe('http://localhost:5080/api/images/abc')
+  })
+
+  it('escapes the id rather than pasting it into a path', () => {
+    expect(imageUrl('http://x', 'a/b')).toBe('http://x/api/images/a%2Fb')
   })
 })
 

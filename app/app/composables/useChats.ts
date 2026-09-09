@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatSummary } from '~/api/types'
+import type { ChatSummary, KudosKind } from '~/api/types'
 
 interface ChatsPayload {
   chats: ChatSummary[]
@@ -102,9 +102,9 @@ export function useChatThread(id: Ref<string>) {
     }
   }
 
-  async function react(messageId: string, emoji: string) {
+  async function react(messageId: string, kind: KudosKind) {
     try {
-      const updated = await api.chats.react(id.value, messageId, emoji)
+      const updated = await api.chats.react(id.value, messageId, kind)
       data.value = { chat: updated, failure: null }
     }
     catch (caught) {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -28,13 +29,30 @@ public sealed class SettingsService(
 
         // An omitted property keeps its current value, so a client that only
         // knows about four switches cannot silently reset the fifth.
+        /*
+         * "Off" and "unchanged" are both null in a nullable time, so the switch
+         * decides which of the two this is. Without it, a request that left the
+         * quiet hours alone would clear them.
+         */
+        var quiet = request.QuietHoursEnabled switch
+        {
+            false => (From: (TimeOnly?)null, To: (TimeOnly?)null),
+            true => (
+                From: request.QuietHoursFrom ?? settings.QuietHoursFrom ?? QuietHours.DefaultFrom,
+                To: request.QuietHoursTo ?? settings.QuietHoursTo ?? QuietHours.DefaultTo),
+            null => (From: settings.QuietHoursFrom, To: settings.QuietHoursTo),
+        };
+
         settings.Update(
             request.Theme ?? settings.Theme,
             request.Language ?? settings.Language,
             request.NotifyReminders ?? settings.NotifyReminders,
             request.NotifyKudos ?? settings.NotifyKudos,
             request.NotifyMessages ?? settings.NotifyMessages,
-            request.NotifyWeeklyReview ?? settings.NotifyWeeklyReview);
+            request.NotifyWeeklyReview ?? settings.NotifyWeeklyReview,
+            request.NotifyChallenge ?? settings.NotifyChallenge,
+            quiet.From,
+            quiet.To);
 
         await database.SaveChangesAsync(cancellationToken);
 

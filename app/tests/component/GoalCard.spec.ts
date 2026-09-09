@@ -1,7 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import GoalCard from '~/components/goals/GoalCard.vue'
-import type { Goal, Person } from '~/api/types'
+import type { Goal, GoalWindow, Person } from '~/api/types'
 
 /**
  * The reference component test: real Nuxt environment, real Nuxt UI, plain
@@ -15,7 +15,22 @@ function person(overrides: Partial<Person> = {}): Person {
     handle: '@jonas.w',
     initials: 'JW',
     avatarColor: '#4f46e5',
+    avatarImageId: null,
     isOnline: true,
+    ...overrides,
+  }
+}
+
+function window(overrides: Partial<GoalWindow> = {}): GoalWindow {
+  return {
+    id: '019faece-5a81-7c67-8fa2-00a63d9e9400',
+    startsOn: '2026-05-25',
+    dueOn: '2026-05-31',
+    dueAt: '2026-05-31T21:59:59+00:00',
+    requiredProofs: 3,
+    confirmedProofs: 1,
+    remainingProofs: 2,
+    status: 'Open',
     ...overrides,
   }
 }
@@ -26,31 +41,42 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     title: 'Halbmarathon im Mai',
     description: 'Drei Läufe pro Woche.',
     icon: 'medal',
-    rhythm: 'Weekly',
+    schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     status: 'Active',
     isGroup: false,
-    completedSteps: 14,
-    totalSteps: 21,
-    progressPercent: 67,
+    current: window(),
     streak: 12,
+    windowsDone: 14,
+    windowsMissed: 2,
     reminderAt: '18:00:00',
-    targetDate: '2026-08-25',
+    targetDate: null,
     createdAt: '2026-05-15T09:00:00+00:00',
     participants: [],
     isOverdue: false,
+    isMine: true,
+    closedAt: null,
+    pause: null,
+    remainingPauses: 2,
     ...overrides,
   }
 }
 
 describe('GoalCard', () => {
-  it('shows the title, the rhythm and how far along it is', async () => {
+  it('shows the title, the schedule and what the window still wants', async () => {
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
     expect(wrapper.text()).toContain('Halbmarathon im Mai')
-    expect(wrapper.text()).toContain('Wöchentlich')
-    expect(wrapper.text()).toContain('14 von 21 Schritten')
-    expect(wrapper.text()).toContain('67%')
+    expect(wrapper.text()).toContain('3× pro Woche')
+    expect(wrapper.text()).toContain('Noch 2 von 3')
     expect(wrapper.find('h3').attributes()).toHaveProperty('data-q2-private')
+  })
+
+  it('says what a finished goal is rather than what it still wants', async () => {
+    const wrapper = await mountSuspended(GoalCard, {
+      props: { goal: goal({ current: null, status: 'Completed' }) },
+    })
+
+    expect(wrapper.get('[data-testid="goal-window"]').text()).toBe('Abgeschlossen')
   })
 
   it('links to the goal detail page', async () => {
@@ -60,22 +86,40 @@ describe('GoalCard', () => {
       .toBe('/goals/019faece-5a81-7c67-8fa2-00a63d9e9127')
   })
 
-  it('renders progress as an accessible progress bar', async () => {
-    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ progressPercent: 67 }) } })
+  it('renders the window as an accessible progress bar', async () => {
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
     const progressbar = wrapper.find('[role="progressbar"]')
 
     expect(progressbar.exists()).toBe(true)
-    expect(progressbar.attributes('aria-valuenow')).toBe('67')
+
+    // One of three delivered.
+    expect(progressbar.attributes('aria-valuenow')).toBe('33')
     expect(progressbar.attributes('aria-valuemin')).toBe('0')
     expect(progressbar.attributes('aria-valuemax')).toBe('100')
     expect(progressbar.attributes()).toHaveProperty('data-q2-block')
   })
 
+  it('draws no bar when the window wants exactly one proof', async () => {
+    // "1 von 1" is a bar that is either empty or full, which says nothing the
+    // line beside it has not already said.
+    const wrapper = await mountSuspended(GoalCard, {
+      props: {
+        goal: goal({
+          schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
+          current: window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1, startsOn: '2026-05-31' }),
+        }),
+      },
+    })
+
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Heute fällig')
+  })
+
   it('shows the streak and the reminder', async () => {
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
-    expect(wrapper.text()).toContain('12 Tage')
+    expect(wrapper.text()).toContain('12 Fenster')
     expect(wrapper.text()).toContain('18:00')
   })
 

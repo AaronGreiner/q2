@@ -66,17 +66,17 @@ public class AccountEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var signedIn = await Factory.CreateClient().AcceptingJson()
             .AsAsync("ganz.neu@kudos.example", NewPassword);
 
-        // None of the seeded person's goals, tasks or chats. This is the whole
-        // reason ownership had to arrive together with accounts.
+        // None of the seeded person's goals, windows or chats. This is the
+        // whole reason ownership had to arrive together with accounts.
         var goals = await (await signedIn.GetAsync("/api/goals", TestContext.Current.CancellationToken))
             .ReadAsync<IReadOnlyList<object>>();
-        var tasks = await (await signedIn.GetAsync("/api/tasks", TestContext.Current.CancellationToken))
+        var today = await (await signedIn.GetAsync("/api/today", TestContext.Current.CancellationToken))
             .ReadAsync<IReadOnlyList<object>>();
         var chats = await (await signedIn.GetAsync("/api/chats", TestContext.Current.CancellationToken))
             .ReadAsync<IReadOnlyList<object>>();
 
         Assert.Empty(goals);
-        Assert.Empty(tasks);
+        Assert.Empty(today);
         Assert.Empty(chats);
     }
 
@@ -226,9 +226,8 @@ public class AccountEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     [Theory]
     [InlineData("/api/profile")]
     [InlineData("/api/goals")]
-    [InlineData("/api/tasks")]
+    [InlineData("/api/today")]
     [InlineData("/api/feed")]
-    [InlineData("/api/leaderboard")]
     [InlineData("/api/friends")]
     [InlineData("/api/chats")]
     [InlineData("/api/settings")]

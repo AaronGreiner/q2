@@ -38,7 +38,7 @@ const icons: Record<BadgeKey, string> = {
       <span
         class="flex size-11 items-center justify-center rounded-full"
         :class="badge.isEarned
-          ? 'bg-(--q2-accent-soft) text-(--q2-accent-soft-text)'
+          ? 'bg-(--ui-bg-accented) text-(--ui-text)'
           : 'bg-(--q2-track) text-(--ui-text-muted)'"
         aria-hidden="true"
       >

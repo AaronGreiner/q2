@@ -77,6 +77,131 @@ self.addEventListener('activate', (event) => {
 })
 
 /**
+ * What a notification is about, as the server sends it.
+ *
+ * The server does not write the text. It sends a kind and its parameters, and
+ * the sentence is composed here from the same catalogue the rest of the app
+ * uses — which is how a notification arrives in the language the person chose,
+ * and why adding a language is still one file.
+ *
+ * Mirrors `PushKind` and `PushPayload` on the server. It is a hand-written
+ * mirror rather than a generated type because nothing in the OpenAPI contract
+ * describes it: the payload never travels over HTTP, it arrives encrypted
+ * through a push service.
+ */
+interface PushPayload {
+  kind: 'WindowAtRisk' | 'ChallengePublished'
+  subject: string | null
+  amount: number | null
+  sourceId: string | null
+}
+
+/**
+ * A notification arrives.
+ *
+ * **A push event must always end in a visible notification.** Browsers permit a
+ * silent one only for a short grace period and then revoke the permission
+ * entirely, so every path here — including a payload that cannot be read —
+ * shows something. That is why the fallback is a real sentence rather than a
+ * bail-out.
+ */
+self.addEventListener('push', (event) => {
+  event.waitUntil(show(read(event.data)))
+})
+
+/**
+ * Tapping a notification.
+ *
+ * Focuses a window that is already open rather than adding another: q2 is used
+ * as an app, and a person who has it open behind the lock screen should not end
+ * up with two of it. Only when there is none is a new one opened.
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const target = typeof event.notification.data?.url === 'string' ? event.notification.data.url : '/'
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+
+    for (const client of windows) {
+      if ('focus' in client) {
+        await client.navigate(target).catch(() => {
+          // A client that refuses to navigate is still a client worth
+          // focusing — better the app in the wrong place than no app.
+        })
+        return client.focus()
+      }
+    }
+
+    return self.clients.openWindow(target)
+  })())
+})
+
+function read(data: PushMessageData | null): PushPayload | null {
+  try {
+    return (data?.json() ?? null) as PushPayload | null
+  }
+  catch {
+    // A payload this version does not understand, or none at all. Something
+    // still has to appear — see the note on the push listener.
+    return null
+  }
+}
+
+/**
+ * Turns a payload into the words on the screen.
+ *
+ * The wording is deliberately the same as the feed's, because it is the same
+ * event: push is a delivery route, not a second way of saying things. What is
+ * *not* the same is the title — a notification is read on a lock screen with no
+ * context around it, so it names the app rather than assuming one.
+ */
+async function show(payload: PushPayload | null): Promise<void> {
+  const t = language()
+
+  const content = payload === null
+    ? { title: t.app.name, body: t.push.generic, url: '/' }
+    : compose(payload, t)
+
+  await self.registration.showNotification(content.title, {
+    body: content.body,
+    icon: '/pwa-192x192.png',
+    badge: '/favicon.svg',
+    tag: payload?.kind ?? 'q2',
+
+    // Replaces rather than stacks: two warnings about the same evening are one
+    // thing to act on, and a lock screen filling up is how notifications get
+    // switched off.
+    renotify: false,
+    data: { url: content.url },
+  } as NotificationOptions)
+}
+
+function compose(payload: PushPayload, t: Messages): { title: string, body: string, url: string } {
+  const subject = payload.subject ?? ''
+
+  switch (payload.kind) {
+    case 'WindowAtRisk':
+      return {
+        title: t.push.riskTitle,
+        body: t.push.riskBody(subject, payload.amount ?? 0),
+        url: '/activity',
+      }
+
+    case 'ChallengePublished':
+      return {
+        title: t.push.challengeTitle,
+        body: subject || t.push.generic,
+        url: '/challenge',
+      }
+
+    default:
+      return { title: t.app.name, body: t.push.generic, url: '/' }
+  }
+}
+
+/**
  * The page a person sees when a navigation cannot reach the server.
  *
  * Written out here rather than precached as a file so that it cannot fall out

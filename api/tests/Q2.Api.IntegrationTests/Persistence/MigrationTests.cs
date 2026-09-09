@@ -6,6 +6,7 @@ using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Persistence.Seeding;
+using Q2.Api.Infrastructure.Time;
 using Q2.Api.IntegrationTests.Infrastructure;
 
 namespace Q2.Api.IntegrationTests.Persistence;
@@ -43,7 +44,7 @@ public class MigrationTests
             // 3. seed
             var result = await SqliteTestDatabase.CreateSeeder()
                 .SeedAsync(context, SeedProfile.AutomatedTest, replaceExisting: true, TestContext.Current.CancellationToken);
-            Assert.Equal(3, result.GoalsInserted);
+            Assert.Equal(4, result.GoalsInserted);
             Assert.Equal(4, result.PeopleInserted);
         }
 
@@ -60,11 +61,18 @@ public class MigrationTests
         await using (var context = database.CreateContext())
         {
             var goal = Goal.Create(
-                id, person.Id, "Written after migrating", null, "medal", GoalRhythm.Weekly, isGroup: false,
-                completedSteps: 4, totalSteps: 20, reminderAt: new TimeOnly(18, 0),
-                targetDate: new DateOnly(2026, 12, 24), Q2ApiFactory.Now);
+                id, person.Id, "Written after migrating", null, "medal",
+                GoalSchedule.TimesPer(3, QuotaPeriod.Week), isGroup: false,
+                reminderAt: new TimeOnly(18, 0), targetDate: null, Q2ApiFactory.Now);
             goal.AddParticipant(Guid.CreateVersion7(), participant.Id);
-            goal.RecordContribution(Guid.CreateVersion7(), Q2ApiFactory.Today);
+
+            var calendar = new LocalCalendar(TimeZoneInfo.Utc);
+            var window = goal.Schedule.FirstWindow(Q2ApiFactory.Today, null);
+            goal.OpenWindow(
+                Guid.CreateVersion7(),
+                window,
+                calendar.StartOfDay(window.Start),
+                calendar.EndOfDay(window.End));
 
             context.People.AddRange(person, participant);
             context.Goals.Add(goal);
@@ -76,16 +84,23 @@ public class MigrationTests
         {
             var stored = await context.Goals
                 .Include(g => g.Participants)
-                .Include(g => g.Contributions)
+                .Include(g => g.Instances)
                 .SingleAsync(g => g.Id == id, TestContext.Current.CancellationToken);
 
             Assert.Equal("Written after migrating", stored.Title);
-            Assert.Equal(new DateOnly(2026, 12, 24), stored.TargetDate);
             Assert.Equal(new TimeOnly(18, 0), stored.ReminderAt);
-            Assert.Equal(20, stored.ProgressPercent);
+
+            // The owned schedule survives the round trip as the shape it was
+            // written in, which is what an owned entity has to prove.
+            Assert.Equal(ScheduleKind.Times, stored.Schedule.Kind);
+            Assert.Equal(3, stored.Schedule.Times);
+            Assert.Equal(QuotaPeriod.Week, stored.Schedule.Period);
+
             Assert.Single(stored.Participants);
-            Assert.Single(stored.Contributions);
-            Assert.Equal(4, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+            Assert.Single(stored.Instances);
+            Assert.Equal(3, stored.Instances[0].RequiredProofs);
+            // The seeded world plus the one written above.
+            Assert.Equal(5, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
         }
 
         Assert.True(database.FileExists);
@@ -162,11 +177,8 @@ public class MigrationTests
             // Everything that was there is still there, and now belongs to the
             // person who was flagged as "you".
             var storedGoal = await context.Goals.SingleAsync(TestContext.Current.CancellationToken);
-            var storedTask = await context.GoalTasks.SingleAsync(TestContext.Current.CancellationToken);
-
             Assert.Equal("Altes Ziel", storedGoal.Title);
             Assert.Equal(me, storedGoal.OwnerPersonId);
-            Assert.Equal(me, storedTask.OwnerPersonId);
 
             var friendships = await context.Friendships.ToListAsync(TestContext.Current.CancellationToken);
 

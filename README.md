@@ -1,17 +1,22 @@
-# Kudos (q2)
+# Qdos (q2)
 
-Kudos — internal short name **q2** — is a self-care application. People set
-personal goals, pursue them together with friends or inside a community, follow
-each other's progress and give each other credit for it.
+Qdos — spoken "kudos", internal short name **q2** — is an application for
+keeping the commitments you make to yourself, by making them in front of people.
+You set something you intend to do, your friends are invited to it, and they see
+whether it happened.
 
 This repository is the **initial version**: a small, working, fully tested
-reference implementation of that idea. It is deliberately not a finished
-product. It exists so that the next feature can be built on something that
-already works, is already documented, and is already verified end to end.
+reference implementation. It is deliberately not a finished product. It exists
+so that the next feature can be built on something that already works, is
+already documented, and is already verified end to end. The plan for the
+remaining stages is in `QDOS-UEBERNAHME.md`.
 
 The interface is German, with English available in the settings. That follows
 the design it is built from — see
 [docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
+It is **black, dark by default, with one accent colour and no emoji**; the
+reasoning is in
+[docs/adr/0015-qdos-design-language.md](docs/adr/0015-qdos-design-language.md).
 
 - **`app/`** — the web frontend: Nuxt 4, Vue 3, TypeScript, Nuxt UI
 - **`api/`** — the backend: ASP.NET Core on .NET 10, EF Core, SQLite
@@ -22,25 +27,41 @@ the design it is built from — see
 
 ## 1. What is already implemented
 
-Five screens, and everything behind them:
+Thirteen screens, and everything behind them:
 
 | Screen | What it does |
 | --- | --- |
 | **Anmeldung** | Sign in, or create an account with a name, an email address and a password |
-| **Start** | Streak with the current week, how much of today is done, the next tasks, a strip of goals, what friends have been up to, and the weekly leaderboard |
-| **Ziele** | Today's tasks under one tab, the goals themselves under the other; a bottom sheet creates a goal |
-| **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and reactions |
-| **Freunde** | Friends, incoming requests to accept or decline, and suggestions to ask |
-| **Profil** | Streak, kudos, completed goals, the badge collection, your own history — and the settings behind it |
+| **Start** | Streak with the current week, how much of today is delivered, the photographs waiting for your verdict, the windows that are open, a strip of goals, and what friends have been up to |
+| **Ziele** | What is due today under one tab, the goals themselves under the other; a bottom sheet creates a goal with one of four schedules |
+| **Archiv** | The goals that have stopped, kept with their history and photographs — and the only place one can be deleted for good |
+| **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and kudos in three registers |
+| **Suche** | Find anybody by name or handle; below that your incoming requests, the ones you sent, suggestions, and your friends |
+| **Abstimmen** | A friend's photograph, what they promised, and the two buttons that decide whether it counted — one card at a time |
+| **Blockierte** | Who you have blocked, and the one button that undoes it. Never who blocked you |
+| **Challenge** | The prompt of the day and the room of friends who answered it — covered until you have contributed one yourself |
+| **Challenge-Archiv** | Every prompt you took part in, as a grid of your own pictures. Other people's are deliberately not kept |
+| **Aktivität** | Everything friends have been up to, with the people who are running out of time at the top |
+| **Personen** | Somebody else's profile, and their record over the to-dos they let you in on |
+| **Profil** | Streak, kudos, completed goals, the badge collection, your own history — plus editing your name and profile picture, and the settings behind it |
 
 | Area | What exists |
 | --- | --- |
 | Accounts | Registration and sign-in on ASP.NET Core Identity, a http-only session cookie, lockout after repeated failures; the account holds credentials only and points at the person it signs in as |
-| Domain | `Person`, `Goal` (owned, progress counted in steps), `GoalTask`, streaks derived from recorded days, two-sided friendships, activity and kudos, conversations and messages, badges, preferences — all invariants enforced in the model |
-| Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your tasks, your friends' feed, the conversations you are in |
-| API | Register/sign in/sign out/session; goals, tasks, feed and kudos, leaderboard, friends with search and requests, chats including starting and leaving them, profile and settings; `GET /health`, OpenAPI document, Problem Details for every error |
-| Frontend | Sign-in and registration, the five screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
-| Installable | A web app manifest, sparkles icons and a service worker make q2 installable from the browser: its own window, an icon on the home screen, and the build already on the device. The worker caches the build output and nothing else — see [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md) |
+| Domain | `Person` (with the time zone their days are counted in and an optional profile picture), `Goal` with a `GoalSchedule` and a chain of `GoalInstance` windows that can be delivered or missed, streaks and balances derived from those windows, two-sided friendships, activity and kudos, conversations and messages, `Challenge` with one prompt a day and a contribution per person, badges, preferences — all invariants enforced in the model |
+| Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your windows, your friends' feed, the conversations you are in |
+| API | Register (optionally through an invite link)/sign in/sign out/session/delete the account; goals with their schedules and windows, what is due today, the archive of the ones that stopped, pause and objection, feed and kudos, friends with search and requests, chats including starting and leaving them, profile (read and update) and settings; images with an upload, a session-checked read and a delete; the daily challenge with today's room, a contribution, a withdrawal, reactions and your own archive; blocking, unblocking and the list of who you blocked; reporting a person, a photograph or a contribution; your invite code and a way to replace it; the push key, subscribing this browser and unsubscribing it; `GET /health`, OpenAPI document, Problem Details for every error. Deliberately **no ranking endpoint** — see [docs/adr/0015](docs/adr/0015-qdos-design-language.md) |
+| Images | Uploaded pictures are stored as files behind `IImageStore`, never given a public URL, never cached, and validated from their own bytes rather than from what the upload claimed — see [docs/adr/0017-image-storage.md](docs/adr/0017-image-storage.md) |
+| The way out | A goal can be set aside for up to seven days with a reason its friends read, twice a month. The window it suspends counts as neither kept nor missed, and two friends objecting put it back. A goal can also be stopped for good — carried through or given up — and it keeps its whole record either way; deleting is a separate decision, from the archive only, and it takes the photographs and the chat with it. See [docs/adr/0020](docs/adr/0020-pause-and-archive.md) |
+| Warning and record | In the evening, a goal's friends are told once that its window is about to be missed — never before 20:00 in the owner's own zone, and at most once per window. A missed window is counted rather than announced, and the record shows on a profile scoped to the to-dos the two people share — see [docs/adr/0019-warning-and-balance.md](docs/adr/0019-warning-and-balance.md) |
+| Proof and vote | A window is closed by a photograph its friends believe, not by its owner saying so. More than a third doubting refuses it, at least two doubters are needed, one retry is allowed, and twelve hours later the votes cast decide it whether or not anybody has the app open. Confirmations are named; doubts never are — see [docs/adr/0018-proof-and-vote.md](docs/adr/0018-proof-and-vote.md) |
+| Safety | Somebody can be reported and blocked. A block ends the friendship, works in both directions and is never announced — search, profiles, requests and direct chats behave as though the other person were not there, and it is reversible. A report reaches a recipient rather than a table, carrying ids and a reason but never the note or the reporter — see [docs/adr/0022](docs/adr/0022-blocking-reporting-and-erasure.md) |
+| Leaving | An account can be deleted: the person, their goals and windows, their pictures and their direct chats go, their messages leave the groups they were in, and the password is asked for again. It is the only irreversible action in q2 |
+| Notifications | Web Push with VAPID, written against RFC 8291/8292 rather than pulled in as a dependency — the payload is encrypted to the browser, so a push service carries bytes it cannot read. The server sends facts and the service worker writes the sentence, in the language the person chose. Quiet hours default to 22:00–07:00 and drop rather than hold; empty VAPID keys turn the whole thing off, which is the default — see [docs/adr/0023](docs/adr/0023-web-push.md) |
+| Arriving | An invite link — 96 random bits, replaceable, never the handle — makes whoever follows it a friend at registration. That plus the daily challenge is what a new account has on its first day |
+| Daily challenge | One prompt a day, the same for everybody, published from a queue that is written a week ahead — there is no daily editorial shift. It pays into no streak and knows no "missed", so nobody votes on it. Everybody sees a room made of their own friends, covered until they have contributed themselves; the archive keeps your own contributions and nobody else's — see [docs/adr/0021-daily-challenge.md](docs/adr/0021-daily-challenge.md) |
+| Frontend | Sign-in and registration, the six screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
+| Installable | A web app manifest, the Q icon set and a service worker make q2 installable from the browser: its own window, an icon on the home screen, and the build already on the device. The worker caches the build output and nothing else — see [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md) |
 | Contract | OpenAPI exported from the code, TypeScript types generated from it, both committed |
 | Database | SQLite via EF Core, migrations, six environments, four seed profiles, guarded destructive resets |
 | Errors | Central exception handling, no internal detail in responses, a correlation id the user can quote |
@@ -65,14 +86,22 @@ These are absent on purpose, not by oversight:
   a conversation by the people in it. What does not exist is a *second kind* of
   actor — a coach, a moderator, a support agent — or any way to grant somebody
   a view of your goals beyond sharing one.
-- **Changing your profile.** The name, the handle and the avatar colour are set
-  at registration and cannot be edited yet. The settings screen says so.
-- **Notification delivery.** The switches on the settings screen are stored and
-  honoured by nothing yet. The screen says so.
+- **Changing your handle.** The display name and the profile picture can be
+  changed; the handle cannot, on purpose — it is the string somebody's friends
+  searched for and wrote down.
+- **Notifications beyond two kinds.** The evening warning and the daily
+  challenge are delivered. Kudos, messages and the weekly review still have
+  switches with nothing behind them — and a deployment with no VAPID keys sends
+  nothing at all, which is the default and what the screen says.
 - **Updating or deleting goals.** Only reading, creating and making progress.
-- **Deleting an account.** There is no erasure path, which is a gap with a legal
-  deadline attached to it the day there are real users — see
-  [docs/privacy.md](docs/privacy.md).
+- **Exporting your data.** Deleting an account works and is tested; getting a
+  copy of what q2 holds about you (Art. 20) does not exist.
+  See [docs/privacy.md](docs/privacy.md).
+- **Somebody to answer a report.** Reporting and blocking exist, and a report
+  is delivered rather than filed away — but the recipient is an alert channel,
+  not a person whose job this is. `IReportSink` is the seam where that changes.
+- **Reading reports in the app.** There is no console and no queue; reading
+  them means opening the database.
 - **Time zones.** Instants are stored and reasoned about in UTC; the browser
   shifts a displayed clock into its own zone after hydration, and nothing is
   remembered per person. See [docs/next-steps.md](docs/next-steps.md).
@@ -100,12 +129,22 @@ These are absent on purpose, not by oversight:
 | Tool | Version used here | Why |
 | --- | --- | --- |
 | [Bun](https://bun.com) | 1.3.9+ | package manager, JavaScript runtime, task runner |
+| [Node](https://nodejs.org) | 24 LTS | **the test tooling only** — see below |
 | [.NET SDK](https://dotnet.microsoft.com/download) | 10.0.x | backend build, test and run |
 | Git | any recent | — |
 
 Nothing else. No database server, no Docker, no global npm packages. The
 `dotnet-ef` tool is pinned in `.config/dotnet-tools.json` and restored by the
 setup step.
+
+**Node is not optional, and its absence does not announce itself.** Every script
+here runs through Bun, but three of the tools they drive — `vue-tsc`, Vitest's
+V8 coverage provider and Playwright — are `#!/usr/bin/env node` scripts. Without
+Node on `PATH` Bun stands in for it, and the result is not a failure but a
+quieter version of the truth: the typecheck stops reporting real type errors,
+coverage collects nothing and reports 0 %, and Playwright's workers exit cleanly
+in the middle of a test. All three of those were live in this repository until
+somebody installed Node and the numbers changed.
 
 ## 4. Installing
 
@@ -176,7 +215,8 @@ bun run test:manual:start
 
 Every start of this environment **deletes** `api/.data/q2-manual-testing.db`,
 recreates it, applies all migrations and inserts the ManualTesting seed — ten
-goals covering shared, overdue, archived, boundary and long-text cases. Your
+goals covering shared, overdue, archived, completed, boundary and long-text
+cases. Your
 development database is untouched.
 
 The destructive step is performed by the API itself (the ManualTesting
@@ -273,14 +313,18 @@ All seed data lives in
 | Profile | Used by | Content |
 | --- | --- | --- |
 | `Development` | `bun run dev` | the demonstration world; only inserted into an empty database |
-| `ManualTesting` | `bun run test:manual:start` | the same world plus completed, overdue, archived and a title long enough to wrap |
+| `ManualTesting` | `bun run test:manual:start` | the same world plus completed, overdue, archived, carried through and a title long enough to wrap |
 | `AutomatedTest` | API integration tests | the smallest world that still covers every branch |
 | `E2E` | Playwright | stable ids and unique, non-overlapping titles |
 
-A seed is a whole graph — people, **accounts**, goals, tasks, check-ins,
-activity, chats, friendships and preferences — composed through `SeedBuilder`,
-which hands out the ids so a seed only has to say what exists. `KudosWorld`
-holds the world Development and ManualTesting share.
+A seed is a whole graph — people, **accounts**, goals with their windows, check-ins,
+activity, chats, friendships, preferences and the day's challenge — composed
+through `SeedBuilder`, which hands out the ids so a seed only has to say what
+exists. `KudosWorld` holds the world Development and ManualTesting share.
+
+What a seed deliberately contains **no** picture of: it writes no image bytes,
+so proof photographs and challenge contributions are not seeded and a seeded
+challenge room starts empty. That is also the state a real morning starts in.
 
 ### Seeded accounts
 

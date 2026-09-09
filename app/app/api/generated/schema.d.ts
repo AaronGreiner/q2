@@ -13,6 +13,24 @@ export interface paths {
         };
         /** Returns who you are, your streak, your badges and your recent activity. */
         get: operations["GetProfile"];
+        /** Changes your display name or your picture. Omitted properties keep their value. */
+        put: operations["UpdateProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/people/{personId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns somebody else's profile, with a balance covering only the goals you share. */
+        get: operations["GetPersonProfile"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21,17 +39,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leaderboard": {
+    "/api/today": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Ranks you and your friends by kudos received. */
-        get: operations["ListLeaderboard"];
+        /** Lists the goals whose current window covers today. */
+        get: operations["ListDueToday"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delivers a photograph into the goal's open window for its friends to vote on. */
+        post: operations["SubmitGoalProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Asks for a person, a photograph or a challenge contribution to be looked at. */
+        post: operations["FileReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -89,6 +141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes the signed-in account and everything personal behind it. Asks for the password again. */
+        delete: operations["DeleteAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -124,15 +193,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/goals/{id}": {
+    "/api/goals/archive": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Returns one goal with its team and its tasks. */
-        get: operations["GetGoal"];
+        /** Lists the goals that have stopped, most recently stopped first. */
+        get: operations["ListArchivedGoals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -141,7 +210,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/goals/{id}/contribute": {
+    "/api/goals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns one goal with its team and its resolved windows. */
+        get: operations["GetGoal"];
+        put?: never;
+        post?: never;
+        /** Deletes a stopped goal outright, for everybody on it. */
+        delete: operations["DeleteGoal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/pause": {
         parameters: {
             query?: never;
             header?: never;
@@ -150,33 +237,16 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Records one step of progress towards a goal. */
-        post: operations["ContributeToGoal"];
-        delete?: never;
+        /** Sets a goal aside for whole days, with a reason its friends read. */
+        post: operations["PauseGoal"];
+        /** Ends the running pause early. */
+        delete: operations["EndGoalPause"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Lists the tasks scheduled for today, or all of them. */
-        get: operations["ListTasks"];
-        put?: never;
-        /** Creates a task. */
-        post: operations["CreateTask"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tasks/{id}/toggle": {
+    "/api/goals/{id}/pause/veto": {
         parameters: {
             query?: never;
             header?: never;
@@ -185,8 +255,214 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ticks a task off for today, or takes it back. */
-        post: operations["ToggleTask"];
+        /** Objects to a running pause, or takes the objection back. Anonymous. */
+        post: operations["VetoGoalPause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stops a goal for good and moves it to the archive. */
+        post: operations["CloseGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stores an image. The body is the raw file; its media type must be image/jpeg or image/png. */
+        post: operations["UploadImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns how much image storage you have used. */
+        get: operations["GetImageQuota"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns the bytes of an image you are allowed to see. */
+        get: operations["GetImage"];
+        put?: never;
+        post?: never;
+        /** Deletes one of your images. */
+        delete: operations["DeleteImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proofs/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The photographs waiting for your vote, newest first. */
+        get: operations["ListPendingProofs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proofs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns one photograph, if it is yours to see. */
+        get: operations["GetProof"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proofs/{id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirms or doubts a photograph. One say per person, and it stands. */
+        post: operations["VoteOnProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proofs/{id}/reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds or takes back a reaction. The same kind twice takes it back. */
+        post: operations["ReactToProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/challenges/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today's prompt and the room of your friends' contributions, or nothing if none is running. */
+        get: operations["GetTodaysChallenge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/challenges/today/entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Contributes a photograph. A second one replaces the first. */
+        post: operations["SubmitChallengeEntry"];
+        /** Takes your contribution back. Your friends' are covered again afterwards. */
+        delete: operations["WithdrawChallengeEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/challenges/entries/{id}/reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds or takes back a reaction. The same kind twice takes it back. */
+        post: operations["ReactToChallengeEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/challenges/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every challenge you have taken part in, newest first. Your own contributions only. */
+        get: operations["ListChallengeArchive"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -325,6 +601,126 @@ export interface paths {
         post?: never;
         /** Ends a friendship, for both people. */
         delete: operations["RemoveFriend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The people you have blocked. Never the ones who blocked you. */
+        get: operations["ListBlockedPeople"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/blocks/{personId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Blocks somebody and ends whatever connection there was. Blocking twice changes nothing. */
+        post: operations["BlockPerson"];
+        /** Lifts a block you set. The friendship does not come back. */
+        delete: operations["UnblockPerson"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your invite code, created the first time you ask for it. */
+        get: operations["GetInviteCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invite/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replaces your code, so a link that got out stops working. */
+        post: operations["RegenerateInviteCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether this deployment sends notifications, and the key to subscribe with. */
+        get: operations["GetPushKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Registers this browser, or brings its keys up to date. */
+        post: operations["SubscribeToNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forgets this browser. Succeeds whether or not there was anything to forget. */
+        post: operations["UnsubscribeFromNotifications"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -471,8 +867,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountDeletionResponse: {
+            /** Format: int32 */
+            goals: number;
+            /** Format: int32 */
+            images: number;
+            /** Format: int32 */
+            conversations: number;
+            /** Format: int32 */
+            messages: number;
+            /** Format: int32 */
+            challengeEntries: number;
+        };
         /** @enum {unknown} */
-        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated";
+        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated" | "WindowAtRisk";
         ActivityResponse: {
             /** Format: uuid */
             id: string;
@@ -495,13 +903,61 @@ export interface components {
             /** Format: date */
             earnedOn: string | null;
         };
+        BalanceResponse: {
+            /** Format: int32 */
+            done: number;
+            /** Format: int32 */
+            missed: number;
+        };
+        CastVoteRequest: {
+            value?: null | components["schemas"]["VoteValue"];
+        };
+        ChallengeArchiveEntryResponse: {
+            challenge: components["schemas"]["ChallengeResponse"];
+            entry: components["schemas"]["ChallengeEntryResponse"];
+        };
+        ChallengeEntryResponse: {
+            /** Format: uuid */
+            id: string;
+            author: components["schemas"]["PersonSummary"];
+            /** Format: uuid */
+            imageId: string | null;
+            capturedInApp: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            isMine: boolean;
+            reactions: components["schemas"]["ReactionSummaryResponse"][];
+        };
+        ChallengeResponse: {
+            /** Format: uuid */
+            id: string;
+            prompt: string;
+            /** Format: date-time */
+            publishedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        ChallengeRoomResponse: {
+            challenge: components["schemas"]["ChallengeResponse"];
+            ownEntry: null | components["schemas"]["ChallengeEntryResponse"];
+            entries: components["schemas"]["ChallengeEntryResponse"][];
+            /** Format: int32 */
+            friendCount: number;
+            isRevealed: boolean;
+        };
+        ChallengeTodayResponse: {
+            room: null | components["schemas"]["ChallengeRoomResponse"];
+        };
         ChatDetailResponse: {
             /** Format: uuid */
             id: string;
             kind: components["schemas"]["ConversationKind"];
             name: string;
             initials: string;
+            icon: string | null;
             avatarColor: string;
+            /** Format: uuid */
+            avatarImageId: string | null;
             isOnline: boolean;
             /** Format: int32 */
             memberCount: number;
@@ -526,8 +982,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            current: null | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
-            progressPercent: number;
+            streak: number;
+            /** Format: date */
+            pausedUntil: string | null;
         };
         ChatSummaryResponse: {
             /** Format: uuid */
@@ -535,7 +994,10 @@ export interface components {
             kind: components["schemas"]["ConversationKind"];
             name: string;
             initials: string;
+            icon: string | null;
             avatarColor: string;
+            /** Format: uuid */
+            avatarImageId: string | null;
             isOnline: boolean;
             lastMessage: string | null;
             lastMessageSenderName: string | null;
@@ -545,16 +1007,17 @@ export interface components {
             /** Format: int32 */
             unreadCount: number;
         };
+        CloseGoalRequest: {
+            completed?: boolean | null;
+        };
         /** @enum {unknown} */
         ConversationKind: "Direct" | "Group";
         CreateGoalRequest: {
             title?: string | null;
             description?: string | null;
             icon?: string | null;
-            rhythm?: null | components["schemas"]["GoalRhythm"];
+            schedule?: null | components["schemas"]["GoalScheduleRequest"];
             isGroup?: boolean | null;
-            /** Format: int32 */
-            totalSteps?: number | null;
             /** Format: time */
             reminderAt?: string | null;
             /** Format: date */
@@ -563,27 +1026,18 @@ export interface components {
         };
         CreateGroupChatRequest: {
             title?: string | null;
-            emoji?: string | null;
+            icon?: string | null;
             memberIds?: string[] | null;
             /** Format: uuid */
             goalId?: string | null;
         };
-        CreateTaskRequest: {
-            title?: string | null;
-            rhythm?: null | components["schemas"]["GoalRhythm"];
+        CreateReportRequest: {
+            targetKind?: null | components["schemas"]["ReportTargetKind"];
             /** Format: uuid */
-            goalId?: string | null;
-            /** Format: time */
-            reminderAt?: string | null;
-            weeklyOn?: null | components["schemas"]["DayOfWeek"];
-            /** Format: date */
-            dueOn?: string | null;
-            /** Format: double */
-            targetValue?: number | null;
-            measureUnit?: string | null;
+            targetId?: string | null;
+            reason?: null | components["schemas"]["ReportReason"];
+            note?: string | null;
         };
-        /** @enum {unknown} */
-        DayOfWeek: "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | null;
         DaySummaryResponse: {
             /** Format: int32 */
             done: number;
@@ -591,6 +1045,14 @@ export interface components {
             total: number;
             /** Format: int32 */
             percent: number;
+        };
+        DeleteAccountRequest: {
+            password?: string | null;
+        };
+        FeedProofResponse: {
+            proof: components["schemas"]["ProofResponse"];
+            goalTitle: string;
+            goalIcon: string;
         };
         FriendRequestResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -622,7 +1084,48 @@ export interface components {
         GoalDetailResponse: {
             goal: components["schemas"]["GoalResponse"];
             team: components["schemas"]["GoalTeamMemberResponse"][];
-            tasks: components["schemas"]["GoalTaskResponse"][];
+            history: components["schemas"]["GoalInstanceResponse"][];
+        };
+        GoalInstanceResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            startsOn: string;
+            /** Format: date */
+            dueOn: string;
+            /** Format: date-time */
+            dueAt: string;
+            /** Format: int32 */
+            requiredProofs: number;
+            /** Format: int32 */
+            confirmedProofs: number;
+            /** Format: int32 */
+            remainingProofs: number;
+            status: components["schemas"]["GoalInstanceStatus"];
+            /** Format: uuid */
+            pendingProofId: string | null;
+            acceptsProof: boolean;
+        };
+        /** @enum {unknown} */
+        GoalInstanceStatus: "Open" | "Done" | "Missed" | "Paused";
+        GoalPauseResponse: {
+            /** Format: uuid */
+            id: string;
+            reason: string;
+            /** Format: date */
+            startsOn: string;
+            /** Format: date */
+            endsOn: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** Format: int32 */
+            days: number;
+            /** Format: int32 */
+            vetoCount: number;
+            /** Format: int32 */
+            vetoesRequired: number;
+            vetoedByMe: boolean;
+            canVeto: boolean;
         };
         GoalResponse: {
             /** Format: uuid */
@@ -630,48 +1133,52 @@ export interface components {
             title: string;
             description: string | null;
             icon: string;
-            rhythm: components["schemas"]["GoalRhythm"];
+            schedule: components["schemas"]["GoalScheduleResponse"];
             status: components["schemas"]["GoalStatus"];
             isGroup: boolean;
-            /** Format: int32 */
-            completedSteps: number;
-            /** Format: int32 */
-            totalSteps: number;
-            /** Format: int32 */
-            progressPercent: number;
+            current: null | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
             streak: number;
+            /** Format: int32 */
+            windowsDone: number;
+            /** Format: int32 */
+            windowsMissed: number;
             /** Format: time */
             reminderAt: string | null;
             /** Format: date */
             targetDate: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** Format: date-time */
+            closedAt: string | null;
             participants: components["schemas"]["PersonSummary"][];
             isOverdue: boolean;
+            isMine: boolean;
+            risk: null | components["schemas"]["RiskResponse"];
+            pause: null | components["schemas"]["GoalPauseResponse"];
+            /** Format: int32 */
+            remainingPauses: number | null;
         };
-        /** @enum {unknown} */
-        GoalRhythm: "Daily" | "Weekdays" | "Weekly" | "Once";
+        GoalScheduleRequest: {
+            kind?: null | components["schemas"]["ScheduleKind"];
+            /** Format: int32 */
+            everyDays?: number | null;
+            weekdays?: components["schemas"]["Weekday"][] | null;
+            /** Format: int32 */
+            times?: number | null;
+            period?: null | components["schemas"]["QuotaPeriod"];
+        };
+        GoalScheduleResponse: {
+            kind: components["schemas"]["ScheduleKind"];
+            /** Format: int32 */
+            everyDays: number | null;
+            weekdays: components["schemas"]["Weekday"][];
+            /** Format: int32 */
+            times: number | null;
+            period: null | components["schemas"]["QuotaPeriod"];
+        };
         /** @enum {unknown} */
         GoalStatus: "Active" | "Completed" | "Archived";
-        GoalTaskResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            goalId: string | null;
-            title: string;
-            rhythm: components["schemas"]["GoalRhythm"];
-            /** Format: time */
-            reminderAt: string | null;
-            isDone: boolean;
-            /** Format: double */
-            measuredValue: number | null;
-            /** Format: double */
-            targetValue: number | null;
-            measureUnit: string | null;
-            /** Format: int32 */
-            measurePercent: number | null;
-        };
         GoalTeamMemberResponse: {
             person: components["schemas"]["PersonSummary"];
             /** Format: int32 */
@@ -688,25 +1195,61 @@ export interface components {
                 [key: string]: string[];
             };
         };
+        IResult: Record<string, never>;
+        /** @enum {unknown} */
+        ImagePurpose: "Avatar" | "Proof" | "ChallengeEntry";
+        ImageQuotaResponse: {
+            /** Format: int64 */
+            bytesUsed: number;
+            /** Format: int64 */
+            byteLimit: number;
+            /** Format: int32 */
+            imageCount: number;
+            /** Format: int32 */
+            imageLimit: number;
+        };
+        ImageResponse: {
+            /** Format: uuid */
+            id: string;
+            purpose: components["schemas"]["ImagePurpose"];
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            /** Format: int32 */
+            byteSize: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        InviteResponse: {
+            code: string;
+        };
+        /** @enum {unknown} */
+        KudosKind: "Fire" | "Strong" | "Applause";
         /** @enum {unknown} */
         LanguagePreference: "German" | "English";
-        LeaderboardEntryResponse: {
-            /** Format: int32 */
-            rank: number;
-            person: components["schemas"]["PersonSummary"];
-            /** Format: int32 */
-            kudos: number;
-            isMe: boolean;
-        };
         LoginRequest: {
             email?: string | null;
             password?: string | null;
         };
         MessageReactionResponse: {
-            emoji: string;
+            kind: components["schemas"]["KudosKind"];
             /** Format: int32 */
             count: number;
             isMine: boolean;
+        };
+        PersonProfileResponse: {
+            person: components["schemas"]["PersonSummary"];
+            state: components["schemas"]["FriendshipState"];
+            /** Format: int32 */
+            streak: number;
+            /** Format: int32 */
+            kudosReceived: number;
+            /** Format: int32 */
+            goalsCompleted: number;
+            balance: components["schemas"]["BalanceResponse"];
+            /** Format: int32 */
+            sharedGoals: number;
         };
         PersonSearchResultResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -722,6 +1265,8 @@ export interface components {
             initials: string;
             avatarColor: string;
             isOnline: boolean;
+            /** Format: uuid */
+            avatarImageId: string | null;
         };
         ProblemDetails: {
             type?: string | null;
@@ -747,12 +1292,86 @@ export interface components {
             pendingFriendRequests: number;
             badges: components["schemas"]["BadgeResponse"][];
             recentActivity: components["schemas"]["ActivityResponse"][];
+            balance: components["schemas"]["BalanceResponse"];
+            atRisk: components["schemas"]["GoalResponse"][];
+        };
+        ProofResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            goalId: string;
+            /** Format: uuid */
+            goalInstanceId: string;
+            uploader: components["schemas"]["PersonSummary"];
+            /** Format: uuid */
+            imageId: string;
+            status: components["schemas"]["ProofStatus"];
+            /** Format: int32 */
+            attempt: number;
+            /** Format: int32 */
+            attemptsLeft: number;
+            capturedInApp: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            votes: components["schemas"]["VoteSummaryResponse"];
+            reactions: components["schemas"]["ReactionSummaryResponse"][];
+        };
+        /** @enum {unknown} */
+        ProofStatus: "Voting" | "Confirmed" | "Rejected";
+        PushKeyResponse: {
+            isAvailable: boolean;
+            publicKey: string | null;
+        };
+        /** @enum {unknown} */
+        QuotaPeriod: "Week" | "Month" | null;
+        ReactToChallengeEntryRequest: {
+            kind?: null | components["schemas"]["KudosKind"];
+        };
+        ReactToProofRequest: {
+            kind?: null | components["schemas"]["KudosKind"];
+        };
+        ReactionSummaryResponse: {
+            kind: components["schemas"]["KudosKind"];
+            /** Format: int32 */
+            count: number;
+            isMine: boolean;
         };
         RegisterRequest: {
             name?: string | null;
             email?: string | null;
             password?: string | null;
+            inviteCode?: string | null;
         };
+        /** @enum {unknown} */
+        ReportReason: "Faked" | "Inappropriate" | "Harassment" | "Spam" | "Other" | null;
+        ReportReceiptResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @enum {unknown} */
+        ReportTargetKind: "Person" | "Proof" | "ChallengeEntry" | null;
+        RequestPauseRequest: {
+            reason?: string | null;
+            /** Format: int32 */
+            days?: number | null;
+        };
+        /** @enum {unknown} */
+        RiskReason: "LastDay" | "Tight";
+        RiskResponse: {
+            reason: components["schemas"]["RiskReason"];
+            /** Format: int32 */
+            missingProofs: number;
+            /** Format: int32 */
+            requiredProofs: number;
+            /** Format: int32 */
+            remainingDays: number;
+        };
+        /** @enum {unknown} */
+        ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times";
         SendMessageRequest: {
             text?: string | null;
         };
@@ -772,15 +1391,45 @@ export interface components {
             notifyKudos: boolean;
             notifyMessages: boolean;
             notifyWeeklyReview: boolean;
+            notifyChallenge: boolean;
+            /** Format: time */
+            quietHoursFrom: string | null;
+            /** Format: time */
+            quietHoursTo: string | null;
         };
         StartDirectChatRequest: {
             /** Format: uuid */
             personId?: string | null;
         };
+        SubmitChallengeEntryRequest: {
+            /** Format: uuid */
+            imageId?: string | null;
+            /** @default false */
+            capturedInApp: boolean;
+        };
+        SubmitProofRequest: {
+            /** Format: uuid */
+            imageId?: string | null;
+            /** @default false */
+            capturedInApp: boolean;
+        };
+        SubscribeRequest: {
+            endpoint?: string | null;
+            publicKey?: string | null;
+            authSecret?: string | null;
+        };
         /** @enum {unknown} */
         ThemePreference: "System" | "Light" | "Dark";
         ToggleReactionRequest: {
-            emoji?: string | null;
+            kind?: null | components["schemas"]["KudosKind"];
+        };
+        UnsubscribeRequest: {
+            endpoint?: string | null;
+        };
+        UpdateProfileRequest: {
+            displayName?: string | null;
+            /** Format: uuid */
+            avatarImageId?: string | null;
         };
         UpdateSettingsRequest: {
             theme?: null | components["schemas"]["ThemePreference"];
@@ -789,7 +1438,26 @@ export interface components {
             notifyKudos?: boolean | null;
             notifyMessages?: boolean | null;
             notifyWeeklyReview?: boolean | null;
+            notifyChallenge?: boolean | null;
+            quietHoursEnabled?: boolean | null;
+            /** Format: time */
+            quietHoursFrom?: string | null;
+            /** Format: time */
+            quietHoursTo?: string | null;
         };
+        VoteSummaryResponse: {
+            /** Format: int32 */
+            confirmCount: number;
+            /** Format: int32 */
+            doubtCount: number;
+            confirmedBy: components["schemas"]["PersonSummary"][];
+            myVote: null | components["schemas"]["VoteValue"];
+            canIVote: boolean;
+        };
+        /** @enum {unknown} */
+        VoteValue: "Confirm" | "Doubt" | null;
+        /** @enum {unknown} */
+        Weekday: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
     };
     responses: never;
     parameters: never;
@@ -819,7 +1487,80 @@ export interface operations {
             };
         };
     };
-    ListLeaderboard: {
+    UpdateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetPersonProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                personId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonProfileResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListDueToday: {
         parameters: {
             query?: never;
             header?: never;
@@ -834,7 +1575,93 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LeaderboardEntryResponse"][];
+                    "application/json": components["schemas"]["GoalResponse"][];
+                };
+            };
+        };
+    };
+    SubmitGoalProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitProofRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    FileReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportReceiptResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -932,6 +1759,48 @@ export interface operations {
             };
         };
     };
+    DeleteAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     GetSession: {
         parameters: {
             query?: never;
@@ -1016,6 +1885,26 @@ export interface operations {
             };
         };
     };
+    ListArchivedGoals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"][];
+                };
+            };
+        };
+    };
     GetGoal: {
         parameters: {
             query?: never;
@@ -1047,7 +1936,7 @@ export interface operations {
             };
         };
     };
-    ContributeToGoal: {
+    DeleteGoal: {
         parameters: {
             query?: never;
             header?: never;
@@ -1058,13 +1947,20 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalResponse"];
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
             /** @description Not Found */
@@ -1078,16 +1974,20 @@ export interface operations {
             };
         };
     };
-    ListTasks: {
+    PauseGoal: {
         parameters: {
-            query?: {
-                all?: boolean;
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestPauseRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -1095,31 +1995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalTaskResponse"][];
-                };
-            };
-        };
-    };
-    CreateTask: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTaskRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoalTaskResponse"];
+                    "application/json": components["schemas"]["GoalResponse"];
                 };
             };
             /** @description Bad Request */
@@ -1142,7 +2018,7 @@ export interface operations {
             };
         };
     };
-    ToggleTask: {
+    EndGoalPause: {
         parameters: {
             query?: never;
             header?: never;
@@ -1159,7 +2035,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalTaskResponse"];
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
             /** @description Not Found */
@@ -1169,6 +2054,510 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    VetoGoalPause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    CloseGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UploadImage: {
+        parameters: {
+            query?: {
+                purpose?: components["schemas"]["ImagePurpose"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Payload Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetImageQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageQuotaResponse"];
+                };
+            };
+        };
+    };
+    GetImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": components["schemas"]["IResult"];
+                    "image/png": components["schemas"]["IResult"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListPendingProofs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedProofResponse"][];
+                };
+            };
+        };
+    };
+    GetProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    VoteOnProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CastVoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ReactToProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactToProofRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProofResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetTodaysChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeTodayResponse"];
+                };
+            };
+        };
+    };
+    SubmitChallengeEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitChallengeEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeRoomResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    WithdrawChallengeEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeTodayResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    ReactToChallengeEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactToChallengeEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeEntryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListChallengeArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeArchiveEntryResponse"][];
                 };
             };
         };
@@ -1448,6 +2837,210 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
+            };
+        };
+    };
+    ListBlockedPeople: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSummary"][];
+                };
+            };
+        };
+    };
+    BlockPerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                personId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSummary"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UnblockPerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                personId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonSummary"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetInviteCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteResponse"];
+                };
+            };
+        };
+    };
+    RegenerateInviteCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteResponse"];
+                };
+            };
+        };
+    };
+    GetPushKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyResponse"];
+                };
+            };
+        };
+    };
+    SubscribeToNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    UnsubscribeFromNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnsubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

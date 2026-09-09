@@ -38,9 +38,9 @@ public class AnonymousRequestTests(Q2ApiFactory factory) : ApiTestBase(factory)
     [
         "/api/profile",
         "/api/feed",
-        "/api/leaderboard",
         "/api/goals",
-        "/api/tasks",
+        "/api/goals/archive",
+        "/api/today",
         "/api/friends",
         "/api/chats",
         "/api/settings",

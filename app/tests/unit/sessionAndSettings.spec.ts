@@ -269,7 +269,7 @@ describe('configured API and toast adapters', () => {
     const api = useQ2Api()
     await api.accounts.session()
     await api.goals.list()
-    await api.tasks.list()
+    await api.goals.today()
     await api.activity.feed()
     await api.friends.get()
     await api.chats.list()
@@ -291,17 +291,18 @@ describe('configured API and toast adapters', () => {
     vi.stubGlobal('useToast', () => ({ add }))
     const toast = useToastMessage()
 
-    toast.show({ emoji: '✅', text: 'Saved' })
-    toast.show({ emoji: '👋', text: 'Hello Mara' }, { private: true })
+    toast.show({ icon: 'i-lucide-check', text: 'Saved' })
+    toast.show({ icon: 'i-lucide-sparkles', text: 'Hello Mara' }, { private: true })
 
     expect(add).toHaveBeenNthCalledWith(1, {
-      title: '✅ Saved',
+      title: 'Saved',
+      icon: 'i-lucide-check',
       color: 'primary',
       duration: 2200,
       ui: undefined,
     })
     expect(add).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      title: '👋 Hello Mara',
+      title: 'Hello Mara',
       ui: { title: 'sentry-mask' },
     }))
   })

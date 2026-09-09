@@ -66,6 +66,22 @@ components with logic inline is not "using the design system well".
 useMessages()` and `{{ t.goals.heading }}`; the words live in
 `app/i18n/messages.ts` (see §11).
 
+**Colour means one of three things, and nothing else has any.** The accent is
+an action the person can take *right now*; the flame gradient is a streak; red is
+something final. A state — progress, a rhythm, a switch, a badge, a count, a
+finished tick — is drawn in `--ui-text`. Before using the accent, ask *is this
+something they can do now?*; if the answer is no, it is grey or white. Text on an
+accent fill comes from `--q2-accent-contrast`, never from `text-white`, and a
+disabled primary control is an outline rather than a faded accent fill. The
+reasoning, and what happens when this slips, is in
+[../docs/adr/0015-qdos-design-language.md](../docs/adr/0015-qdos-design-language.md).
+
+**No emoji in the interface.** Lucide icons instead — an emoji is drawn
+differently on every platform, has no accessible name we control, and cannot be
+styled. This includes toasts (`{ icon, text }` in the catalogue), reactions
+(`KudosKind`) and a group chat's avatar (`ConversationIcons`). What people type
+into their own messages is their business.
+
 **Corners come from `--q2-radius-*`, never from `rounded-xl`.** Nuxt UI
 rescales Tailwind's radius utilities off `--ui-radius`, so in this app
 `rounded-md` is 18px, `rounded-xl` is **36px**, `rounded-2xl` is 48px and
@@ -79,23 +95,25 @@ Current components, by folder:
 
 | Component | Responsibility |
 | --- | --- |
-| `AppAvatar` | initials on a colour, with an optional presence dot |
+| `AppAvatar` | initials on a colour, or a group's icon on a neutral tile, with an optional presence dot |
 | `AppProgressBar` `AppProgressRing` | the two shapes progress is drawn in |
 | `AppSearchField` | the box under a screen's title — one height, one shape |
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
-| `AppBottomNav` `AppScreenHeader` | the shell around every screen |
+| `AppBottomNav` `AppScreenHeader` | the shell around every screen; the bar's middle slot creates rather than navigating |
 | `AuthScreen` | the frame the sign-in and sign-up screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
 | `GoalCard` `GoalTile` | one goal in the list, and in the horizontal strip |
-| `GoalTaskRow` | one task with its tick box |
+| `GoalWindowRow` | one goal that is due, with the control that delivers into its window |
+| `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
+| `HistoryGrid` | the windows a goal has been through, deliberately without the accent |
 | `GoalCreateSheet` | the bottom sheet that creates a goal |
-| `ActivityRow` `LeaderboardCard` | the feed and the ranking |
+| `ActivityRow` | one line of the friends' feed, with its kudos button |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
-| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens |
+| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries the three kinds of kudos |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `BadgeGrid` | the badge collection, earned and not |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
@@ -108,8 +126,11 @@ app/api/types.ts                named re-exports of the contract
 app/api/errors.ts               ApiError, ApiFailure, normalisation
 app/api/client.ts               the fetch wrapper that normalises every failure
 app/api/accounts.ts             register, sign in, sign out, session
-app/api/goals.ts                goals and tasks
-app/api/social.ts               feed, kudos, leaderboard, friends, profile
+app/api/goals.ts                goals, what is due today, and delivering a proof
+app/api/challenges.ts           the prompt of the day, the room, and your archive
+app/api/moderation.ts           reporting, blocking, and the invite link
+app/api/notifications.ts        the push key, and subscribing this browser
+app/api/social.ts               feed, kudos, friends, profile
 app/api/chats.ts                conversations, messages and settings
 app/api/diagnostics.ts          the diagnostics endpoints (hand-written, see below)
 app/composables/useQ2Api.ts     the configured client
@@ -283,7 +304,7 @@ designed and verified in, not about adding a native layer now
 
 ## 9a. Installable, and deliberately not offline
 
-q2 installs from the browser: a web app manifest, a set of sparkles icons and a
+q2 installs from the browser: a web app manifest, the Q icon set and a
 service worker. What that buys is the standalone window, the home screen icon
 and a start that does not wait for the network. It does **not** buy offline use,
 and that is a decision rather than an omission

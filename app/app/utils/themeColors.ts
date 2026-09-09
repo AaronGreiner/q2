@@ -12,8 +12,15 @@
  *    window, before the stylesheet has loaded (app/app.vue).
  *
  * They are `--ui-bg` from `:root` and from `.dark`, and they move with it.
+ *
+ * `installed` is which of the two an installing platform is handed, and it is
+ * the dark one because that is what q2 opens in: the manifest holds a single
+ * colour, chosen once, and a splash screen that flashes white before a black
+ * app is the first thing a person would see us get wrong.
  */
 export const themeColors = {
   light: '#fafafa',
-  dark: '#0a0a0a',
+  dark: '#000000',
 } as const
+
+export const installedThemeColor = themeColors.dark

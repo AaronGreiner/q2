@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { languageKeys } from '~/i18n/messages'
+import { de, languageKeys } from '~/i18n/messages'
 
 /**
  * UApp provides the overlay and toast context Nuxt UI components expect and
@@ -17,7 +17,11 @@ const t = useMessages()
 useKeyboardViewport()
 
 useHead({
-  titleTemplate: title => (title ? `${title} · Kudos` : 'Kudos (q2)'),
+  // The product name comes from the catalogue like every other word, but only
+  // the German one: a document title is read by the operating system's task
+  // switcher and by a share sheet before anybody has chosen a language, and a
+  // name is the same in both anyway.
+  titleTemplate: title => (title ? `${title} · ${de.app.name}` : `${de.app.name} (q2)`),
   htmlAttrs: { lang: computed(() => languageKeys[language.value]) },
   meta: [
     { name: 'description', content: () => t.value.app.description },
@@ -34,7 +38,7 @@ useHead({
      * docs/adr/0013-app-like-input.md.
      */
     { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
-    { name: 'color-scheme', content: 'light dark' },
+    { name: 'color-scheme', content: 'dark light' },
 
     /*
      * Installed, q2 has no browser chrome of its own, so these describe the
@@ -77,7 +81,7 @@ useHead({
      * keeps the tab bar off the home indicator, and Android still needs it.
      */
     { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-    { name: 'apple-mobile-web-app-title', content: 'Kudos' },
+    { name: 'apple-mobile-web-app-title', content: de.app.name },
   ],
 
   /*

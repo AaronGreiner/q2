@@ -23,6 +23,7 @@ const t = useMessages()
     <AppAvatar
       :initials="suggestion.person.initials"
       :color="suggestion.person.avatarColor"
+      :image-id="suggestion.person.avatarImageId"
       :size="42"
     />
 
@@ -40,7 +41,7 @@ const t = useMessages()
 
     <button
       type="button"
-      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="min-h-11 shrink-0 rounded-(--q2-radius-md) bg-(--q2-accent-solid) px-3 text-xs font-extrabold text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.add}: ${suggestion.person.displayName}`"
       data-testid="suggestion-request"
       @click="emit('request', suggestion.person.id)"

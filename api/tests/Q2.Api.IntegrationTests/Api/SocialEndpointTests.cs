@@ -6,7 +6,7 @@ using Q2.Api.IntegrationTests.Infrastructure;
 namespace Q2.Api.IntegrationTests.Api;
 
 /// <summary>
-/// The feed, the kudos on it, the leaderboard, and the friends screen.
+/// The feed, the kudos on it, and the friends screen.
 /// </summary>
 [Trait("Category", "Integration")]
 public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
@@ -22,8 +22,6 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int KudosCount,
         bool HasMyKudos,
         DateTimeOffset OccurredAt);
-
-    private sealed record LeaderboardDocument(int Rank, PersonDocument Person, int Kudos, bool IsMe);
 
     private sealed record FriendDocument(PersonDocument Person, int Streak, DateTimeOffset? LastSeenAt);
 
@@ -111,23 +109,6 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task GivingKudosMovesTheReceiverUpTheLeaderboard()
-    {
-        var before = await (await Client.GetAsync("/api/leaderboard", TestContext.Current.CancellationToken))
-            .ReadAsync<IReadOnlyList<LeaderboardDocument>>();
-
-        await Client.PostAsync($"/api/feed/{AutomatedTestSeed.ActivityWithoutKudosId}/kudos", null, TestContext.Current.CancellationToken);
-
-        var after = await (await Client.GetAsync("/api/leaderboard", TestContext.Current.CancellationToken))
-            .ReadAsync<IReadOnlyList<LeaderboardDocument>>();
-
-        var friendBefore = before.Single(entry => entry.Person.Id == AutomatedTestSeed.FriendPersonId);
-        var friendAfter = after.Single(entry => entry.Person.Id == AutomatedTestSeed.FriendPersonId);
-
-        Assert.Equal(friendBefore.Kudos + 1, friendAfter.Kudos);
-    }
-
-    [Fact]
     public async Task KudosOnSomethingThatDoesNotExistIs404()
     {
         var response = await Client.PostAsync(
@@ -138,17 +119,19 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    /// <summary>
+    /// There is no ranking endpoint, and its absence is a product decision
+    /// rather than an omission: q2 tells your friends when you miss, so a table
+    /// that sorts everybody by how well they are doing would be a scoreboard
+    /// somebody comes last on. This is the test that would notice one coming
+    /// back by accident.
+    /// </summary>
     [Fact]
-    public async Task TheLeaderboardRanksYouAndYourFriendsAndSaysWhichOneIsYou()
+    public async Task ThereIsNoRanking()
     {
-        var board = await (await Client.GetAsync("/api/leaderboard", TestContext.Current.CancellationToken))
-            .ReadAsync<IReadOnlyList<LeaderboardDocument>>();
+        var response = await Client.GetAsync("/api/leaderboard", TestContext.Current.CancellationToken);
 
-        Assert.Equal([1, 2], board.Select(entry => entry.Rank));
-        Assert.Single(board, entry => entry.IsMe);
-
-        // Somebody who only sent a request is not a friend, and not on it.
-        Assert.DoesNotContain(board, entry => entry.Person.DisplayName == "Test Person Three");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

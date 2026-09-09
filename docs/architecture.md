@@ -29,7 +29,7 @@ reachable from both.
 | --- | --- |
 | business rules, invariants | the API, in the domain model |
 | persistence, migrations, seeds | the API |
-| derived facts (`isOverdue`, `progressPercent`, a streak, "is this on today's list") | the API, so every client agrees |
+| derived facts (`isOverdue`, a streak, a balance, "is this on today's list") | the API, so every client agrees |
 | the contract | the API, exported as OpenAPI |
 | rendering, composition, navigation | the frontend |
 | presentation logic (formatting, phrasing, language) | the frontend, in pure functions |
@@ -49,11 +49,16 @@ English and a phrase composed on the server could only ever be one of them.
 Minimal APIs on .NET 10, organised by feature.
 
 ```
-Features/Activity/       the feed, kudos and the leaderboard
+Features/Activity/       the feed and the kudos on it
+Features/Challenges/     the daily prompt, its queue, the room and the archive
 Features/Chats/          conversations, messages, reactions
-Features/Goals/          goals and the tasks under them
-Features/People/         Person, friendships, badges, CurrentPerson
+Features/Goals/          goals, their schedules, windows, pauses and the archive
+Features/Images/         the byte store behind photographs and avatars
+Features/Moderation/     reports, and where a report actually goes
+Features/Notifications/  Web Push: the crypto, the subscriptions, the rules
+Features/People/         Person, friendships, blocks, invites, badges, CurrentPerson
 Features/Profile/        the signed-in person's own screen
+Features/Proofs/         photographs, the votes on them and the reactions to them
 Features/Settings/       theme, language, notification preferences
 Features/Streaks/        one definition of "days in a row", shared by both
 Features/Diagnostics/    health check, deliberate-failure endpoints
@@ -72,10 +77,16 @@ The domain model is the authority on its own rules. `Goal.Create` validates
 everything and takes its id and timestamp as **arguments** rather than reading
 them from ambient state, which is what makes seeds and tests reproducible.
 
-Numbers people see are **derived, not stored**: a goal's percentage comes from
-its steps, a streak from the days recorded behind it, "done today" from the day
-a task was last completed. A stored copy would be a second source of truth, and
-a stored streak would need a nightly job to notice a missed day.
+Numbers people see are **derived, not stored**: a streak is counted back over
+the windows behind it, a balance from their outcomes, "done today" from the
+windows that cover today. A stored copy would be a second source of truth, and a
+stored streak would need a nightly job to notice a missed day — see
+[adr/0016-windows-instead-of-steps.md](adr/0016-windows-instead-of-steps.md).
+
+A window can end in three ways, and only two of them are results: `Done` and
+`Missed` are counted, `Paused` is not. That is what makes a pause a way out
+rather than a way of failing quietly — see
+[adr/0020-pause-and-archive.md](adr/0020-pause-and-archive.md).
 
 Identity goes through one type, `CurrentPerson`. It resolves the person behind
 the signed-in account and fails loudly rather than guessing; every feature asks
@@ -83,10 +94,28 @@ it rather than reading a claim, which is what kept the move from a flagged row
 to a real session down to one file — see
 [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md).
 
-Access control is per person and lives in the queries: `Goal` and `GoalTask`
-carry an `OwnerPersonId`, a conversation is scoped by its participants, and
-every feature endpoint group carries `RequireAuthorization`. Where the existence
-of a row is itself private, the answer is 404 rather than 403.
+Access control is per person and lives in the queries: a `Goal` carries an
+`OwnerPersonId`, a conversation is scoped by its participants, a challenge room
+is composed from the viewer's own friendships, and every feature endpoint group
+carries `RequireAuthorization`. Where the existence of a row is itself private,
+the answer is 404 rather than 403.
+
+Two types answer the questions every read starts from. `CurrentPerson` answers
+"who is asking"; `BlockList` answers "who must they not see", both ways round
+and cached for one request — see
+[adr/0022-blocking-reporting-and-erasure.md](adr/0022-blocking-reporting-and-erasure.md).
+
+Two background services are the only things that happen without somebody asking.
+`GoalMaintenanceWorker` advances windows that fell due while nobody was looking;
+`ChallengeQueueWorker` keeps a week of prompts queued ahead of time, which is
+what makes the daily challenge work without a daily editorial shift — see
+[adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). Both are idempotent
+and catching-up, and neither runs in `AutomatedTest`.
+
+They are also the only two things that send a notification. Nothing a client can
+call produces one — see
+[adr/0023-web-push.md](adr/0023-web-push.md) — and neither sends inside a
+transaction: each collects what to notify, saves, and then delivers.
 
 `Program.cs` is about thirty-five lines and reads as a table of contents:
 observability, persistence, API services, pipeline, endpoints, run.

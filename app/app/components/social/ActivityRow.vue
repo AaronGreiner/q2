@@ -6,6 +6,12 @@ import type { Activity } from '~/api/types'
  *
  * The sentence is composed here from the structured event rather than sent as
  * text — see `activitySentence` and the server's ActivityResponse for why.
+ *
+ * **A warning gets no kudos button.** All three kudos are approving, so the
+ * control could never be an insult on its own — but "stark gemacht" under
+ * "droht zu verpassen" is a sentence nobody should be able to send, and the
+ * cheapest way to be sure is not to draw it. That is what "kein Nachtreten"
+ * means in practice: it is a property of the row's kind, never a setting.
  */
 const props = defineProps<{
   activity: Activity
@@ -20,6 +26,7 @@ const emit = defineEmits<{ kudos: [id: string] }>()
 const t = useMessages()
 
 const sentence = computed(() => activitySentence(props.activity, t.value))
+const warning = computed(() => isWarning(props.activity))
 const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.now, t.value))
 </script>
 
@@ -31,6 +38,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
     <AppAvatar
       :initials="activity.actor.initials"
       :color="activity.actor.avatarColor"
+      :image-id="activity.actor.avatarImageId"
       :size="40"
     />
 
@@ -51,11 +59,11 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
     </div>
 
     <button
-      v-if="!readonly"
+      v-if="!readonly && !warning"
       type="button"
       class="relative flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 transition-colors after:absolute after:-inset-y-2 after:-inset-x-1 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="activity.hasMyKudos
-        ? 'bg-(--q2-accent-solid) text-white'
+        ? 'bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
         : 'bg-(--q2-accent-soft) text-(--q2-accent-soft-text)'"
       :aria-pressed="activity.hasMyKudos"
       :aria-label="activity.hasMyKudos ? t.activity.takeBackKudos : t.activity.giveKudos"
@@ -70,6 +78,19 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
       />
       <span class="text-xs font-extrabold">{{ activity.kudosCount }}</span>
     </button>
+
+    <!--
+      A warning carries a clock rather than a count. There is nothing to cheer
+      and nothing to tally: it is a statement about a deadline, and it stops
+      being true the moment somebody delivers.
+    -->
+    <UIcon
+      v-else-if="warning"
+      name="i-lucide-clock-alert"
+      class="size-4 shrink-0 text-(--ui-text-muted)"
+      aria-hidden="true"
+      data-testid="activity-warning"
+    />
 
     <span
       v-else

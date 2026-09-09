@@ -16,9 +16,8 @@ namespace Q2.Api.Infrastructure.Persistence.Seeding;
 ///
 /// Like the automated-test seed it contains no archived goal, which keeps
 /// "filter to a status with no results" available as an empty-state check —
-/// and, for the same reason as there, every recurring task is
-/// <see cref="GoalRhythm.Daily"/> so the day of the week the suite runs on
-/// cannot change what is on the list.
+/// and every recurring goal is on a daily interval so the day of the week the
+/// suite runs on cannot change what is on today's list.
 /// </remarks>
 public sealed class E2ESeed : ISeedDataSource
 {
@@ -26,7 +25,7 @@ public sealed class E2ESeed : ISeedDataSource
 
     public SeedProfile Profile => Owner;
 
-    public string Description => "5 people, 4 goals, 3 tasks and 2 conversations with stable ids for Playwright.";
+    public string Description => "5 people, 4 goals with their windows and 2 conversations with stable ids for Playwright.";
 
     /// <summary>Shared active goal — the row E2E tests open and assert on.</summary>
     public static Guid SharedGoalId => SeedIds.Goal(Owner, 1);
@@ -60,9 +59,11 @@ public sealed class E2ESeed : ISeedDataSource
 
     public const string OverdueGoalTitle = "E2E overdue goal";
 
-    public const string OpenTaskTitle = "E2E open task for today";
+    /// <summary>The prompt Playwright reads off the banner and the room.</summary>
+    public const string ChallengePrompt = "E2E challenge of the day";
 
-    public const string DoneTaskTitle = "E2E task already done";
+    /// <summary>A goal due three times a week, with one proof already in.</summary>
+    public const string QuotaGoalTitle = "E2E goal three times a week";
 
     public const string GroupChatTitle = "E2E group chat";
 
@@ -100,55 +101,58 @@ public sealed class E2ESeed : ISeedDataSource
         build.Befriend(jonas, emma);
         build.Befriend(lena, emma);
 
+        // Three delivered days behind it, so the streak on the card reads 3
+        // and today's window is open and empty — which is what the "deliver a
+        // proof" spec ticks off.
         var shared = build.AddGoal(
             SharedGoalTitle,
             "Synthetic E2E fixture.",
             "medal",
-            GoalRhythm.Daily,
-            completedSteps: 5,
-            totalSteps: 10,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 10,
-            streakDays: 3,
+            history: "ddd",
             reminderAt: new TimeOnly(18, 0),
-            targetDate: context.DaysFromToday(30),
             participants: [jonas, lena]);
 
+        // A delivered one-off: the only route to Completed.
         build.AddGoal(
             CompletedGoalTitle,
             null,
             "trophy",
-            GoalRhythm.Weekly,
-            completedSteps: 4,
-            totalSteps: 4,
+            GoalSchedule.Once(),
             createdDaysAgo: 20,
+            confirmedNow: 1,
             targetDate: context.DaysFromToday(5));
 
         build.AddGoal(
             ZeroProgressGoalTitle,
             null,
             "target",
-            GoalRhythm.Daily,
-            completedSteps: 0,
-            totalSteps: 12,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 2);
 
+        // A chain that has already broken, so "verpasst" is on screen somewhere
+        // without the suite having to wait a day for it.
         build.AddGoal(
             OverdueGoalTitle,
             null,
             "calendar",
-            GoalRhythm.Weekly,
-            completedSteps: 3,
-            totalSteps: 12,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 40,
-            targetDate: context.DaysFromToday(-7));
+            history: "ddmm");
 
-        build.AddTask(OpenTaskTitle, GoalRhythm.Daily, shared, reminderAt: new TimeOnly(7, 0));
-        build.AddTask(DoneTaskTitle, GoalRhythm.Daily, doneToday: true);
-        build.AddTask("E2E task due later this week", GoalRhythm.Once, dueOn: context.DaysFromToday(3));
+        build.AddGoal(
+            QuotaGoalTitle,
+            null,
+            "flame",
+            GoalSchedule.TimesPer(3, QuotaPeriod.Week),
+            createdDaysAgo: 30,
+            history: "d",
+            confirmedNow: 1);
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "E2E morning run", null, 7, minutesAgo: 15);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 4, 2, minutesAgo: 90);
-        build.AddActivity(me, ActivityKind.GoalProgress, shared.Title, 50, 1, minutesAgo: 300);
+        build.AddActivity(me, ActivityKind.GoalProgress, shared.Title, 1, 1, minutesAgo: 300);
 
         build.AddDirectChat(
             jonas,
@@ -159,11 +163,13 @@ public sealed class E2ESeed : ISeedDataSource
 
         build.AddGroupChat(
             GroupChatTitle,
-            "🌅",
+            "sunrise",
             [jonas, lena],
             null,
             unread: 0,
             new SeedMessage(lena, "E2E group hello", 600));
+
+        build.AddChallenge(ChallengePrompt);
 
         build.AddDefaultSettings();
 

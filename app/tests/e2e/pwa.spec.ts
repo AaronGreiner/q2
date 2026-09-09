@@ -78,8 +78,8 @@ test.describe('the web app manifest', () => {
     const manifest = await response.json() as WebManifest
 
     // The fields an installability check actually looks at.
-    expect(manifest.name).toBe('Kudos (q2)')
-    expect(manifest.short_name).toBe('Kudos')
+    expect(manifest.name).toBe('Qdos (q2)')
+    expect(manifest.short_name).toBe('Qdos')
     expect(manifest.start_url).toBe('/')
     expect(manifest.scope).toBe('/')
     expect(manifest.display).toBe('standalone')
@@ -176,7 +176,7 @@ test.describe('the service worker', () => {
 
     const documents = urls.filter((url) => {
       const { pathname } = new URL(url)
-      return pathname === '/' || pathname.endsWith('.html') || /^\/(goals|profile|chats|friends|login)/.test(pathname)
+      return pathname === '/' || pathname.endsWith('.html') || /^\/(goals|profile|chats|search|login)/.test(pathname)
     })
     expect(documents, 'a rendered page was cached').toEqual([])
 

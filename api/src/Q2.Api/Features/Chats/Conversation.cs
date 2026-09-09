@@ -27,7 +27,7 @@ public enum ConversationKind
 public sealed class Conversation
 {
     public const int MaxTitleLength = 80;
-    public const int MaxEmojiLength = 8;
+    public const int MaxIconLength = 24;
 
     /// <summary>
     /// Including yourself. The same bound as a goal's team, because a group
@@ -43,12 +43,12 @@ public sealed class Conversation
     {
     }
 
-    private Conversation(Guid id, ConversationKind kind, string? title, string? emoji, Guid? goalId, DateTimeOffset createdAt)
+    private Conversation(Guid id, ConversationKind kind, string? title, string? icon, Guid? goalId, DateTimeOffset createdAt)
     {
         Id = id;
         Kind = kind;
         Title = title;
-        Emoji = emoji;
+        Icon = icon;
         GoalId = goalId;
         CreatedAt = createdAt;
     }
@@ -60,8 +60,12 @@ public sealed class Conversation
     /// <summary>The group's name. Null for a direct conversation.</summary>
     public string? Title { get; private set; }
 
-    /// <summary>The group's avatar. Null for a direct conversation.</summary>
-    public string? Emoji { get; private set; }
+    /// <summary>
+    /// The group's avatar: one of <see cref="ConversationIcons"/>, never a
+    /// free-form name. Null for a direct conversation, which draws the other
+    /// person instead.
+    /// </summary>
+    public string? Icon { get; private set; }
 
     /// <summary>The goal this thread is about, when it is about one.</summary>
     public Guid? GoalId { get; private set; }
@@ -77,10 +81,10 @@ public sealed class Conversation
         new(id, ConversationKind.Direct, null, null, goalId, createdAt);
 
     /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
-    public static Conversation CreateGroup(Guid id, string title, string? emoji, Guid? goalId, DateTimeOffset createdAt)
+    public static Conversation CreateGroup(Guid id, string title, string? icon, Guid? goalId, DateTimeOffset createdAt)
     {
         var normalisedTitle = title?.Trim() ?? string.Empty;
-        var normalisedEmoji = string.IsNullOrWhiteSpace(emoji) ? null : emoji.Trim();
+        var normalisedIcon = string.IsNullOrWhiteSpace(icon) ? null : icon.Trim();
 
         if (normalisedTitle.Length == 0)
         {
@@ -94,14 +98,14 @@ public sealed class Conversation
                 $"A name may be at most {MaxTitleLength} characters long.");
         }
 
-        if (normalisedEmoji is { Length: > MaxEmojiLength })
+        if (normalisedIcon is not null && !ConversationIcons.IsValid(normalisedIcon))
         {
             throw new DomainValidationException(
-                nameof(Emoji),
-                $"A group emoji may be at most {MaxEmojiLength} characters long.");
+                nameof(Icon),
+                "That group icon is not one of the available icons.");
         }
 
-        return new Conversation(id, ConversationKind.Group, normalisedTitle, normalisedEmoji, goalId, createdAt);
+        return new Conversation(id, ConversationKind.Group, normalisedTitle, normalisedIcon, goalId, createdAt);
     }
 
     /// <exception cref="DomainValidationException">The conversation is full.</exception>
@@ -222,4 +226,33 @@ public sealed class ConversationParticipant
             LastReadAt = readAt;
         }
     }
+}
+
+/// <summary>
+/// The avatars a group conversation can be given.
+/// </summary>
+/// <remarks>
+/// A closed list of icon names, mirrored in the frontend's bundled icon set —
+/// an icon in one list but not the other renders as nothing at all. The same
+/// arrangement as <see cref="Q2.Api.Features.Goals.GoalIcons"/>, and for the
+/// same reason: the client draws what the server allows, and neither gets to
+/// invent a name.
+/// </remarks>
+public static class ConversationIcons
+{
+    public const string Default = "message-circle";
+
+    public static readonly IReadOnlyList<string> All =
+    [
+        "message-circle",
+        "sunrise",
+        "book-open",
+        "footprints",
+        "sprout",
+        "target",
+        "hand-heart",
+        "party-popper",
+    ];
+
+    public static bool IsValid(string? value) => value is not null && All.Contains(value);
 }

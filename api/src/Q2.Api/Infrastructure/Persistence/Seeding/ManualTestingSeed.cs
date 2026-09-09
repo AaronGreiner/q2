@@ -27,38 +27,64 @@ public sealed class ManualTestingSeed : ISeedDataSource
             "Zehn Kilometer am Stück",
             "Schon erreicht — der abgeschlossene Zustand.",
             "trophy",
-            GoalRhythm.Weekly,
-            completedSteps: 12,
-            totalSteps: 12,
+            GoalSchedule.Once(),
             createdDaysAgo: 90,
-            streakDays: 3,
+            confirmedNow: 1,
             targetDate: context.DaysFromToday(-4));
 
         build.AddGoal(
             "Jeden Sonntag Meal Prep",
-            "Zieldatum ist vorbei und das Ziel läuft noch — der überfällige Zustand.",
+            "Mehrere Fenster hintereinander verpasst — die gerissene Kette.",
             "calendar",
-            GoalRhythm.Weekly,
-            completedSteps: 3,
-            totalSteps: 12,
+            GoalSchedule.OnWeekdays([Weekday.Sunday]),
             createdDaysAgo: 120,
-            targetDate: context.DaysFromToday(-21));
+            history: "ddmmm");
 
         var archived = build.AddGoal(
             "Kalt duschen",
             "Beiseitegelegt, aber nicht gelöscht — der archivierte Zustand.",
             "droplet",
-            GoalRhythm.Daily,
-            completedSteps: 2,
-            totalSteps: 30,
-            createdDaysAgo: 150);
-        archived.Archive();
+            GoalSchedule.EveryNDays(1),
+            createdDaysAgo: 150,
+            history: "dd");
+        archived.Close(completed: false, build.Context.DaysAgo(2));
+
+        var completed = build.AddGoal(
+            "Dry January",
+            "Durchgezogen und abgeschlossen — der andere Ausgang.",
+            "medal",
+            GoalSchedule.EveryNDays(1),
+            createdDaysAgo: 90,
+            history: "dddd");
+        completed.Close(completed: true, build.Context.DaysAgo(1));
 
         // A title long enough to wrap on a 390-pixel screen, which is where a
         // card layout usually gives up.
-        build.AddTask(
-            "Eine ziemlich lange Aufgabenbezeichnung, die auf einem schmalen Telefon sicher umbricht",
-            GoalRhythm.Daily);
+        build.AddGoal(
+            "Eine ziemlich lange Zielbezeichnung, die auf einem schmalen Telefon sicher umbricht",
+            null,
+            "target",
+            GoalSchedule.EveryNDays(1),
+            createdDaysAgo: 3);
+
+        // Every second day, so the schedule label has to say a number.
+        build.AddGoal(
+            "Krafttraining alle zwei Tage",
+            null,
+            "flame",
+            GoalSchedule.EveryNDays(2),
+            createdDaysAgo: 30,
+            history: "dddmd");
+
+        // A monthly quota: the other period, and the longest window there is.
+        build.AddGoal(
+            "Zweimal im Monat wandern",
+            null,
+            "sunrise",
+            GoalSchedule.TimesPer(2, QuotaPeriod.Month),
+            createdDaysAgo: 120,
+            history: "dd",
+            confirmedNow: 1);
 
         return build.Build();
     }

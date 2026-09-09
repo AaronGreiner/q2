@@ -12,6 +12,7 @@ function person(overrides: Partial<Person> = {}): Person {
     handle: '@mara',
     initials: 'MB',
     avatarColor: '#4f46e5',
+    avatarImageId: null,
     isOnline: true,
     ...overrides,
   }
@@ -47,10 +48,15 @@ describe('GoalCreateSheet', () => {
     expect(submit.disabled).toBe(true)
 
     type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), '  Neues Ziel  ')
-    element<HTMLButtonElement>('[data-testid="rhythm-Weekly"]').click()
+    element<HTMLButtonElement>('[data-testid="schedule-kind-Times"]').click()
+    await wrapper.vm.$nextTick()
+    element<HTMLButtonElement>('[data-testid="schedule-times-3"]').click()
     element<HTMLButtonElement>('[data-testid="icon-flame"]').click()
     await wrapper.vm.$nextTick()
     expect(submit.disabled).toBe(false)
+
+    // The preview says what the choice means, in the words the goal will use.
+    expect(element('[data-testid="schedule-preview"]').textContent).toContain('3× pro Woche')
 
     element<HTMLFormElement>('[data-testid="goal-create-form"]')
       .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -58,11 +64,31 @@ describe('GoalCreateSheet', () => {
 
     expect(wrapper.emitted('submit')?.[0]).toEqual([{
       title: 'Neues Ziel',
-      rhythm: 'Weekly',
+      schedule: { kind: 'Times', times: 3, period: 'Week' },
       icon: 'flame',
-      totalSteps: 30,
       reminderAt: '09:00:00',
     }])
+    wrapper.unmount()
+  })
+
+  it('never leaves a weekday schedule with no day in it', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true },
+      attachTo: document.body,
+    })
+
+    element<HTMLButtonElement>('[data-testid="schedule-kind-Weekdays"]').click()
+    await wrapper.vm.$nextTick()
+
+    const monday = element<HTMLButtonElement>('[data-testid="schedule-weekday-Monday"]')
+    expect(monday.getAttribute('aria-checked')).toBe('true')
+
+    // Taking the last one away would leave a form the server refuses with
+    // nothing on screen to say why.
+    monday.click()
+    await wrapper.vm.$nextTick()
+    expect(monday.getAttribute('aria-checked')).toBe('true')
+
     wrapper.unmount()
   })
 
@@ -122,7 +148,7 @@ describe('ChatCreateSheet', () => {
     expect(submit.disabled).toBe(true)
 
     type(element<HTMLInputElement>('[data-testid="group-title-input"]'), '  Laufgruppe  ')
-    element<HTMLButtonElement>('[data-testid="group-emoji-🌱"]').click()
+    element<HTMLButtonElement>('[data-testid="group-icon-sprout"]').click()
     element<HTMLElement>('[data-testid="group-member-person-1"] [role="checkbox"]').click()
     await wrapper.vm.$nextTick()
     expect(submit.disabled).toBe(false)
@@ -132,7 +158,7 @@ describe('ChatCreateSheet', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.emitted('group')?.[0]).toEqual([{
       title: 'Laufgruppe',
-      emoji: '🌱',
+      icon: 'sprout',
       memberIds: ['person-1'],
     }])
     wrapper.unmount()

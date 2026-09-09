@@ -41,12 +41,12 @@ public class SeedDataTests
             second.People.Select(p => (p.Id, p.DisplayName, p.Handle, p.KudosReceived)));
 
         Assert.Equal(
-            first.Goals.Select(g => (g.Id, g.Title, g.CompletedSteps, g.TotalSteps, g.TargetDate)),
-            second.Goals.Select(g => (g.Id, g.Title, g.CompletedSteps, g.TotalSteps, g.TargetDate)));
+            first.Goals.Select(g => (g.Id, g.Title, g.Schedule.Kind, g.Schedule.WeekdayList, g.TargetDate)),
+            second.Goals.Select(g => (g.Id, g.Title, g.Schedule.Kind, g.Schedule.WeekdayList, g.TargetDate)));
 
         Assert.Equal(
-            first.Tasks.Select(t => (t.Id, t.Title, t.Rhythm, t.CompletedOn)),
-            second.Tasks.Select(t => (t.Id, t.Title, t.Rhythm, t.CompletedOn)));
+            first.Goals.SelectMany(g => g.Instances).Select(i => (i.Id, i.StartsOn, i.DueOn, i.Status)),
+            second.Goals.SelectMany(g => g.Instances).Select(i => (i.Id, i.StartsOn, i.DueOn, i.Status)));
 
         Assert.Equal(
             first.Conversations.SelectMany(c => c.Messages).Select(m => (m.Id, m.Text, m.SentAt)),
@@ -104,8 +104,7 @@ public class SeedDataTests
             .Concat(data.Friendships.Select(f => f.Id))
             .Concat(data.Goals.Select(g => g.Id))
             .Concat(data.Goals.SelectMany(g => g.Participants).Select(p => p.Id))
-            .Concat(data.Goals.SelectMany(g => g.Contributions).Select(c => c.Id))
-            .Concat(data.Tasks.Select(t => t.Id))
+            .Concat(data.Goals.SelectMany(g => g.Instances).Select(i => i.Id))
             .Concat(data.Activity.Select(a => a.Id))
             .Concat(data.Conversations.Select(c => c.Id))
             .Concat(data.Conversations.SelectMany(c => c.Messages).Select(m => m.Id))
@@ -144,10 +143,6 @@ public class SeedDataTests
         Assert.All(data.Goals.SelectMany(g => g.Participants), p => Assert.Contains(p.PersonId, people));
         Assert.All(data.Activity, a => Assert.Contains(a.ActorPersonId, people));
         Assert.All(data.Settings, s => Assert.Contains(s.PersonId, people));
-
-        Assert.All(
-            data.Tasks.Where(task => task.GoalId is not null),
-            task => Assert.Contains(task.GoalId!.Value, goals));
 
         Assert.All(
             data.Conversations.Where(c => c.GoalId is not null),
@@ -189,13 +184,50 @@ public class SeedDataTests
 
     [Theory]
     [MemberData(nameof(AllSources))]
-    public void EveryGoalAndTaskBelongsToSomebodyInTheWorld(ISeedDataSource source)
+    public void EveryGoalBelongsToSomebodyInTheWorld(ISeedDataSource source)
     {
         var data = source.Create(Context);
         var people = data.People.Select(p => p.Id).ToHashSet();
 
         Assert.All(data.Goals, goal => Assert.Contains(goal.OwnerPersonId, people));
-        Assert.All(data.Tasks, task => Assert.Contains(task.OwnerPersonId, people));
+    }
+
+    /// <summary>
+    /// A goal has at most one window to deliver into, and its past is behind it
+    /// rather than around it.
+    /// </summary>
+    /// <remarks>
+    /// "At most", not "exactly": a goal whose window has already been delivered
+    /// today has none open, and the next one appears when the day rolls over.
+    /// Opening it early would let somebody deliver tomorrow's proof tonight.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(AllSources))]
+    public void EveryRunningGoalHasAtMostOneOpenWindow(ISeedDataSource source)
+    {
+        var running = source.Create(Context).Goals
+            .Where(goal => goal.Status == GoalStatus.Active)
+            .ToList();
+
+        Assert.All(
+            running,
+            goal => Assert.True(
+                goal.Instances.Count(instance => instance.Status == GoalInstanceStatus.Open) <= 1,
+                $"'{goal.Title}' has more than one open window."));
+
+        Assert.All(
+            running.Where(goal => goal.CurrentInstance is null),
+            goal => Assert.True(
+                goal.LatestInstance?.Status == GoalInstanceStatus.Done
+                && goal.LatestInstance.DueOn >= Context.Today,
+                $"'{goal.Title}' has nothing open and nothing delivered for today either."));
+
+        Assert.All(
+            running.SelectMany(goal => goal.Instances)
+                .Where(instance => instance.Status != GoalInstanceStatus.Open),
+            instance => Assert.True(
+                instance.DueOn < Context.Today || instance.ConfirmedProofs == instance.RequiredProofs,
+                "A resolved window has to be in the past unless it was delivered."));
     }
 
     [Theory]
@@ -233,16 +265,16 @@ public class SeedDataTests
     [Fact]
     public void TheAutomatedTestSeedHasNothingScheduledOnAWeekendOnly()
     {
-        // Otherwise "how many tasks are on today's list" would depend on the day
-        // the suite runs, and a test that passes on Tuesday and fails on
-        // Saturday is worse than no test.
-        var tasks = new AutomatedTestSeed().Create(Context).Tasks;
+        // Otherwise "how much of today is done" would depend on the day the
+        // suite runs, and a test that passes on Tuesday and fails on Saturday
+        // is worse than no test.
+        var goals = new AutomatedTestSeed().Create(Context).Goals;
 
         Assert.All(
-            tasks,
-            task => Assert.True(
-                task.Rhythm is GoalRhythm.Daily or GoalRhythm.Once,
-                $"'{task.Title}' has rhythm {task.Rhythm}, which makes today's list depend on the weekday."));
+            goals,
+            goal => Assert.True(
+                goal.Schedule.Kind is not ScheduleKind.Weekdays,
+                $"'{goal.Title}' is due on named weekdays, which makes today's list depend on the day."));
     }
 
     [Fact]

@@ -45,7 +45,7 @@ test.describe('text selection', () => {
   })
 
   test('still works in anything a person types into', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     const search = page.getByTestId('friend-search')
     await search.fill('Robin')

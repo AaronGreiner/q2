@@ -41,6 +41,8 @@ const preview = computed(() => {
     <AppAvatar
       :initials="chat.initials"
       :color="chat.avatarColor"
+      :image-id="chat.avatarImageId"
+      :icon="chat.icon"
       :size="52"
       :online="chat.isOnline"
     />
@@ -65,7 +67,7 @@ const preview = computed(() => {
 
         <span
           v-if="chat.unreadCount > 0"
-          class="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-white"
+          class="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-(--q2-accent-contrast)"
           data-q2-block
         >{{ chat.unreadCount }}</span>
       </div>

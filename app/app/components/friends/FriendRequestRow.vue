@@ -30,6 +30,7 @@ const t = useMessages()
     <AppAvatar
       :initials="request.person.initials"
       :color="request.person.avatarColor"
+      :image-id="request.person.avatarImageId"
       :size="42"
     />
 
@@ -47,7 +48,7 @@ const t = useMessages()
 
     <button
       type="button"
-      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-solid) text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-accent-solid) text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.accept}: ${request.person.displayName}`"
       data-testid="request-accept"
       @click="emit('accept', request.person.id)"

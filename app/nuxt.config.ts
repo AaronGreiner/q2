@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { de } from './app/i18n/messages'
-import { themeColors } from './app/utils/themeColors'
+import { installedThemeColor } from './app/utils/themeColors'
 
 export default defineNuxtConfig({
   modules: [
@@ -28,6 +28,25 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   css: ['~/assets/css/main.css'],
+
+  /**
+   * q2 opens dark.
+   *
+   * `preference` is what somebody who has never chosen gets, and `fallback` is
+   * what the no-flash inline script paints before it knows anything — both are
+   * dark, so the first frame of a first launch is already the app rather than a
+   * white rectangle that turns black. Choosing "System" in the settings still
+   * works and still follows the operating system; it is simply no longer the
+   * unchosen middle.
+   *
+   * The server holds the same default (UserSettings.Theme) and wins once the
+   * settings request comes back. These two only decide what is on screen before
+   * that, which is the frame people actually notice.
+   */
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+  },
 
   /**
    * Everything the browser is allowed to know.
@@ -170,6 +189,12 @@ export default defineNuxtConfig({
         'lucide:hand-heart',
         'lucide:users',
 
+        // ConversationIcons, server-side — a group chat's avatar. Must stay in
+        // step with api/src/Q2.Api/Features/Chats/Conversation.cs.
+        'lucide:footprints',
+        'lucide:sprout',
+        'lucide:party-popper',
+
         // Badges and statuses, chosen at runtime by display.ts.
         'lucide:circle-dot',
         'lucide:circle-check',
@@ -180,6 +205,64 @@ export default defineNuxtConfig({
         'lucide:user',
         'lucide:lock',
         'lucide:circle-help',
+
+        // The three kinds of kudos, chosen at runtime by display.ts.
+        'lucide:biceps-flexed',
+
+        // Named in the message catalogue rather than in a template, which is
+        // where the scanner does look — but these are the only icons whose one
+        // and only mention is a value in app/i18n/messages.ts, so they are
+        // listed here the way every other indirect icon is.
+        'lucide:check',
+        'lucide:plus',
+        'lucide:megaphone',
+        'lucide:send',
+        'lucide:undo-2',
+        'lucide:user-check',
+        'lucide:user-minus',
+        'lucide:log-out',
+        'lucide:pencil',
+        'lucide:circle-alert',
+        'lucide:search',
+        'lucide:image-off',
+
+        // The photo sheet's own icons. They are in templates, so the scanner
+        // would find them — but it only scans app/, and these are worth
+        // listing beside the ones it cannot see rather than being the one set
+        // that silently falls back to a network lookup after a refactor.
+        'lucide:camera',
+        'lucide:camera-off',
+        'lucide:image',
+        'lucide:switch-camera',
+        'lucide:rotate-ccw',
+        'lucide:trash-2',
+
+        // Stage 4: the photograph, the wait, and the verdict.
+        'lucide:hourglass',
+        'lucide:gavel',
+        'lucide:circle-check-big',
+
+        // Stage 5: the warning, and the bell it lives behind.
+        'lucide:bell',
+
+        // Stage 7: the daily challenge — the prompt, the covered room, and
+        // the toast that says you are in.
+        'lucide:zap',
+        'lucide:eye-off',
+        'lucide:package-open',
+
+        // Stage 8: reporting, blocking, the invite link and the way out.
+        'lucide:flag',
+        'lucide:shield',
+        'lucide:shield-off',
+        'lucide:link',
+        'lucide:share-2',
+        'lucide:user-x',
+        'lucide:ellipsis',
+
+        // Stage 9: notifications, and the hours they stay away.
+        'lucide:bell-off',
+        'lucide:moon-star',
       ],
     },
 
@@ -252,13 +335,13 @@ export default defineNuxtConfig({
        */
 
       /*
-       * The light value of both, because `:root` in main.css is the light
-       * theme and `.dark` is the override. A manifest holds one colour and is
-       * read before anything has rendered, so it cannot follow the scheme —
-       * the theme-color metas in app/app.vue do that afterwards.
+       * The dark value of both, because dark is what q2 opens in. A manifest
+       * holds one colour and is read before anything has rendered, so it
+       * cannot follow the scheme — the theme-color metas in app/app.vue do
+       * that afterwards, and they still offer both.
        */
-      background_color: themeColors.light,
-      theme_color: themeColors.light,
+      background_color: installedThemeColor,
+      theme_color: installedThemeColor,
 
       icons: [
         { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

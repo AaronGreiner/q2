@@ -269,14 +269,18 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         const string personalTitle = "Therapy appointment every Tuesday";
 
-        await Client.PostJsonAsync("/api/goals", new { title = personalTitle, rhythm = "Weekly" });
+        await Client.PostJsonAsync("/api/goals", new
+        {
+            title = personalTitle,
+            schedule = new { kind = "Weekdays", weekdays = new[] { "Tuesday" } },
+        });
 
         var metrics = await Factory.RecordedMetricsAsync(metric => metric.Name == Q2Metrics.GoalCreated);
         var recorded = Assert.Single(metrics, metric => metric.Name == Q2Metrics.GoalCreated);
 
         Assert.Equal("counter", recorded.Type);
         Assert.Equal(1, recorded.Value);
-        Assert.Equal("Weekly", recorded.Attributes["rhythm"]);
+        Assert.Equal("Weekdays", recorded.Attributes["schedule"]);
 
         // A counter says how often, never about what.
         Assert.False(recorded.Contains(personalTitle), "A goal title reached a metric.");

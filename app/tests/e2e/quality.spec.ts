@@ -16,7 +16,7 @@ const signedInScreens = [
   '/goals?tab=goals',
   `/goals/${sharedGoalId}`,
   '/chats',
-  '/friends',
+  '/search',
   '/profile',
   '/settings',
   '/diagnostics',
@@ -29,8 +29,8 @@ test.describe('server-rendered HTML', () => {
 
     const html = await response.text()
     expect(html).toContain('E2E shared goal with participants')
-    expect(html).toContain('E2E open task for today')
-    expect(html).toContain('50%')
+    expect(html).toContain('E2E goal three times a week')
+    expect(html).toContain('3× pro Woche')
 
     // Nuxt Icon renders SVG on the server. Client-side hydration used to hide
     // that these were all missing from the first paint.
@@ -79,7 +79,7 @@ test.describe('phone geometry', () => {
   test('visible controls meet the 44px touch-target rule', async ({ page }) => {
     const undersized: string[] = []
 
-    for (const path of ['/', '/goals?tab=goals', '/diagnostics'] as const) {
+    for (const path of ['/', '/goals?tab=goals', '/goals/archive', '/diagnostics'] as const) {
       await page.goto(path)
 
       const onScreen = await page.locator(

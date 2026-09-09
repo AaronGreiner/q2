@@ -1,21 +1,23 @@
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
+using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Settings;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
 
 /// <summary>One message in a seeded conversation.</summary>
 /// <param name="MinutesAgo">Relative to the moment the seed ran, so a thread never looks abandoned.</param>
-/// <param name="Reaction">One of <see cref="MessageReactions"/>, or null.</param>
+/// <param name="Reaction">Which kind of kudos, or null.</param>
 /// <param name="ReactedBy">Who reacted. Defaults to the signed-in person.</param>
 internal sealed record SeedMessage(
     Person Sender,
     string Text,
     int MinutesAgo,
-    string? Reaction = null,
+    KudosKind? Reaction = null,
     Person? ReactedBy = null);
 
 /// <summary>
@@ -37,10 +39,10 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     private readonly List<AppUser> _accounts = [];
     private readonly List<Friendship> _friendships = [];
     private readonly List<Goal> _goals = [];
-    private readonly List<GoalTask> _tasks = [];
     private readonly List<ActivityEvent> _activity = [];
     private readonly List<Conversation> _conversations = [];
     private readonly List<UserSettings> _settings = [];
+    private readonly List<Challenge> _challenges = [];
 
     private Person? _me;
 
@@ -57,6 +59,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// </remarks>
     public Person Me => _me
         ?? throw new InvalidOperationException("This seed has not defined its primary person yet.");
+
 
     /// <summary>
     /// Adds the person this world is written around. See <see cref="Me"/>.
@@ -159,20 +162,25 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     public Friendship Request(Person from, Person to) =>
         Add(Friendship.Request(NextId(SeedEntity.Friendship), from.Id, to.Id, Context.DaysAgo(2)));
 
-    /// <param name="streakDays">
-    /// How many days back the contributions go, ending today — which is the
-    /// streak the goal card will show.
+    /// <param name="history">
+    /// What became of the windows before the current one, oldest first:
+    /// <c>'d'</c> for delivered and <c>'m'</c> for missed. "dddmdd" is six
+    /// closed windows with one miss in the middle, so the goal's streak reads
+    /// as two.
+    /// </param>
+    /// <param name="confirmedNow">
+    /// How many proofs are already in the window that is currently open. What
+    /// makes "noch 2 von 3" visible without anybody tapping.
     /// </param>
     /// <param name="owner">Whose goal it is. <see cref="Me"/> unless a seed says otherwise.</param>
     public Goal AddGoal(
         string title,
         string? description,
         string icon,
-        GoalRhythm rhythm,
-        int completedSteps,
-        int totalSteps,
+        GoalSchedule schedule,
         int createdDaysAgo,
-        int streakDays = 0,
+        string history = "",
+        int confirmedNow = 0,
         bool isGroup = false,
         TimeOnly? reminderAt = null,
         DateOnly? targetDate = null,
@@ -185,10 +193,8 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             title,
             description,
             icon,
-            rhythm,
+            schedule,
             isGroup,
-            completedSteps,
-            totalSteps,
             reminderAt,
             targetDate,
             Context.DaysAgo(createdDaysAgo));
@@ -198,51 +204,86 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             goal.AddParticipant(NextId(SeedEntity.GoalParticipant), participant.Id);
         }
 
-        for (var day = 0; day < streakDays; day++)
-        {
-            goal.RecordContribution(NextId(SeedEntity.GoalContribution), Context.DaysFromToday(-day));
-        }
+        AddWindows(goal, schedule, history, confirmedNow, targetDate);
 
         _goals.Add(goal);
         return goal;
     }
 
-    /// <param name="owner">Whose task it is. <see cref="Me"/> unless a seed says otherwise.</param>
-    public GoalTask AddTask(
-        string title,
-        GoalRhythm rhythm,
-        Goal? goal = null,
-        TimeOnly? reminderAt = null,
-        bool doneToday = false,
-        double? measuredValue = null,
-        double? targetValue = null,
-        string? measureUnit = null,
-        DayOfWeek? weeklyOn = null,
-        DateOnly? dueOn = null,
-        Person? owner = null)
+    /// <summary>
+    /// Lays down a goal's past and its open window.
+    /// </summary>
+    /// <remarks>
+    /// Built backwards from the window that covers today, so a seeded goal
+    /// always has exactly the history it says it has — however long ago the
+    /// database was last rebuilt. Walking forwards from a creation date would
+    /// mean the streak on the goal card changed depending on the day somebody
+    /// ran the seed.
+    ///
+    /// Seeds are pure, so this uses the UTC calendar rather than a person's
+    /// zone: a seeded window has to be the same row on every machine.
+    /// </remarks>
+    private void AddWindows(Goal goal, GoalSchedule schedule, string history, int confirmedNow, DateOnly? targetDate)
     {
-        var task = GoalTask.Create(
-            NextId(SeedEntity.GoalTask),
-            (owner ?? Me).Id,
-            goal?.Id,
-            title,
-            rhythm,
-            reminderAt,
-            weeklyOn,
-            dueOn,
-            measuredValue,
-            targetValue,
-            measureUnit,
-            _tasks.Count,
-            Context.DaysAgo(7));
+        var calendar = new LocalCalendar(TimeZoneInfo.Utc);
+        var current = schedule.FirstWindow(Context.Today, targetDate);
 
-        if (doneToday)
+        // Walk back one window per outcome, then replay them forwards so the
+        // ids come out in chronological order.
+        var past = new List<GoalWindow>();
+        var cursor = current;
+
+        foreach (var _ in history)
         {
-            task.Toggle(Context.Today);
+            if (schedule.PreviousWindow(cursor.Start) is not { } earlier)
+            {
+                break;
+            }
+
+            past.Add(earlier);
+            cursor = earlier;
         }
 
-        _tasks.Add(task);
-        return task;
+        past.Reverse();
+        var outcomes = history[^past.Count..];
+
+        for (var index = 0; index < past.Count; index++)
+        {
+            var window = past[index];
+            var instance = goal.OpenWindow(
+                NextId(SeedEntity.GoalInstance),
+                window,
+                calendar.StartOfDay(window.Start),
+                calendar.EndOfDay(window.End));
+
+            if (instance is null)
+            {
+                continue;
+            }
+
+            if (outcomes[index] == 'd')
+            {
+                for (var proof = 0; proof < window.RequiredProofs; proof++)
+                {
+                    instance.RecordProof(calendar.EndOfDay(window.End));
+                }
+            }
+            else
+            {
+                instance.Miss(calendar.EndOfDay(window.End).AddTicks(1));
+            }
+        }
+
+        var open = goal.OpenWindow(
+            NextId(SeedEntity.GoalInstance),
+            current,
+            calendar.StartOfDay(current.Start),
+            calendar.EndOfDay(current.End));
+
+        for (var proof = 0; open is not null && proof < confirmedNow; proof++)
+        {
+            goal.SeedDeliveredProof(Context.SeededAt);
+        }
     }
 
     /// <param name="kudosFromMe">
@@ -285,13 +326,13 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
 
     public Conversation AddGroupChat(
         string title,
-        string emoji,
+        string icon,
         IReadOnlyList<Person> members,
         Goal? goal,
         int unread,
         params SeedMessage[] messages) =>
         AddConversation(
-            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, emoji, goal?.Id, Context.DaysAgo(21)),
+            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, goal?.Id, Context.DaysAgo(21)),
             [Me, .. members],
             unread,
             messages);
@@ -303,9 +344,9 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// Exists so that "opening somebody else's chat answers 404" has something
     /// to open. Nothing in the app can reach it.
     /// </remarks>
-    public Conversation AddChatWithoutMe(string title, string emoji, IReadOnlyList<Person> members) =>
+    public Conversation AddChatWithoutMe(string title, string icon, IReadOnlyList<Person> members) =>
         AddConversation(
-            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, emoji, null, Context.DaysAgo(21)),
+            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, null, Context.DaysAgo(21)),
             members,
             unread: 0,
             []);
@@ -317,8 +358,44 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         return settings;
     }
 
+    /// <summary>
+    /// Adds a daily challenge, covering one whole day.
+    /// </summary>
+    /// <param name="daysAgo">0 for the one running now, 1 for yesterday's.</param>
+    /// <remarks>
+    /// **No contributions.** A contribution is a photograph, a seed writes no
+    /// bytes (<see cref="ISeedDataSource"/>: pure, no clock, no network), and a
+    /// row pointing at an image that does not exist is a broken picture on
+    /// every screen that shows it. What a seeded world can honestly contain is
+    /// the prompt — which is enough to see the room, the empty state and the
+    /// "join in" button, and it is what the queue would have produced anyway.
+    ///
+    /// The day is UTC, like everything else a seed computes. A running
+    /// deployment counts challenge days in its configured zone
+    /// (<see cref="ChallengeQueueWorker"/>), so near a zone boundary a seeded
+    /// challenge and a queued one can overlap by a few hours; the room takes
+    /// the newest and carries on.
+    /// </remarks>
+    public Challenge AddChallenge(string prompt, int daysAgo = 0)
+    {
+        var day = Context.Today.AddDays(-daysAgo);
+
+        var challenge = Challenge.Create(
+            NextId(SeedEntity.Challenge),
+            day,
+            prompt,
+            Context.DaysAgo(daysAgo),
+
+            // Exclusive, like the queue's: the end of one day is the start of
+            // the next, and no instant falls between two challenges.
+            Context.DaysAgo(daysAgo - 1));
+
+        _challenges.Add(challenge);
+        return challenge;
+    }
+
     public SeedData Build() =>
-        new(_people, _accounts, _friendships, _goals, _tasks, _activity, _conversations, _settings);
+        new(_people, _accounts, _friendships, _goals, _activity, _conversations, _settings, _challenges);
 
     private Friendship Add(Friendship friendship)
     {
@@ -347,9 +424,9 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
                 message.Text,
                 Context.MinutesAgo(message.MinutesAgo));
 
-            if (message.Reaction is { } emoji)
+            if (message.Reaction is { } kind)
             {
-                created.ToggleReaction(NextId(SeedEntity.Reaction), (message.ReactedBy ?? Me).Id, emoji);
+                created.ToggleReaction(NextId(SeedEntity.Reaction), (message.ReactedBy ?? Me).Id, kind);
             }
 
             written.Add(created);

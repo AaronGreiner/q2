@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CreateGoalRequest } from '~/api/types'
+import type { CreateGoalRequest, Image } from '~/api/types'
 
 /**
  * Goals, under two tabs: what is on today, and the goals themselves.
@@ -20,9 +20,35 @@ const tab = computed<Tab>({
   set: value => router.replace({ query: value === 'goals' ? { tab: 'goals' } : {} }),
 })
 
-const { goals, tasks, error, isLoading, refresh, toggleTask, create, isCreating, createError } = useGoals()
+/**
+ * The create sheet is a query parameter too, because the tab bar's centre
+ * button links here rather than reaching into this page's state. That also
+ * makes the open sheet survive a reload and close with the back gesture, which
+ * is what a person expects of something that covers the screen.
+ */
+const isSheetOpen = computed({
+  get: () => route.query.create === '1',
+  set: (value) => {
+    const query = { ...route.query }
+    if (value) query.create = '1'
+    else delete query.create
+    router.replace({ query })
+  },
+})
 
-const isSheetOpen = ref(false)
+const { goals, due, error, isLoading, refresh, create, isCreating, createError } = useGoals()
+const { isDelivering, deliver, maxEdge } = useProofDelivery()
+
+/** Which goal the camera is open for — one sheet per screen, never per row. */
+const deliveringFor = ref<string | null>(null)
+
+async function onDelivered(image: Image) {
+  const goalId = deliveringFor.value
+  deliveringFor.value = null
+
+  if (goalId && await deliver(goalId, image)) await refresh()
+}
+
 const sheet = useTemplateRef('sheet')
 
 const tabs = computed(() => [
@@ -35,8 +61,7 @@ async function onCreate(request: CreateGoalRequest) {
   if (!created) return
 
   sheet.value?.reset()
-  isSheetOpen.value = false
-  tab.value = 'goals'
+  await router.replace({ query: { tab: 'goals' } })
 }
 
 useHead({ title: () => t.value.goals.heading })
@@ -44,19 +69,9 @@ useHead({ title: () => t.value.goals.heading })
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <AppScreenHeader :title="t.goals.heading">
-      <template #actions>
-        <UButton
-          icon="i-lucide-plus"
-          size="lg"
-          class="min-h-11 rounded-full font-extrabold"
-          data-testid="open-create-goal"
-          @click="isSheetOpen = true"
-        >
-          {{ t.goals.new }}
-        </UButton>
-      </template>
-    </AppScreenHeader>
+    <!-- No create button here: the tab bar's centre button is the one way in,
+         and two of them would put the screen's loudest control in two places. -->
+    <AppScreenHeader :title="t.goals.heading" />
 
     <div class="shrink-0 px-[18px] pt-1 pb-3">
       <AppSegmented
@@ -91,35 +106,35 @@ useHead({ title: () => t.value.goals.heading })
       <template v-else>
         <section
           v-if="tab === 'today'"
-          aria-labelledby="tasks-heading"
+          aria-labelledby="due-heading"
         >
           <h2
-            id="tasks-heading"
+            id="due-heading"
             class="sr-only"
           >
             {{ t.goals.tabToday }}
           </h2>
 
           <div
-            v-if="tasks.length > 0"
+            v-if="due.length > 0"
             class="flex flex-col gap-2.5"
-            data-testid="task-list"
+            data-testid="due-list"
           >
-            <GoalTaskRow
-              v-for="task in tasks"
-              :key="task.id"
-              :task="task"
-              detailed
-              @toggle="toggleTask"
+            <GoalWindowRow
+              v-for="goal in due"
+              :key="goal.id"
+              :goal="goal"
+              :busy="isDelivering"
+              @deliver="deliveringFor = $event"
             />
           </div>
 
           <AppStateMessage
             v-else
             icon="i-lucide-circle-check"
-            :title="t.goals.noTasksToday"
-            :description="t.goals.noTasksTodayHint"
-            data-testid="tasks-empty"
+            :title="t.goals.nothingDueToday"
+            :description="t.goals.nothingDueTodayHint"
+            data-testid="due-empty"
           />
         </section>
 
@@ -156,11 +171,27 @@ useHead({ title: () => t.value.goals.heading })
           >
             <UButton
               icon="i-lucide-plus"
+              data-testid="open-create-goal"
               @click="isSheetOpen = true"
             >
               {{ t.create.open }}
             </UButton>
           </AppStateMessage>
+
+          <!-- The way to what has stopped. At the foot of the screen rather
+               than in the header: the archive is somewhere you go looking, not
+               somewhere you are sent. It stays here with no goals left, because
+               that is exactly when everything is in it. -->
+          <UButton
+            to="/goals/archive"
+            class="mt-4 min-h-11 w-full justify-center"
+            size="lg"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-archive"
+            :label="t.goals.archive"
+            data-testid="goals-archive-link"
+          />
         </section>
       </template>
     </div>
@@ -171,6 +202,14 @@ useHead({ title: () => t.value.goals.heading })
       :submitting="isCreating"
       :error="createError"
       @submit="onCreate"
+    />
+
+    <PhotoCapture
+      :open="deliveringFor !== null"
+      purpose="Proof"
+      :max-edge="maxEdge"
+      @update:open="value => { if (!value) deliveringFor = null }"
+      @uploaded="onDelivered"
     />
   </div>
 </template>

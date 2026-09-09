@@ -44,9 +44,11 @@ public enum SeedEntity
     // (e2e00000-0000-4000-8000-000000000001), which is what E2E navigates to.
     Goal = 0,
     Person = 1,
-    GoalTask = 2,
+
+    // 2 was GoalTask, which is gone. The gap stays so every other seeded id
+    // keeps the shape it has always had — E2E navigates to some of them.
     GoalParticipant = 3,
-    GoalContribution = 4,
+    GoalInstance = 4,
     CheckIn = 5,
     Badge = 6,
     Friendship = 7,
@@ -58,6 +60,8 @@ public enum SeedEntity
     Reaction = 13,
     Settings = 14,
     Account = 15,
+    Challenge = 16,
+    ChallengeEntry = 17,
 }
 
 /// <summary>

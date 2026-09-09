@@ -40,16 +40,55 @@ aspirational.
 | Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
 | Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
 | Activity | what somebody did, when, and who cheered it | The subject is a goal or task title, so it inherits their treatment. |
-| Messages | text, sender, timestamp, reactions | **The most personal thing q2 stores.** |
+| Messages | text, sender, timestamp, reactions | Until images arrived, the most personal thing q2 stored. |
+| Images | the bytes of a picture somebody uploaded, plus its owner, purpose, media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
+| Challenge contributions | which prompt somebody answered, with which picture, and when | The prompt is authored by the deployment, never by a user. Who may see the picture depends on what the *viewer* has done — see [adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). |
+| Blocks | who blocked whom, and when | The direction is stored so only the person who set one can lift it; the effect is symmetric. Never shown to the person blocked. |
+| Reports | who reported what, why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
+| Invite codes | 96 random bits per person, created on first use | A credential in everything but name. Replaceable, and never derived from the handle. |
+| Push subscriptions | an endpoint, two browser keys, and when something last arrived | **A stable handle for one browser installation** — the most identifying thing q2 stores. Never logged, never sent to Sentry, and deleted with the account. See [adr/0023-web-push.md](adr/0023-web-push.md). |
 | Preferences | theme, language, notification switches | |
+
+**What a notification carries.** The payload is encrypted to the browser
+(RFC 8291), so a push service — Google's, Mozilla's, Apple's — carries bytes it
+cannot read. It holds a kind, a goal title and a number; the sentence is
+composed on the device. What the push service does learn is that *this endpoint*
+was sent something at *this moment*, which is metadata q2 cannot hide and does
+not pretend to.
 
 **Not processed at all:**
 
 plain passwords, phone numbers, postal addresses, dates of birth, payment data,
 location or coordinates, device identifiers, IP addresses beyond the transport
 layer and what Sentry attaches (section 4), biometric data, advertising or
-analytics identifiers, third-party profile data, photographs — an avatar is
-initials on a colour, so there is no face to lose control of.
+analytics identifiers, third-party profile data.
+
+**Photographs used to be on that list and no longer are.** Since stage 3 of the
+Qdos migration, somebody can upload a profile picture, from stage 4 a photograph
+is how a goal is delivered, and from stage 7 one can be contributed to the daily
+challenge. Three properties make that survivable and none of them is optional:
+
+- **No picture has a public URL.** It is served by `GET /api/images/{id}`, which
+  requires a session and asks who is looking; an image that is not the caller's
+  to see answers 404, because 403 would confirm it exists. An avatar is readable
+  by anybody signed in — the same reach the initials it replaces always had —
+  and everything else is its owner's alone until the stage that gives it an
+  audience says otherwise.
+- **No picture enters a cache.** The response carries
+  `Cache-Control: private, no-store`. The service worker was never a risk (it
+  precaches build output only), but the browser's own cache is: a phone is
+  shared, and a photograph outliving the session that could see it is the same
+  disclosure as one served without a session.
+- **No picture reaches Sentry.** Every element that can render one carries
+  `data-q2-block`, so Session Replay records a placeholder rather than a face —
+  and that was true before the first upload was possible, not after.
+
+The upload is also where **location data re-enters the picture** (section 5): a
+photograph taken outdoors carries the coordinates it was taken at in its Exif
+block. The browser re-encodes every upload through a canvas
+(`app/app/utils/images.ts`), which strips Exif entirely, so what reaches the
+server has no coordinates in it. That is the reason for the re-encode, not a
+side effect of it.
 
 **The email address is the newest category here and the one to watch.** It is
 the credential and nothing else: it is never shown to another person, never
@@ -61,10 +100,16 @@ Every name in the database is invented — but a goal description, a task title
 and a message all can identify somebody, so all three are treated as personal
 data throughout.
 
-Chat messages, the social graph and now the account itself are the categories
-that need a retention and erasure answer before real people are in the database.
-The initial version does not have one; see [next-steps.md](next-steps.md)
-items 7 and 8.
+Chat messages, the social graph, the account itself and now uploaded images are
+the categories that need a retention and erasure answer before real people are
+in the database. The initial version does not have one; see
+[next-steps.md](next-steps.md) items 7 and 8. **Images make that overdue rather
+than open**: there is still no way to delete an account, which is Art. 17 over a
+face. What did arrive is erasure at the level of one commitment — deleting a
+stopped goal from the archive removes its windows, every photograph behind them,
+the conversation about it and the feed entries naming it, for everybody on it
+([adr/0020](adr/0020-pause-and-archive.md)). That is one whole category gone in
+one action, and it is the shape the account-level answer should take.
 
 **Stored on the device:** the service worker's cache holds the build output —
 JavaScript, CSS, fonts, icons, the web app manifest — and no rendered page and
@@ -241,19 +286,39 @@ Technical preparation is not compliance. Before q2 processes real users' data:
 7. **Right to data portability** (Art. 20): export in a machine-readable
    format.
 8. **Account recovery and deletion**: there is no password reset and no way to
-   delete an account. The second is Art. 17 with a deadline attached to it. See
-   [next-steps.md](next-steps.md) items 7 and 8.
+   delete an account. The second is Art. 17 with a deadline attached to it, and
+   uploaded photographs make it the most pressing item on this list. **Done:**
+   `DELETE /api/auth/account` erases the person and everything of theirs,
+   asks for the password again, and reaches the image files as well as the rows
+   — they sit outside the database and outside any transaction. See [next-steps.md](next-steps.md)
+   items 7 and 8.
 9. **DPIA** (Art. 35) if health-related content, community features or any
    location processing are confirmed — likely for this product.
 10. **Breach process** (Art. 33/34): who is notified, by whom, within 72 hours.
 11. **Third-country transfers** (Art. 44 ff.) if Sentry or hosting are outside
     the EEA.
-12. **Deletion and export must be tested**, not merely documented.
+12. **Deletion is tested; export is not.** `AccountDeletionTests` demonstrates
+    the erasure over every table that pointed at somebody, and it is the test
+    that found the images not cascading. There is still no way to *export* what
+    q2 holds about a person (Art. 20).
 13. **Re-decide `sendDefaultPii` and Session Replay** (section 4). Both are on
     in the frontend for the Staging host. Recording every session of a real
     user, plus their IP address, needs a lawful basis, a retention period, a
     line in the privacy notice, and almost certainly a DPIA — and it is a
     strong argument for masking staying on permanently.
+14. **Reporting needs a recipient.** With user-generated pictures, "report this"
+    is an obligation rather than a nicety, and a report landing in a table
+    nobody reads is worse than none. **Reporting now exists** and so does a
+    recipient: `IReportSink` delivers every report to the one channel this
+    deployment already watches, carrying ids and a reason but never the note or
+    the reporter
+    ([adr/0022-blocking-reporting-and-erasure.md](adr/0022-blocking-reporting-and-erasure.md)).
+    What is still missing is somebody whose job it is to answer — the seam
+    exists so that a mailbox or a console is a registration rather than a
+    rewrite. No upload is readable by a stranger meanwhile: an avatar is visible
+    to anybody signed in, a proof photograph only to the people its goal is
+    shared with, and a challenge contribution only to the contributor's friends
+    who have contributed to the same challenge themselves.
 
 ## 9. When adding a feature
 

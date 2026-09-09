@@ -1,5 +1,6 @@
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
+using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
@@ -21,10 +22,10 @@ public sealed record SeedData(
     IReadOnlyList<AppUser> Accounts,
     IReadOnlyList<Friendship> Friendships,
     IReadOnlyList<Goal> Goals,
-    IReadOnlyList<GoalTask> Tasks,
     IReadOnlyList<ActivityEvent> Activity,
     IReadOnlyList<Conversation> Conversations,
-    IReadOnlyList<UserSettings> Settings)
+    IReadOnlyList<UserSettings> Settings,
+    IReadOnlyList<Challenge> Challenges)
 {
     public static SeedData Empty { get; } = new([], [], [], [], [], [], [], []);
 }

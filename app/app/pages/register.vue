@@ -16,6 +16,16 @@ const minimumPasswordLength = 10
 
 const t = useMessages()
 const { register } = useSession()
+
+/*
+ * The code somebody arrived with, if they followed a link.
+ *
+ * Read here rather than from the route: `/join/<code>` puts it into state and
+ * redirects, so by the time this form is on screen the code is no longer in the
+ * address bar — which is also where it should not be, since it is a credential
+ * in everything but name.
+ */
+const pendingInvite = usePendingInvite()
 const toast = useToastMessage()
 
 const name = ref('')
@@ -43,7 +53,16 @@ async function onSubmit() {
       name: name.value.trim(),
       email: email.value.trim(),
       password: password.value,
+
+      // A code that no longer means anything is ignored by the server rather
+      // than refused: registration is the worst moment to fail over a stale
+      // link somebody was forwarded.
+      inviteCode: pendingInvite.value ?? undefined,
     })
+
+    // Spent, and cleared: a code left in state would be sent again by the next
+    // person who signs up on this device.
+    pendingInvite.value = null
 
     // Registering signs you in, so there is no second form to fill in.
     await navigateTo('/', { replace: true })

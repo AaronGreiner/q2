@@ -79,8 +79,8 @@ layer projects.
   on the group, not on each route, so a new endpoint is guarded by where it is
   mapped rather than by somebody remembering. `AccountEndpointTests` walks every
   group anonymously and asserts 401.
-- **Every read is scoped to the caller.** `Goal` and `GoalTask` have an
-  `OwnerPersonId`; a conversation is scoped by its participants. Where the
+- **Every read is scoped to the caller.** A `Goal` has an `OwnerPersonId`; a
+  conversation is scoped by its participants. Where the
   existence of a row is itself private, the answer is 404 rather than 403.
 - **Nothing about authenticating is written by hand** — see `Features/Accounts`,
   which is `UserManager` and `SignInManager` and no cryptography.
@@ -97,21 +97,43 @@ configuration, contracts with their mapping, a service, and endpoints. Taking
 | File | Responsibility |
 | --- | --- |
 | `Goal.cs` | the domain model and every invariant |
-| `GoalParticipant.cs` | a participant, and the days a goal was worked on |
-| `GoalTask.cs` | one thing to do on a day, and which days it falls on |
-| `GoalStatus.cs` `GoalRhythm.cs` | the two enums, stored as text |
-| `GoalContracts.cs` `GoalTaskContracts.cs` | responses, requests, mapping |
+| `GoalSchedule.cs` | how often a goal is due, and the window maths |
+| `GoalInstance.cs` | one window: when it runs, what it takes, what became of it |
+| `GoalMaintenance.cs` | what happens to a window while nobody is looking |
+| `GoalMaintenanceWorker.cs` | the same, on a timer, for everybody |
+| `GoalParticipant.cs` | somebody a goal is shared with |
+| `GoalStatus.cs` | the lifecycle enum, stored as text |
+| `GoalContracts.cs` | responses, requests, mapping |
 | `GoalRequestValidators.cs` | request-shape validation with good messages |
-| `GoalService.cs` `GoalTaskService.cs` | application logic: read, write, map |
+| `GoalService.cs` | application logic: read, write, map |
 | `GoalConfiguration.cs` | EF Core mapping |
-| `GoalEndpoints.cs` | the HTTP surface for `/api/goals` and `/api/tasks` |
+| `GoalEndpoints.cs` | the HTTP surface for `/api/goals` and `/api/today` |
 
 The others follow it: `People` (with `CurrentPerson` and `FriendsService`),
-`Activity` (feed, kudos, leaderboard, and `ActivityRecorder`, which goals and
+`Activity` (feed, kudos, and `ActivityRecorder`, which goals and
 tasks both publish through), `Chats`, `Profile`, `Settings`. `Streaks` is the
 odd one out — a single static class, because "how many days in a row" is one
 definition that both a person and a goal are counted with, and two copies of it
 would drift.
+
+`Images` is the only feature that owns something outside the database, and it is
+worth reading before touching anything to do with a picture
+([docs/adr/0017-image-storage.md](../docs/adr/0017-image-storage.md)):
+
+- **The bytes are behind `IImageStore`**, whose only implementation writes files
+  to a directory the application never serves. No image has a public URL; the
+  one way out is `GET /api/images/{id}`, which checks the session and asks
+  `ImageService.CanRead`.
+- **`CanRead` switches on the purpose, in one place.** A new `ImagePurpose` is a
+  decision about who may see it, made there and nowhere else.
+- **The upload is a raw body under `image/jpeg` or `image/png`, never a form.**
+  That is what makes it CSRF-safe without a token — a cross-site form can send
+  multipart and can never send an image media type. Declaring the body as an
+  `IFormFile`, even only in the OpenAPI metadata, pulls in ASP.NET Core's
+  antiforgery requirement, which this application registers no services for, and
+  every upload becomes a 500.
+- **`ImageFormatReader` decides what an upload is**, from the bytes. The
+  `Content-Type` header got the request routed and is not consulted again.
 
 ## 3. EF Core conventions
 

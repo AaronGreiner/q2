@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { groupEmoji, type Friend } from '~/api/types'
+import { groupIcons, type Friend } from '~/api/types'
 
 /**
  * Starting a conversation: with one friend, or with several.
@@ -18,7 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   direct: [personId: string]
-  group: [value: { title: string, emoji: string, memberIds: string[] }]
+  group: [value: { title: string, icon: string, memberIds: string[] }]
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
@@ -27,7 +27,7 @@ const t = useMessages()
 
 const mode = ref<'direct' | 'group'>('direct')
 const title = ref('')
-const emoji = ref<string>(groupEmoji[0]!)
+const icon = ref<string>(groupIcons[0]!)
 const selected = ref<string[]>([])
 
 const canCreateGroup = computed(() =>
@@ -44,7 +44,7 @@ function onCreateGroup() {
 
   emit('group', {
     title: title.value.trim(),
-    emoji: emoji.value,
+    icon: icon.value,
     memberIds: [...selected.value],
   })
 }
@@ -53,7 +53,7 @@ function onCreateGroup() {
 function reset() {
   mode.value = 'direct'
   title.value = ''
-  emoji.value = groupEmoji[0]!
+  icon.value = groupIcons[0]!
   selected.value = []
 }
 
@@ -82,7 +82,7 @@ defineExpose({ reset })
             :aria-checked="mode === option"
             class="min-h-11 flex-1 rounded-full border px-3.5 text-[13px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
             :class="mode === option
-              ? 'border-transparent bg-(--q2-accent-solid) text-white'
+              ? 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
               : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
             :data-testid="`chat-mode-${option}`"
             @click="mode = option"
@@ -122,6 +122,7 @@ defineExpose({ reset })
                 <AppAvatar
                   :initials="friend.person.initials"
                   :color="friend.person.avatarColor"
+                  :image-id="friend.person.avatarImageId"
                   :size="38"
                   :online="friend.person.isOnline"
                 />
@@ -170,29 +171,33 @@ defineExpose({ reset })
           </UFormField>
 
           <UFormField
-            :label="t.chats.groupEmoji"
-            name="emoji"
+            :label="t.chats.groupIcon"
+            name="icon"
           >
             <div
               class="flex flex-wrap gap-2"
               role="radiogroup"
-              :aria-label="t.chats.groupEmoji"
+              :aria-label="t.chats.groupIcon"
             >
               <button
-                v-for="option in groupEmoji"
+                v-for="option in groupIcons"
                 :key="option"
                 type="button"
                 role="radio"
-                :aria-checked="emoji === option"
+                :aria-checked="icon === option"
                 :aria-label="option"
-                class="flex size-11 items-center justify-center rounded-(--q2-radius-md) border text-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-                :class="emoji === option
-                  ? 'border-transparent bg-(--q2-accent-solid)'
-                  : 'border-(--ui-border) bg-(--q2-surface)'"
-                :data-testid="`group-emoji-${option}`"
-                @click="emoji = option"
+                class="flex size-11 items-center justify-center rounded-(--q2-radius-md) border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+                :class="icon === option
+                  ? 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
+                  : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
+                :data-testid="`group-icon-${option}`"
+                @click="icon = option"
               >
-                {{ option }}
+                <UIcon
+                  :name="groupIconName(option)"
+                  class="size-5"
+                  aria-hidden="true"
+                />
               </button>
             </div>
           </UFormField>
@@ -219,6 +224,7 @@ defineExpose({ reset })
                   <AppAvatar
                     :initials="friend.person.initials"
                     :color="friend.person.avatarColor"
+                    :image-id="friend.person.avatarImageId"
                     :size="32"
                   />
 

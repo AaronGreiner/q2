@@ -52,14 +52,8 @@ public sealed class AutomatedTestSeed : ISeedDataSource
     /// <summary>Stable id of the goal that has no target date.</summary>
     public static Guid GoalWithoutTargetDateId => SeedIds.Goal(Owner, 3);
 
-    /// <summary>A daily task that starts the day open.</summary>
-    public static Guid OpenTaskId => SeedIds.For(Owner, SeedEntity.GoalTask, 1);
-
-    /// <summary>A daily task that starts the day already ticked off.</summary>
-    public static Guid DoneTaskId => SeedIds.For(Owner, SeedEntity.GoalTask, 2);
-
-    /// <summary>A one-off task due in three days, so it is never on today's list.</summary>
-    public static Guid FutureTaskId => SeedIds.For(Owner, SeedEntity.GoalTask, 3);
+    /// <summary>A goal that is due three times a week, with one proof already in.</summary>
+    public static Guid QuotaGoalId => SeedIds.Goal(Owner, 4);
 
     /// <summary>Who has asked to be friends — the accept and decline tests.</summary>
     public static Guid RequestingPersonId => SeedIds.For(Owner, SeedEntity.Person, 3);
@@ -75,6 +69,12 @@ public sealed class AutomatedTestSeed : ISeedDataSource
 
     /// <summary>A conversation the current person is not part of.</summary>
     public static Guid ForeignConversationId => SeedIds.For(Owner, SeedEntity.Conversation, 2);
+
+    /// <summary>
+    /// The prompt of the challenge that is running. The queue worker does not
+    /// run in this environment, so a seeded row is what makes the room exist.
+    /// </summary>
+    public const string ChallengePrompt = "Automated test: today's prompt";
 
     public SeedData Create(SeedContext context)
     {
@@ -106,54 +106,64 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         // them the one suggestion this world offers.
         build.Befriend(friend, unconnected);
 
+        // Two delivered days behind it, so its streak reads as two and its
+        // current window is open with nothing in it yet.
         var active = build.AddGoal(
             "Automated test: shared active goal",
             "Synthetic test data.",
             "medal",
-            GoalRhythm.Daily,
-            completedSteps: 4,
-            totalSteps: 10,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 10,
-            streakDays: 2,
+            history: "dd",
             reminderAt: new TimeOnly(18, 0),
-            targetDate: context.DaysFromToday(20),
             participants: [friend]);
 
+        // A one-off that has been delivered: the only way a goal reaches
+        // Completed.
         build.AddGoal(
             "Automated test: completed goal",
             null,
             "trophy",
-            GoalRhythm.Weekly,
-            completedSteps: 5,
-            totalSteps: 5,
+            GoalSchedule.Once(),
             createdDaysAgo: 20,
+            confirmedNow: 1,
             targetDate: context.DaysFromToday(3));
 
         build.AddGoal(
             "Automated test: goal without target date",
             null,
             "target",
-            GoalRhythm.Daily,
-            completedSteps: 0,
-            totalSteps: 8,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 1);
 
-        build.AddTask("Automated test: open task", GoalRhythm.Daily, active, reminderAt: new TimeOnly(7, 0));
-        build.AddTask("Automated test: done task", GoalRhythm.Daily, doneToday: true);
-        build.AddTask("Automated test: future task", GoalRhythm.Once, dueOn: context.DaysFromToday(3));
+        // "Dreimal die Woche", one proof in — the window that reads
+        // "noch 2 von 3".
+        build.AddGoal(
+            "Automated test: three times a week",
+            null,
+            "flame",
+            GoalSchedule.TimesPer(3, QuotaPeriod.Week),
+            createdDaysAgo: 30,
+            history: "dm",
+            confirmedNow: 1);
 
         build.AddActivity(friend, ActivityKind.TaskCompleted, "Automated test: a run", null, 5, minutesAgo: 10);
         build.AddActivity(friend, ActivityKind.StreakReached, null, 2, 3, minutesAgo: 60, kudosFromMe: true);
-        build.AddActivity(me, ActivityKind.GoalProgress, active.Title, 40, 1, minutesAgo: 120);
+        build.AddActivity(me, ActivityKind.GoalProgress, active.Title, 2, 1, minutesAgo: 120);
 
         build.AddDirectChat(
             friend,
             active,
             unread: 1,
             new SeedMessage(me, "Automated test: first message", 30),
-            new SeedMessage(friend, "Automated test: unread reply", 20, MessageReactions.Clap));
+            new SeedMessage(friend, "Automated test: unread reply", 20, KudosKind.Applause));
 
-        build.AddChatWithoutMe("Automated test: not my group", "🔒", [stranger, unconnected]);
+        build.AddChatWithoutMe("Automated test: not my group", "target", [stranger, unconnected]);
+
+        // One running challenge and no contributions: a seed writes no image
+        // bytes, so the room starts empty and a test that wants somebody in it
+        // uploads a picture like a client would.
+        build.AddChallenge(ChallengePrompt);
 
         build.AddDefaultSettings();
 

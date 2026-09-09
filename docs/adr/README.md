@@ -22,3 +22,12 @@ so the reasoning at the time stays readable.
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
 | [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |
+| [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Accepted |
+| [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted |
+| [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
+| [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted |
+| [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted |
+| [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted |
+| [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
+| [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted |
+| [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted |

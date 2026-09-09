@@ -1,4 +1,5 @@
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -70,14 +71,41 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         Assert.Equal(7, (await ProfileAsync()).WeekActivity.Count);
     }
 
+    /// <summary>
+    /// Counted in windows that cover today, not in ticked-off tasks: a window is
+    /// the only unit here that can be finished, and it is the unit somebody's
+    /// friends can see.
+    /// </summary>
     [Fact]
-    public async Task TodaysProgressCountsOnlyWhatIsScheduledForToday()
+    public async Task TodaysProgressCountsTheWindowsThatCoverToday()
     {
         var profile = await ProfileAsync();
 
-        Assert.Equal(2, profile.Today.Total);
+        // Three of the seeded goals have a window covering today; the delivered
+        // one-off is finished and no longer has one.
+        Assert.Equal(3, profile.Today.Total);
+        Assert.Equal(0, profile.Today.Done);
+        Assert.Equal(0, profile.Today.Percent);
+    }
+
+    [Fact]
+    public async Task TodaysProgressMovesWhenAWindowIsDelivered()
+    {
+        // The day moves when a friend believes the photograph, not when it is
+        // taken. That is the whole point of the change.
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+
+        var waiting = await ProfileAsync();
+        Assert.Equal(0, waiting.Today.Done);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        await friend.PostJsonAsync($"/api/proofs/{proof.Id}/vote", new { value = VoteValue.Confirm });
+
+        var profile = await ProfileAsync();
+
+        Assert.Equal(3, profile.Today.Total);
         Assert.Equal(1, profile.Today.Done);
-        Assert.Equal(50, profile.Today.Percent);
+        Assert.Equal(33, profile.Today.Percent);
     }
 
     [Fact]
@@ -124,7 +152,9 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
     {
         var settings = await SettingsAsync();
 
-        Assert.Equal(ThemePreference.System, settings.Theme);
+        // Dark rather than System: dark is the design, not a preference — see
+        // UserSettings.Theme.
+        Assert.Equal(ThemePreference.Dark, settings.Theme);
         Assert.Equal(LanguagePreference.German, settings.Language);
     }
 

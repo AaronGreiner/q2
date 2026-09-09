@@ -29,4 +29,20 @@ public static class TestJson
 
     public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string url, object body) =>
         client.PutAsJsonAsync(url, body, Options, TestContext.Current.CancellationToken);
+
+    /// <summary>
+    /// A DELETE that carries a body.
+    /// </summary>
+    /// <remarks>
+    /// One endpoint needs it — deleting an account asks for the password again
+    /// — and <see cref="HttpClient.DeleteAsync(string, CancellationToken)"/>
+    /// has no overload that sends one.
+    /// </remarks>
+    public static Task<HttpResponseMessage> DeleteJsonAsync(this HttpClient client, string url, object body) =>
+        client.SendAsync(
+            new HttpRequestMessage(HttpMethod.Delete, url)
+            {
+                Content = JsonContent.Create(body, options: Options),
+            },
+            TestContext.Current.CancellationToken);
 }

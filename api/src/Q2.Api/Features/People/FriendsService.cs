@@ -18,6 +18,7 @@ namespace Q2.Api.Features.People;
 public sealed class FriendsService(
     Q2DbContext database,
     CurrentPerson currentPerson,
+    BlockList blockList,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<FriendsService> logger)
@@ -62,7 +63,20 @@ public sealed class FriendsService(
                 && (friendIds.Contains(f.RequesterId) || friendIds.Contains(f.AddresseeId)))
             .ToListAsync(cancellationToken));
 
-        var suggestions = graph.SuggestionsFor(me.Id, new HashSet<Guid>(connectedIds) { me.Id }, SuggestionLimit);
+        /*
+         * Blocked people are excluded by being treated as already connected.
+         *
+         * A suggestion is the one place somebody hidden could come back on
+         * screen without either of them doing anything: the friendship is gone,
+         * so the graph would happily offer them as "a friend of a friend"
+         * tomorrow. Feeding them in here rather than filtering afterwards keeps
+         * the mutual counts honest and leaves one list to reason about.
+         */
+        var hidden = await blockList.HiddenFromMeAsync(cancellationToken);
+        var excluded = new HashSet<Guid>(connectedIds) { me.Id };
+        excluded.UnionWith(hidden);
+
+        var suggestions = graph.SuggestionsFor(me.Id, excluded, SuggestionLimit);
 
         var wanted = connectedIds.Concat(suggestions.Select(s => s.PersonId)).ToHashSet();
         var people = await LoadPeopleAsync(wanted, cancellationToken);
@@ -136,9 +150,14 @@ public sealed class FriendsService(
         var now = timeProvider.GetUtcNow();
         var pattern = $"%{Escape(term)}%";
 
+        // The directory is searchable by everybody, which makes this the most
+        // likely way a blocked person would reappear — by being looked up.
+        var hidden = await blockList.HiddenFromMeAsync(cancellationToken);
+
         var matches = await database.People
             .AsNoTracking()
             .Where(p => p.Id != me.Id
+                && !hidden.Contains(p.Id)
                 && (EF.Functions.Like(p.DisplayName, pattern, LikeEscape)
                     || EF.Functions.Like(p.Handle, pattern, LikeEscape)))
             .OrderBy(p => p.DisplayName)
@@ -199,6 +218,14 @@ public sealed class FriendsService(
         }
 
         var person = await FindPersonAsync(personId, cancellationToken);
+
+        // 404 rather than a sentence: a refusal that reads differently for a
+        // blocked person than for a stranger is a notification.
+        if (await blockList.IsHiddenFromMeAsync(personId, cancellationToken))
+        {
+            throw new ResourceNotFoundException("Person", personId);
+        }
+
         var existing = await FindBetweenAsync(me.Id, personId, cancellationToken);
 
         switch (existing)
@@ -330,7 +357,7 @@ public sealed class FriendsService(
 
     /// <summary>Everybody <paramref name="personId"/> has an accepted friendship with.</summary>
     /// <remarks>
-    /// The one place other features ask "who are my friends" — the leaderboard,
+    /// The one place other features ask "who are my friends" — the feed,
     /// the feed and the group-chat member list all need the same answer, and
     /// three copies of this query would be three chances to forget that a
     /// friendship has two ends.
@@ -357,6 +384,29 @@ public sealed class FriendsService(
         .Replace(LikeEscape, LikeEscape + LikeEscape, StringComparison.Ordinal)
         .Replace("%", LikeEscape + "%", StringComparison.Ordinal)
         .Replace("_", LikeEscape + "_", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Where one person stands with another.
+    /// </summary>
+    /// <remarks>
+    /// Public because a profile screen needs it to decide which buttons a
+    /// person gets, and there is exactly one correct answer to "are we
+    /// friends" — a second implementation would be a second answer.
+    /// </remarks>
+    public async Task<FriendshipState> StateBetweenAsync(
+        Guid meId,
+        Guid otherId,
+        CancellationToken cancellationToken)
+    {
+        if (meId == otherId)
+        {
+            return FriendshipState.Self;
+        }
+
+        var mine = await MyFriendshipsAsync(meId, cancellationToken);
+
+        return StateFor(mine.SingleOrDefault(friendship => friendship.Involves(otherId)), meId);
+    }
 
     private static FriendshipState StateFor(Friendship? friendship, Guid meId) => friendship switch
     {

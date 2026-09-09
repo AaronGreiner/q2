@@ -210,6 +210,92 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("ActivityKudos", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Challenges.Challenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AnnouncedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Prompt")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PublishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Day")
+                        .IsUnique();
+
+                    b.HasIndex("PublishedAt", "ExpiresAt");
+
+                    b.ToTable("Challenges", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Challenges.ChallengeEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("CapturedInApp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ChallengeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChallengeId", "PersonId")
+                        .IsUnique();
+
+                    b.HasIndex("PersonId", "CreatedAt");
+
+                    b.ToTable("ChallengeEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Challenges.ChallengeReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChallengeEntryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChallengeEntryId", "PersonId")
+                        .IsUnique();
+
+                    b.ToTable("ChallengeReactions", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Chats.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -246,11 +332,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Emoji")
-                        .HasMaxLength(8)
+                    b.Property<Guid?>("GoalId")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("GoalId")
+                    b.Property<string>("Icon")
+                        .HasMaxLength(24)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Kind")
@@ -298,9 +384,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Emoji")
+                    b.Property<string>("Kind")
                         .IsRequired()
-                        .HasMaxLength(8)
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("MessageId")
@@ -313,7 +399,7 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PersonId");
 
-                    b.HasIndex("MessageId", "PersonId", "Emoji")
+                    b.HasIndex("MessageId", "PersonId", "Kind")
                         .IsUnique();
 
                     b.ToTable("MessageReactions", (string)null);
@@ -324,8 +410,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("CompletedSteps")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -348,11 +434,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<TimeOnly?>("ReminderAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Rhythm")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -366,9 +447,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("TotalSteps")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
@@ -380,23 +458,51 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("Goals", (string)null);
                 });
 
-            modelBuilder.Entity("Q2.Api.Features.Goals.GoalContribution", b =>
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateOnly>("Date")
+                    b.Property<int>("ConfirmedProofs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("DueOn")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("GoalId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("RequiredProofs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RiskNotifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("GoalId", "Date")
+                    b.HasIndex("Status", "DueAt");
+
+                    b.HasIndex("GoalId", "StartsOn", "DueOn")
                         .IsUnique();
 
-                    b.ToTable("GoalContributions", (string)null);
+                    b.ToTable("GoalInstances", (string)null);
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalParticipant", b =>
@@ -420,65 +526,217 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("GoalParticipants", (string)null);
                 });
 
-            modelBuilder.Entity("Q2.Api.Features.Goals.GoalTask", b =>
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateOnly?>("CompletedOn")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateOnly?>("DueOn")
+                    b.Property<DateTime>("EndsAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("GoalId")
+                    b.Property<DateOnly>("EndsOn")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("MeasureUnit")
-                        .HasMaxLength(16)
+                    b.Property<Guid>("GoalId")
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("MeasuredValue")
-                        .HasColumnType("REAL");
-
-                    b.Property<Guid>("OwnerPersonId")
+                    b.Property<Guid?>("GoalInstanceId")
                         .HasColumnType("TEXT");
 
-                    b.Property<TimeOnly?>("ReminderAt")
+                    b.Property<Guid>("PersonId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Rhythm")
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(280)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
+                    b.HasKey("Id");
 
-                    b.Property<double?>("TargetValue")
-                        .HasColumnType("REAL");
+                    b.HasIndex("PersonId");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(120)
+                    b.HasIndex("GoalId", "Status");
+
+                    b.ToTable("GoalPauses", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.PauseVeto", b =>
+                {
+                    b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("WeeklyOn")
-                        .HasMaxLength(16)
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalPauseId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GoalId");
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("GoalPauseId", "PersonId")
+                        .IsUnique();
+
+                    b.ToTable("PauseVetoes", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Images.StoredImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ByteSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("OwnerPersonId");
 
-                    b.HasIndex("SortOrder");
+                    b.ToTable("Images", (string)null);
+                });
 
-                    b.ToTable("GoalTasks", (string)null);
+            modelBuilder.Entity("Q2.Api.Features.Moderation.Report", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ReporterPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetKind", "TargetId");
+
+                    b.HasIndex("ReporterPersonId", "TargetKind", "TargetId")
+                        .IsUnique();
+
+                    b.ToTable("Reports", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Notifications.PushSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AuthSecret")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastDeliveredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique();
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("PushSubscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.People.Block", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BlockedPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BlockerPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlockedPersonId");
+
+                    b.HasIndex("BlockerPersonId", "BlockedPersonId")
+                        .IsUnique();
+
+                    b.ToTable("Blocks", (string)null);
                 });
 
             modelBuilder.Entity("Q2.Api.Features.People.DailyCheckIn", b =>
@@ -542,6 +800,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(9)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("AvatarImageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -560,15 +821,26 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("InviteCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("KudosReceived")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("LastSeenAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Handle")
+                        .IsUnique();
+
+                    b.HasIndex("InviteCode")
                         .IsUnique();
 
                     b.ToTable("People", (string)null);
@@ -598,6 +870,100 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("PersonBadges", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Attempt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CapturedInApp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UploaderPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("VotingDeadline")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalInstanceId");
+
+                    b.HasIndex("Status", "VotingDeadline");
+
+                    b.ToTable("ProofPhotos", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProofPhotoId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProofPhotoId", "PersonId")
+                        .IsUnique();
+
+                    b.ToTable("ProofReactions", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CastAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProofPhotoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("VoterPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProofPhotoId", "VoterPersonId")
+                        .IsUnique();
+
+                    b.ToTable("ProofVotes", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Settings.UserSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -607,6 +973,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("NotifyChallenge")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("NotifyKudos")
                         .HasColumnType("INTEGER");
@@ -621,6 +990,12 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly?>("QuietHoursFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly?>("QuietHoursTo")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Theme")
@@ -696,6 +1071,30 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Challenges.ChallengeEntry", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Challenges.Challenge", null)
+                        .WithMany("Entries")
+                        .HasForeignKey("ChallengeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Challenges.ChallengeReaction", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Challenges.ChallengeEntry", null)
+                        .WithMany("Reactions")
+                        .HasForeignKey("ChallengeEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Chats.ChatMessage", b =>
                 {
                     b.HasOne("Q2.Api.Features.Chats.Conversation", null)
@@ -756,12 +1155,53 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OwnerPersonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsOne("Q2.Api.Features.Goals.GoalSchedule", "Schedule", b1 =>
+                        {
+                            b1.Property<Guid>("GoalId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("EveryDays")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleEveryDays");
+
+                            b1.Property<string>("Kind")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleKind");
+
+                            b1.Property<string>("Period")
+                                .HasMaxLength(16)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("SchedulePeriod");
+
+                            b1.Property<int?>("Times")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleTimes");
+
+                            b1.Property<string>("WeekdayList")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleWeekdays");
+
+                            b1.HasKey("GoalId");
+
+                            b1.ToTable("Goals");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoalId");
+                        });
+
+                    b.Navigation("Schedule")
+                        .IsRequired();
                 });
 
-            modelBuilder.Entity("Q2.Api.Features.Goals.GoalContribution", b =>
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.HasOne("Q2.Api.Features.Goals.Goal", null)
-                        .WithMany("Contributions")
+                        .WithMany("Instances")
                         .HasForeignKey("GoalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -782,16 +1222,65 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Q2.Api.Features.Goals.GoalTask", b =>
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>
                 {
                     b.HasOne("Q2.Api.Features.Goals.Goal", null)
-                        .WithMany()
+                        .WithMany("Pauses")
                         .HasForeignKey("GoalId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Q2.Api.Features.People.Person", null)
                         .WithMany()
-                        .HasForeignKey("OwnerPersonId")
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.PauseVeto", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalPause", null)
+                        .WithMany("Vetoes")
+                        .HasForeignKey("GoalPauseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Moderation.Report", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterPersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Notifications.PushSubscription", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.People.Block", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("BlockedPersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("BlockerPersonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -829,6 +1318,33 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofPhoto", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalInstance", null)
+                        .WithMany("Proofs")
+                        .HasForeignKey("GoalInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofReaction", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Proofs.ProofPhoto", null)
+                        .WithMany("Reactions")
+                        .HasForeignKey("ProofPhotoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofVote", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Proofs.ProofPhoto", null)
+                        .WithMany("Votes")
+                        .HasForeignKey("ProofPhotoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Settings.UserSettings", b =>
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
@@ -841,6 +1357,16 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Q2.Api.Features.Activity.ActivityEvent", b =>
                 {
                     b.Navigation("Kudos");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Challenges.Challenge", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Challenges.ChallengeEntry", b =>
+                {
+                    b.Navigation("Reactions");
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Chats.ChatMessage", b =>
@@ -857,9 +1383,21 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
-                    b.Navigation("Contributions");
+                    b.Navigation("Instances");
 
                     b.Navigation("Participants");
+
+                    b.Navigation("Pauses");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
+                {
+                    b.Navigation("Proofs");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>
+                {
+                    b.Navigation("Vetoes");
                 });
 
             modelBuilder.Entity("Q2.Api.Features.People.Person", b =>
@@ -867,6 +1405,13 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("Badges");
 
                     b.Navigation("CheckIns");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Proofs.ProofPhoto", b =>
+                {
+                    b.Navigation("Reactions");
+
+                    b.Navigation("Votes");
                 });
 #pragma warning restore 612, 618
         }

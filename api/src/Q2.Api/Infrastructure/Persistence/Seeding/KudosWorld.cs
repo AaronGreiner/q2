@@ -85,69 +85,70 @@ internal static class KudosWorld
         build.Befriend(david, max);
         build.Befriend(jonas, lena);
 
+        // Three runs a week — the commitment this product exists for, and the
+        // one shape the old rhythm enum could not express at all.
         var halfMarathon = build.AddGoal(
             "Halbmarathon im Mai",
             "Drei Läufe pro Woche, langsam steigern.",
             "medal",
-            GoalRhythm.Weekly,
-            completedSteps: 14,
-            totalSteps: 21,
+            GoalSchedule.TimesPer(3, QuotaPeriod.Week),
             createdDaysAgo: 40,
-            streakDays: 12,
+            history: "dddddd",
+            confirmedNow: 1,
             reminderAt: new TimeOnly(18, 0),
-            targetDate: context.DaysFromToday(60),
             participants: [jonas, lena]);
 
         var reading = build.AddGoal(
             "Jeden Tag lesen",
             null,
             "book-open",
-            GoalRhythm.Daily,
-            completedSteps: 21,
-            totalSteps: 30,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 25,
-            streakDays: 21,
+            history: "dddddddddddddddddddd",
+            confirmedNow: 1,
             reminderAt: new TimeOnly(21, 0));
 
         var earlyBirds = build.AddGoal(
             "Frühaufsteher-Challenge",
             "Vor sieben aufstehen — gemeinsam fällt es leichter.",
             "sunrise",
-            GoalRhythm.Daily,
-            completedSteps: 8,
-            totalSteps: 10,
+            GoalSchedule.OnWeekdays([Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday, Weekday.Thursday, Weekday.Friday]),
             createdDaysAgo: 14,
-            streakDays: 8,
+            history: "ddddddd",
             isGroup: true,
             reminderAt: new TimeOnly(6, 0),
             participants: [lena, tom, sarah]);
 
+        // A chain that broke four days ago: what a missed window looks like on
+        // a card, and the reason the streak reads 3 rather than 8.
         var water = build.AddGoal(
             "2 L Wasser am Tag",
             null,
             "droplet",
-            GoalRhythm.Daily,
-            completedSteps: 9,
-            totalSteps: 20,
+            GoalSchedule.EveryNDays(1),
             createdDaysAgo: 9,
-            streakDays: 5);
+            history: "dddmddd");
 
-        build.AddTask("Joggen 5 km", GoalRhythm.Daily, halfMarathon, reminderAt: new TimeOnly(7, 0));
-        build.AddTask(
-            "2 L Wasser trinken",
-            GoalRhythm.Daily,
-            water,
-            measuredValue: 1.2,
-            targetValue: 2,
-            measureUnit: "L");
-        build.AddTask("30 Seiten lesen", GoalRhythm.Daily, reading, reminderAt: new TimeOnly(21, 0), doneToday: true);
-        build.AddTask("Meditation 10 Min", GoalRhythm.Weekdays, reminderAt: new TimeOnly(8, 0));
-        build.AddTask("Wocheneinkauf", GoalRhythm.Once, dueOn: context.DaysFromToday(2));
-        build.AddTask("Standup vorbereiten", GoalRhythm.Weekly, weeklyOn: DayOfWeek.Monday);
+        build.AddGoal(
+            "Meditation an Wochentagen",
+            null,
+            "hand-heart",
+            GoalSchedule.OnWeekdays([Weekday.Monday, Weekday.Wednesday, Weekday.Friday]),
+            createdDaysAgo: 30,
+            history: "dddd",
+            reminderAt: new TimeOnly(8, 0));
+
+        build.AddGoal(
+            "Wocheneinkauf",
+            null,
+            "calendar",
+            GoalSchedule.Once(),
+            createdDaysAgo: 1,
+            targetDate: context.DaysFromToday(2));
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "Joggen 5 km", null, kudosCount: 8, minutesAgo: 12);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 7, kudosCount: 13, minutesAgo: 40, kudosFromMe: true);
-        build.AddActivity(lena, ActivityKind.GoalProgress, earlyBirds.Title, 80, kudosCount: 5, minutesAgo: 62);
+        build.AddActivity(lena, ActivityKind.GoalProgress, earlyBirds.Title, 1, kudosCount: 5, minutesAgo: 62);
         build.AddActivity(tom, ActivityKind.GoalCreated, "Klettern lernen", null, kudosCount: 3, minutesAgo: 190);
         build.AddActivity(sarah, ActivityKind.TaskCompleted, "Vor 7 aufstehen", null, kudosCount: 6, minutesAgo: 320);
         build.AddActivity(david, ActivityKind.StreakReached, null, 2, kudosCount: 1, minutesAgo: 700);
@@ -156,26 +157,26 @@ internal static class KudosWorld
         // shows and the feed deliberately leaves out.
         build.AddActivity(me, ActivityKind.TaskCompleted, "30 Seiten lesen", null, kudosCount: 4, minutesAgo: 90);
         build.AddActivity(me, ActivityKind.StreakReached, null, 12, kudosCount: 11, minutesAgo: 400);
-        build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 70, kudosCount: 2, minutesAgo: 1500);
+        build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 1, kudosCount: 2, minutesAgo: 1500);
 
         build.AddDirectChat(
             jonas,
             halfMarathon,
             unread: 2,
             new SeedMessage(jonas, "Na, schon wach? 😄", 96),
-            new SeedMessage(jonas, "Stark, dass du gestern die 5 km durchgezogen hast! 👏", 95, MessageReactions.Heart),
+            new SeedMessage(jonas, "Stark, dass du gestern die 5 km durchgezogen hast! 👏", 95, KudosKind.Strong),
             new SeedMessage(me, "Danke! War hart, aber hat sich gelohnt 💪", 92),
             new SeedMessage(jonas, "Sehen wir uns morgen beim Lauf? 🏃", 88));
 
         build.AddGroupChat(
-            "Frühaufsteher 🌅",
-            "🌅",
+            "Frühaufsteher",
+            "sunrise",
             [lena, tom, sarah],
             earlyBirds,
             unread: 3,
             new SeedMessage(lena, "Guten Morgen! Wer ist heute um 6 dabei? ☀️", 220),
             new SeedMessage(tom, "Ich! Schon auf den Beinen 🏃‍♂️", 214),
-            new SeedMessage(me, "Bin dabei, bis gleich!", 210, MessageReactions.Fire, lena),
+            new SeedMessage(me, "Bin dabei, bis gleich!", 210, KudosKind.Fire, lena),
             new SeedMessage(sarah, "Zehn Minuten später bei mir, aber ich komme 🙂", 180),
             new SeedMessage(lena, "Acht von zehn Tagen — das Team steht 💚", 140));
 
@@ -184,11 +185,11 @@ internal static class KudosWorld
             null,
             unread: 0,
             new SeedMessage(me, "Mega Streak, weiter so! 🔥", 1500),
-            new SeedMessage(lena, "Danke für die Motivation 💚", 1440, MessageReactions.Clap));
+            new SeedMessage(lena, "Danke für die Motivation 💚", 1440, KudosKind.Applause));
 
         build.AddGroupChat(
-            "Lesekreis 📚",
-            "📚",
+            "Lesekreis",
+            "book-open",
             [sarah, david],
             reading,
             unread: 0,
@@ -200,6 +201,11 @@ internal static class KudosWorld
             null,
             unread: 0,
             new SeedMessage(tom, "Denk an die Pausen zwischen den Einheiten 👍", 4300));
+
+        // Today's prompt, with nobody in the room yet: a seed writes no
+        // photographs, so what a developer sees is the state a real morning
+        // starts in.
+        build.AddChallenge("Zeig deinen Arbeitsplatz, so wie er gerade aussieht.");
 
         build.AddDefaultSettings();
     }

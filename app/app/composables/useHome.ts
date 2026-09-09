@@ -1,20 +1,19 @@
 import type { ApiFailure } from '~/api/errors'
-import type { Activity, Goal, GoalTask, LeaderboardEntry, Profile } from '~/api/types'
+import type { Activity, Goal, Profile } from '~/api/types'
 
 interface HomePayload {
   profile: Profile | null
-  tasks: GoalTask[]
+  due: Goal[]
   goals: Goal[]
   feed: Activity[]
-  leaderboard: LeaderboardEntry[]
   failure: ApiFailure | null
 }
 
 /**
  * Everything the start screen shows, and the two things it can do.
  *
- * The five reads go out together rather than one after another: on a phone
- * connection five round trips in sequence is five chances to draw a header with
+ * The four reads go out together rather than one after another: on a phone
+ * connection four round trips in sequence is four chances to draw a header with
  * nothing under it. One failure fails the screen — a start screen missing its
  * feed but showing its streak would look finished when it is not.
  *
@@ -33,14 +32,13 @@ export function useHome() {
     'home',
     async () => {
       try {
-        const [profile, tasks, goals, feed, leaderboard] = await Promise.all([
+        const [profile, due, goals, feed] = await Promise.all([
           api.profile.get(),
-          api.tasks.list(),
+          api.goals.today(),
           api.goals.list({ status: 'Active' }),
           api.activity.feed(),
-          api.activity.leaderboard(),
         ])
-        return { profile, tasks, goals, feed, leaderboard, failure: null }
+        return { profile, due, goals, feed, failure: null }
       }
       catch (caught) {
         return {
@@ -65,31 +63,11 @@ export function useHome() {
   }
 
   const profile = computed(() => data.value?.profile ?? null)
-  const tasks = computed(() => data.value?.tasks ?? [])
+  const due = computed(() => data.value?.due ?? [])
   const goals = computed(() => data.value?.goals ?? [])
   const feed = computed(() => data.value?.feed ?? [])
-  const leaderboard = computed(() => data.value?.leaderboard ?? [])
   const error = computed(() => data.value?.failure ?? null)
   const isLoading = computed(() => status.value === 'pending')
-
-  /**
-   * Ticks a task off. The answer replaces the row straight away; the rest of
-   * the screen — the ring, the streak, the feed — is refreshed afterwards,
-   * because ticking one task changes all three.
-   */
-  async function toggleTask(id: string) {
-    const wasDone = tasks.value.find(task => task.id === id)?.isDone ?? false
-
-    try {
-      const updated = await api.tasks.toggle(id)
-      replace(payload => ({ ...payload, tasks: payload.tasks.map(task => (task.id === id ? updated : task)) }))
-      if (!wasDone) toast.show(t.value.toast.taskDone)
-      await refresh()
-    }
-    catch (caught) {
-      report(caught, { feature: 'tasks', action: 'toggle' })
-    }
-  }
 
   async function toggleKudos(id: string) {
     try {
@@ -102,9 +80,64 @@ export function useHome() {
     }
   }
 
-  return { profile, tasks, goals, feed, leaderboard, error, isLoading, refresh, toggleTask, toggleKudos }
+  return { profile, due, goals, feed, error, isLoading, refresh, toggleKudos }
 }
 
 function empty(): HomePayload {
-  return { profile: null, tasks: [], goals: [], feed: [], leaderboard: [], failure: null }
+  return { profile: null, due: [], goals: [], feed: [], failure: null }
+}
+
+/**
+ * The whole feed, for the overview behind the bell.
+ *
+ * A separate read from `useHome` rather than a slice of it: the start screen
+ * asks for a dashboard and this asks for one list, and sharing an async-data
+ * key would make opening the overview refetch four endpoints.
+ */
+export function useActivityOverview() {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+  const toast = useToastMessage()
+  const t = useMessages()
+
+  const { data, status, refresh } = useAsyncData(
+    'activity-overview',
+    async () => {
+      try {
+        return { feed: await api.activity.feed(), failure: null }
+      }
+      catch (caught) {
+        return { feed: [] as Activity[], failure: report(caught, { feature: 'feed', action: 'load' }) }
+      }
+    },
+    { default: () => ({ feed: [] as Activity[], failure: null }) },
+  )
+
+  async function toggleKudos(id: string) {
+    try {
+      const updated = await api.activity.toggleKudos(id)
+
+      // The whole payload, not a field of it: `useAsyncData` hands back a
+      // shallow ref, so mutating in place changes nothing anybody is watching.
+      if (data.value) {
+        data.value = {
+          ...data.value,
+          feed: data.value.feed.map(entry => (entry.id === id ? updated : entry)),
+        }
+      }
+
+      if (updated.hasMyKudos) toast.show(t.value.toast.kudosSent)
+    }
+    catch (caught) {
+      report(caught, { feature: 'feed', action: 'kudos' })
+    }
+  }
+
+  return {
+    feed: computed(() => data.value?.feed ?? []),
+    error: computed(() => data.value?.failure ?? null),
+    isLoading: computed(() => status.value === 'pending'),
+    refresh,
+    toggleKudos,
+  }
 }

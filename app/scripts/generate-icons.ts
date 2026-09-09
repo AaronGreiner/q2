@@ -4,10 +4,9 @@
  *   bun run icons          (from app/)
  *   bun run app:icons      (from the repository root)
  *
- * The icon is lucide's `sparkles` — the same glyph the app already bundles for
- * goals — in white on the near-black `--ui-bg` of the dark theme. One shape,
- * drawn once here, so the tab, the home screen and the install dialog cannot
- * drift apart.
+ * The icon is the Qdos mark: a bold Q on pure black, drawn in the accent.
+ * One shape, drawn once here, so the tab, the home screen and the install
+ * dialog cannot drift apart.
  *
  * Why a script rather than six committed drawings: the geometry differs per
  * platform (a maskable icon needs a safe zone, iOS masks the corners itself,
@@ -30,18 +29,32 @@ const appDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = join(appDir, 'public')
 
 /**
- * lucide `sparkles`, verbatim from @iconify-json/lucide 1.2.120 — a 24×24
- * viewBox drawn with a stroke width of 2.
+ * The mark: a Q, as geometry rather than as type.
  *
- * Copied rather than imported because this script produces static files: the
- * icon on a person's home screen must not change because a dependency bumped.
- * If it is ever updated deliberately, re-run the script and commit the result.
+ * Drawn from a circle and a tail instead of being set in Public Sans, because
+ * this script rasterises in a bare Chromium that has no fonts installed — a
+ * `<text>` element would come out in whatever the machine happened to have, and
+ * the icon on somebody's home screen would depend on the laptop it was
+ * generated on. A 24×24 viewBox with a stroke of 3 so it matches the weight the
+ * rest of the app is set in.
+ *
+ * The tail starts *inside* the bowl and crosses the ring on its way out. That
+ * one detail is the whole difference between a Q and a magnifying glass, which
+ * is what a tail that merely touches the outside of the circle draws.
  */
-const sparklesBody = '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594zM20 2v4m2-2h-4"/><circle cx="4" cy="20" r="2"/></g>'
+const markBody = '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><circle cx="11" cy="10.6" r="6.9"/><path d="m13.2 12.8 6.4 7"/></g>'
 
-/** `--ui-bg` and `--ui-text-highlighted` of the dark theme in app/assets/css/main.css. */
-const background = '#0a0a0a'
-const foreground = '#ffffff'
+/**
+ * `--ui-bg` of the dark theme and `--ui-primary` with it, from
+ * app/assets/css/main.css.
+ *
+ * The accent is used here even though an app icon is not an action. Inside the
+ * interface that rule is what keeps the accent worth noticing; on a home screen
+ * full of other people's apps the job is the opposite one, and a white mark on
+ * black would be four other apps as well.
+ */
+const background = '#000000'
+const foreground = '#cbee4a'
 
 interface IconShape {
   /** Edge length of the square canvas, in pixels. */
@@ -61,7 +74,7 @@ function drawIcon({ size, glyph, radius }: IconShape): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`,
     `<rect width="${size}" height="${size}"${corner > 0 ? ` rx="${round(corner)}"` : ''} fill="${background}"/>`,
     `<g transform="translate(${round(offset)} ${round(offset)}) scale(${round(scale)})">`,
-    sparklesBody.replaceAll('currentColor', foreground),
+    markBody.replaceAll('currentColor', foreground),
     '</g>',
     '</svg>',
   ].join('')
@@ -92,9 +105,9 @@ const appleTouch: IconShape = { size: 180, glyph: 0.58, radius: 0 }
 const anyPurpose = (size: number): IconShape => ({ size, glyph: 0.62, radius: 0.225 })
 
 /**
- * The favicon lives at 16–32 px in a tab strip. The glyph is pushed wider than
- * anywhere else because at that size the small circle and the little cross are
- * two or three pixels each, and any more padding loses them entirely.
+ * The favicon lives at 16–32 px in a tab strip, where the whole mark is about
+ * eleven pixels across and the ring is one of them. The glyph is pushed wider
+ * than anywhere else because any more padding closes the counter of the Q.
  */
 const favicon: IconShape = { size: 512, glyph: 0.68, radius: 0.2 }
 
@@ -167,5 +180,5 @@ async function write(name: string, contents: string | Buffer): Promise<void> {
   process.stdout.write(`  public/${name} (${contents.length} bytes)\n`)
 }
 
-process.stdout.write('Generating q2 app icons\n')
+process.stdout.write('Generating Qdos app icons\n')
 await main()

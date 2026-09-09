@@ -34,7 +34,3 @@ public sealed record ActivityResponse(
         activity.OccurredAt);
 }
 
-/// <summary>One row of the weekly leaderboard.</summary>
-/// <param name="Rank">1-based, assigned server-side so ties break the same way everywhere.</param>
-/// <param name="IsMe">Lets the client highlight the row without comparing ids itself.</param>
-public sealed record LeaderboardEntryResponse(int Rank, PersonSummary Person, int Kudos, bool IsMe);

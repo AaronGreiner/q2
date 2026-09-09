@@ -3,10 +3,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi;
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
+using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
+using Q2.Api.Features.Moderation;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Profile;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
@@ -36,19 +41,93 @@ public static class ApiRegistration
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IIdGenerator, SequentialIdGenerator>();
 
+        // Singleton because resolving a zone reads the system database every
+        // time, and a lookup per goal would be a lookup per goal.
+        builder.Services.AddSingleton<TimeZoneResolver>();
+
+        builder.Services.Configure<ImageOptions>(builder.Configuration.GetSection(ImageOptions.SectionName));
+
+        // The daily challenge's prompts. Configuration is the editorial desk
+        // here on purpose — see ChallengeOptions.
+        builder.Services.Configure<ChallengeOptions>(
+            builder.Configuration.GetSection(ChallengeOptions.SectionName));
+
+        builder.Services.Configure<PushOptions>(builder.Configuration.GetSection(PushOptions.SectionName));
+
+        /*
+         * A typed client, so the connections to a push service are pooled and
+         * the timeout is ours rather than the default hundred seconds.
+         *
+         * Ten seconds: a background pass that has to reach several hundred
+         * devices cannot spend a minute and a half on each one that is
+         * unreachable, and a push that is late is a push that has missed its
+         * point (PushOptions.DefaultTimeToLiveSeconds).
+         */
+        builder.Services.AddHttpClient<IPushSender, WebPushSender>(client =>
+            client.Timeout = TimeSpan.FromSeconds(10));
+
+        /*
+         * Singleton, and an interface with one implementation.
+         *
+         * The seam is the point: the store is a directory on the host today,
+         * which is the same "simplest thing that carries the product" posture
+         * as SQLite (docs/adr/0004-sqlite-first.md). Every caller depends on
+         * IImageStore, so moving to an S3-compatible bucket is a registration
+         * and a class, not a search through the features.
+         */
+        builder.Services.AddSingleton<IImageStore, FileSystemImageStore>();
+
+        /*
+         * Where a report actually goes, behind the same kind of seam.
+         *
+         * Today it rings the one bell this deployment already answers; a
+         * mailbox, a queue or a moderation console is a registration and a
+         * class (docs/adr/0022-blocking-reporting-and-erasure.md). Singleton
+         * because it holds nothing per request.
+         */
+        builder.Services.AddSingleton<IReportSink, ObservabilityReportSink>();
+
         // Scoped, all of them: each holds a DbContext for the duration of one
         // request, and CurrentPerson caches the answer to "who is asking?" for
         // exactly that long.
         builder.Services.AddScoped<CurrentPerson>();
+
+        // Beside CurrentPerson, and for the same reason: "who is asking" and
+        // "who must they not see" are both answered once per request and cached
+        // for exactly that long.
+        builder.Services.AddScoped<BlockList>();
+        builder.Services.AddScoped<BlockService>();
+        builder.Services.AddScoped<InviteService>();
+        builder.Services.AddScoped<NotificationService>();
+        builder.Services.AddScoped<ReportService>();
         builder.Services.AddScoped<AccountService>();
         builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();
-        builder.Services.AddScoped<GoalTaskService>();
+        builder.Services.AddScoped<ImageService>();
+        builder.Services.AddScoped<ProofService>();
+        builder.Services.AddScoped<ChallengeService>();
         builder.Services.AddScoped<ActivityService>();
         builder.Services.AddScoped<FriendsService>();
         builder.Services.AddScoped<ChatService>();
         builder.Services.AddScoped<ProfileService>();
         builder.Services.AddScoped<SettingsService>();
+
+        /*
+         * The two things in q2 that happen without somebody asking for them:
+         * windows that fall due while nobody is looking, and the queue of
+         * prompts that has to be a few days deep before anybody opens the app.
+         *
+         * Neither runs in AutomatedTest: integration tests assert on exact
+         * rows, and a job writing between the arrange and the assert would make
+         * them flaky for a reason unrelated to what they check. Those tests
+         * drive GoalMaintenance and ChallengeQueueWorker.RunOnceAsync directly,
+         * or seed the rows they need.
+         */
+        if (!builder.Environment.IsAutomatedTest())
+        {
+            builder.Services.AddHostedService<GoalMaintenanceWorker>();
+            builder.Services.AddHostedService<ChallengeQueueWorker>();
+        }
 
         builder.Services.ConfigureHttpJsonOptions(options =>
         {

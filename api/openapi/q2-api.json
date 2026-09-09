@@ -25,15 +25,106 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Changes your display name or your picture. Omitted properties keep their value.",
+        "operationId": "UpdateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/api/leaderboard": {
+    "/api/people/{personId}": {
       "get": {
         "tags": [
-          "Activity"
+          "Profile"
         ],
-        "summary": "Ranks you and your friends by kudos received.",
-        "operationId": "ListLeaderboard",
+        "summary": "Returns somebody else's profile, with a balance covering only the goals you share.",
+        "operationId": "GetPersonProfile",
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonProfileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/today": {
+      "get": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Lists the goals whose current window covers today.",
+        "operationId": "ListDueToday",
         "responses": {
           "200": {
             "description": "OK",
@@ -42,8 +133,121 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/LeaderboardEntryResponse"
+                    "$ref": "#/components/schemas/GoalResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/proof": {
+      "post": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Delivers a photograph into the goal's open window for its friends to vote on.",
+        "operationId": "SubmitGoalProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitProofRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "post": {
+        "tags": [
+          "Moderation"
+        ],
+        "summary": "Asks for a person, a photograph or a challenge contribution to be looked at.",
+        "operationId": "FileReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportReceiptResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -157,6 +361,57 @@
         }
       }
     },
+    "/api/auth/account": {
+      "delete": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Deletes the signed-in account and everything personal behind it. Asks for the password again.",
+        "operationId": "DeleteAccount",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/session": {
       "get": {
         "tags": [
@@ -260,12 +515,36 @@
         }
       }
     },
+    "/api/goals/archive": {
+      "get": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Lists the goals that have stopped, most recently stopped first.",
+        "operationId": "ListArchivedGoals",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GoalResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals/{id}": {
       "get": {
         "tags": [
           "Goals"
         ],
-        "summary": "Returns one goal with its team and its tasks.",
+        "summary": "Returns one goal with its team and its resolved windows.",
         "operationId": "GetGoal",
         "parameters": [
           {
@@ -300,15 +579,118 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Deletes a stopped goal outright, for everybody on it.",
+        "operationId": "DeleteGoal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/api/goals/{id}/contribute": {
+    "/api/goals/{id}/pause": {
       "post": {
         "tags": [
           "Goals"
         ],
-        "summary": "Records one step of progress towards a goal.",
-        "operationId": "ContributeToGoal",
+        "summary": "Sets a goal aside for whole days, with a reason its friends read.",
+        "operationId": "PauseGoal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPauseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Ends the running pause early.",
+        "operationId": "EndGoalPause",
         "parameters": [
           {
             "name": "id",
@@ -327,78 +709,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoalResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tasks": {
-      "get": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Lists the tasks scheduled for today, or all of them.",
-        "operationId": "ListTasks",
-        "parameters": [
-          {
-            "name": "all",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GoalTaskResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Tasks"
-        ],
-        "summary": "Creates a task.",
-        "operationId": "CreateTask",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTaskRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GoalTaskResponse"
                 }
               }
             }
@@ -426,13 +736,13 @@
         }
       }
     },
-    "/api/tasks/{id}/toggle": {
+    "/api/goals/{id}/pause/veto": {
       "post": {
         "tags": [
-          "Tasks"
+          "Goals"
         ],
-        "summary": "Ticks a task off for today, or takes it back.",
-        "operationId": "ToggleTask",
+        "summary": "Objects to a running pause, or takes the objection back. Anonymous.",
+        "operationId": "VetoGoalPause",
         "parameters": [
           {
             "name": "id",
@@ -450,7 +760,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GoalTaskResponse"
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -461,6 +781,613 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/close": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Stops a goal for good and moves it to the archive.",
+        "operationId": "CloseGoal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseGoalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images": {
+      "post": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Stores an image. The body is the raw file; its media type must be image/jpeg or image/png.",
+        "operationId": "UploadImage",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ImagePurpose"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/quota": {
+      "get": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Returns how much image storage you have used.",
+        "operationId": "GetImageQuota",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageQuotaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/{id}": {
+      "get": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Returns the bytes of an image you are allowed to see.",
+        "operationId": "GetImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Deletes one of your images.",
+        "operationId": "DeleteImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proofs/pending": {
+      "get": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "The photographs waiting for your vote, newest first.",
+        "operationId": "ListPendingProofs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FeedProofResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proofs/{id}": {
+      "get": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Returns one photograph, if it is yours to see.",
+        "operationId": "GetProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proofs/{id}/vote": {
+      "post": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Confirms or doubts a photograph. One say per person, and it stands.",
+        "operationId": "VoteOnProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastVoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proofs/{id}/reactions": {
+      "post": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Adds or takes back a reaction. The same kind twice takes it back.",
+        "operationId": "ReactToProof",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactToProofRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/challenges/today": {
+      "get": {
+        "tags": [
+          "Challenges"
+        ],
+        "summary": "Today's prompt and the room of your friends' contributions, or nothing if none is running.",
+        "operationId": "GetTodaysChallenge",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeTodayResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/challenges/today/entry": {
+      "post": {
+        "tags": [
+          "Challenges"
+        ],
+        "summary": "Contributes a photograph. A second one replaces the first.",
+        "operationId": "SubmitChallengeEntry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitChallengeEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeRoomResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Challenges"
+        ],
+        "summary": "Takes your contribution back. Your friends' are covered again afterwards.",
+        "operationId": "WithdrawChallengeEntry",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeTodayResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/challenges/entries/{id}/reactions": {
+      "post": {
+        "tags": [
+          "Challenges"
+        ],
+        "summary": "Adds or takes back a reaction. The same kind twice takes it back.",
+        "operationId": "ReactToChallengeEntry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactToChallengeEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeEntryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/challenges/archive": {
+      "get": {
+        "tags": [
+          "Challenges"
+        ],
+        "summary": "Every challenge you have taken part in, newest first. Your own contributions only.",
+        "operationId": "ListChallengeArchive",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChallengeArchiveEntryResponse"
+                  }
                 }
               }
             }
@@ -811,6 +1738,249 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/blocks": {
+      "get": {
+        "tags": [
+          "Blocks"
+        ],
+        "summary": "The people you have blocked. Never the ones who blocked you.",
+        "operationId": "ListBlockedPeople",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/blocks/{personId}": {
+      "post": {
+        "tags": [
+          "Blocks"
+        ],
+        "summary": "Blocks somebody and ends whatever connection there was. Blocking twice changes nothing.",
+        "operationId": "BlockPerson",
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Blocks"
+        ],
+        "summary": "Lifts a block you set. The friendship does not come back.",
+        "operationId": "UnblockPerson",
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonSummary"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invite": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Your invite code, created the first time you ask for it.",
+        "operationId": "GetInviteCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invite/regenerate": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Replaces your code, so a link that got out stops working.",
+        "operationId": "RegenerateInviteCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/key": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Whether this deployment sends notifications, and the key to subscribe with.",
+        "operationId": "GetPushKey",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushKeyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/subscribe": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Registers this browser, or brings its keys up to date.",
+        "operationId": "SubscribeToNotifications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/unsubscribe": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Forgets this browser. Succeeds whether or not there was anything to forget.",
+        "operationId": "UnsubscribeFromNotifications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnsubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           }
         }
       }
@@ -1223,12 +2393,45 @@
   },
   "components": {
     "schemas": {
+      "AccountDeletionResponse": {
+        "required": [
+          "goals",
+          "images",
+          "conversations",
+          "messages",
+          "challengeEntries"
+        ],
+        "type": "object",
+        "properties": {
+          "goals": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "images": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "conversations": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "messages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "challengeEntries": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "ActivityKind": {
         "enum": [
           "TaskCompleted",
           "StreakReached",
           "GoalProgress",
-          "GoalCreated"
+          "GoalCreated",
+          "WindowAtRisk"
         ]
       },
       "ActivityResponse": {
@@ -1307,13 +2510,192 @@
           }
         }
       },
+      "BalanceResponse": {
+        "required": [
+          "done",
+          "missed"
+        ],
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missed": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CastVoteRequest": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/VoteValue"
+              }
+            ]
+          }
+        }
+      },
+      "ChallengeArchiveEntryResponse": {
+        "required": [
+          "challenge",
+          "entry"
+        ],
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "$ref": "#/components/schemas/ChallengeResponse"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/ChallengeEntryResponse"
+          }
+        }
+      },
+      "ChallengeEntryResponse": {
+        "required": [
+          "id",
+          "author",
+          "imageId",
+          "capturedInApp",
+          "createdAt",
+          "isMine",
+          "reactions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capturedInApp": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isMine": {
+            "type": "boolean"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionSummaryResponse"
+            }
+          }
+        }
+      },
+      "ChallengeResponse": {
+        "required": [
+          "id",
+          "prompt",
+          "publishedAt",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChallengeRoomResponse": {
+        "required": [
+          "challenge",
+          "ownEntry",
+          "entries",
+          "friendCount",
+          "isRevealed"
+        ],
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "$ref": "#/components/schemas/ChallengeResponse"
+          },
+          "ownEntry": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ChallengeEntryResponse"
+              }
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChallengeEntryResponse"
+            }
+          },
+          "friendCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isRevealed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChallengeTodayResponse": {
+        "required": [
+          "room"
+        ],
+        "type": "object",
+        "properties": {
+          "room": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ChallengeRoomResponse"
+              }
+            ]
+          }
+        }
+      },
       "ChatDetailResponse": {
         "required": [
           "id",
           "kind",
           "name",
           "initials",
+          "icon",
           "avatarColor",
+          "avatarImageId",
           "isOnline",
           "memberCount",
           "otherLastSeenAt",
@@ -1335,8 +2717,17 @@
           "initials": {
             "type": "string"
           },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
           "avatarColor": {
             "type": "string"
+          },
+          "avatarImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "isOnline": {
             "type": "boolean"
@@ -1416,7 +2807,9 @@
         "required": [
           "id",
           "title",
-          "progressPercent"
+          "current",
+          "streak",
+          "pausedUntil"
         ],
         "type": "object",
         "properties": {
@@ -1427,9 +2820,26 @@
           "title": {
             "type": "string"
           },
-          "progressPercent": {
+          "current": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalInstanceResponse"
+              }
+            ]
+          },
+          "streak": {
             "type": "integer",
             "format": "int32"
+          },
+          "pausedUntil": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
           }
         }
       },
@@ -1439,7 +2849,9 @@
           "kind",
           "name",
           "initials",
+          "icon",
           "avatarColor",
+          "avatarImageId",
           "isOnline",
           "lastMessage",
           "lastMessageSenderName",
@@ -1462,8 +2874,17 @@
           "initials": {
             "type": "string"
           },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
           "avatarColor": {
             "type": "string"
+          },
+          "avatarImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "isOnline": {
             "type": "boolean"
@@ -1490,6 +2911,15 @@
           }
         }
       },
+      "CloseGoalRequest": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
       "ConversationKind": {
         "enum": [
           "Direct",
@@ -1511,7 +2941,7 @@
             "type": "string",
             "nullable": true
           },
-          "rhythm": {
+          "schedule": {
             "oneOf": [
               {
                 "enum": [
@@ -1519,17 +2949,12 @@
                 ]
               },
               {
-                "$ref": "#/components/schemas/GoalRhythm"
+                "$ref": "#/components/schemas/GoalScheduleRequest"
               }
             ]
           },
           "isGroup": {
             "type": "boolean",
-            "nullable": true
-          },
-          "totalSteps": {
-            "type": "integer",
-            "format": "int32",
             "nullable": true
           },
           "reminderAt": {
@@ -1559,7 +2984,7 @@
             "type": "string",
             "nullable": true
           },
-          "emoji": {
+          "icon": {
             "type": "string",
             "nullable": true
           },
@@ -1578,14 +3003,10 @@
           }
         }
       },
-      "CreateTaskRequest": {
+      "CreateReportRequest": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string",
-            "nullable": true
-          },
-          "rhythm": {
+          "targetKind": {
             "oneOf": [
               {
                 "enum": [
@@ -1593,21 +3014,16 @@
                 ]
               },
               {
-                "$ref": "#/components/schemas/GoalRhythm"
+                "$ref": "#/components/schemas/ReportTargetKind"
               }
             ]
           },
-          "goalId": {
+          "targetId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
           },
-          "reminderAt": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "weeklyOn": {
+          "reason": {
             "oneOf": [
               {
                 "enum": [
@@ -1615,37 +3031,15 @@
                 ]
               },
               {
-                "$ref": "#/components/schemas/DayOfWeek"
+                "$ref": "#/components/schemas/ReportReason"
               }
             ]
           },
-          "dueOn": {
-            "type": "string",
-            "format": "date",
-            "nullable": true
-          },
-          "targetValue": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "measureUnit": {
+          "note": {
             "type": "string",
             "nullable": true
           }
         }
-      },
-      "DayOfWeek": {
-        "enum": [
-          "Sunday",
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-          null
-        ]
       },
       "DaySummaryResponse": {
         "required": [
@@ -1666,6 +3060,34 @@
           "percent": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "DeleteAccountRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FeedProofResponse": {
+        "required": [
+          "proof",
+          "goalTitle",
+          "goalIcon"
+        ],
+        "type": "object",
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/ProofResponse"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "goalIcon": {
+            "type": "string"
           }
         }
       },
@@ -1776,7 +3198,7 @@
         "required": [
           "goal",
           "team",
-          "tasks"
+          "history"
         ],
         "type": "object",
         "properties": {
@@ -1789,11 +3211,129 @@
               "$ref": "#/components/schemas/GoalTeamMemberResponse"
             }
           },
-          "tasks": {
+          "history": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GoalTaskResponse"
+              "$ref": "#/components/schemas/GoalInstanceResponse"
             }
+          }
+        }
+      },
+      "GoalInstanceResponse": {
+        "required": [
+          "id",
+          "startsOn",
+          "dueOn",
+          "dueAt",
+          "requiredProofs",
+          "confirmedProofs",
+          "remainingProofs",
+          "status",
+          "pendingProofId",
+          "acceptsProof"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "dueOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "dueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requiredProofs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedProofs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "remainingProofs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GoalInstanceStatus"
+          },
+          "pendingProofId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "acceptsProof": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GoalInstanceStatus": {
+        "enum": [
+          "Open",
+          "Done",
+          "Missed",
+          "Paused"
+        ]
+      },
+      "GoalPauseResponse": {
+        "required": [
+          "id",
+          "reason",
+          "startsOn",
+          "endsOn",
+          "endsAt",
+          "days",
+          "vetoCount",
+          "vetoesRequired",
+          "vetoedByMe",
+          "canVeto"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vetoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vetoesRequired": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vetoedByMe": {
+            "type": "boolean"
+          },
+          "canVeto": {
+            "type": "boolean"
           }
         }
       },
@@ -1803,18 +3343,23 @@
           "title",
           "description",
           "icon",
-          "rhythm",
+          "schedule",
           "status",
           "isGroup",
-          "completedSteps",
-          "totalSteps",
-          "progressPercent",
+          "current",
           "streak",
+          "windowsDone",
+          "windowsMissed",
           "reminderAt",
           "targetDate",
           "createdAt",
+          "closedAt",
           "participants",
-          "isOverdue"
+          "isOverdue",
+          "isMine",
+          "risk",
+          "pause",
+          "remainingPauses"
         ],
         "type": "object",
         "properties": {
@@ -1832,8 +3377,8 @@
           "icon": {
             "type": "string"
           },
-          "rhythm": {
-            "$ref": "#/components/schemas/GoalRhythm"
+          "schedule": {
+            "$ref": "#/components/schemas/GoalScheduleResponse"
           },
           "status": {
             "$ref": "#/components/schemas/GoalStatus"
@@ -1841,19 +3386,27 @@
           "isGroup": {
             "type": "boolean"
           },
-          "completedSteps": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalSteps": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "progressPercent": {
-            "type": "integer",
-            "format": "int32"
+          "current": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalInstanceResponse"
+              }
+            ]
           },
           "streak": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "windowsDone": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "windowsMissed": {
             "type": "integer",
             "format": "int32"
           },
@@ -1871,6 +3424,11 @@
             "type": "string",
             "format": "date-time"
           },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -1879,16 +3437,129 @@
           },
           "isOverdue": {
             "type": "boolean"
+          },
+          "isMine": {
+            "type": "boolean"
+          },
+          "risk": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/RiskResponse"
+              }
+            ]
+          },
+          "pause": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalPauseResponse"
+              }
+            ]
+          },
+          "remainingPauses": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         }
       },
-      "GoalRhythm": {
-        "enum": [
-          "Daily",
-          "Weekdays",
-          "Weekly",
-          "Once"
-        ]
+      "GoalScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ScheduleKind"
+              }
+            ]
+          },
+          "everyDays": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Weekday"
+            },
+            "nullable": true
+          },
+          "times": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "period": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/QuotaPeriod"
+              }
+            ]
+          }
+        }
+      },
+      "GoalScheduleResponse": {
+        "required": [
+          "kind",
+          "everyDays",
+          "weekdays",
+          "times",
+          "period"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ScheduleKind"
+          },
+          "everyDays": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Weekday"
+            }
+          },
+          "times": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "period": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/QuotaPeriod"
+              }
+            ]
+          }
+        }
       },
       "GoalStatus": {
         "enum": [
@@ -1896,65 +3567,6 @@
           "Completed",
           "Archived"
         ]
-      },
-      "GoalTaskResponse": {
-        "required": [
-          "id",
-          "goalId",
-          "title",
-          "rhythm",
-          "reminderAt",
-          "isDone",
-          "measuredValue",
-          "targetValue",
-          "measureUnit",
-          "measurePercent"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "goalId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "title": {
-            "type": "string"
-          },
-          "rhythm": {
-            "$ref": "#/components/schemas/GoalRhythm"
-          },
-          "reminderAt": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "isDone": {
-            "type": "boolean"
-          },
-          "measuredValue": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "targetValue": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "measureUnit": {
-            "type": "string",
-            "nullable": true
-          },
-          "measurePercent": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          }
-        }
       },
       "GoalTeamMemberResponse": {
         "required": [
@@ -2007,36 +3619,102 @@
           }
         }
       },
+      "IResult": {
+        "type": "object"
+      },
+      "ImagePurpose": {
+        "enum": [
+          "Avatar",
+          "Proof",
+          "ChallengeEntry"
+        ]
+      },
+      "ImageQuotaResponse": {
+        "required": [
+          "bytesUsed",
+          "byteLimit",
+          "imageCount",
+          "imageLimit"
+        ],
+        "type": "object",
+        "properties": {
+          "bytesUsed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "byteLimit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "imageCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "imageLimit": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ImageResponse": {
+        "required": [
+          "id",
+          "purpose",
+          "width",
+          "height",
+          "byteSize",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/ImagePurpose"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "byteSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InviteResponse": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "KudosKind": {
+        "enum": [
+          "Fire",
+          "Strong",
+          "Applause"
+        ]
+      },
       "LanguagePreference": {
         "enum": [
           "German",
           "English"
         ]
-      },
-      "LeaderboardEntryResponse": {
-        "required": [
-          "rank",
-          "person",
-          "kudos",
-          "isMe"
-        ],
-        "type": "object",
-        "properties": {
-          "rank": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "person": {
-            "$ref": "#/components/schemas/PersonSummary"
-          },
-          "kudos": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "isMe": {
-            "type": "boolean"
-          }
-        }
       },
       "LoginRequest": {
         "type": "object",
@@ -2053,14 +3731,14 @@
       },
       "MessageReactionResponse": {
         "required": [
-          "emoji",
+          "kind",
           "count",
           "isMine"
         ],
         "type": "object",
         "properties": {
-          "emoji": {
-            "type": "string"
+          "kind": {
+            "$ref": "#/components/schemas/KudosKind"
           },
           "count": {
             "type": "integer",
@@ -2068,6 +3746,45 @@
           },
           "isMine": {
             "type": "boolean"
+          }
+        }
+      },
+      "PersonProfileResponse": {
+        "required": [
+          "person",
+          "state",
+          "streak",
+          "kudosReceived",
+          "goalsCompleted",
+          "balance",
+          "sharedGoals"
+        ],
+        "type": "object",
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendshipState"
+          },
+          "streak": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kudosReceived": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "goalsCompleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "balance": {
+            "$ref": "#/components/schemas/BalanceResponse"
+          },
+          "sharedGoals": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -2098,7 +3815,8 @@
           "handle",
           "initials",
           "avatarColor",
-          "isOnline"
+          "isOnline",
+          "avatarImageId"
         ],
         "type": "object",
         "properties": {
@@ -2120,6 +3838,11 @@
           },
           "isOnline": {
             "type": "boolean"
+          },
+          "avatarImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -2160,7 +3883,9 @@
           "unreadChats",
           "pendingFriendRequests",
           "badges",
-          "recentActivity"
+          "recentActivity",
+          "balance",
+          "atRisk"
         ],
         "type": "object",
         "properties": {
@@ -2207,6 +3932,169 @@
             "items": {
               "$ref": "#/components/schemas/ActivityResponse"
             }
+          },
+          "balance": {
+            "$ref": "#/components/schemas/BalanceResponse"
+          },
+          "atRisk": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalResponse"
+            }
+          }
+        }
+      },
+      "ProofResponse": {
+        "required": [
+          "id",
+          "goalId",
+          "goalInstanceId",
+          "uploader",
+          "imageId",
+          "status",
+          "attempt",
+          "attemptsLeft",
+          "capturedInApp",
+          "createdAt",
+          "expiresAt",
+          "votes",
+          "reactions"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploader": {
+            "$ref": "#/components/schemas/PersonSummary"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProofStatus"
+          },
+          "attempt": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "attemptsLeft": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "capturedInApp": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "votes": {
+            "$ref": "#/components/schemas/VoteSummaryResponse"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionSummaryResponse"
+            }
+          }
+        }
+      },
+      "ProofStatus": {
+        "enum": [
+          "Voting",
+          "Confirmed",
+          "Rejected"
+        ]
+      },
+      "PushKeyResponse": {
+        "required": [
+          "isAvailable",
+          "publicKey"
+        ],
+        "type": "object",
+        "properties": {
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "publicKey": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "QuotaPeriod": {
+        "enum": [
+          "Week",
+          "Month",
+          null
+        ]
+      },
+      "ReactToChallengeEntryRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/KudosKind"
+              }
+            ]
+          }
+        }
+      },
+      "ReactToProofRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/KudosKind"
+              }
+            ]
+          }
+        }
+      },
+      "ReactionSummaryResponse": {
+        "required": [
+          "kind",
+          "count",
+          "isMine"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/KudosKind"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isMine": {
+            "type": "boolean"
           }
         }
       },
@@ -2224,8 +4112,101 @@
           "password": {
             "type": "string",
             "nullable": true
+          },
+          "inviteCode": {
+            "type": "string",
+            "nullable": true
           }
         }
+      },
+      "ReportReason": {
+        "enum": [
+          "Faked",
+          "Inappropriate",
+          "Harassment",
+          "Spam",
+          "Other",
+          null
+        ]
+      },
+      "ReportReceiptResponse": {
+        "required": [
+          "id",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReportTargetKind": {
+        "enum": [
+          "Person",
+          "Proof",
+          "ChallengeEntry",
+          null
+        ]
+      },
+      "RequestPauseRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "RiskReason": {
+        "enum": [
+          "LastDay",
+          "Tight"
+        ]
+      },
+      "RiskResponse": {
+        "required": [
+          "reason",
+          "missingProofs",
+          "requiredProofs",
+          "remainingDays"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/RiskReason"
+          },
+          "missingProofs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requiredProofs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "remainingDays": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ScheduleKind": {
+        "enum": [
+          "Once",
+          "Interval",
+          "Weekdays",
+          "Times"
+        ]
       },
       "SendMessageRequest": {
         "type": "object",
@@ -2274,7 +4255,10 @@
           "notifyReminders",
           "notifyKudos",
           "notifyMessages",
-          "notifyWeeklyReview"
+          "notifyWeeklyReview",
+          "notifyChallenge",
+          "quietHoursFrom",
+          "quietHoursTo"
         ],
         "type": "object",
         "properties": {
@@ -2295,6 +4279,19 @@
           },
           "notifyWeeklyReview": {
             "type": "boolean"
+          },
+          "notifyChallenge": {
+            "type": "boolean"
+          },
+          "quietHoursFrom": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "quietHoursTo": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
           }
         }
       },
@@ -2304,6 +4301,51 @@
           "personId": {
             "type": "string",
             "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "SubmitChallengeEntryRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capturedInApp": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "SubmitProofRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capturedInApp": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "SubscribeRequest": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "nullable": true
+          },
+          "publicKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "authSecret": {
+            "type": "string",
             "nullable": true
           }
         }
@@ -2318,8 +4360,39 @@
       "ToggleReactionRequest": {
         "type": "object",
         "properties": {
-          "emoji": {
+          "kind": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/KudosKind"
+              }
+            ]
+          }
+        }
+      },
+      "UnsubscribeRequest": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
             "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "avatarImageId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }
@@ -2366,8 +4439,85 @@
           "notifyWeeklyReview": {
             "type": "boolean",
             "nullable": true
+          },
+          "notifyChallenge": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "quietHoursEnabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "quietHoursFrom": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "quietHoursTo": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
           }
         }
+      },
+      "VoteSummaryResponse": {
+        "required": [
+          "confirmCount",
+          "doubtCount",
+          "confirmedBy",
+          "myVote",
+          "canIVote"
+        ],
+        "type": "object",
+        "properties": {
+          "confirmCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doubtCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "confirmedBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonSummary"
+            }
+          },
+          "myVote": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/VoteValue"
+              }
+            ]
+          },
+          "canIVote": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VoteValue": {
+        "enum": [
+          "Confirm",
+          "Doubt",
+          null
+        ]
+      },
+      "Weekday": {
+        "enum": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ]
       }
     }
   },
@@ -2376,19 +4526,37 @@
       "name": "Profile"
     },
     {
-      "name": "Activity"
+      "name": "Goals"
+    },
+    {
+      "name": "Proofs"
+    },
+    {
+      "name": "Moderation"
     },
     {
       "name": "Accounts"
     },
     {
-      "name": "Goals"
+      "name": "Images"
     },
     {
-      "name": "Tasks"
+      "name": "Challenges"
+    },
+    {
+      "name": "Activity"
     },
     {
       "name": "Friends"
+    },
+    {
+      "name": "Blocks"
+    },
+    {
+      "name": "Invites"
+    },
+    {
+      "name": "Notifications"
     },
     {
       "name": "Chats"

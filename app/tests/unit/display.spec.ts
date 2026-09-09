@@ -5,14 +5,18 @@ import {
   formatAmount,
   formatChatTime,
   formatClock,
-  formatMeasure,
+  formatDay,
   formatRelativeTime,
   goalIconName,
   goalStatusPresentation,
-  goalSubtitle,
+  scheduleExplanation,
+  scheduleLabel,
+  windowLabel,
+  windowOutcome,
+  windowPercent,
 } from '~/utils/display'
 import { de, en } from '~/i18n/messages'
-import type { Activity } from '~/api/types'
+import type { Activity, GoalSchedule, GoalWindow } from '~/api/types'
 
 /**
  * The presentation helpers.
@@ -138,7 +142,7 @@ describe('formatChatTime', () => {
   })
 })
 
-describe('formatAmount and formatMeasure', () => {
+describe('formatAmount', () => {
   it('writes a decimal the way the language does', () => {
     expect(formatAmount(1.2, ',')).toBe('1,2')
     expect(formatAmount(1.2, '.')).toBe('1.2')
@@ -147,19 +151,118 @@ describe('formatAmount and formatMeasure', () => {
   it('leaves a whole number whole', () => {
     expect(formatAmount(2, ',')).toBe('2')
   })
+})
 
-  it('builds the amount under a measurable task', () => {
-    const task = { measuredValue: 1.2, targetValue: 2, measureUnit: 'L' }
-
-    expect(formatMeasure(task, ',')).toBe('1,2 / 2 L')
+describe('formatDay', () => {
+  it('writes a day the short way, without a leading zero', () => {
+    expect(formatDay('2026-06-05')).toBe('5.6.')
   })
 
-  it('starts at zero when nothing has been measured yet', () => {
-    expect(formatMeasure({ measuredValue: null, targetValue: 2, measureUnit: 'L' }, ',')).toBe('0 / 2 L')
+  it('leaves something that is not a day alone rather than inventing one', () => {
+    expect(formatDay('nonsense')).toBe('nonsense')
+  })
+})
+
+describe('scheduleLabel', () => {
+  function schedule(overrides: Partial<GoalSchedule> = {}): GoalSchedule {
+    return { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null, ...overrides }
+  }
+
+  it('says every day rather than every one day', () => {
+    expect(scheduleLabel(schedule(), de)).toBe('Jeden Tag')
+    expect(scheduleLabel(schedule(), en)).toBe('Every day')
   })
 
-  it('is null for a task that is a plain tick', () => {
-    expect(formatMeasure({ measuredValue: null, targetValue: null, measureUnit: null }, ',')).toBeNull()
+  it('says a week rather than seven days', () => {
+    expect(scheduleLabel(schedule({ everyDays: 7 }), de)).toBe('Jede Woche')
+  })
+
+  it('names an interval that is neither', () => {
+    expect(scheduleLabel(schedule({ everyDays: 3 }), de)).toBe('Alle 3 Tage')
+  })
+
+  it('shortens a run of weekdays into a range', () => {
+    const weekdays = schedule({
+      kind: 'Weekdays',
+      everyDays: null,
+      weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+    })
+
+    expect(scheduleLabel(weekdays, de)).toBe('Mo–Fr')
+  })
+
+  it('lists weekdays that do not run together', () => {
+    const weekdays = schedule({ kind: 'Weekdays', everyDays: null, weekdays: ['Monday', 'Thursday'] })
+
+    expect(scheduleLabel(weekdays, de)).toBe('Mo, Do')
+  })
+
+  it('calls all seven weekdays what they are', () => {
+    const all = schedule({
+      kind: 'Weekdays',
+      everyDays: null,
+      weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    })
+
+    expect(scheduleLabel(all, de)).toBe('Jeden Tag')
+  })
+
+  it('says a quota with its period', () => {
+    const quota = schedule({ kind: 'Times', everyDays: null, times: 3, period: 'Week' })
+
+    expect(scheduleLabel(quota, de)).toBe('3× pro Woche')
+    expect(scheduleLabel(quota, en)).toBe('3× per week')
+  })
+
+  it('explains what the choice actually means', () => {
+    expect(scheduleExplanation(schedule(), de)).toContain('Mitternacht')
+    expect(scheduleExplanation(schedule({ kind: 'Once', everyDays: null }), de)).toContain('Einmal')
+    expect(scheduleExplanation(schedule({ kind: 'Times', everyDays: null, times: 3, period: 'Week' }), de))
+      .toContain('3 Nachweise')
+  })
+})
+
+describe('windowLabel', () => {
+  function window(overrides: Partial<GoalWindow> = {}): GoalWindow {
+    return {
+      id: 'w',
+      startsOn: '2026-06-15',
+      dueOn: '2026-06-21',
+      dueAt: '2026-06-21T21:59:59+00:00',
+      requiredProofs: 3,
+      confirmedProofs: 1,
+      remainingProofs: 2,
+      status: 'Open',
+      ...overrides,
+    }
+  }
+
+  it('says what is left of a quota window', () => {
+    expect(windowLabel(window(), de)).toBe('Noch 2 von 3')
+    expect(windowLabel(window(), en)).toBe('2 of 3 left')
+  })
+
+  it('says a single-day window is due today rather than "noch 1 von 1"', () => {
+    const today = window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1, startsOn: '2026-06-21' })
+
+    expect(windowLabel(today, de)).toBe('Heute fällig')
+  })
+
+  it('names the day a longer one-proof window runs to', () => {
+    const later = window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1 })
+
+    expect(windowLabel(later, de)).toBe('Bis 21.6.')
+  })
+
+  it('derives how full it is rather than being told', () => {
+    expect(windowPercent(window())).toBe(33)
+    expect(windowPercent(window({ confirmedProofs: 3, remainingProofs: 0 }))).toBe(100)
+  })
+
+  it('names an outcome in words as well as an icon', () => {
+    expect(windowOutcome(window({ status: 'Done' }), de).label).toBe('Geschafft')
+    expect(windowOutcome(window({ status: 'Missed' }), de).label).toBe('Verpasst')
+    expect(windowOutcome(window(), de).label).toBe('Offen')
   })
 })
 
@@ -173,6 +276,7 @@ describe('activitySentence', () => {
         handle: '@jonas.w',
         initials: 'JW',
         avatarColor: '#4f46e5',
+        avatarImageId: null,
         isOnline: true,
       },
       kind: 'TaskCompleted',
@@ -201,17 +305,5 @@ describe('activitySentence', () => {
     for (const kind of ['TaskCompleted', 'StreakReached', 'GoalProgress', 'GoalCreated'] as const) {
       expect(activitySentence(activity({ kind, amount: 5 }), de)).not.toBe('')
     }
-  })
-})
-
-describe('goalSubtitle', () => {
-  it('counts steps when there are steps to count', () => {
-    expect(goalSubtitle({ completedSteps: 14, totalSteps: 21, progressPercent: 67 }, de))
-      .toBe('14 von 21 Schritten')
-  })
-
-  it('falls back to the percentage for a one-step goal', () => {
-    expect(goalSubtitle({ completedSteps: 0, totalSteps: 1, progressPercent: 0 }, de))
-      .toContain('0')
   })
 })

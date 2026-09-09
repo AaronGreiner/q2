@@ -29,7 +29,7 @@ withDefaults(defineProps<{
        without a rule the two run together. A main screen carries a large title
        that reads as a heading of the page rather than a bar over it. -->
   <header
-    class="flex shrink-0 items-center gap-2 px-[18px] pt-1.5 pb-2"
+    class="flex shrink-0 items-center gap-2 px-[18px] pt-1.5 pb-3"
     :class="backTo ? 'border-b border-(--ui-border)' : 'items-start justify-between'"
   >
     <NuxtLink
@@ -49,13 +49,20 @@ withDefaults(defineProps<{
     <div class="min-w-0 flex-1">
       <p
         v-if="eyebrow"
-        class="text-[13px] font-medium text-(--ui-text-muted)"
+        class="q2-eyebrow"
       >
         {{ eyebrow }}
       </p>
+      <!--
+        A main screen's title is set the way a masthead is: 27px, 800, tracked
+        in. It is the one piece of type in the app that is allowed to be loud,
+        and it is what makes a screen read as a page rather than as a bar with
+        something under it. A pushed screen keeps a small one, because there the
+        content is the point and the title is only saying where you are.
+      -->
       <h1
-        class="truncate font-extrabold tracking-tight"
-        :class="backTo ? 'text-base' : 'text-[23px]'"
+        class="truncate"
+        :class="backTo ? 'text-[17px] font-extrabold tracking-tight' : 'q2-title'"
         :data-q2-private="privateTitle ? '' : undefined"
       >
         {{ title }}

@@ -15,31 +15,70 @@
 
 @theme static {
   /*
-   * The q2 green. Not an alias of a Tailwind palette: 500 is the design's
-   * #00b368 exactly, and the surrounding steps were built around it rather
-   * than borrowed from a scale that happens to pass nearby.
+   * The accent, and the only hue q2 owns.
+   *
+   * 500 is the design's #cbee4a exactly — a lime held back from the neon it
+   * started as, because a fully saturated #d7ff3e reads as a toy on pure black
+   * and this one still reads as itself. The surrounding steps were built around
+   * it rather than borrowed from a scale that happens to pass nearby, and the
+   * dark end goes olive rather than grey so a disabled or pressed state stays
+   * in the same family.
+   *
+   * Colour appears in exactly three places in this app, and each has one
+   * meaning (see the block comment under :root). Everything else is black,
+   * white, a grey between them, or a photograph.
    */
-  --color-primary-50: #e7f9f0;
-  --color-primary-100: #c6f2dd;
-  --color-primary-200: #91e6c1;
-  --color-primary-300: #55d5a1;
-  --color-primary-400: #1fc283;
-  --color-primary-500: #00b368;
-  --color-primary-600: #00955b;
-  --color-primary-700: #00794a;
-  --color-primary-800: #0a5f3d;
-  --color-primary-900: #0a4e34;
-  --color-primary-950: #032c1e;
+  --color-primary-50: #f7fce9;
+  --color-primary-100: #edf9cd;
+  --color-primary-200: #dcf4a1;
+  --color-primary-300: #cbee4a;
+  --color-primary-400: #b4dc32;
+  --color-primary-500: #cbee4a;
+  --color-primary-600: #7d9c14;
+  --color-primary-700: #5e770a;
+  --color-primary-800: #4a6600;
+  --color-primary-900: #3f5a00;
+  --color-primary-950: #22300a;
 
   /*
    * Public Sans, self-hosted by @nuxt/fonts at build time. The design links it
    * from Google Fonts; that would make every page load tell a third party who
    * is reading it, which docs/privacy.md rules out — and it is the same reason
    * icons are bundled rather than fetched.
+   *
+   * It stays rather than moving to the system stack because it is the cheapest
+   * difference between "an app" and "a website", and because it goes tight and
+   * heavy, which is what the headings below ask of it.
    */
   --font-sans: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/*
+ * The palette, and the rule that keeps it small.
+ *
+ * q2 is dark by default and black rather than charcoal, because photographs are
+ * the material this product is made of: a proof photo on a white card is a
+ * postage stamp, and on black it is a picture. Everything around it therefore
+ * gets out of the way.
+ *
+ * Three colours carry meaning, and nothing else carries any:
+ *
+ *   --ui-primary / --q2-accent-*   an action the person can take *right now*
+ *   --q2-flame-*                   a streak, and only a streak
+ *   --q2-error-action / -danger    something final: delete, block, leave
+ *
+ * The test before reaching for the accent is one question — *is this something
+ * they can do now?* A state is not. A switch that reports how something stands,
+ * a history grid, a completed badge: no accent. This rule was worth 67 places
+ * in 29 files in the design it comes from, and losing it again is the most
+ * likely way to ruin this palette.
+ *
+ * `:root` is the light theme and `.dark` overrides it — the order Nuxt UI's
+ * colour mode expects — but *dark is what q2 opens in*
+ * (ProfileDefaults.Theme on the server, and the manifest's colours below).
+ * Light is kept working rather than kept equal: it is what somebody reads in
+ * sunlight, and what somebody with astigmatism reads at all.
+ */
 :root {
   --ui-radius: 0.75rem;
 
@@ -81,8 +120,49 @@
   --ui-text: #0a0a0a;
   --ui-text-highlighted: #000000;
 
-  /* 5.25:1 on --ui-bg and 5.48:1 on cards. */
-  --ui-primary: #00794a;
+  /*
+   * The accent, dark enough to be *written with* on a light background:
+   * 6.30:1 on --ui-bg, 6.58:1 on a card, and 6.58:1 for white text on a solid
+   * fill of it.
+   *
+   * This is the light theme's whole answer to the trap the dark theme has in
+   * the other direction — a bright lime with white on it is 1.3:1, which is how
+   * a primary button stays invisible for months. Whichever theme is showing,
+   * text on an accent fill comes from --q2-accent-contrast and never from
+   * `text-white`.
+   */
+  --ui-primary: #4a6600;
+
+  --q2-surface: #ffffff;
+  --q2-track: #ededed;
+  --q2-accent-solid: #4a6600;
+  --q2-accent-contrast: #ffffff;
+  --q2-accent-soft: #f2f8de;
+  --q2-accent-soft-text: #3f5a00; /* 7.20:1 on --q2-accent-soft */
+
+  /*
+   * The streak, and nothing but the streak.
+   *
+   * `from`/`to` are the flame itself and are the same two values in both
+   * themes — the hero they fill is its own lit surface, not a tint of the page,
+   * so it does not follow the theme. `--q2-flame-text` is the separate value
+   * for a flame *word* or icon sitting on the page, which does: 5.44:1 here.
+   */
+  --q2-flame-from: #ffcc33;
+  --q2-flame-to: #ff4d2d;
+  --q2-flame-text: #a44f00;
+  --q2-flame-soft: #fff4e0;
+
+  --q2-error-action: #991b1b;
+  --q2-warning-action: #854d0e;
+  --q2-online: #15803d;
+
+  /*
+   * A card lifts off a light page with a shadow. On black there is nothing to
+   * cast one onto, so the dark theme replaces this with a hairline of light
+   * along the top edge instead — see .dark below.
+   */
+  --q2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 20px -10px rgba(16, 24, 40, 0.13);
 
   /*
    * Corner radii, written out rather than reached for through `rounded-xl` and
@@ -104,51 +184,69 @@
   --q2-radius-md: 0.8125rem; /* 13px — a 44px icon tile, a row inside a card */
   --q2-radius-lg: 1.125rem; /* 18px — a card, a banner, a message: the house radius */
   --q2-radius-xl: 1.375rem; /* 22px — the streak hero, the one loud card */
-
-  --q2-surface: #ffffff;
-  --q2-track: #ededed;
-  --q2-accent-solid: #00b368;
-  --q2-accent-soft: #e7f9f0;
-  --q2-accent-soft-text: #00794a;
-  /* 5.44:1 on --ui-bg; used for small streak and trophy copy. */
-  --q2-amber: #a44f00;
-  --q2-amber-soft: #fff7e6;
-  --q2-error-action: #991b1b;
-  --q2-warning-action: #854d0e;
-  --q2-online: #15803d;
-  --q2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 20px -10px rgba(16, 24, 40, 0.13);
 }
 
 .dark {
-  /* The dark half of app/utils/themeColors.ts; see the note on :root above. */
-  --ui-bg: #0a0a0a;
-  --ui-bg-muted: #131313;
-  --ui-bg-elevated: #161616;
-  --ui-bg-accented: #262626;
+  /*
+   * Black, not charcoal. The dark half of app/utils/themeColors.ts; see the
+   * note on :root above.
+   *
+   * The greys above it are a ladder rather than a pair, because on black an
+   * eight-point step is clearly visible and a card, a sheet and a pressed row
+   * all have to be told apart without a border on each.
+   */
+  --ui-bg: #000000;
+  --ui-bg-muted: #0a0a0a;
+  --ui-bg-elevated: #141414;
+  --ui-bg-accented: #1f1f1f;
 
-  --ui-border: #2a2a2a;
-  --ui-border-muted: #202020;
-  --ui-border-accented: #333333;
+  --ui-border: #242424;
+  --ui-border-muted: #191919;
+  --ui-border-accented: #383838;
 
-  --ui-text-dimmed: #858585;
-  --ui-text-muted: #a1a1a1;
-  --ui-text-toned: #c8c8c8;
-  --ui-text: #fafafa;
+  /*
+   * Every step still passes AA on the page *and* on a card, which is the
+   * measurement that matters — the dimmest one is what a caption is set in, and
+   * the design this comes from had it at 34% white until a phone in sunlight
+   * proved it unreadable.
+   *
+   *   dimmed  5.69:1 on --ui-bg, 5.74:1 on --q2-surface
+   *   muted  10.59:1 / 9.73:1
+   *   toned  15.17:1
+   */
+  --ui-text-dimmed: #8c8c8c;
+  --ui-text-muted: #b8b8b8;
+  --ui-text-toned: #dbdbdb;
+  --ui-text: #ffffff;
   --ui-text-highlighted: #ffffff;
 
-  --ui-primary: #34e3a0;
+  /* 15.87:1 on --ui-bg and 14.59:1 on --q2-surface; black on it is the same. */
+  --ui-primary: #cbee4a;
 
-  --q2-surface: #161616;
-  --q2-track: #262626;
-  --q2-accent-solid: #00c16a;
-  --q2-accent-soft: rgba(0, 193, 106, 0.17);
-  --q2-accent-soft-text: #5ce6ac;
-  --q2-amber: #fbbf24;
-  --q2-amber-soft: rgba(217, 119, 6, 0.17);
-  --q2-error-action: #fecaca;
-  --q2-warning-action: #fef08a;
-  --q2-online: #22c55e;
-  --q2-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 24px -12px rgba(0, 0, 0, 0.7);
+  --q2-surface: #0e0e0e;
+  --q2-track: #242424;
+  --q2-accent-solid: #cbee4a;
+  --q2-accent-contrast: #000000;
+  --q2-accent-soft: #2c3218;
+  --q2-accent-soft-text: #cbee4a; /* 10.07:1 on --q2-accent-soft */
+
+  --q2-flame-from: #ffcc33;
+  --q2-flame-to: #ff4d2d;
+  --q2-flame-text: #ff8a3d; /* 8.23:1 on --q2-surface */
+  --q2-flame-soft: #241505;
+
+  --q2-error-action: #ff9d9d;
+  --q2-warning-action: #ffd97a;
+  --q2-online: #cbee4a;
+
+  /*
+   * No shadow: on #000 a drop shadow is invisible, and faking one by darkening
+   * the page under a card is not available when the page is already black.
+   * What separates a card here is a single lit pixel along its top edge — the
+   * way light falls on a raised surface — which is also what stops a column of
+   * cards from reading as one undifferentiated field.
+   */
+  --q2-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /*
@@ -290,6 +388,25 @@ select,
 }
 
 /*
+ * Text that has to be selectable, although nobody typed it.
+ *
+ * Selection is off everywhere by design
+ * (docs/adr/0013-app-like-input.md), and the `input, textarea` rule above puts
+ * it back for the fields people type into. This is the other case that rule
+ * predicts and does not cover: a value the app produced which somebody may
+ * still need to copy by hand — the invite link, when the browser has refused
+ * the clipboard or there is no share sheet to hand it to.
+ *
+ * Deliberately narrow. It goes on the one element holding that value, never on
+ * a container: selection bleeding across a card is how a long-press turns into
+ * a highlighted screen instead of a tap.
+ */
+@utility q2-selectable {
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/*
  * A card. Repeated on nearly every screen and identical every time, so it is a
  * component class rather than eight utilities copied into forty templates.
  */
@@ -298,6 +415,35 @@ select,
   border: 1px solid var(--ui-border);
   border-radius: var(--q2-radius-lg);
   box-shadow: var(--q2-card-shadow);
+}
+
+/*
+ * The two type sizes that carry the app's voice, as classes rather than as a
+ * pair of utilities copied into seventeen screens.
+ *
+ * Editorial rather than friendly: a screen title is set heavy and tight, the
+ * way a masthead is, because the alternative — a light, wide, roomy heading —
+ * is the register of a wellness app, and this one tells you your friends will
+ * find out when you miss. The negative tracking is what stops 27px/800 from
+ * looking merely big.
+ */
+@utility q2-title {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.026em;
+  line-height: 1.1;
+}
+
+/*
+ * The small label over a list. Deliberately quiet and never accented: it says
+ * what the next block *is*, which is a state, not something to do.
+ */
+@utility q2-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-dimmed);
 }
 
 /*

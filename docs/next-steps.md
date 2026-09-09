@@ -51,24 +51,26 @@ contrast defects it exposed were corrected in the shared design tokens. The
 for the installed-app behaviour, with its WCAG cost recorded in
 [adr/0013-app-like-input.md](adr/0013-app-like-input.md).
 
-### 4. Give a person a time zone
+### 4. Let a person choose their time zone
 
-**Status:** instants are stored and reasoned about in UTC, and the browser
-shifts a displayed clock into its own zone after hydration
-(`useTimeZoneOffset`). Nothing is remembered per person, so a phone that
-travels shows different times for the same message, and the server has no way
-to render the right one on the first paint.
+**Status:** half done. `Person.TimeZoneId` exists and every deadline is counted
+in it — a window starts at local midnight and ends at local midnight, in the
+*owner's* zone, through `LocalCalendar`
+([adr/0016](adr/0016-windows-instead-of-steps.md)). That was not optional once a
+deadline could decide whether somebody keeps a streak.
 
-That is fine while there are no accounts — there is nowhere to keep a zone. It
-stops being fine the moment reminders are actually delivered: "07:00" has to
-mean seven in the morning where the person is.
+What is still missing is the other half: **nothing sets it to anything but the
+configured default** (`Q2:TimeZone`, `Europe/Berlin`). There is no screen for it
+and no detection from the browser, so a person who travels or who lives
+somewhere else keeps German days.
 
-There are accounts now, so there is somewhere to keep it: a zone belongs on the
-account, next to the address. Nothing else blocks this.
+Message timestamps and the reminder clock are still shifted client-side by
+`useTimeZoneOffset` after hydration, so the first server-rendered paint of a
+clock can still be a moment behind.
 
-**Done when:** a reminder time and a message timestamp mean the same thing on
-two devices in different zones, and the first server-rendered paint is already
-correct.
+**Done when:** a person can see and change the zone their days are counted in, a
+new account gets a sensible guess from the browser rather than the deployment
+default, and the first server-rendered paint of a time is already correct.
 
 ### 5. Add a smoke check on the server-rendered HTML
 
@@ -114,28 +116,43 @@ starts.
 **Done when:** somebody who has forgotten their password can get back in without
 a developer touching the database, and the flow is covered end to end.
 
-### 8. Editing a profile, and deleting an account
+### 8. Deleting an account
 
-The name, the handle and the avatar colour are set at registration and cannot be
-changed. Deleting an account is not possible at all — which is a gap with a
-legal deadline attached to it the day there are real users
+Editing a profile is done: `PUT /api/profile` changes the display name (and the
+initials with it), and a profile picture can be uploaded, replaced and deleted
+([adr/0017-image-storage.md](adr/0017-image-storage.md)). The handle stays fixed
+on purpose — it is what somebody's friends searched for and wrote down.
+
+**Deleting an account is still not possible at all**, and photographs have moved
+that from a gap to a deadline: it is Art. 17 over a face
 ([privacy.md](privacy.md)).
 
-Erasure is the harder half: a person's goals and check-ins go with them, but
-their messages are part of somebody else's conversation. Decide what a deleted
-person looks like in a thread before writing the delete.
+Erasure is the harder half in two ways now. A person's goals and check-ins go
+with them, but their messages are part of somebody else's conversation — decide
+what a deleted person looks like in a thread before writing the delete. And
+their images are files outside the database and outside any transaction, so the
+delete has to reach the store as well as the rows, and has to be able to finish
+after a half-completed attempt.
 
-**Done when:** a person can change their display name, and can delete their
-account with a documented, tested answer for everything that pointed at them.
+**Done when:** a person can delete their account with a documented, tested
+answer for everything that pointed at them, files included.
 
-### 9. Updating and deleting goals
+### 9. Editing a goal
 
-Progress cannot currently be changed after creation, which makes the product
-close to useless: the whole point is tracking progress over time.
+**Status: half done.** Stopping and deleting exist — a goal can be set aside,
+carried through, given up, and deleted for good from the archive
+([adr/0020](adr/0020-pause-and-archive.md)). What is missing is changing one
+that is still running: its title, its description, its schedule, who is invited.
 
-- `PATCH /api/goals/{id}` for progress and status, `DELETE` for removal.
-- `Goal.UpdateProgress` and `Goal.Archive` already exist and are tested — this
-  is mostly endpoints, DTOs and UI.
+- `PATCH /api/goals/{id}` for those four, and nothing else. Progress is not on
+  that list and never will be again: a window is closed by a photograph other
+  people believe, not by an edit ([adr/0018](adr/0018-proof-and-vote.md)).
+- **A changed schedule is the hard part.** Windows are already open against the
+  old one, and a streak counted over them has to survive the change or it is a
+  way of quietly resetting a record. The honest answer is probably that the
+  current window keeps its own deadline and the new schedule takes effect from
+  the next one — which is what `GoalMaintenance` would do anyway if it were
+  simply left alone.
 - `Goal.OwnerPersonId` and `Goal.IsVisibleTo` already say who may read one; who
   may *change* one is the question this item has to answer. "The owner" is the
   obvious answer and is probably wrong for a shared goal.

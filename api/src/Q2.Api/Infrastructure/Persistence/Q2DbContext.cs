@@ -3,9 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Activity;
+using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
+using Q2.Api.Features.Moderation;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
 
 namespace Q2.Api.Infrastructure.Persistence;
@@ -35,13 +40,33 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
 
     public DbSet<Friendship> Friendships => Set<Friendship>();
 
+    public DbSet<Block> Blocks => Set<Block>();
+
+    public DbSet<Report> Reports => Set<Report>();
+
     public DbSet<Goal> Goals => Set<Goal>();
 
     public DbSet<GoalParticipant> GoalParticipants => Set<GoalParticipant>();
 
-    public DbSet<GoalContribution> GoalContributions => Set<GoalContribution>();
+    public DbSet<GoalInstance> GoalInstances => Set<GoalInstance>();
 
-    public DbSet<GoalTask> GoalTasks => Set<GoalTask>();
+    public DbSet<GoalPause> GoalPauses => Set<GoalPause>();
+
+    public DbSet<PauseVeto> PauseVetoes => Set<PauseVeto>();
+
+    public DbSet<StoredImage> Images => Set<StoredImage>();
+
+    public DbSet<ProofPhoto> ProofPhotos => Set<ProofPhoto>();
+
+    public DbSet<ProofVote> ProofVotes => Set<ProofVote>();
+
+    public DbSet<ProofReaction> ProofReactions => Set<ProofReaction>();
+
+    public DbSet<Challenge> Challenges => Set<Challenge>();
+
+    public DbSet<ChallengeEntry> ChallengeEntries => Set<ChallengeEntry>();
+
+    public DbSet<ChallengeReaction> ChallengeReactions => Set<ChallengeReaction>();
 
     public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
 
@@ -56,6 +81,8 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
     public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
 
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

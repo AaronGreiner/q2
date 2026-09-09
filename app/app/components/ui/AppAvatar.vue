@@ -1,18 +1,27 @@
 <script setup lang="ts">
+import { imageUrl } from '~/api/images'
+
 /**
- * Somebody's avatar: their initials on their own colour.
+ * Somebody's avatar: their photograph, or their initials on their own colour.
  *
- * There are no photographs in q2 and none are planned — an initial on a colour
- * identifies a friend well enough at 40 pixels, and it means no image upload,
- * no storage and no face to lose control of (docs/privacy.md).
+ * The initials are not a placeholder that goes away. They are what is drawn
+ * while the picture loads, when somebody has never uploaded one, when they
+ * delete it, and when the request for it fails — so there is always something
+ * to see, and a screen of empty grey circles is not a state this app has. The
+ * colours are the one place identity is allowed to bring hue onto a black
+ * screen, because telling two people apart is meaning rather than decoration.
  *
- * A group's "initials" are a single emoji. Those need more room than two
- * letters, and they carry their own colour, so they are drawn on the accent
- * tint instead of the person colour.
+ * A group has an icon instead. It is drawn on a neutral raised tile rather than
+ * a person colour: a group is not somebody, and giving it one would make the
+ * chat list read as though it were.
  */
 const props = withDefaults(defineProps<{
   initials: string
   color: string
+  /** Their photograph, when they have one. */
+  imageId?: string | null
+  /** A group's avatar, as a bare Lucide name. Overrides the initials. */
+  icon?: string | null
   /** Diameter in pixels. */
   size?: number
   /** Shows the presence dot when true.  */
@@ -22,20 +31,39 @@ const props = withDefaults(defineProps<{
   /** Set only when no adjacent text already names this person. */
   label?: string
 }>(), {
+  imageId: null,
+  icon: null,
   size: 40,
   online: false,
   stacked: false,
   label: undefined,
 })
 
-const isEmoji = computed(() => /\p{Extended_Pictographic}/u.test(props.initials))
+const { public: config } = useRuntimeConfig()
+
+/*
+ * A picture that failed to load is not tried again for as long as this avatar
+ * is on screen. Without it, the `<img>` retries on every re-render and each
+ * failure fires `error` again — a signed-out session would turn one broken
+ * avatar into a request loop.
+ */
+const failed = ref(false)
+
+watch(() => props.imageId, () => {
+  failed.value = false
+})
+
+const source = computed(() =>
+  !props.icon && props.imageId && !failed.value
+    ? imageUrl(config.apiBaseUrl, props.imageId)
+    : null)
 
 const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
-  fontSize: `${Math.round(props.size * (isEmoji.value ? 0.52 : 0.38))}px`,
-  background: isEmoji.value ? 'var(--q2-accent-soft)' : props.color,
-  color: isEmoji.value ? 'var(--q2-accent-soft-text)' : '#ffffff',
+  fontSize: `${Math.round(props.size * 0.38)}px`,
+  background: props.icon ? 'var(--ui-bg-elevated)' : props.color,
+  color: props.icon ? 'var(--ui-text)' : '#ffffff',
 }))
 </script>
 
@@ -46,13 +74,44 @@ const style = computed(() => ({
     data-q2-block
   >
     <span
-      class="flex items-center justify-center rounded-full font-extrabold leading-none select-none"
+      class="relative flex items-center justify-center overflow-hidden rounded-full font-extrabold leading-none select-none"
       :style="style"
       :aria-hidden="label ? undefined : 'true'"
       :aria-label="label"
       :role="label ? 'img' : undefined"
       data-testid="avatar"
-    >{{ initials }}</span>
+    >
+      <!--
+        `use-credentials`, because the session is a cookie and an `<img>` on
+        another origin sends none by default — without it every photograph is a
+        401 and every avatar silently falls back to initials.
+
+        The initials stay underneath rather than beside: the image covers them
+        once it has loaded, so a slow connection shows a person rather than a
+        hole. `alt` is empty because the picture says nothing the row does not
+        already say in words, and `aria-label` on the parent covers the one
+        place it stands alone.
+      -->
+      <img
+        v-if="source"
+        :src="source"
+        alt=""
+        crossorigin="use-credentials"
+        decoding="async"
+        loading="lazy"
+        class="absolute inset-0 size-full object-cover"
+        data-testid="avatar-image"
+        @error="failed = true"
+      >
+
+      <UIcon
+        v-if="icon"
+        :name="groupIconName(icon)"
+        :style="{ width: `${Math.round(size * 0.46)}px`, height: `${Math.round(size * 0.46)}px` }"
+        aria-hidden="true"
+      />
+      <template v-else>{{ initials }}</template>
+    </span>
 
     <!--
       Presence is decorative here: every place it appears, the row also says

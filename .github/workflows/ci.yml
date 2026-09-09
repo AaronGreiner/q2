@@ -50,6 +50,17 @@ jobs:
         with:
           bun-version: '1.3.9'
 
+      # Node, although every script here runs through Bun.
+      #
+      # Three of the tools this workflow drives are `#!/usr/bin/env node`
+      # scripts, and without Node on PATH Bun stands in for it — which does not
+      # fail, it under-delivers: vue-tsc stops reporting real type errors, V8
+      # coverage collects nothing and reports 0 %, and Playwright's workers exit
+      # cleanly in the middle of a test. All three were found exactly that way.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
@@ -137,6 +148,17 @@ jobs:
         with:
           bun-version: '1.3.9'
 
+      # Node, although every script here runs through Bun.
+      #
+      # Three of the tools this workflow drives are `#!/usr/bin/env node`
+      # scripts, and without Node on PATH Bun stands in for it — which does not
+      # fail, it under-delivers: vue-tsc stops reporting real type errors, V8
+      # coverage collects nothing and reports 0 %, and Playwright's workers exit
+      # cleanly in the middle of a test. All three were found exactly that way.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Install
         run: bun install --frozen-lockfile
 
@@ -168,6 +190,17 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.3.9'
+
+      # Node, although every script here runs through Bun.
+      #
+      # Three of the tools this workflow drives are `#!/usr/bin/env node`
+      # scripts, and without Node on PATH Bun stands in for it — which does not
+      # fail, it under-delivers: vue-tsc stops reporting real type errors, V8
+      # coverage collects nothing and reports 0 %, and Playwright's workers exit
+      # cleanly in the middle of a test. All three were found exactly that way.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - uses: actions/setup-dotnet@v5
         with:

@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure;
 using Q2.Api.Infrastructure.Observability.Testing;
 using Q2.Api.Infrastructure.Persistence;
@@ -55,6 +57,19 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private SqliteConnection? _keepAlive;
 
     public string ConnectionString => $"Data Source={_databaseName};Mode=Memory;Cache=Shared";
+
+    /// <summary>
+    /// Where uploaded images land during this fixture's lifetime.
+    /// </summary>
+    /// <remarks>
+    /// A private temporary directory, for the same reason the database is
+    /// private: the store writes real files, and its default location is beside
+    /// the developer's own <c>api/.data</c> database. A test run must not add
+    /// anything to that, and two test classes running in parallel must not be
+    /// able to see each other's uploads.
+    /// </remarks>
+    public string ImageRootPath { get; } =
+        Path.Combine(Path.GetTempPath(), $"q2-automated-test-images-{Guid.NewGuid():N}");
 
     /// <summary>
     /// The recorder itself. Use <see cref="RecordedEventsAsync"/> to read
@@ -132,6 +147,9 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
     }
 
+    /// <summary>Everything this host would have pushed, and the dial that makes it fail.</summary>
+    public RecordingPushSender PushSender => Services.GetRequiredService<RecordingPushSender>();
+
     /// <summary>The hub under test, for the tests that emit a metric themselves.</summary>
     public IHub Hub => Services.GetRequiredService<IHub>();
 
@@ -174,6 +192,23 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         SentryEvents.Clear();
 
         ((SequentialTestIdGenerator)Services.GetRequiredService<IIdGenerator>()).Reset();
+
+        // Put back by the reset rather than by whoever moved it: a test that
+        // fails halfway through must not leave the clock at half past eight for
+        // everything that runs after it.
+        ((FixedTimeProvider)Services.GetRequiredService<TimeProvider>()).Reset();
+
+        // Same reasoning as the clock: a test that changed how the sender
+        // behaves must not leave it that way for whatever runs next.
+        PushSender.Reset();
+
+        // The seed inserts no images, so an empty directory is the matching
+        // starting point — otherwise the second test in a class would begin
+        // with the first one's uploads still on disk.
+        if (Directory.Exists(ImageRootPath))
+        {
+            Directory.Delete(ImageRootPath, recursive: true);
+        }
     }
 
     /// <summary>
@@ -205,10 +240,25 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // whatever the test assembly version happens to be.
         builder.UseSetting("Sentry:Release", "q2@integration-tests");
 
+        builder.UseSetting("Q2:Images:RootPath", ImageRootPath);
+
         builder.ConfigureServices(services =>
         {
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(Now));
             services.AddSingleton<IIdGenerator, SequentialTestIdGenerator>();
+
+            /*
+             * Notifications are recorded rather than sent.
+             *
+             * The encryption is checked against RFC 8291's own worked example
+             * in the unit tests; what the pipeline has to prove is who gets
+             * told, and that needs no network. Registered over the typed
+             * HttpClient the application adds, which is what the descriptor
+             * removal below is for.
+             */
+            services.RemoveAll<IPushSender>();
+            services.AddSingleton<RecordingPushSender>();
+            services.AddSingleton<IPushSender>(provider => provider.GetRequiredService<RecordingPushSender>());
         });
     }
 
@@ -222,6 +272,11 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             await _keepAlive.DisposeAsync();
             _keepAlive = null;
+        }
+
+        if (Directory.Exists(ImageRootPath))
+        {
+            Directory.Delete(ImageRootPath, recursive: true);
         }
 
         await base.DisposeAsync();

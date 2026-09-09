@@ -14,7 +14,23 @@
  */
 const publicRoutes = new Set(['/login', '/register'])
 
+/**
+ * An invite link, which by definition is followed by somebody with no session.
+ *
+ * A prefix rather than a member of the set above, because the code is part of
+ * the path. The page behind it holds the code and redirects; it renders nothing
+ * and reads nothing.
+ */
+const publicPrefixes = ['/join/']
+
 export default defineNuxtRouteMiddleware(async (to) => {
+  if (publicPrefixes.some(prefix => to.path.startsWith(prefix))) {
+    // Resolved first, because the page behind an invite link decides where to
+    // send somebody by whether there is a session.
+    await useSession().resolve()
+    return
+  }
+
   // The diagnostics page deliberately exists outside the app — it is how the
   // Sentry wiring is checked, and it must work when nothing else does.
   if (publicRoutes.has(to.path) || to.path === '/diagnostics') {

@@ -26,7 +26,7 @@ const t = useMessages()
       :size="92"
       :label="t.home.todaySummary(today.done, today.total)"
     >
-      <span class="text-[22px] leading-none font-extrabold text-(--ui-primary)">{{ today.percent }}%</span>
+      <span class="text-[22px] leading-none font-extrabold">{{ today.percent }}%</span>
       <span class="text-[10px] font-semibold text-(--ui-text-muted)">{{ t.home.todayShort }}</span>
     </AppProgressRing>
 
@@ -43,7 +43,7 @@ const t = useMessages()
       <p class="mt-0.5 text-[13px] text-(--ui-text-muted)">
         {{ t.home.todaySummary(today.done, today.total) }}
       </p>
-      <p class="mt-2 flex items-center gap-1.5 text-xs font-bold text-(--q2-amber)">
+      <p class="mt-2 flex items-center gap-1.5 text-xs font-bold text-(--q2-flame-text)">
         <UIcon
           name="i-lucide-flame"
           class="size-4"

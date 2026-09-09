@@ -16,13 +16,13 @@ const t = useMessages()
 
 <template>
   <section
-    class="mb-2.5 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-accent-soft) px-3.5 py-3"
+    class="mb-2.5 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-3.5 py-3"
     aria-labelledby="pinned-goal-heading"
     data-testid="chat-goal-banner"
   >
     <h2
       id="pinned-goal-heading"
-      class="flex items-center gap-2 text-[11px] font-extrabold tracking-wide text-(--q2-accent-soft-text) uppercase"
+      class="q2-eyebrow flex items-center gap-2"
     >
       <UIcon
         name="i-lucide-target"
@@ -41,23 +41,47 @@ const t = useMessages()
         {{ goal.title }}
       </NuxtLink>
       <span
-        class="shrink-0 text-sm font-extrabold text-(--ui-primary)"
+        v-if="goal.current"
+        class="shrink-0 text-sm font-extrabold"
         data-q2-private
-      >{{ goal.progressPercent }}%</span>
+      >{{ windowLabel(goal.current, t) }}</span>
     </div>
 
+    <!-- Why there is no window, when there is none. Only the day: the reason
+         and the objection are on the goal's own screen, which the title above
+         links to — a chat is not where somebody should be asked to judge a
+         friend's illness. -->
+    <p
+      v-if="goal.pausedUntil"
+      class="mt-1 flex items-center gap-1.5 text-[12px] font-bold text-(--ui-text-muted)"
+      data-testid="chat-goal-paused"
+    >
+      <UIcon
+        name="i-lucide-pause"
+        class="size-3.5"
+        aria-hidden="true"
+      />
+      {{ t.pause.bannerTitle }} · {{ t.pause.until(formatDay(goal.pausedUntil)) }}
+    </p>
+
+    <!-- Only when the window wants more than one: a bar that is either empty
+         or full says nothing the line above it has not said. -->
     <AppProgressBar
+      v-if="goal.current && goal.current.requiredProofs > 1"
       class="mt-2"
-      :percent="goal.progressPercent"
+      :percent="windowPercent(goal.current)"
       :height="7"
-      :label="t.goals.progressLabel(goal.progressPercent)"
+      :label="windowLabel(goal.current, t)"
     />
 
+    <!-- An outline, not a filled accent: the one filled control on this screen
+         is the send button, and two of them would make neither loud. -->
     <UButton
       class="mt-3 min-h-11 w-full justify-center font-extrabold"
       icon="i-lucide-megaphone"
       size="lg"
       color="primary"
+      variant="outline"
       data-testid="chat-cheer"
       @click="emit('cheer')"
     >

@@ -21,7 +21,7 @@ public enum BadgeKey
     /// <summary>Completed a long-distance running goal.</summary>
     Marathon,
 
-    /// <summary>Topped the weekly leaderboard.</summary>
+    /// <summary>Kept every window of a week.</summary>
     WeeklyWinner,
 }
 

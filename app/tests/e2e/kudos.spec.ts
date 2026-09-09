@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { deliverPhoto } from './support/proofPhoto'
 
 /**
  * The flows q2 exists for, through a real browser at phone width.
@@ -22,8 +23,7 @@ const seeded = {
   completedGoal: 'E2E completed goal',
   zeroProgressGoal: 'E2E goal without any progress',
   overdueGoal: 'E2E overdue goal',
-  openTask: 'E2E open task for today',
-  doneTask: 'E2E task already done',
+  quotaGoal: 'E2E goal three times a week',
   groupChat: 'E2E group chat',
   sharedGoalId: 'e2e00000-0000-4000-8000-000000000001',
 }
@@ -35,27 +35,36 @@ test.describe('the start screen', () => {
     await expect(page.getByTestId('streak-hero')).toContainText('5')
     await expect(page.getByTestId('today-progress')).toContainText('von')
 
-    await expect(page.getByText(seeded.openTask)).toBeVisible()
+    await expect(page.getByText(seeded.sharedGoal).first()).toBeVisible()
     await expect(page.getByTestId('activity-row').first()).toContainText(seeded.friend)
-    await expect(page.getByTestId('leaderboard')).toContainText(seeded.friend)
   })
 
-  test('ticking a task off moves the day and the feed together', async ({ page }) => {
+  /**
+   * Delivering into a window is the one write on this screen, and it moves
+   * three things at once: the window closes, the day's ring fills and the
+   * streak grows.
+   *
+   * It is deliberately one-way, so this uses the one goal nothing downstream
+   * asserts on. A test that spent the shared goal's window would leave every
+   * later test looking at a goal with nothing to deliver into — which is
+   * exactly what "a window cannot be un-delivered" means.
+   */
+  test('delivering a proof closes the window and moves the day', async ({ page }) => {
     await page.goto('/')
 
-    const row = page.getByTestId('task-row').filter({ hasText: seeded.openTask })
-    const toggle = row.getByTestId('task-toggle')
+    const row = page.getByTestId('window-row').filter({ hasText: seeded.zeroProgressGoal })
 
-    await expect(toggle).toHaveAttribute('aria-checked', 'false')
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+    // The camera opens from the row, and the file fallback stands in for it —
+    // the same way somebody without a working camera delivers.
+    await row.getByTestId('window-deliver').click()
+    await deliverPhoto(page)
 
-    // The ring is derived from the same tasks, so it has to have moved.
-    await expect(page.getByTestId('today-progress')).toContainText('100%')
+    // This goal has nobody on it, so there is nobody to convince: the
+    // photograph is believed at once and the window closes.
+    await expect(page.getByTestId('window-row').filter({ hasText: seeded.zeroProgressGoal })).toHaveCount(0)
 
-    // Put it back, so the next test starts where this one did.
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    // The ring is derived from the same windows, so it has to have moved.
+    await expect(page.getByTestId('today-progress')).not.toContainText('0%')
   })
 
   test('giving kudos raises the count and can be taken back', async ({ page }) => {
@@ -91,45 +100,78 @@ test.describe('goals', () => {
   test('the two tabs show today and the goals themselves', async ({ page }) => {
     await page.goto('/goals')
 
-    await expect(page.getByTestId('task-list')).toContainText(seeded.openTask)
-    await expect(page.getByTestId('task-list')).toContainText(seeded.doneTask)
+    await expect(page.getByTestId('due-list')).toContainText(seeded.sharedGoal)
+    await expect(page.getByTestId('due-list')).toContainText(seeded.quotaGoal)
+
+    // The one delivered on the start screen is not on it any more.
+    await expect(page.getByTestId('due-list')).not.toContainText(seeded.zeroProgressGoal)
 
     await page.getByTestId('segment-goals').click()
 
     const list = page.getByTestId('goal-list')
     await expect(list).toContainText(seeded.sharedGoal)
-    await expect(list).toContainText(seeded.completedGoal)
     await expect(list).toContainText(seeded.zeroProgressGoal)
     await expect(list).toContainText(seeded.overdueGoal)
+
+    // What has stopped is not here any more. A finished goal has no deadline
+    // and nothing to deliver into, so it lives in the archive
+    // (docs/adr/0020-pause-and-archive.md).
+    await expect(list).not.toContainText(seeded.completedGoal)
+
+    await page.getByTestId('goals-archive-link').click()
+    await expect(page.getByTestId('archive-row')).toContainText([seeded.completedGoal])
   })
 
-  test('an overdue goal says so, and not only through colour', async ({ page }) => {
+  /**
+   * "Dreimal die Woche" is the shape the old rhythm enum could not express at
+   * all, so it gets its own assertion on the card people actually read.
+   */
+  test('a quota goal says how much of its window is left', async ({ page }) => {
     await page.goto('/goals?tab=goals')
 
-    const card = page.getByTestId('goal-card').filter({ hasText: seeded.overdueGoal })
+    const card = page.getByTestId('goal-card').filter({ hasText: seeded.quotaGoal })
 
-    await expect(card.getByTestId('goal-overdue')).toHaveText('Überfällig')
+    await expect(card).toContainText('3× pro Woche')
+    await expect(card.getByTestId('goal-window')).toContainText('Noch 2 von 3')
   })
 
-  test('opening a goal shows its ring, its team and its tasks', async ({ page }) => {
+  test('a goal whose chain has broken shows the miss in its record', async ({ page }) => {
+    await page.goto('/goals?tab=goals')
+
+    await page.getByTestId('goal-card').filter({ hasText: seeded.overdueGoal }).click()
+
+    await expect(page.getByTestId('goal-balance')).toContainText('verpasst')
+    await expect(page.getByTestId('history-grid')).toContainText('Verpasst')
+  })
+
+  test('opening a goal shows its window, its team and its history', async ({ page }) => {
     await page.goto('/goals?tab=goals')
 
     await page.getByTestId('goal-card').filter({ hasText: seeded.sharedGoal }).click()
 
     await expect(page).toHaveURL(`/goals/${seeded.sharedGoalId}`)
     await expect(page.getByRole('heading', { name: seeded.sharedGoal })).toBeVisible()
-    await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '50')
+    await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '0')
     await expect(page.getByTestId('goal-team-member')).toContainText([seeded.friend, 'E2E Lena'])
+    await expect(page.getByTestId('history-grid')).toBeVisible()
   })
 
-  test('logging a day moves the goal forward', async ({ page }) => {
+  /**
+   * A shared goal is the case the whole product turns on: the owner delivers
+   * and somebody else decides. So the window does *not* close here — it waits,
+   * which is what "wird geprüft" on the screen means.
+   */
+  test('delivering a proof on a shared goal hands it to the friends who vote', async ({ page }) => {
     await page.goto(`/goals/${seeded.sharedGoalId}`)
 
-    await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '50')
+    await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '0')
 
-    await page.getByTestId('goal-contribute').click()
+    await page.getByTestId('goal-deliver-proof').click()
+    await deliverPhoto(page)
 
-    await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '60')
+    // Nothing to deliver again while friends are looking at the first one.
+    await expect(page.getByTestId('goal-proof-waiting')).toBeVisible()
+    await expect(page.getByTestId('goal-deliver-proof')).toHaveCount(0)
   })
 
   test('a goal that does not exist gets its own calm state', async ({ page }) => {
@@ -139,22 +181,40 @@ test.describe('goals', () => {
   })
 
   test('a new goal can be created and appears in the list', async ({ page }) => {
-    await page.goto('/goals')
-
-    await page.getByTestId('open-create-goal').click()
+    // The way in is the tab bar's centre button, which is a link to this URL.
+    await page.goto('/goals?create=1')
 
     const title = `E2E created goal ${Date.now()}`
     await page.getByTestId('goal-title-input').fill(title)
-    await page.getByTestId('rhythm-Weekly').click()
+    await page.getByTestId('schedule-kind-Times').click()
+    await page.getByTestId('schedule-times-3').click()
     await page.getByTestId('icon-flame').click()
+
+    // The preview says, in the words the card will use, what is about to be
+    // created.
+    await expect(page.getByTestId('schedule-preview')).toContainText('3× pro Woche')
+
     await page.getByTestId('goal-submit').click()
 
-    await expect(page.getByTestId('goal-list')).toContainText(title)
+    const created = page.getByTestId('goal-card').filter({ hasText: title })
+    await expect(created).toContainText('3× pro Woche')
+    await expect(created.getByTestId('goal-window')).toContainText('Noch 3 von 3')
+  })
+
+  test('a goal can be due on named weekdays, which the old model could not say', async ({ page }) => {
+    await page.goto('/goals?create=1')
+
+    const title = `E2E weekdays goal ${Date.now()}`
+    await page.getByTestId('goal-title-input').fill(title)
+    await page.getByTestId('schedule-kind-Weekdays').click()
+    await page.getByTestId('schedule-weekday-Thursday').click()
+    await page.getByTestId('goal-submit').click()
+
+    await expect(page.getByTestId('goal-list').filter({ hasText: title })).toBeVisible()
   })
 
   test('creating a goal without a title is refused with a field message', async ({ page }) => {
-    await page.goto('/goals')
-    await page.getByTestId('open-create-goal').click()
+    await page.goto('/goals?create=1')
 
     // The button stays out of reach rather than sending something the server
     // would only reject.
@@ -246,7 +306,7 @@ test.describe('chats', () => {
 
     const title = `E2E created group ${Date.now()}`
     await page.getByTestId('group-title-input').fill(title)
-    await page.getByTestId('group-emoji-🌱').click()
+    await page.getByTestId('group-icon-sprout').click()
 
     // Every friend is offered, and the server refuses anybody else.
     await page.getByTestId('group-create-form').getByRole('checkbox').first().check()
@@ -280,7 +340,7 @@ test.describe('chats', () => {
 
 test.describe('friends', () => {
   test('requests, suggestions and friends each have their own section', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     await expect(page.getByTestId('friend-request')).toContainText(seeded.requester)
     await expect(page.getByTestId('friend-suggestion')).toContainText(seeded.suggested)
@@ -288,7 +348,7 @@ test.describe('friends', () => {
   })
 
   test('asking a suggested person moves them into the sent requests', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     const suggestion = page.getByTestId('friend-suggestion').filter({ hasText: seeded.suggested })
     await suggestion.getByTestId('suggestion-request').click()
@@ -304,7 +364,7 @@ test.describe('friends', () => {
   })
 
   test('accepting a request makes them a friend', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     const request = page.getByTestId('friend-request').filter({ hasText: seeded.requester })
     await request.getByTestId('request-accept').click()
@@ -314,7 +374,7 @@ test.describe('friends', () => {
   })
 
   test('searching finds somebody who is not a friend yet, and adds them', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     // The one box searches everybody, which is what makes it possible to add
     // somebody the app has not already suggested.
@@ -328,7 +388,7 @@ test.describe('friends', () => {
   })
 
   test('search matches a handle as well as a name', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     await page.getByTestId('friend-search').fill('e2e.jonas')
 
@@ -336,7 +396,7 @@ test.describe('friends', () => {
   })
 
   test('a term too short to be useful asks for more rather than listing everybody', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     await page.getByTestId('friend-search').fill('E')
 
@@ -344,7 +404,7 @@ test.describe('friends', () => {
   })
 
   test('writing to a friend opens the conversation with them', async ({ page }) => {
-    await page.goto('/friends')
+    await page.goto('/search')
 
     await page
       .getByTestId('friend-row')
@@ -402,9 +462,8 @@ test.describe('the shell', () => {
     await page.goto('/')
 
     for (const [testId, url] of [
-      ['nav-goals', '/goals'],
+      ['nav-search', '/search'],
       ['nav-chats', '/chats'],
-      ['nav-friends', '/friends'],
       ['nav-profile', '/profile'],
       ['nav-home', '/'],
     ] as const) {
@@ -413,16 +472,27 @@ test.describe('the shell', () => {
     }
   })
 
-  test('the current screen is marked for assistive technology', async ({ page }) => {
-    await page.goto('/goals')
+  test('the middle of the bar creates, rather than going somewhere', async ({ page }) => {
+    await page.goto('/')
 
-    await expect(page.getByTestId('nav-goals')).toHaveAttribute('aria-current', 'page')
+    await page.getByTestId('nav-create').click()
+
+    // A URL rather than component state, so the sheet survives a reload and
+    // closes with the back gesture.
+    await expect(page).toHaveURL('/goals?create=1')
+    await expect(page.getByTestId('goal-create-form')).toBeVisible()
+  })
+
+  test('the current screen is marked for assistive technology', async ({ page }) => {
+    await page.goto('/chats')
+
+    await expect(page.getByTestId('nav-chats')).toHaveAttribute('aria-current', 'page')
     await expect(page.getByTestId('nav-home')).not.toHaveAttribute('aria-current', 'page')
   })
 
   test('the environment is on screen, so a screenshot is never ambiguous', async ({ page }) => {
     await page.goto('/settings')
 
-    await expect(page.getByText('Q2 · Kudos — e2e')).toBeVisible()
+    await expect(page.getByText('Q2 · Qdos — e2e')).toBeVisible()
   })
 })

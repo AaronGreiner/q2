@@ -42,13 +42,17 @@ const subtitle = computed(() => {
     <AppAvatar
       :initials="friend.person.initials"
       :color="friend.person.avatarColor"
+      :image-id="friend.person.avatarImageId"
       :size="42"
       :online="friend.person.isOnline"
     />
 
-    <div
-      class="min-w-0 flex-1"
+    <!-- The way to their record with you, which is the point of a friend. -->
+    <NuxtLink
+      :to="`/people/${friend.person.id}`"
+      class="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       data-q2-private
+      data-testid="friend-link"
     >
       <p class="truncate text-sm font-bold">
         {{ friend.person.displayName }}
@@ -56,7 +60,7 @@ const subtitle = computed(() => {
       <p class="mt-0.5 truncate text-[11px] font-semibold text-(--ui-text-muted)">
         {{ subtitle }}
       </p>
-    </div>
+    </NuxtLink>
 
     <button
       type="button"

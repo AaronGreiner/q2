@@ -20,7 +20,7 @@ export default defineConfig({
       reporter: ['text', 'json-summary'],
       reportsDirectory: 'coverage',
       include: [
-        'app/api/{accounts,chats,client,diagnostics,errors,goals,social}.ts',
+        'app/api/{accounts,chats,client,diagnostics,errors,goals,images,social}.ts',
         'app/composables/**/*.ts',
         'app/components/**/*.vue',
         'app/i18n/**/*.ts',
@@ -36,6 +36,20 @@ export default defineConfig({
     },
     projects: [
       {
+        /*
+         * The two flags Nuxt replaces at build time.
+         *
+         * Without them `import.meta.client` is simply undefined here, so every
+         * composable that guards a browser-only path behind it takes the server
+         * branch and the client half can never be reached — which is the half
+         * these tests exist to cover. Replacing them is what Nuxt itself does;
+         * saying so here makes the unit project honest about which build it is
+         * standing in for.
+         */
+        define: {
+          'import.meta.client': 'true',
+          'import.meta.server': 'false',
+        },
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.spec.ts'],

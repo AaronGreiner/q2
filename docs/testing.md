@@ -152,7 +152,7 @@ same viewport remains necessary.
 
 ## What is actually covered
 
-### Backend (453 tests)
+### Backend (726 tests)
 
 - **Domain** — every `Goal` invariant: title required and bounded, description
   bounded, progress 0-100, status transitions, archived goals staying archived,
@@ -172,6 +172,38 @@ same viewport remains necessary.
 - **Persistence** — full round trip, UTC normalisation, ordering by creation
   date, status stored as text, cascade delete, the unique index enforced by the
   database itself.
+- **The composables behind stages 7 to 9** — that a failure never escapes as an
+  exception, that a whole payload is replaced rather than mutated (a shallow ref
+  changed in place moves nothing on screen), that each does one thing at a time,
+  and that a browser which refuses permission is a state rather than a defect.
+- **The message catalogue at every count**, not only at three: a rule that reads
+  "1 Beweise" is a bug that reaches a screen, so every counting function is
+  asked for one, two and none in both languages.
+- **Safety and erasure** — a block ending the friendship and hiding the person
+  from search, profiles, requests and direct chats in both directions, answering
+  404 rather than 403 so it is never announced, and only the person who set it
+  being able to lift it; a report reaching its sink with the reason and the ids
+  but never the note or the reporter, refusing anything the reporter cannot
+  already see, and counting a second identical report as one; and an account
+  deletion demonstrated over every table that pointed at somebody, including the
+  images, which have no foreign key and would otherwise have been left behind.
+- **Notifications** — the encryption checked against RFC 8291's own worked
+  example by decrypting it with the browser half written out from the same
+  specification; quiet hours over both a same-day and a midnight-crossing
+  window; and, through the pipeline, that a warning reaches the friend's device
+  and never the owner's, that either switch stops it, that quiet hours stop it,
+  that a device the push service calls gone is forgotten while one that is
+  merely off is kept, and that an hourly pass does not mean an hourly
+  announcement.
+- **Invite links** — a code made on first use, a link producing an accepted
+  friendship at registration, a stale code being ignored rather than refused,
+  and a replaced code no longer working.
+- **The daily challenge** — one contribution per person and a second replacing
+  the first, the reciprocity rule from both ends (a friend's picture and its
+  bytes are both refused until the viewer has contributed, and covered again
+  after a withdrawal), a room holding friends and nobody else, an archive
+  holding the viewer's own contributions and nobody else's, and a queue that
+  fills a week ahead, writes nothing on a second pass and never back-fills.
 - **Migrations** — empty file to working database, idempotence, sortable names,
   no pending model changes, foreign keys never disabled, atomic rollback on a
   failed conversion, and downgrade/re-apply support.
@@ -183,7 +215,7 @@ same viewport remains necessary.
   so it cannot be turned off again unnoticed — and a broken transport not
   breaking the API.
 
-### Frontend (210 tests)
+### Frontend (415 tests)
 
 - **Presentation logic** — clamping, progress descriptions, day arithmetic at
   the boundaries, date formatting, participant phrasing.
@@ -200,14 +232,29 @@ same viewport remains necessary.
   exclusive, retry), `GoalCreateForm` (emitted payload, trimming, participant
   parsing, server field errors, double-submit prevention, reset).
 
-### E2E (81 tests)
+### E2E (101 tests)
 
-Authentication and registration; seeded goals, tasks and all their states;
-goal creation and contribution; chats and messages; friendships and search;
-profile and settings; expected and unexpected errors; Sentry privacy; PWA
-assets; server-rendered content; and the phone shell. The quality spec also
+Authentication and registration; seeded goals, their windows and all their states;
+goal creation and contribution; the daily challenge from banner to archive and
+back out again; blocking somebody from their profile and putting it back, and
+reporting from the same sheet; chats and messages; friendships and search; profile and
+settings; expected and unexpected errors; Sentry privacy; PWA assets;
+server-rendered content; and the phone shell. The quality spec also
 requires zero reviewed WCAG A/AA findings, checks horizontal overflow on every
 signed-in screen and verifies representative touch targets.
+
+## The tooling needs Node, and says so quietly when it is missing
+
+Every script runs through Bun, but `vue-tsc`, Vitest's V8 coverage provider and
+Playwright are `#!/usr/bin/env node` scripts. Without Node on `PATH` Bun stands
+in, and none of the three fails — each one simply does less: the typecheck stops
+reporting real type errors, coverage reports 0 % for every file, and Playwright's
+workers exit cleanly mid-test, which surfaces as one failure per full run in a
+different test each time.
+
+That state existed here long enough to hide a genuine coverage shortfall and
+three real type errors. If any of those three symptoms appears, check `node
+--version` before anything else.
 
 ## Coverage gate
 

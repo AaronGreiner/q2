@@ -1,5 +1,6 @@
 using System.Net;
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Goals;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -24,7 +25,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         DateTimeOffset? LastMessageAt,
         int UnreadCount);
 
-    private sealed record ReactionDocument(string Emoji, int Count, bool IsMine);
+    private sealed record ReactionDocument(KudosKind Kind, int Count, bool IsMine);
 
     private sealed record MessageDocument(
         Guid Id,
@@ -35,7 +36,17 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         DateTimeOffset SentAt,
         IReadOnlyList<ReactionDocument> Reactions);
 
-    private sealed record PinnedGoalDocument(Guid Id, string Title, int ProgressPercent);
+    private sealed record WindowDocument(
+        Guid Id,
+        DateOnly StartsOn,
+        DateOnly DueOn,
+        DateTimeOffset DueAt,
+        int RequiredProofs,
+        int ConfirmedProofs,
+        int RemainingProofs,
+        GoalInstanceStatus Status);
+
+    private sealed record PinnedGoalDocument(Guid Id, string Title, WindowDocument? Current, int Streak);
 
     private sealed record ThreadDocument(
         Guid Id,
@@ -95,7 +106,12 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.NotNull(thread.PinnedGoal);
         Assert.Equal(AutomatedTestSeed.ActiveGoalId, thread.PinnedGoal.Id);
-        Assert.Equal(40, thread.PinnedGoal.ProgressPercent);
+
+        // The banner says what is left of the open window rather than a
+        // percentage of a counter that no longer exists.
+        Assert.NotNull(thread.PinnedGoal.Current);
+        Assert.Equal(1, thread.PinnedGoal.Current.RemainingProofs);
+        Assert.Equal(2, thread.PinnedGoal.Streak);
     }
 
     [Fact]
@@ -150,19 +166,19 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var added = await (await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{theirs.Id}/reactions",
-            new { emoji = MessageReactions.Fire })).ReadAsync<ThreadDocument>();
+            new { kind = nameof(KudosKind.Fire) })).ReadAsync<ThreadDocument>();
 
         Assert.Contains(
             added.Messages.Single(m => m.Id == theirs.Id).Reactions,
-            reaction => reaction.Emoji == MessageReactions.Fire && reaction.IsMine);
+            reaction => reaction.Kind == KudosKind.Fire && reaction.IsMine);
 
         var removed = await (await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{theirs.Id}/reactions",
-            new { emoji = MessageReactions.Fire })).ReadAsync<ThreadDocument>();
+            new { kind = nameof(KudosKind.Fire) })).ReadAsync<ThreadDocument>();
 
         Assert.DoesNotContain(
             removed.Messages.Single(m => m.Id == theirs.Id).Reactions,
-            reaction => reaction.Emoji == MessageReactions.Fire);
+            reaction => reaction.Kind == KudosKind.Fire);
     }
 
     [Fact]
@@ -172,7 +188,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var response = await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{thread.Messages[0].Id}/reactions",
-            new { emoji = "🍕" });
+            new { kind = "pizza" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -210,7 +226,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     public async Task StartingAChatWithAFriendOpensTheOneThatAlreadyExists()
     {
         // Idempotent on purpose: the message button appears on the friends
-        // screen, on a leaderboard row and on a goal's team list, and all three
+        // screen, on a feed row and on a goal's team list, and all three
         // have to land in the same thread rather than making a new empty one.
         var response = await Client.PostJsonAsync(
             "/api/chats/direct",
@@ -350,7 +366,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
             var conversation = Conversation.CreateGroup(
                 conversationId,
                 "Automated test: inconsistent legacy group",
-                "🔒",
+                "target",
                 AutomatedTestSeed.GoalWithoutTargetDateId,
                 Q2ApiFactory.Now);
             conversation.AddParticipant(Guid.CreateVersion7(), AutomatedTestSeed.CurrentPersonId);
@@ -371,12 +387,12 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task AGroupEmojiCannotExceedTheStoredBoundary()
+    public async Task AGroupIconMustBeOneOfTheAvailableIcons()
     {
         var response = await Client.PostJsonAsync("/api/chats/groups", new
         {
-            title = "Automated test: oversized emoji",
-            emoji = new string('x', Conversation.MaxEmojiLength + 1),
+            title = "Automated test: unknown icon",
+            icon = "not-an-icon",
             memberIds = new[] { AutomatedTestSeed.FriendPersonId },
         });
 

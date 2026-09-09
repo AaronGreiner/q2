@@ -116,13 +116,17 @@ public class ConversationTests
         var conversation = BuildDirect();
         var message = conversation.AddMessage(Guid.CreateVersion7(), _friend, "Stark!", Start);
 
-        Assert.True(message.ToggleReaction(Guid.CreateVersion7(), _me, MessageReactions.Clap));
+        Assert.True(message.ToggleReaction(Guid.CreateVersion7(), _me, KudosKind.Applause));
         Assert.Single(message.Reactions);
 
-        Assert.False(message.ToggleReaction(Guid.CreateVersion7(), _me, MessageReactions.Clap));
+        Assert.False(message.ToggleReaction(Guid.CreateVersion7(), _me, KudosKind.Applause));
         Assert.Empty(message.Reactions);
     }
 
+    /// <summary>
+    /// An enum is not a guarantee: a request body deserialises into whatever
+    /// integer it was given, so a value nobody defined still reaches the model.
+    /// </summary>
     [Fact]
     public void AnUnknownReactionIsRejected()
     {
@@ -130,6 +134,6 @@ public class ConversationTests
         var message = conversation.AddMessage(Guid.CreateVersion7(), _friend, "Stark!", Start);
 
         Assert.Throws<DomainValidationException>(
-            () => message.ToggleReaction(Guid.CreateVersion7(), _me, "🍕"));
+            () => message.ToggleReaction(Guid.CreateVersion7(), _me, (KudosKind)42));
     }
 }
