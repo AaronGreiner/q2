@@ -91,24 +91,29 @@ public static class NotificationRules
         _ => throw Undecided(kind),
     };
 
-    /// <summary>Whether this person's device should ring for this kind, now.</summary>
+    /// <summary>Whether, and how, this kind may interrupt this person now.</summary>
     /// <remarks>
-    /// Everything that can stop a push, as one rule:
+    /// Everything that can stop an interruption, as one rule:
     ///
-    /// 1. **Somebody who is looking is not also buzzed.** An open app already
-    ///    shows it, and a phone vibrating beside the laptop that has just
-    ///    updated is the same thing said twice.
-    /// 2. A conversation they have muted.
-    /// 3. Their switch for this kind.
-    /// 4. Their quiet hours, in their own zone — which drop rather than hold
+    /// 1. A conversation they have muted.
+    /// 2. Their switch for this kind.
+    /// 3. Their quiet hours, in their own zone — which drop rather than hold
     ///    ([0023](../../../../docs/adr/0023-web-push.md)).
+    ///
+    /// Whatever is left reaches them one way and never two. **Somebody who is
+    /// looking gets a banner in the app instead of a buzz**: a phone vibrating
+    /// beside the laptop that has just shown it is the same thing said twice.
+    /// Somebody who is not looking gets the push. A banner is therefore exactly
+    /// the push somebody would have had if they had put the app away — the same
+    /// switch, the same quiet hours, the same mute
+    /// ([0025](../../../../docs/adr/0025-banners-in-the-open-app.md)).
     ///
     /// The bell and the live update are deliberately not on this list. A switch
     /// decides what may *interrupt* somebody, not what they are allowed to find
     /// when they look — the message switch never removed a message from a chat
     /// either.
     /// </remarks>
-    public static bool ShouldPush(
+    public static Interruption InterruptionFor(
         NotificationPreferences preferences,
         NotificationKind kind,
         TimeOnly localTime,
@@ -117,12 +122,34 @@ public static class NotificationRules
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        return !isWatching
-            && !isMuted
-            && preferences.Allows(SwitchFor(kind))
-            && !QuietHours.Covers(preferences.QuietHoursFrom, preferences.QuietHoursTo, localTime);
+        if (isMuted
+            || !preferences.Allows(SwitchFor(kind))
+            || QuietHours.Covers(preferences.QuietHoursFrom, preferences.QuietHoursTo, localTime))
+        {
+            return Interruption.None;
+        }
+
+        return isWatching ? Interruption.Banner : Interruption.Push;
     }
 
     private static ArgumentOutOfRangeException Undecided(NotificationKind kind) =>
         new(nameof(kind), kind, "Every kind of notification needs a decision here.");
+}
+
+/// <summary>The one way a notification may interrupt somebody, if any.</summary>
+/// <remarks>
+/// One value per person, decided once by
+/// <see cref="NotificationRules.InterruptionFor"/> — never a banner and a push
+/// for the same event.
+/// </remarks>
+public enum Interruption
+{
+    /// <summary>Nothing interrupts them. The bell, the badges and an open screen still move.</summary>
+    None,
+
+    /// <summary>A banner at the top of the app they are looking at.</summary>
+    Banner,
+
+    /// <summary>A push to their devices.</summary>
+    Push,
 }

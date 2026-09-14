@@ -21,6 +21,18 @@ useKeyboardViewport()
 // their phone for what they are already looking at. See useLiveConnection.
 useLiveConnection()
 
+/*
+ * Toasts come in at the top: that is where a phone shows what has just
+ * arrived, and most of what one carries here is a notification for somebody
+ * who is looking (useNotificationToast). Below the notch or status bar, the
+ * way both layouts' headers are, rather than behind it.
+ */
+const toaster = {
+  position: 'top-center',
+  expand: false,
+  ui: { viewport: 'top-[calc(0.5rem+env(safe-area-inset-top))]' },
+} as const
+
 useHead({
   // The product name comes from the catalogue like every other word, but only
   // the German one: a document title is read by the operating system's task
@@ -115,7 +127,7 @@ void settings
 </script>
 
 <template>
-  <UApp :toaster="{ position: 'bottom-center', expand: false }">
+  <UApp :toaster="toaster">
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

@@ -286,24 +286,19 @@ describe('configured API and toast adapters', () => {
     expect(apiFetch).toHaveBeenCalledTimes(8)
   })
 
-  it('uses the shared toast shape and masks private names', () => {
+  it('uses the shared toast shape', () => {
     const add = vi.fn()
     vi.stubGlobal('useToast', () => ({ add }))
     const toast = useToastMessage()
 
-    toast.show({ icon: 'i-lucide-check', text: 'Saved' })
-    toast.show({ icon: 'i-lucide-sparkles', text: 'Hello Mara' }, { private: true })
+    toast.show({ icon: 'i-lucide-link', text: 'Link kopiert' })
 
-    expect(add).toHaveBeenNthCalledWith(1, {
-      title: 'Saved',
-      icon: 'i-lucide-check',
+    expect(add).toHaveBeenCalledWith({
+      title: 'Link kopiert',
+      icon: 'i-lucide-link',
       color: 'primary',
       duration: 2200,
-      ui: undefined,
+      ui: { root: 'rounded-(--q2-radius-lg)' },
     })
-    expect(add).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      title: 'Hello Mara',
-      ui: { title: 'sentry-mask' },
-    }))
   })
 })

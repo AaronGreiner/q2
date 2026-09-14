@@ -155,9 +155,9 @@ public sealed class ChatService(
 
         /*
          * Everybody else in it hears about it. Who has muted it, who is looking
-         * right now and who is inside their quiet hours is decided on the way to
-         * a device, not here — to the chat list it is an unread message whatever
-         * they chose (NotificationRules.ShouldPush).
+         * right now and who is inside their quiet hours is decided on the way
+         * out — a banner, a push or nothing — not here: to the chat list it is
+         * an unread message whatever they chose (NotificationRules.InterruptionFor).
          *
          * The group's name comes along so a lock screen can say where; a direct
          * chat is already named by its sender.

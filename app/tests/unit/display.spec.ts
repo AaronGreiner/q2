@@ -9,8 +9,10 @@ import {
   formatRelativeTime,
   goalIconName,
   goalStatusPresentation,
+  isNotificationOnScreen,
   notificationIcon,
   notificationLink,
+  notificationTag,
   notificationText,
   scheduleExplanation,
   scheduleLabel,
@@ -198,6 +200,47 @@ describe('notificationIcon', () => {
   it('tells a confirmed proof from a refused one by shape, not by colour', () => {
     expect(notificationIcon(line({ kind: 'ProofConfirmed' })))
       .not.toBe(notificationIcon(line({ kind: 'ProofRefused' })))
+  })
+
+  it('gives every kind a picture of what it is about, since a banner always shows one', () => {
+    const icons = new Set(everyKind.map(kind => notificationIcon(line({ kind }))))
+
+    expect(icons.size).toBe(everyKind.length)
+  })
+})
+
+describe('notificationTag', () => {
+  it('is one per thing a notification is about, so two chats never replace each other', () => {
+    const first = line({ kind: 'MessageReceived', target: 'Conversation', targetId: 'chat-1' })
+    const second = line({ kind: 'MessageReceived', target: 'Conversation', targetId: 'chat-2' })
+
+    expect(notificationTag(first)).toBe(notificationTag({ ...first, excerpt: 'later' }))
+    expect(notificationTag(first)).not.toBe(notificationTag(second))
+  })
+
+  it('falls back to the kind when nothing in particular is concerned', () => {
+    expect(notificationTag(line({ kind: 'ChallengePublished', targetId: null }))).toBe('ChallengePublished')
+  })
+})
+
+describe('isNotificationOnScreen', () => {
+  const message = line({ kind: 'MessageReceived', target: 'Conversation', targetId: 'chat-1' })
+
+  it('knows the chat somebody is reading, and the list that shows every chat', () => {
+    expect(isNotificationOnScreen(message, '/chats/chat-1')).toBe(true)
+    expect(isNotificationOnScreen(message, '/chats')).toBe(true)
+  })
+
+  it('leaves a chat somebody is not reading to be announced', () => {
+    expect(isNotificationOnScreen(message, '/chats/chat-2')).toBe(false)
+    expect(isNotificationOnScreen(message, '/')).toBe(false)
+  })
+
+  it('counts the screen a notification would open as the one that shows it', () => {
+    const verdict = line({ kind: 'ProofConfirmed', actor: null, target: 'Goal', targetId: 'goal-1' })
+
+    expect(isNotificationOnScreen(verdict, '/goals/goal-1')).toBe(true)
+    expect(isNotificationOnScreen(verdict, '/chats')).toBe(false)
   })
 })
 

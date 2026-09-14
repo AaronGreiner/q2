@@ -34,7 +34,7 @@ public enum LanguagePreference
 /// What may reach this person's devices is one value,
 /// <see cref="Notifications"/>, rather than a row of switches beside the theme:
 /// it is one decision about one thing, and the notification pipeline is what
-/// reads it (<see cref="NotificationRules.ShouldPush"/>). Every switch in it now
+/// reads it (<see cref="NotificationRules.InterruptionFor"/>). Every switch in it now
 /// does something — the three that were stored and honoured by nothing for
 /// four stages are either wired up or gone
 /// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).

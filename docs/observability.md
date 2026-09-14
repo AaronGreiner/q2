@@ -323,9 +323,10 @@ Two things are easy to get wrong here:
   headings, labels, navigation, empty states and error messages remain useful.
   `data-q2-private` masks personal text, while `data-q2-block` replaces messages,
   progress, activity and avatars whose geometry or state is itself personal.
-  Personal browser-tab titles are masked through `head > title`; the two
-  name-bearing Nuxt UI toasts use Replay's built-in `.sentry-mask` because the
-  library teleports their DOM outside the calling component.
+  Personal browser-tab titles are masked through `head > title`; notification
+  banners use Replay's built-in `.sentry-mask` for a name or a goal title and
+  `.sentry-block` for a message's words, because Nuxt UI teleports a toast's DOM
+  outside the calling component.
   `maskAllInputs` remains true. `blockAllMedia` is false because q2 has no user
   photographs or uploads; its icons are application UI, while avatars are
   blocked explicitly.

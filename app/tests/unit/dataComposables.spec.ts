@@ -156,7 +156,9 @@ describe('useHome', () => {
 
     await home.toggleKudos('activity-1')
     expect(home.feed.value[0]).toMatchObject({ kudosCount: 1, hasMyKudos: true })
-    expect(show).toHaveBeenCalledWith(de.toast.kudosSent)
+
+    // The button already says it; a toast would only say it again.
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('turns load and action failures into safe failures', async () => {
@@ -200,7 +202,7 @@ describe('goal composables', () => {
     expect(created).toMatchObject({ id: 'goal-new' })
     expect(state.isCreating.value).toBe(false)
     expect(state.createError.value).toBeNull()
-    expect(show).toHaveBeenCalledWith(de.toast.goalCreated)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('keeps a create failure visible without changing product data', async () => {
@@ -258,29 +260,28 @@ describe('the exits a goal has', () => {
       'goal-1',
       { reason: 'Grippe, seit Freitag im Bett.', days: 3 },
     )
-    expect(show).toHaveBeenCalledWith(de.toast.goalPaused)
     expect(lifecycle.isBusy.value).toBe(false)
     expect(lifecycle.error.value).toBeNull()
 
-    await lifecycle.endPause('goal-1')
-    expect(show).toHaveBeenCalledWith(de.toast.pauseEnded)
+    await expect(lifecycle.endPause('goal-1')).resolves.toMatchObject({ pause: null })
+
+    // The goal's own screen shows the pause coming and going.
+    expect(show).not.toHaveBeenCalled()
   })
 
   /**
    * The same request raises an objection and takes it back, so only the answer
    * knows which of the two just happened.
    */
-  it('reads which way an objection went from the response', async () => {
+  it('hands back the goal the objection left behind', async () => {
     const api = lifecycleApi()
-    const { show } = installFeatureGlobals(api)
+    installFeatureGlobals(api)
     const lifecycle = useGoalLifecycle()
 
-    await lifecycle.toggleVeto('goal-1')
-    expect(show).toHaveBeenCalledWith(de.toast.pauseVetoed)
+    await expect(lifecycle.toggleVeto('goal-1')).resolves.toMatchObject({ pause: { vetoedByMe: true } })
 
     api.goals.vetoPause.mockResolvedValueOnce(goal({ pause: { id: 'pause-1', vetoedByMe: false } }))
-    await lifecycle.toggleVeto('goal-1')
-    expect(show).toHaveBeenCalledWith(de.toast.pauseVetoWithdrawn)
+    await expect(lifecycle.toggleVeto('goal-1')).resolves.toMatchObject({ pause: { vetoedByMe: false } })
   })
 
   it('keeps a refused pause visible as a failure with its field messages', async () => {
@@ -295,7 +296,7 @@ describe('the exits a goal has', () => {
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'pause' })
   })
 
-  it('stops a goal and says which ending it was', async () => {
+  it('stops a goal with the ending that was chosen', async () => {
     const api = lifecycleApi()
     const { show } = installFeatureGlobals(api)
     const lifecycle = useGoalLifecycle()
@@ -303,7 +304,7 @@ describe('the exits a goal has', () => {
     await lifecycle.close('goal-1', false)
 
     expect(api.goals.close).toHaveBeenCalledWith('goal-1', { completed: false })
-    expect(show).toHaveBeenCalledWith(de.toast.goalClosed)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('loads the archive and deletes from it', async () => {
@@ -367,10 +368,8 @@ describe('friend and profile composables', () => {
     await state.withdraw('friend-2')
     await state.remove('friend-1')
 
-    expect(show).toHaveBeenCalledWith(de.toast.friendAdded('Emma'), { private: true })
-    expect(show).toHaveBeenCalledWith(de.toast.requestSent)
-    expect(show).toHaveBeenCalledWith(de.toast.requestWithdrawn)
-    expect(show).toHaveBeenCalledWith(de.toast.friendRemoved)
+    // Every one of them moves a row on the screen, which says it well enough.
+    expect(show).not.toHaveBeenCalled()
     expect(refreshNuxtData).toHaveBeenCalledWith('counts')
   })
 
@@ -495,7 +494,6 @@ describe('chat composables', () => {
 
     await state.cheer()
     expect(api.chats.send).toHaveBeenCalledWith('chat-1', de.chats.cheerText)
-    expect(show).toHaveBeenCalledWith(de.toast.cheerSent)
 
     await state.react('message-1', '👏')
     expect(api.chats.react).toHaveBeenCalledWith('chat-1', 'message-1', '👏')
@@ -503,12 +501,14 @@ describe('chat composables', () => {
     await state.setMuted(true)
     expect(api.chats.mute).toHaveBeenCalledWith('chat-1', true)
     expect(state.chat.value).toMatchObject({ isMuted: true })
-    expect(show).toHaveBeenCalledWith(de.toast.chatMuted)
 
     await state.leave()
     expect(refreshNuxtData).toHaveBeenCalledWith('chats')
     expect(refreshNuxtData).toHaveBeenCalledWith('counts')
     expect(push).toHaveBeenCalledWith('/chats')
+
+    // The one of these that leaves nothing on screen to show it worked.
+    expect(show).toHaveBeenCalledTimes(1)
     expect(show).toHaveBeenCalledWith(de.toast.groupLeft)
   })
 
@@ -576,7 +576,7 @@ describe('proof composables', () => {
 
     expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Doubt')
     expect(state.proofs.value.map(entry => entry.proof.id)).toEqual(['proof-2'])
-    expect(show).toHaveBeenCalledWith(de.toast.voteCast)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('reloads rather than dropping a card when the vote failed', async () => {
@@ -596,19 +596,19 @@ describe('proof composables', () => {
     expect(state.proofs.value).toHaveLength(2)
   })
 
-  it('says whether a delivered photograph is waiting or already believed', async () => {
+  it('hands a delivered photograph to the goal, and leaves the goal to say what became of it', async () => {
     const api = proofsApi()
     const { show } = installFeatureGlobals(api)
     const delivery = useProofDelivery()
 
     await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(true)
     expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', 'image-1', true)
-    expect(show).toHaveBeenCalledWith(de.toast.proofDelivered)
 
-    // A goal nobody shares has nobody to ask, so it comes back believed.
+    // A goal nobody shares has nobody to ask, so it comes back believed — and
+    // that is still the goal's to show, not a toast's.
     api.proofs.submit.mockResolvedValueOnce({ id: 'proof-10', status: 'Confirmed' })
-    await delivery.deliver('goal-1', { id: 'image-2' })
-    expect(show).toHaveBeenCalledWith(de.toast.proofConfirmed)
+    await expect(delivery.deliver('goal-1', { id: 'image-2' })).resolves.toBe(true)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('keeps a refused delivery visible as a failure', async () => {

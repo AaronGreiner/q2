@@ -62,13 +62,7 @@ const onDirect = (personId: string) =>
   open(() => api.chats.startDirect(personId), 'startDirect')
 
 const onGroup = (value: { title: string, icon: string, memberIds: string[] }) =>
-  open(async () => {
-    const chat = await api.chats.createGroup(value)
-    toast.show(t.value.toast.groupCreated)
-    return chat
-  }, 'createGroup')
-
-const toast = useToastMessage()
+  open(() => api.chats.createGroup(value), 'createGroup')
 
 useHead({ title: () => t.value.chats.heading })
 </script>

@@ -13,13 +13,11 @@ interface ArchivePayload {
  * One composable for all four because they are one decision from the screen's
  * point of view — every one of them answers with the whole goal, and every one
  * of them is followed by the same reload. Splitting them would mean four
- * copies of the busy flag and four places to forget the toast.
+ * copies of the busy flag and of the failure that goes with it.
  */
 export function useGoalLifecycle() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const isBusy = ref(false)
   const failure = ref<ApiFailure | null>(null)
@@ -47,42 +45,21 @@ export function useGoalLifecycle() {
    * {@link error} — the allowance and "one at a time" are the server's answer,
    * including their field-level messages.
    */
-  async function pause(id: string, reason: string, days: number) {
-    const goal = await run('pause', () => api.goals.pause(id, { reason, days }))
+  const pause = (id: string, reason: string, days: number) =>
+    run('pause', () => api.goals.pause(id, { reason, days }))
 
-    if (goal) toast.show(t.value.toast.goalPaused)
-    return goal
-  }
-
-  async function endPause(id: string) {
-    const goal = await run('endPause', () => api.goals.endPause(id))
-
-    if (goal) toast.show(t.value.toast.pauseEnded)
-    return goal
-  }
+  const endPause = (id: string) =>
+    run('endPause', () => api.goals.endPause(id))
 
   /**
-   * Raises this person's objection, or takes it back.
-   *
-   * The toast is chosen from what came back rather than from what was sent: the
-   * same request does both, and only the response knows which it was.
+   * Raises this person's objection, or takes it back. The same request does
+   * both, so the goal that comes back is the only thing that knows which.
    */
-  async function toggleVeto(id: string) {
-    const goal = await run('vetoPause', () => api.goals.vetoPause(id))
+  const toggleVeto = (id: string) =>
+    run('vetoPause', () => api.goals.vetoPause(id))
 
-    if (goal) {
-      toast.show(goal.pause?.vetoedByMe ? t.value.toast.pauseVetoed : t.value.toast.pauseVetoWithdrawn)
-    }
-
-    return goal
-  }
-
-  async function close(id: string, completed: boolean) {
-    const goal = await run('close', () => api.goals.close(id, { completed }))
-
-    if (goal) toast.show(t.value.toast.goalClosed)
-    return goal
-  }
+  const close = (id: string, completed: boolean) =>
+    run('close', () => api.goals.close(id, { completed }))
 
   return {
     isBusy: computed(() => isBusy.value),

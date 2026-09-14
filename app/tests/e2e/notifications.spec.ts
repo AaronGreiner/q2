@@ -62,6 +62,38 @@ async function myPersonId(page: Page): Promise<string> {
   return (await response.json() as { person: { id: string } }).person.id
 }
 
+/** This person's quiet hours as they were, so a test that turns them off can put them back. */
+interface QuietHours {
+  quietHoursFrom: string | null
+  quietHoursTo: string | null
+}
+
+const settingsUrl = `${apiBaseUrl}/api/settings`
+
+/**
+ * Turns this person's quiet hours off, and says what they were.
+ *
+ * They are on by default — 22:00 to 07:00 in the person's own zone — and they
+ * keep a banner away exactly as they keep a push away. Without this a suite
+ * that happened to run in the evening would find nothing announced, and a test
+ * that depends on the hour it runs at is not a test.
+ */
+async function quietHoursOff(page: Page): Promise<QuietHours> {
+  const { notifications } = await (await page.request.get(settingsUrl)).json() as { notifications: QuietHours }
+  const off = await page.request.put(settingsUrl, { data: { notifications: { quietHoursEnabled: false } } })
+
+  expect(off.ok(), 'turning quiet hours off').toBe(true)
+  return notifications
+}
+
+async function restoreQuietHours(page: Page, before: QuietHours) {
+  const notifications = before.quietHoursFrom && before.quietHoursTo
+    ? { quietHoursEnabled: true, quietHoursFrom: before.quietHoursFrom, quietHoursTo: before.quietHoursTo }
+    : { quietHoursEnabled: false }
+
+  expect((await page.request.put(settingsUrl, { data: { notifications } })).ok(), 'restoring quiet hours').toBe(true)
+}
+
 test.describe('arriving while the app is open', () => {
   let other: APIRequestContext
 
@@ -72,6 +104,56 @@ test.describe('arriving while the app is open', () => {
 
   test.afterAll(async () => {
     await other.dispose()
+  })
+
+  let quiet: QuietHours
+
+  test.beforeEach(async ({ page }) => {
+    quiet = await quietHoursOff(page)
+  })
+
+  // Put back, because the suite shares one database.
+  test.afterEach(async ({ page }) => {
+    await restoreQuietHours(page, quiet)
+  })
+
+  test('a message comes in at the top, and tapping it opens the chat', async ({ page }) => {
+    const personId = await myPersonId(page)
+    await openListening(page, '/')
+
+    const chat = await (await other.post('/api/chats/direct', { data: { personId } })).json() as { id: string }
+    const text = `E2E banner ${Date.now()}`
+    expect((await other.post(`/api/chats/${chat.id}/messages`, { data: { text } })).ok()).toBe(true)
+
+    const banner = page.getByTestId('notification-banner')
+    await expect(banner).toHaveText(friend.name)
+
+    // `.first()`, because a toast is announced twice: once visibly and once in
+    // the aria-live region that reads it out.
+    await expect(page.getByText(text).first()).toBeVisible()
+
+    // At the top of the screen, where a phone shows what has just arrived.
+    const box = await banner.boundingBox()
+    expect(box, 'the banner is laid out').not.toBeNull()
+    expect(box!.y).toBeLessThan(page.viewportSize()!.height / 4)
+
+    await banner.click()
+    await expect(page).toHaveURL(`/chats/${chat.id}`)
+    await expect(banner).toHaveCount(0)
+  })
+
+  test('nothing is announced over the chat it is about', async ({ page }) => {
+    const personId = await myPersonId(page)
+    const chat = await (await other.post('/api/chats/direct', { data: { personId } })).json() as { id: string }
+    await openListening(page, `/chats/${chat.id}`)
+
+    const text = `E2E already here ${Date.now()}`
+    expect((await other.post(`/api/chats/${chat.id}/messages`, { data: { text } })).ok()).toBe(true)
+
+    // The message in the thread is the proof the live event arrived; the
+    // banner, which would have come with it, did not.
+    await expect(page.getByText(text, { exact: true })).toBeVisible()
+    await expect(page.getByTestId('notification-banner')).toHaveCount(0)
   })
 
   test('a message appears in the open chat list, and nothing reloads', async ({ page }) => {
@@ -89,6 +171,9 @@ test.describe('arriving while the app is open', () => {
     await expect(page.getByTestId('chat-row').filter({ hasText: friend.name })).toContainText(text)
     await expect(page.getByTestId('nav-chats')).toContainText(/\d/)
     expect(await page.evaluate(() => (window as { q2StillThisPage?: boolean }).q2StillThisPage)).toBe(true)
+
+    // The list already shows it, so nothing is announced on top of it.
+    await expect(page.getByTestId('notification-banner')).toHaveCount(0)
   })
 
   test('an incoming message keeps the draft and focus while the thread refreshes', async ({ page }) => {
@@ -153,6 +238,14 @@ test.describe('arriving while the app is open', () => {
     await other.post(`/api/feed/${mine!.id}/kudos`)
 
     await expect(page.getByTestId('bell-count')).toHaveText('1')
+
+    // Announced at the top as well, since it concerns this person — and put
+    // away again, since it sits over the header the bell is in. On a phone it
+    // is swiped up; from a keyboard, Escape.
+    const banner = page.getByTestId('notification-banner')
+    await expect(banner).toHaveText('Kudos')
+    await page.keyboard.press('Escape')
+    await expect(banner).toHaveCount(0)
 
     await page.getByTestId('open-notifications').click()
     await expect(page).toHaveURL('/notifications')

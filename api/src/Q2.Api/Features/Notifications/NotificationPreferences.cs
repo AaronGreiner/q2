@@ -1,7 +1,8 @@
 namespace Q2.Api.Features.Notifications;
 
 /// <summary>
-/// What may reach somebody's devices, and when nothing may.
+/// What may interrupt somebody — a push to their devices, or a banner in the
+/// app they have open — and when nothing may.
 /// </summary>
 /// <remarks>
 /// One value rather than a row of loose booleans on <c>UserSettings</c>: the

@@ -210,21 +210,9 @@ export default defineNuxtConfig({
         'lucide:biceps-flexed',
 
         // Named in the message catalogue rather than in a template, which is
-        // where the scanner does look — but these are the only icons whose one
-        // and only mention is a value in app/i18n/messages.ts, so they are
-        // listed here the way every other indirect icon is.
-        'lucide:check',
-        'lucide:plus',
-        'lucide:megaphone',
-        'lucide:send',
-        'lucide:undo-2',
-        'lucide:user-check',
-        'lucide:user-minus',
-        'lucide:log-out',
-        'lucide:pencil',
+        // where the scanner does look. Of the icons the catalogue's toasts
+        // name, this is the one no template mentions as well.
         'lucide:circle-alert',
-        'lucide:search',
-        'lucide:image-off',
 
         // The photo sheet's own icons. They are in templates, so the scanner
         // would find them — but it only scans app/, and these are worth
@@ -245,8 +233,8 @@ export default defineNuxtConfig({
         // Stage 5: the warning, and the bell it lives behind.
         'lucide:bell',
 
-        // Stage 7: the daily challenge — the prompt, the covered room, and
-        // the toast that says you are in.
+        // Stage 7: the daily challenge — the prompt, the covered room, and an
+        // empty one.
         'lucide:zap',
         'lucide:eye-off',
         'lucide:package-open',
@@ -264,10 +252,13 @@ export default defineNuxtConfig({
         'lucide:bell-off',
         'lucide:moon-star',
 
-        // The bell and its settings: a pause lifted by objections, and the
+        // The bell, its banners and its settings: what each kind of
+        // notification is drawn with (notificationIcon in display.ts), and the
         // friend-request switch.
         'lucide:play',
         'lucide:user-plus',
+        'lucide:user-check',
+        'lucide:pause',
       ],
     },
 

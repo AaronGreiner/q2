@@ -40,7 +40,7 @@ public enum LiveArea
 /// <param name="Id">Which conversation or goal, when it is one in particular.</param>
 public sealed record LiveChange(LiveArea Area, Guid? Id = null);
 
-/// <summary>The only two things the server ever says over a live connection.</summary>
+/// <summary>The only three things the server ever says over a live connection.</summary>
 public static class LiveEvents
 {
     /// <summary>The badge numbers, as a <see cref="CountsResponse"/>.</summary>
@@ -48,6 +48,13 @@ public static class LiveEvents
 
     /// <summary>A <see cref="LiveChange"/>.</summary>
     public const string Changed = "changed";
+
+    /// <summary>
+    /// A <see cref="NotificationResponse"/>, for the app to show as a banner:
+    /// what a push would have carried, sent instead of one to somebody who is
+    /// looking (<see cref="NotificationRules.InterruptionFor"/>).
+    /// </summary>
+    public const string Notification = "notification";
 }
 
 /// <summary>
@@ -71,6 +78,12 @@ public static class LiveEvents
 /// it already uses. That keeps one read path with every scoping rule on it —
 /// blocks, participants, a covered challenge room — instead of a second one in
 /// here that would have to get each of them right again.
+///
+/// The one thing it hands over whole is a notification for somebody who is
+/// looking, and that is not a second read path: it is the payload a push would
+/// have carried, built by the same code for the same person after the same
+/// rules, arriving in the app instead of on the phone
+/// ([0025](../../../../docs/adr/0025-banners-in-the-open-app.md)).
 ///
 /// A connection joins one group, its person's. Two devices are two connections
 /// in the same group, and both hear everything.
@@ -136,9 +149,9 @@ public sealed class LiveHub(
 /// Who has the app open, right now, on this host.
 /// </summary>
 /// <remarks>
-/// What lets a push be skipped for somebody who is looking. The client keeps a
-/// connection only while its page is visible, so "connected" here means
-/// "watching", not "signed in somewhere".
+/// What decides whether somebody is shown a notification in the app or sent a
+/// push. The client keeps a connection only while its page is visible, so
+/// "connected" here means "watching", not "signed in somewhere".
 ///
 /// In-process on purpose: q2 is one process on one host
 /// ([0008](../../../../docs/adr/0008-deployment-topology.md)). A second instance
@@ -165,4 +178,11 @@ public sealed class LiveConnections
     /// <summary>Whether any device of this person has the app in front of them.</summary>
     public bool IsWatching(Guid personId) =>
         _open.TryGetValue(personId, out var connectionsOfPerson) && !connectionsOfPerson.IsEmpty;
+
+    /// <summary>
+    /// Everybody with the app in front of them — for the one notification that
+    /// is addressed to everybody rather than to anybody's friends.
+    /// </summary>
+    public IReadOnlyList<Guid> Watching() =>
+        [.. _open.Where(entry => !entry.Value.IsEmpty).Select(entry => entry.Key)];
 }

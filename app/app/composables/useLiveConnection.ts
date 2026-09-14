@@ -1,5 +1,5 @@
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
-import type { Counts } from '~/api/types'
+import type { Counts, NotificationLine } from '~/api/types'
 
 /**
  * The parts of the screen the server can say have changed.
@@ -16,8 +16,8 @@ export interface LiveChange {
   id: string | null
 }
 
-/** The two events the server sends. Mirrors `LiveEvents` on the server. */
-export const liveEvents = { counts: 'counts', changed: 'changed' } as const
+/** The three events the server sends. Mirrors `LiveEvents` on the server. */
+export const liveEvents = { counts: 'counts', changed: 'changed', notification: 'notification' } as const
 
 /**
  * How long a hidden page keeps its connection before letting it go.
@@ -72,6 +72,9 @@ export interface LiveLinkOptions {
   onCounts: (counts: Counts) => void
   onChanged: (change: LiveChange) => void
 
+  /** Something that concerns this person, which the server has already decided may interrupt them. */
+  onNotification: (line: NotificationLine) => void
+
   /** After a (re)connection: whatever moved in the meantime was not replayed. */
   onCaughtUp: () => void
 }
@@ -93,6 +96,7 @@ export function createLiveLink(options: LiveLinkOptions) {
     transport = options.connect()
     transport.on(liveEvents.counts, (counts: Counts) => options.onCounts(counts))
     transport.on(liveEvents.changed, (change: LiveChange) => options.onChanged(change))
+    transport.on(liveEvents.notification, (line: NotificationLine) => options.onNotification(line))
     transport.onreconnected(() => options.onCaughtUp())
 
     return transport
@@ -133,14 +137,18 @@ export function createLiveLink(options: LiveLinkOptions) {
  *
  * It only ever listens: every change still goes through the REST API, so the
  * OpenAPI contract stays the only one (docs/adr/0024-one-notification-pipeline.md).
- * What arrives is one of two things:
+ * What arrives is one of three things:
  *
  * - **fresh badge numbers**, which replace the ones on screen — and when the
  *   bell's number went up, the bell reads itself again in case it is open;
  * - **"this part changed"**, which reads again whatever of that part is
  *   mounted (`keysFor`). The server says what changed, never what it now is,
  *   so every screen keeps reading through the endpoint that already applies
- *   every rule about who may see what.
+ *   every rule about who may see what;
+ * - **a notification**, sent instead of a push because this person is
+ *   looking, which becomes a banner at the top of the screen unless the screen
+ *   already shows what it is about (`useNotificationToast`,
+ *   docs/adr/0025-banners-in-the-open-app.md).
  *
  * Connected only while the page is visible and somebody is signed in. That is
  * more than thrift: the server skips the push for anybody connected, so
@@ -154,6 +162,7 @@ export function useLiveConnection() {
   const { public: config } = useRuntimeConfig()
   const { isSignedIn } = useSession()
   const counts = useNuxtData<Counts>('counts')
+  const banner = useNotificationToast()
 
   const link = createLiveLink({
     connect: () => new HubConnectionBuilder()
@@ -175,6 +184,8 @@ export function useLiveConnection() {
     },
 
     onChanged: change => void refreshNuxtData(keysFor(change)),
+
+    onNotification: line => banner.announce(line),
 
     // Changes while disconnected are not replayed. Refresh the mounted reads
     // as well as the badges so an open thread catches up after returning.

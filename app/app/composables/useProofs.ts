@@ -19,8 +19,6 @@ interface PendingPayload {
 export function usePendingProofs() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<PendingPayload>(
     'proofs-pending',
@@ -59,8 +57,6 @@ export function usePendingProofs() {
           proofs: data.value.proofs.filter(card => card.proof.id !== id),
         }
       }
-
-      toast.show(t.value.toast.voteCast)
     }
     catch (caught) {
       report(caught, { feature: 'proofs', action: 'vote' })
@@ -96,8 +92,6 @@ export function usePendingProofs() {
 export function useProofDelivery() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const isDelivering = ref(false)
 
@@ -113,11 +107,7 @@ export function useProofDelivery() {
     isDelivering.value = true
 
     try {
-      const proof = await api.proofs.submit(goalId, image.id, true)
-
-      // A goal nobody shares is believed at once; a shared one is now waiting.
-      // Saying which is the difference between "done" and "handed in".
-      toast.show(proof.status === 'Confirmed' ? t.value.toast.proofConfirmed : t.value.toast.proofDelivered)
+      await api.proofs.submit(goalId, image.id, true)
       return true
     }
     catch (caught) {

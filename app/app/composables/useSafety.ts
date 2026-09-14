@@ -82,8 +82,6 @@ export function useSafety() {
 export function useBlockedPeople() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData(
     'blocked-people',
@@ -112,7 +110,6 @@ export function useBlockedPeople() {
       // The server answers with the list, so the screen is drawn from what it
       // says rather than from what this guessed.
       data.value = { people: await api.moderation.unblock(personId), failure: null }
-      toast.show(t.value.toast.unblocked)
     }
     catch (caught) {
       report(caught, { feature: 'moderation', action: 'unblock' })

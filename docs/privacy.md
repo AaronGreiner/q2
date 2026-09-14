@@ -61,9 +61,13 @@ where a person already decides that for every other app. What the push service
 does learn is that *this endpoint* was sent something at *this moment*, which is
 metadata q2 cannot hide and does not pretend to.
 
-**What the live connection carries:** badge counts, and the name of the part of
-the screen that changed with an id. No content, no names; the app reads the
-content again through the same endpoints as always.
+**What the live connection carries:** badge counts, the name of the part of the
+screen that changed with an id, and — for somebody who is looking and whom a
+notification may interrupt — that notification, instead of a push. It holds
+exactly the parts a push holds (a kind, a name, a goal title or group name, a
+number, and for a message its first 140 characters), goes only to that
+person's own connections over TLS, and is shown as a banner and kept nowhere.
+Everything else on screen is read again through the same endpoints as always.
 
 **Not processed at all:**
 

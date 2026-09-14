@@ -18,8 +18,6 @@ interface FriendsPayload {
 export function useFriends() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<FriendsPayload>(
     'friends',
@@ -54,14 +52,10 @@ export function useFriends() {
     }
   }
 
-  async function accept(personId: string) {
-    const name = requests.value.find(request => request.person.id === personId)?.person.displayName
-
-    await run('accept', async () => {
+  const accept = (personId: string) =>
+    run('accept', async () => {
       await api.friends.accept(personId)
-      if (name) toast.show(t.value.toast.friendAdded(name), { private: true })
     })
-  }
 
   const decline = (personId: string) =>
     run('decline', () => api.friends.decline(personId))
@@ -69,20 +63,13 @@ export function useFriends() {
   const request = (personId: string) =>
     run('request', async () => {
       await api.friends.request(personId)
-      toast.show(t.value.toast.requestSent)
     })
 
   const withdraw = (personId: string) =>
-    run('withdraw', async () => {
-      await api.friends.withdraw(personId)
-      toast.show(t.value.toast.requestWithdrawn)
-    })
+    run('withdraw', () => api.friends.withdraw(personId))
 
   const remove = (personId: string) =>
-    run('remove', async () => {
-      await api.friends.remove(personId)
-      toast.show(t.value.toast.friendRemoved)
-    })
+    run('remove', () => api.friends.remove(personId))
 
   return {
     friends,
@@ -169,8 +156,6 @@ function empty(): Friends {
 export function useProfile() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData(
     'profile',
@@ -205,7 +190,6 @@ export function useProfile() {
 
     try {
       put(await api.profile.update(request))
-      toast.show(t.value.toast.profileSaved)
       return true
     }
     catch (caught) {
@@ -242,7 +226,6 @@ export function useProfile() {
       try {
         await api.images.remove(imageId)
         put(await api.profile.get())
-        toast.show(t.value.toast.photoRemoved)
       }
       catch (caught) {
         report(caught, { feature: 'images', action: 'delete' })

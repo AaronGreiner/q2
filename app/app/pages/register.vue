@@ -26,7 +26,6 @@ const { register } = useSession()
  * in everything but name.
  */
 const pendingInvite = usePendingInvite()
-const toast = useToastMessage()
 
 const name = ref('')
 const email = ref('')
@@ -49,7 +48,7 @@ async function onSubmit() {
   failure.value = null
 
   try {
-    const session = await register({
+    await register({
       name: name.value.trim(),
       email: email.value.trim(),
       password: password.value,
@@ -66,7 +65,6 @@ async function onSubmit() {
 
     // Registering signs you in, so there is no second form to fill in.
     await navigateTo('/', { replace: true })
-    toast.show(t.value.toast.welcome(session.person.displayName), { private: true })
   }
   catch (caught) {
     failure.value = isApiError(caught) ? toApiFailure(caught) : null

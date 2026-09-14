@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -30,6 +31,20 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int PendingFriendRequests,
         int UnseenNotifications,
         int ProofsAwaitingVote);
+
+    private sealed record ActorDocument(Guid Id, string DisplayName);
+
+    private sealed record LineDocument(
+        Guid? Id,
+        NotificationKind Kind,
+        ActorDocument? Actor,
+        string? Subject,
+        string? Excerpt,
+        int? Amount,
+        NotificationTarget Target,
+        Guid? TargetId,
+        DateTimeOffset OccurredAt,
+        bool IsNew);
 
     private readonly List<HubConnection> _connections = [];
 
@@ -91,6 +106,74 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
             message => message.Endpoint == device && message.Payload.Kind == NotificationKind.MessageReceived);
     }
 
+    /// <summary>
+    /// What they are shown instead is what the push would have said: the same
+    /// parts, from the same payload, kept nowhere.
+    /// </summary>
+    [Fact]
+    public async Task SomebodyWhoIsLookingIsShownWhatAPushWouldHaveSaid()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var live = await ConnectAsync(friend);
+
+        var announced = NextAsync<LineDocument>(live, LiveEvents.Notification, _ => true);
+
+        await SendAsync("Automated test: on screen");
+
+        var line = await announced;
+
+        Assert.Equal(NotificationKind.MessageReceived, line.Kind);
+        Assert.Equal("Automated test: on screen", line.Excerpt);
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, line.Actor?.Id);
+        Assert.Equal(NotificationTarget.Conversation, line.Target);
+        Assert.Equal(AutomatedTestSeed.DirectConversationId, line.TargetId);
+        Assert.Null(line.Id);
+    }
+
+    /// <summary>
+    /// Muting keeps a conversation quiet on screen as well as on the phone.
+    /// Proved by order: the muted message goes first and an audible one second,
+    /// so had the first been announced it would have arrived first.
+    /// </summary>
+    [Fact]
+    public async Task AMutedConversationIsNotAnnouncedOnScreenEither()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var live = await ConnectAsync(friend);
+
+        var first = NextAsync<LineDocument>(live, LiveEvents.Notification, _ => true);
+
+        await MuteAsync(friend, muted: true);
+        await SendAsync("Automated test: muted");
+        await MuteAsync(friend, muted: false);
+        await SendAsync("Automated test: audible");
+
+        Assert.Equal("Automated test: audible", (await first).Excerpt);
+    }
+
+    /// <summary>
+    /// The one notification addressed to everybody reaches whoever is looking
+    /// as well — on screen, since they are not buzzed.
+    /// </summary>
+    [Fact]
+    public async Task TheChallengeIsAnnouncedOnScreenToWhoeverIsLooking()
+    {
+        var live = await ConnectAsync(Client);
+
+        var announced = NextAsync<LineDocument>(
+            live,
+            LiveEvents.Notification,
+            line => line.Kind == NotificationKind.ChallengePublished);
+
+        var worker = ActivatorUtilities.CreateInstance<ChallengeQueueWorker>(Factory.Services);
+        Assert.Equal(1, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
+
+        var line = await announced;
+
+        Assert.Equal(AutomatedTestSeed.ChallengePrompt, line.Subject);
+        Assert.Null(line.Actor);
+    }
+
     [Fact]
     public async Task OpeningTheBellClearsItsBadgeOnEveryOtherDevice()
     {
@@ -115,7 +198,8 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var stranger = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
         var live = await ConnectAsync(stranger);
 
-        var first = NextAsync<ChangeDocument>(live, LiveEvents.Changed, _ => true);
+        var firstChange = NextAsync<ChangeDocument>(live, LiveEvents.Changed, _ => true);
+        var firstAnnouncement = NextAsync<LineDocument>(live, LiveEvents.Notification, _ => true);
 
         await SendAsync("Automated test: not for the stranger");
 
@@ -124,7 +208,8 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
             content: null,
             TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
 
-        Assert.Equal(LiveArea.Friends, (await first).Area);
+        Assert.Equal(LiveArea.Friends, (await firstChange).Area);
+        Assert.Equal(NotificationKind.FriendshipStarted, (await firstAnnouncement).Kind);
     }
 
     public override async ValueTask DisposeAsync()
@@ -140,6 +225,10 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
     private async Task SendAsync(string text) =>
         (await Client.PostJsonAsync($"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages", new { text }))
+            .EnsureSuccessStatusCode();
+
+    private static async Task MuteAsync(HttpClient client, bool muted) =>
+        (await client.PutJsonAsync($"/api/chats/{AutomatedTestSeed.DirectConversationId}/mute", new { muted }))
             .EnsureSuccessStatusCode();
 
     private async Task<HubConnection> ConnectAsync(HttpClient signedIn)

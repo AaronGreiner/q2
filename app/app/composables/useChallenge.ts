@@ -23,8 +23,6 @@ interface RoomPayload {
 export function useChallengeRoom() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<RoomPayload>(
     'challenge-today',
@@ -56,7 +54,6 @@ export function useChallengeRoom() {
     try {
       const room = await api.challenges.submit(image.id, true)
       data.value = { room, failure: null }
-      toast.show(t.value.toast.challengeJoined)
     }
     catch (caught) {
       report(caught, { feature: 'challenge', action: 'contribute' })
@@ -77,7 +74,6 @@ export function useChallengeRoom() {
 
     try {
       data.value = { room: (await api.challenges.withdraw()).room, failure: null }
-      toast.show(t.value.toast.challengeWithdrawn)
     }
     catch (caught) {
       report(caught, { feature: 'challenge', action: 'withdraw' })

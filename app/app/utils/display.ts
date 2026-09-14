@@ -496,7 +496,8 @@ function reactionLink(line: NotificationLine): string {
 }
 
 /**
- * The tile a line gets when there is nobody to picture.
+ * The icon a notification is drawn with when there is no face to show: an
+ * anonymous line in the bell, and every banner in the open app.
  *
  * Drawn in the text colour on a neutral surface: none of these is something to
  * do this second, so none of them gets the accent — a refusal included, which is
@@ -504,15 +505,53 @@ function reactionLink(line: NotificationLine): string {
  */
 export function notificationIcon(line: NotificationLine): string {
   switch (line.kind) {
+    case 'MessageReceived':
+      return 'i-lucide-message-circle'
+    case 'FriendRequestReceived':
+      return 'i-lucide-user-plus'
+    case 'FriendshipStarted':
+      return 'i-lucide-user-check'
+    case 'ProofAwaitingVote':
+      return 'i-lucide-gavel'
     case 'ProofConfirmed':
       return 'i-lucide-circle-check-big'
     case 'ProofRefused':
       return 'i-lucide-circle-alert'
+    case 'ReactionReceived':
+      return 'i-lucide-hand-heart'
+    case 'GoalInvitation':
+      return 'i-lucide-target'
+    case 'GoalPaused':
+      return 'i-lucide-pause'
     case 'PauseLifted':
       return 'i-lucide-play'
+    case 'FriendWindowAtRisk':
+      return 'i-lucide-clock-alert'
     case 'ChallengePublished':
       return 'i-lucide-zap'
     default:
       return 'i-lucide-bell'
   }
+}
+
+/**
+ * What a notification replaces rather than stacks on: one per thing it is
+ * about — a conversation, a goal, a friend — so two chats never replace each
+ * other and one chat never piles up. The lock screen's `tag` and the open
+ * app's banner both use it.
+ */
+export function notificationTag(line: NotificationLine): string {
+  return line.targetId ? `${line.kind}:${line.targetId}` : line.kind
+}
+
+/**
+ * Whether the screen at `path` already shows what a notification is about.
+ *
+ * An open app announces a notification with a banner, and a banner for the
+ * chat somebody is reading would announce what just appeared under their eyes.
+ * The screen the banner would open is the test — and for a message the chat
+ * list as well, since it shows every conversation's newest line as it arrives.
+ */
+export function isNotificationOnScreen(line: NotificationLine, path: string): boolean {
+  return path === notificationLink(line) || (line.kind === 'MessageReceived' && path === '/chats')
 }

@@ -1,6 +1,9 @@
 # 0024 — One notification pipeline: the bell, a live connection, and push
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0025](0025-banners-in-the-open-app.md): the
+live connection also carries the notification itself to somebody who is
+looking, and the open app shows it as a banner instead of their phone ringing.
+Everything else stands as written.
 **Date:** 2026-09-14
 
 Amends [0019](0019-warning-and-balance.md) — the bell now carries a count, and

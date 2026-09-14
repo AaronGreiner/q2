@@ -83,38 +83,95 @@ public class NotificationRulesTests
         Assert.Equal(area, NotificationRules.AreaFor(NotificationKind.ReactionReceived, target));
 
     [Fact]
-    public void AnOrdinaryPushGoesOut() =>
-        Assert.True(Push(NotificationPreferences.Default, NotificationKind.MessageReceived));
+    public void SomebodyWhoIsNotLookingIsPushed() =>
+        Assert.Equal(Interruption.Push, Decide(NotificationPreferences.Default, NotificationKind.MessageReceived));
 
+    /// <summary>
+    /// An open app already shows it, and a phone vibrating beside the laptop
+    /// that has just shown it is the same thing said twice.
+    /// </summary>
     [Fact]
-    public void SomebodyWhoIsLookingIsNotAlsoBuzzed() =>
-        Assert.False(Push(NotificationPreferences.Default, NotificationKind.MessageReceived, isWatching: true));
+    public void SomebodyWhoIsLookingGetsABannerInsteadOfABuzz() =>
+        Assert.Equal(
+            Interruption.Banner,
+            Decide(NotificationPreferences.Default, NotificationKind.MessageReceived, isWatching: true));
 
-    [Fact]
-    public void AMutedConversationDoesNotRing() =>
-        Assert.False(Push(NotificationPreferences.Default, NotificationKind.MessageReceived, isMuted: true));
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AMutedConversationInterruptsNobody(bool isWatching) =>
+        Assert.Equal(
+            Interruption.None,
+            Decide(NotificationPreferences.Default, NotificationKind.MessageReceived, isWatching: isWatching, isMuted: true));
 
-    [Fact]
-    public void TheSwitchForThatKindDecidesAndNoOther()
+    [Theory]
+    [InlineData(false, Interruption.Push)]
+    [InlineData(true, Interruption.Banner)]
+    public void TheSwitchForThatKindDecidesAndNoOther(bool isWatching, Interruption allowed)
     {
         var noReactions = NotificationPreferences.Default with { Reactions = false };
 
-        Assert.False(Push(noReactions, NotificationKind.ReactionReceived));
-        Assert.True(Push(noReactions, NotificationKind.MessageReceived));
+        Assert.Equal(Interruption.None, Decide(noReactions, NotificationKind.ReactionReceived, isWatching: isWatching));
+        Assert.Equal(allowed, Decide(noReactions, NotificationKind.MessageReceived, isWatching: isWatching));
     }
 
-    [Fact]
-    public void QuietHoursDropAPushInThePersonsOwnNight()
+    [Theory]
+    [InlineData(false, Interruption.Push)]
+    [InlineData(true, Interruption.Banner)]
+    public void QuietHoursKeepThePersonsOwnNightQuiet(bool isWatching, Interruption withoutThem)
     {
-        Assert.False(Push(NotificationPreferences.Default, NotificationKind.FriendshipStarted, new TimeOnly(23, 30)));
-        Assert.True(Push(NotificationPreferences.Default with { QuietHoursFrom = null, QuietHoursTo = null }, NotificationKind.FriendshipStarted, new TimeOnly(23, 30)));
+        var lateAtNight = new TimeOnly(23, 30);
+        var noQuietHours = NotificationPreferences.Default with { QuietHoursFrom = null, QuietHoursTo = null };
+
+        Assert.Equal(
+            Interruption.None,
+            Decide(NotificationPreferences.Default, NotificationKind.FriendshipStarted, lateAtNight, isWatching));
+        Assert.Equal(withoutThem, Decide(noQuietHours, NotificationKind.FriendshipStarted, lateAtNight, isWatching));
     }
 
-    private static bool Push(
+    /// <summary>
+    /// A banner is the push somebody would have had if they had put the app
+    /// away: for every kind and everything that can stop one, the one is allowed
+    /// exactly when the other would have been — and never both.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(EveryKind))]
+    public void ABannerIsThePushForSomebodyWhoIsLooking(NotificationKind kind)
+    {
+        var everythingOff = new NotificationPreferences(
+            Messages: false,
+            Friendships: false,
+            VotesDue: false,
+            ProofResults: false,
+            Reactions: false,
+            GoalUpdates: false,
+            FriendsAtRisk: false,
+            Challenge: false,
+            QuietHoursFrom: null,
+            QuietHoursTo: null);
+
+        foreach (var preferences in new[] { NotificationPreferences.Default, everythingOff })
+        {
+            foreach (var at in new[] { Noon, new TimeOnly(23, 30) })
+            {
+                foreach (var isMuted in new[] { false, true })
+                {
+                    var away = Decide(preferences, kind, at, isWatching: false, isMuted);
+                    var looking = Decide(preferences, kind, at, isWatching: true, isMuted);
+
+                    Assert.NotEqual(Interruption.Banner, away);
+                    Assert.NotEqual(Interruption.Push, looking);
+                    Assert.Equal(away == Interruption.Push, looking == Interruption.Banner);
+                }
+            }
+        }
+    }
+
+    private static Interruption Decide(
         NotificationPreferences preferences,
         NotificationKind kind,
         TimeOnly? at = null,
         bool isWatching = false,
         bool isMuted = false) =>
-        NotificationRules.ShouldPush(preferences, kind, at ?? Noon, isWatching, isMuted);
+        NotificationRules.InterruptionFor(preferences, kind, at ?? Noon, isWatching, isMuted);
 }

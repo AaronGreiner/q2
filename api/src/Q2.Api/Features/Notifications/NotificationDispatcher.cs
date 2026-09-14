@@ -9,22 +9,30 @@ namespace Q2.Api.Features.Notifications;
 /// then as a push to whoever is not.
 /// </summary>
 /// <remarks>
-/// The order matters only for one thing: <see cref="PushDelivery"/> skips
-/// anybody who is watching, so a person with the app open sees the change live
-/// and their phone stays quiet.
+/// Two different things reach an open app, for two different audiences:
+///
+/// - **What moved** — fresh badge counts and "this part changed" — goes to
+///   everybody concerned who is looking, whatever they have switched off. It is
+///   what they are allowed to find, not an interruption.
+/// - **The notification itself**, for the app to show as a banner, goes only to
+///   whoever it may interrupt, and to them *instead of* a push. Who gets which
+///   is one decision per person (<see cref="InterruptionPlanner"/>), so nobody
+///   is told twice, and nobody who puts the app away in between is told not at
+///   all.
 /// </remarks>
 public sealed class NotificationDispatcher(
     Q2DbContext database,
     IHubContext<LiveHub> hub,
     LiveConnections connections,
     CountsService counts,
+    InterruptionPlanner interruptions,
     PushDelivery push)
 {
     public async Task DispatchAsync(NotificationDelivery delivery, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(delivery);
 
-        await SendLiveAsync(delivery, cancellationToken);
+        await RefreshAsync(delivery, cancellationToken);
 
         if (delivery.Notification is not { } notification)
         {
@@ -32,13 +40,29 @@ public sealed class NotificationDispatcher(
         }
 
         var recipients = delivery.Everyone
-            ? await EveryoneWithADeviceAsync(cancellationToken)
+            ? await EveryoneWhoCanBeToldAsync(cancellationToken)
             : delivery.People;
 
-        await push.DeliverAsync(notification, recipients, delivery.At, cancellationToken);
+        var plan = await interruptions.PlanAsync(notification, recipients, delivery.At, cancellationToken);
+
+        if (plan.Payload is not { } payload)
+        {
+            return;
+        }
+
+        // After the refresh above, so an app that opens the banner finds the
+        // screen behind it already read again.
+        foreach (var personId in plan.Banner)
+        {
+            await hub.Clients.Group(LiveHub.GroupOf(personId))
+                .SendAsync(LiveEvents.Notification, payload, cancellationToken);
+        }
+
+        await push.DeliverAsync(payload, plan.Push, cancellationToken);
     }
 
-    private async Task SendLiveAsync(NotificationDelivery delivery, CancellationToken cancellationToken)
+    /// <summary>Tells whoever is looking what moved: the counts, and which part of the screen.</summary>
+    private async Task RefreshAsync(NotificationDelivery delivery, CancellationToken cancellationToken)
     {
         if (delivery.Everyone)
         {
@@ -74,7 +98,8 @@ public sealed class NotificationDispatcher(
     }
 
     /// <summary>
-    /// Everybody who could possibly be buzzed about the challenge.
+    /// Everybody the challenge could reach: whoever has the app open, and
+    /// whoever has a device to buzz.
     /// </summary>
     /// <remarks>
     /// The honest recipient set for something that is the same for everyone,
@@ -82,10 +107,14 @@ public sealed class NotificationDispatcher(
     /// people would fan this out rather than send it from one pass, which is a
     /// different design rather than a bigger loop.
     /// </remarks>
-    private async Task<IReadOnlyList<Guid>> EveryoneWithADeviceAsync(CancellationToken cancellationToken) =>
-        await database.PushSubscriptions
+    private async Task<IReadOnlyList<Guid>> EveryoneWhoCanBeToldAsync(CancellationToken cancellationToken)
+    {
+        var withADevice = await database.PushSubscriptions
             .AsNoTracking()
             .Select(subscription => subscription.PersonId)
             .Distinct()
             .ToListAsync(cancellationToken);
+
+        return [.. withADevice.Union(connections.Watching())];
+    }
 }

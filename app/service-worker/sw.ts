@@ -31,7 +31,7 @@ import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { NetworkOnly } from 'workbox-strategies'
 import type { NotificationLine } from '../app/api/types'
 import { de, en, type Messages } from '../app/i18n/messages'
-import { notificationLink, notificationText } from '../app/utils/display'
+import { notificationLink, notificationTag, notificationText } from '../app/utils/display'
 
 declare const self: ServiceWorkerGlobalScope & {
   /** Replaced at build time with the precache list; see `injectManifest` in nuxt.config.ts. */
@@ -166,12 +166,10 @@ async function show(line: NotificationLine | null): Promise<void> {
 /**
  * One notification per thing a notification is about — a conversation, a
  * goal, a friend — so two chats never replace each other, and one chat never
- * stacks up.
+ * stacks up. The same tag the open app's banner is replaced by.
  */
 function tagOf(line: NotificationLine | null): string {
-  if (line === null) return 'q2'
-
-  return line.targetId ? `${line.kind}:${line.targetId}` : line.kind
+  return line === null ? 'q2' : notificationTag(line)
 }
 
 /**

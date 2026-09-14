@@ -124,6 +124,7 @@ public static class ApiRegistration
          */
         builder.Services.AddScoped<Notifier>();
         builder.Services.AddScoped<NotificationDispatcher>();
+        builder.Services.AddScoped<InterruptionPlanner>();
         builder.Services.AddScoped<PushDelivery>();
         builder.Services.AddScoped<CountsService>();
         builder.Services.AddScoped<InboxService>();

@@ -25,9 +25,11 @@ public sealed record SettingsResponse(
 
 /// <summary>One switch per thing a person can decide to be interrupted for, and the quiet hours.</summary>
 /// <remarks>
-/// The switches govern a push, never the bell: a line the bell keeps is there
-/// whatever they say, the same way the message switch never took a message out
-/// of a chat ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
+/// The switches govern what may interrupt — a push, or a banner in the open
+/// app — never the bell: a line the bell keeps is there whatever they say, the
+/// same way the message switch never took a message out of a chat
+/// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md),
+/// [0025](../../../../docs/adr/0025-banners-in-the-open-app.md)).
 /// </remarks>
 /// <param name="QuietHoursFrom">
 /// Null on both sides means quiet hours are off. They are counted in this

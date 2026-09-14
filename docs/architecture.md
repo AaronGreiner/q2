@@ -24,10 +24,11 @@ browser (after hydration), which is why `NUXT_PUBLIC_API_BASE_URL` has to be
 reachable from both.
 
 While a page is on screen the browser also holds one WebSocket to `/api/live`.
-It only ever receives — fresh badge counts, and "this part changed" — and
-everything it prompts is read again over HTTP, so the OpenAPI document stays
-the only contract
-([adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md)).
+It only ever receives — fresh badge counts, "this part changed", and a
+notification to show as a banner instead of a push — and everything else it
+prompts is read again over HTTP, so the OpenAPI document stays the only
+contract ([adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md),
+[adr/0025-banners-in-the-open-app.md](adr/0025-banners-in-the-open-app.md)).
 
 ## Who owns what
 

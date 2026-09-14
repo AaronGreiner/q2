@@ -202,11 +202,14 @@ same viewport remains necessary.
   reason, a reaction reaches its owner once and taking it back takes back the
   line, reading the bell marks it seen, and deleting a goal or an account takes
   its lines with it. The live connection is tested over a real SignalR client
-  with a real session: refused without one, a message arriving live, no push to
-  somebody who is watching, the bell read on one device clearing the count on
-  another, and nothing of somebody else's arriving. The E2E suite adds the
-  browser's half — a friend's message and kudos arriving on an open screen
-  without a reload, a switch that survives a reload, and muting.
+  with a real session: refused without one, a message arriving live, somebody
+  who is watching shown what the push would have said instead of being buzzed —
+  but not for a muted chat — the challenge announced on screen, the bell read on
+  one device clearing the count on another, and nothing of somebody else's
+  arriving or being announced. The E2E suite adds the browser's half — a
+  friend's message and kudos arriving on an open screen without a reload, a
+  banner at the top that opens the chat when tapped and none over the chat or
+  the list it is about, a switch that survives a reload, and muting.
 - **Invite links** — a code made on first use, a link producing an accepted
   friendship at registration, a stale code being ignored rather than refused,
   and a replaced code no longer working.

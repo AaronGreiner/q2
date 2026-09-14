@@ -158,7 +158,9 @@ describe('useChallengeRoom', () => {
     expect(api.challenges.submit).toHaveBeenCalledWith('image-2', true)
     expect(state.room.value?.isRevealed).toBe(true)
     expect(state.room.value?.ownEntry).not.toBeNull()
-    expect(show).toHaveBeenCalledWith(de.toast.challengeJoined)
+
+    // The room uncovering is the answer; nothing is announced on top of it.
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('withdrawing covers the room again', async () => {
@@ -170,7 +172,7 @@ describe('useChallengeRoom', () => {
     await state.withdraw()
 
     expect(state.room.value?.ownEntry).toBeNull()
-    expect(show).toHaveBeenCalledWith(de.toast.challengeWithdrawn)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('puts an updated contribution in place without mutating the old one', async () => {
@@ -363,7 +365,7 @@ describe('useSafety', () => {
 
     await blocked.unblock('person-1')
     expect(blocked.people.value).toHaveLength(0)
-    expect(show).toHaveBeenCalledWith(de.toast.unblocked)
+    expect(show).not.toHaveBeenCalled()
 
     api.moderation.unblock.mockRejectedValueOnce(new Error('gone'))
     api.moderation.blocked.mockResolvedValueOnce([person()])
@@ -804,7 +806,9 @@ describe('the reads that were never exercised', () => {
     await overview.toggleKudos('activity-1')
 
     expect(overview.feed.value[0]).toMatchObject({ kudosCount: 1, hasMyKudos: true })
-    expect(show).toHaveBeenCalledWith(de.toast.kudosSent)
+
+    // The button already says it; a toast would only say it again.
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('says nothing when the cheer is taken back rather than given', async () => {
@@ -866,7 +870,7 @@ describe('the reads that were never exercised', () => {
     await pending.vote('proof-1', 'Confirm')
 
     expect(pending.proofs.value).toHaveLength(1)
-    expect(show).toHaveBeenCalledWith(de.toast.voteCast)
+    expect(show).not.toHaveBeenCalled()
   })
 
   /**
@@ -908,9 +912,9 @@ describe('the reads that were never exercised', () => {
 
   /**
    * A goal nobody shares is believed at once; a shared one is now waiting.
-   * Saying which is the difference between "done" and "handed in".
+   * Either way the delivery took, and the goal's own screen says which.
    */
-  it('says whether a delivered photograph was believed or is waiting', async () => {
+  it('takes a photograph whether it is believed at once or waits for a verdict', async () => {
     const api = {
       proofs: {
         pending: vi.fn().mockResolvedValue([]),
@@ -922,11 +926,10 @@ describe('the reads that were never exercised', () => {
     const delivery = useProofDelivery()
 
     expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toBe(true)
-    expect(show).toHaveBeenCalledWith(de.toast.proofConfirmed)
 
     api.proofs.submit.mockResolvedValueOnce({ status: 'Voting' })
-    await delivery.deliver('goal-1', { id: 'image-2' } as never)
-    expect(show).toHaveBeenCalledWith(de.toast.proofDelivered)
+    expect(await delivery.deliver('goal-1', { id: 'image-2' } as never)).toBe(true)
+    expect(show).not.toHaveBeenCalled()
   })
 
   it('answers false rather than throwing when a window refuses the photograph', async () => {
@@ -990,7 +993,7 @@ describe('the profile paths that were left over', () => {
 
     await profile.rename('Mara K.')
     expect(api.profile.update).toHaveBeenCalledWith({ displayName: 'Mara K.' })
-    expect(show).toHaveBeenCalledWith(de.toast.profileSaved)
+    expect(show).not.toHaveBeenCalled()
 
     await profile.chooseAvatar('image-1')
     expect(api.profile.update).toHaveBeenCalledWith({ avatarImageId: 'image-1' })
@@ -1010,7 +1013,7 @@ describe('the profile paths that were left over', () => {
     await profile.removeAvatar('image-1')
 
     expect(api.images.remove).toHaveBeenCalledWith('image-1')
-    expect(show).toHaveBeenCalledWith(de.toast.photoRemoved)
+    expect(show).not.toHaveBeenCalled()
 
     api.images.remove.mockRejectedValueOnce(new Error('gone'))
     await profile.removeAvatar('image-1')

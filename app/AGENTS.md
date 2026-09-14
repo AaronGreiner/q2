@@ -143,8 +143,11 @@ app/composables/useQ2Api.ts     the configured client
   signed in. What arrives is fresh badge counts and "this part changed", which
   it answers by refreshing the `useAsyncData` keys that part is made of
   (`keysFor`) — so a new read that should follow live changes needs its key
-  there. Nothing is ever sent over it
-  ([../docs/adr/0024-one-notification-pipeline.md](../docs/adr/0024-one-notification-pipeline.md)).
+  there. The third thing is a notification sent instead of a push, which
+  `useNotificationToast` shows as a banner at the top unless the screen already
+  shows what it is about (`isNotificationOnScreen`). Nothing is ever sent over
+  it ([../docs/adr/0024-one-notification-pipeline.md](../docs/adr/0024-one-notification-pipeline.md),
+  [../docs/adr/0025-banners-in-the-open-app.md](../docs/adr/0025-banners-in-the-open-app.md)).
 - **The session is a cookie, and it does not travel by itself.** In the browser
   the client sends `credentials: 'include'`, because the API is a different
   origin; during server rendering it copies the `cookie` header off the incoming
@@ -255,7 +258,8 @@ refreshes all mounted reads, because missed live events are not replayed.
   has `data-q2-block`. All inputs remain masked. A component that renders a new
   personal value must add one of those attributes and a component test. The two
   non-component exceptions are `head > title` in the mask selector and
-  `.sentry-mask` on Nuxt UI's teleported personal-name toasts.
+  Replay's own `.sentry-mask`/`.sentry-block` classes on the notification
+  banners, which Nuxt UI teleports out of reach of a data attribute.
 - `scrubEvent` preserves only `user.ip_address`. Do not remove it and silently
   undo `sendDefaultPii`; do not preserve the account id, name or email either.
 - Structured logs and metrics are enabled. Browser and Nitro capture only

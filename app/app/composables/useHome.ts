@@ -26,8 +26,6 @@ interface HomePayload {
 export function useHome() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<HomePayload>(
     'home',
@@ -74,7 +72,6 @@ export function useHome() {
     try {
       const updated = await api.activity.toggleKudos(id)
       replace(payload => ({ ...payload, feed: payload.feed.map(entry => (entry.id === id ? updated : entry)) }))
-      if (updated.hasMyKudos) toast.show(t.value.toast.kudosSent)
     }
     catch (caught) {
       report(caught, { feature: 'feed', action: 'kudos' })
@@ -98,8 +95,6 @@ function empty(): HomePayload {
 export function useActivityOverview() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData(
     'activity-overview',
@@ -126,8 +121,6 @@ export function useActivityOverview() {
           feed: data.value.feed.map(entry => (entry.id === id ? updated : entry)),
         }
       }
-
-      if (updated.hasMyKudos) toast.show(t.value.toast.kudosSent)
     }
     catch (caught) {
       report(caught, { feature: 'feed', action: 'kudos' })

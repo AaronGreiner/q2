@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createLiveLink, keysFor, liveEvents } from '~/composables/useLiveConnection'
-import type { Counts } from '~/api/types'
+import type { Counts, NotificationLine } from '~/api/types'
 
 /**
  * The live connection's rules, without a server.
@@ -51,6 +51,7 @@ function link(transport = fakeTransport()) {
     connect: vi.fn(() => transport),
     onCounts: vi.fn(),
     onChanged: vi.fn(),
+    onNotification: vi.fn(),
     onCaughtUp: vi.fn(),
   }
 
@@ -58,6 +59,19 @@ function link(transport = fakeTransport()) {
 }
 
 const counts: Counts = { unreadChats: 2, pendingFriendRequests: 0, unseenNotifications: 1, proofsAwaitingVote: 0 }
+
+const notification: NotificationLine = {
+  id: null,
+  kind: 'MessageReceived',
+  actor: null,
+  subject: null,
+  excerpt: 'Hallo',
+  amount: null,
+  target: 'Conversation',
+  targetId: 'chat-1',
+  occurredAt: '2026-06-17T09:00:00Z',
+  isNew: true,
+}
 
 describe('keysFor', () => {
   it('names a thread and a goal by their id, the way their own reads are keyed', () => {
@@ -109,9 +123,20 @@ describe('createLiveLink', () => {
 
     transport.send(liveEvents.counts, counts)
     transport.send(liveEvents.changed, { area: 'Chats', id: 'chat-1' })
+    transport.send(liveEvents.notification, notification)
 
     expect(options.onCounts).toHaveBeenCalledWith(counts)
     expect(options.onChanged).toHaveBeenCalledWith({ area: 'Chats', id: 'chat-1' })
+    expect(options.onNotification).toHaveBeenCalledWith(notification)
+  })
+
+  it('listens for exactly the events the server names', async () => {
+    const { transport, live } = link()
+    await live.open()
+
+    // A typo here is a banner that never appears, with nothing to say why.
+    expect(transport.on.mock.calls.map(([event]) => event).sort())
+      .toEqual(['changed', 'counts', 'notification'])
   })
 
   it('catches up again after a dropped connection comes back', async () => {

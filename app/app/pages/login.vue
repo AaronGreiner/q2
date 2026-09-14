@@ -17,7 +17,6 @@ const t = useMessages()
 const route = useRoute()
 const { public: config } = useRuntimeConfig()
 const { login } = useSession()
-const toast = useToastMessage()
 
 const email = ref('')
 const password = ref('')
@@ -81,8 +80,6 @@ async function onSubmit() {
 
 // Nothing here is worth another visit; a stale sign-in page is a confusing one.
 useHead({ title: () => t.value.auth.signInHeading })
-
-void toast
 </script>
 
 <template>

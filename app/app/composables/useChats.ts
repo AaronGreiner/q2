@@ -104,9 +104,7 @@ export function useChatThread(id: Ref<string>) {
 
   /** The pinned goal's "Anfeuern" button — a message, not a separate concept. */
   async function cheer() {
-    if (await send(t.value.chats.cheerText)) {
-      toast.show(t.value.toast.cheerSent)
-    }
+    await send(t.value.chats.cheerText)
   }
 
   async function react(messageId: string, kind: KudosKind) {
@@ -127,7 +125,6 @@ export function useChatThread(id: Ref<string>) {
   async function setMuted(muted: boolean) {
     try {
       data.value = { chat: await api.chats.mute(id.value, muted), failure: null }
-      toast.show(muted ? t.value.toast.chatMuted : t.value.toast.chatUnmuted)
     }
     catch (caught) {
       report(caught, { feature: 'chats', action: 'mute' })

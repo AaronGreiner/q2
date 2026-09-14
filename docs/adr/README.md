@@ -31,4 +31,5 @@ so the reasoning at the time stays readable.
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
 | [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted |
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
-| [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted |
+| [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md) |
+| [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |

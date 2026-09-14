@@ -19,8 +19,6 @@ interface GoalsPayload {
 export function useGoals() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
-  const toast = useToastMessage()
-  const t = useMessages()
 
   const { data, status, refresh } = useAsyncData<GoalsPayload>(
     'goals',
@@ -61,7 +59,6 @@ export function useGoals() {
     try {
       const created = await api.goals.create(request)
       await refresh()
-      toast.show(t.value.toast.goalCreated)
       return created
     }
     catch (caught) {
