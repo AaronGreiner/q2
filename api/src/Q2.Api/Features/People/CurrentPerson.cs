@@ -27,14 +27,28 @@ public sealed class CurrentPerson(Q2DbContext database, IHttpContextAccessor htt
     /// <exception cref="AuthenticationRequiredException">
     /// There is no session, or nothing behind it any more.
     /// </exception>
-    public async Task<Person> GetAsync(CancellationToken cancellationToken)
+    public Task<Person> GetAsync(CancellationToken cancellationToken) =>
+        ForPrincipalAsync(httpContextAccessor.HttpContext?.User, cancellationToken);
+
+    /// <summary>
+    /// The person behind a principal the caller already holds.
+    /// </summary>
+    /// <remarks>
+    /// For the live connection, which carries the principal it was opened with
+    /// and has no request of its own to read one from afterwards
+    /// (<see cref="Q2.Api.Features.Notifications.LiveHub"/>). It is a second
+    /// way in, not a second answer: the claim is still read here and only
+    /// here.
+    /// </remarks>
+    /// <exception cref="AuthenticationRequiredException">
+    /// There is no session, or nothing behind it any more.
+    /// </exception>
+    public async Task<Person> ForPrincipalAsync(ClaimsPrincipal? principal, CancellationToken cancellationToken)
     {
         if (_cached is not null)
         {
             return _cached;
         }
-
-        var principal = httpContextAccessor.HttpContext?.User;
 
         if (principal?.Identity?.IsAuthenticated != true)
         {

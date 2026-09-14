@@ -1906,6 +1906,30 @@
         }
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "The bell, newest first. Reading it marks everything in it as seen.",
+        "operationId": "ListNotifications",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/notifications/key": {
       "get": {
         "tags": [
@@ -1981,6 +2005,27 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/counts": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Every number the app puts on a badge.",
+        "operationId": "GetCounts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountsResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2340,6 +2385,68 @@
         }
       }
     },
+    "/api/chats/{id}/mute": {
+      "put": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Stops a conversation from ringing on your devices, or lets it ring again.",
+        "operationId": "MuteChat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuteChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings": {
       "get": {
         "tags": [
@@ -2430,8 +2537,7 @@
           "TaskCompleted",
           "StreakReached",
           "GoalProgress",
-          "GoalCreated",
-          "WindowAtRisk"
+          "GoalCreated"
         ]
       },
       "ActivityResponse": {
@@ -2700,7 +2806,8 @@
           "memberCount",
           "otherLastSeenAt",
           "pinnedGoal",
-          "messages"
+          "messages",
+          "isMuted"
         ],
         "type": "object",
         "properties": {
@@ -2758,6 +2865,9 @@
             "items": {
               "$ref": "#/components/schemas/ChatMessageResponse"
             }
+          },
+          "isMuted": {
+            "type": "boolean"
           }
         }
       },
@@ -2857,7 +2967,8 @@
           "lastMessageSenderName",
           "lastMessageIsMine",
           "lastMessageAt",
-          "unreadCount"
+          "unreadCount",
+          "isMuted"
         ],
         "type": "object",
         "properties": {
@@ -2908,6 +3019,9 @@
           "unreadCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "isMuted": {
+            "type": "boolean"
           }
         }
       },
@@ -2925,6 +3039,33 @@
           "Direct",
           "Group"
         ]
+      },
+      "CountsResponse": {
+        "required": [
+          "unreadChats",
+          "pendingFriendRequests",
+          "unseenNotifications",
+          "proofsAwaitingVote"
+        ],
+        "type": "object",
+        "properties": {
+          "unreadChats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingFriendRequests": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unseenNotifications": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "proofsAwaitingVote": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "CreateGoalRequest": {
         "type": "object",
@@ -3749,6 +3890,157 @@
           }
         }
       },
+      "MuteChatRequest": {
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "NotificationKind": {
+        "enum": [
+          "MessageReceived",
+          "FriendRequestReceived",
+          "FriendshipStarted",
+          "ProofAwaitingVote",
+          "ProofConfirmed",
+          "ProofRefused",
+          "ReactionReceived",
+          "GoalInvitation",
+          "GoalPaused",
+          "PauseLifted",
+          "FriendWindowAtRisk",
+          "ChallengePublished"
+        ]
+      },
+      "NotificationResponse": {
+        "required": [
+          "id",
+          "kind",
+          "actor",
+          "subject",
+          "excerpt",
+          "amount",
+          "target",
+          "targetId",
+          "occurredAt",
+          "isNew"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "actor": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/PersonSummary"
+              }
+            ]
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "excerpt": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "target": {
+            "$ref": "#/components/schemas/NotificationTarget"
+          },
+          "targetId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isNew": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationSettingsResponse": {
+        "required": [
+          "messages",
+          "friendships",
+          "votesDue",
+          "proofResults",
+          "reactions",
+          "goalUpdates",
+          "friendsAtRisk",
+          "challenge",
+          "quietHoursFrom",
+          "quietHoursTo"
+        ],
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "boolean"
+          },
+          "friendships": {
+            "type": "boolean"
+          },
+          "votesDue": {
+            "type": "boolean"
+          },
+          "proofResults": {
+            "type": "boolean"
+          },
+          "reactions": {
+            "type": "boolean"
+          },
+          "goalUpdates": {
+            "type": "boolean"
+          },
+          "friendsAtRisk": {
+            "type": "boolean"
+          },
+          "challenge": {
+            "type": "boolean"
+          },
+          "quietHoursFrom": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "quietHoursTo": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          }
+        }
+      },
+      "NotificationTarget": {
+        "enum": [
+          "None",
+          "Person",
+          "Goal",
+          "Conversation",
+          "Challenge",
+          "Activity"
+        ]
+      },
       "PersonProfileResponse": {
         "required": [
           "person",
@@ -3880,8 +4172,6 @@
           "goalsCompleted",
           "weekActivity",
           "today",
-          "unreadChats",
-          "pendingFriendRequests",
           "badges",
           "recentActivity",
           "balance",
@@ -3912,14 +4202,6 @@
           },
           "today": {
             "$ref": "#/components/schemas/DaySummaryResponse"
-          },
-          "unreadChats": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pendingFriendRequests": {
-            "type": "integer",
-            "format": "int32"
           },
           "badges": {
             "type": "array",
@@ -4252,13 +4534,7 @@
         "required": [
           "theme",
           "language",
-          "notifyReminders",
-          "notifyKudos",
-          "notifyMessages",
-          "notifyWeeklyReview",
-          "notifyChallenge",
-          "quietHoursFrom",
-          "quietHoursTo"
+          "notifications"
         ],
         "type": "object",
         "properties": {
@@ -4268,30 +4544,8 @@
           "language": {
             "$ref": "#/components/schemas/LanguagePreference"
           },
-          "notifyReminders": {
-            "type": "boolean"
-          },
-          "notifyKudos": {
-            "type": "boolean"
-          },
-          "notifyMessages": {
-            "type": "boolean"
-          },
-          "notifyWeeklyReview": {
-            "type": "boolean"
-          },
-          "notifyChallenge": {
-            "type": "boolean"
-          },
-          "quietHoursFrom": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "quietHoursTo": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationSettingsResponse"
           }
         }
       },
@@ -4383,6 +4637,57 @@
           }
         }
       },
+      "UpdateNotificationSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "friendships": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "votesDue": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "proofResults": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "reactions": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "goalUpdates": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "friendsAtRisk": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "challenge": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "quietHoursEnabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "quietHoursFrom": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "quietHoursTo": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          }
+        }
+      },
       "UpdateProfileRequest": {
         "type": "object",
         "properties": {
@@ -4424,39 +4729,17 @@
               }
             ]
           },
-          "notifyReminders": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "notifyKudos": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "notifyMessages": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "notifyWeeklyReview": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "notifyChallenge": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "quietHoursEnabled": {
-            "type": "boolean",
-            "nullable": true
-          },
-          "quietHoursFrom": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
-          },
-          "quietHoursTo": {
-            "type": "string",
-            "format": "time",
-            "nullable": true
+          "notifications": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/UpdateNotificationSettingsRequest"
+              }
+            ]
           }
         }
       },

@@ -63,6 +63,9 @@ public sealed class ConversationParticipantConfiguration : IEntityTypeConfigurat
         builder.Property(p => p.LastReadAt)
             .HasConversion(InstantConversion.Optional);
 
+        builder.Property(p => p.MutedAt)
+            .HasConversion(InstantConversion.Optional);
+
         builder.HasOne<Person>()
             .WithMany()
             .HasForeignKey(p => p.PersonId)

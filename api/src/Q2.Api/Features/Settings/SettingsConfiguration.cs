@@ -22,10 +22,30 @@ public sealed class UserSettingsConfiguration : IEntityTypeConfiguration<UserSet
             .HasMaxLength(16)
             .HasConversion<string>();
 
-        builder.Property(s => s.NotifyReminders).IsRequired();
-        builder.Property(s => s.NotifyKudos).IsRequired();
-        builder.Property(s => s.NotifyMessages).IsRequired();
-        builder.Property(s => s.NotifyWeeklyReview).IsRequired();
+        /*
+         * A complex type rather than an owned entity or a table of its own: the
+         * notification preferences are a value — replaced whole, compared by
+         * what they contain — and they live in the same row as the rest of the
+         * person's preferences.
+         *
+         * The column names are written out because two of them predate the value
+         * type and are kept (NotifyMessages, NotifyChallenge, the quiet hours),
+         * so a database migrated before it still has everybody's choices under
+         * the names it has always had.
+         */
+        builder.ComplexProperty(s => s.Notifications, notifications =>
+        {
+            notifications.Property(n => n.Messages).HasColumnName("NotifyMessages");
+            notifications.Property(n => n.Friendships).HasColumnName("NotifyFriendships");
+            notifications.Property(n => n.VotesDue).HasColumnName("NotifyVotesDue");
+            notifications.Property(n => n.ProofResults).HasColumnName("NotifyProofResults");
+            notifications.Property(n => n.Reactions).HasColumnName("NotifyReactions");
+            notifications.Property(n => n.GoalUpdates).HasColumnName("NotifyGoalUpdates");
+            notifications.Property(n => n.FriendsAtRisk).HasColumnName("NotifyFriendsAtRisk");
+            notifications.Property(n => n.Challenge).HasColumnName("NotifyChallenge");
+            notifications.Property(n => n.QuietHoursFrom).HasColumnName("QuietHoursFrom");
+            notifications.Property(n => n.QuietHoursTo).HasColumnName("QuietHoursTo");
+        });
 
         builder.HasOne<Person>()
             .WithMany()

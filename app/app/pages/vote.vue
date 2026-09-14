@@ -27,7 +27,7 @@ useHead({ title: () => t.value.vote.heading })
       <template #actions>
         <span
           v-if="proofs.length > 0"
-          class="rounded-full bg-(--ui-bg-accented) px-3 py-1.5 text-[12px] font-extrabold text-(--ui-text-muted)"
+          class="rounded-full bg-(--ui-bg-accented) px-3 py-1.5 text-[12px] font-extrabold text-(--ui-text-toned)"
           data-testid="vote-remaining"
         >{{ t.vote.remaining(proofs.length) }}</span>
       </template>

@@ -292,6 +292,9 @@ export const de = {
     leaveGroup: 'Gruppe verlassen',
     leaveGroupConfirm: 'Diese Gruppe verlassen? Du siehst neue Nachrichten dann nicht mehr.',
     threadMenu: 'Weitere Aktionen',
+    mute: 'Stummschalten',
+    unmute: 'Wieder benachrichtigen',
+    muted: 'Stummgeschaltet',
   },
 
   friends: {
@@ -526,33 +529,110 @@ export const de = {
   },
 
   /**
-   * What a notification says.
-   *
-   * Composed in the service worker from a kind and its parameters, never sent
-   * as text by the server — which is what makes a notification arrive in the
-   * language the person chose. The wording is the feed's wording, because it is
-   * the same event; only the title differs, because a lock screen has no
-   * context around it.
-   *
-   * Flat, like everything on the shame half. What is missing and whose, and
-   * nothing else.
+   * What a push says when it cannot say anything more specific: a payload this
+   * version of the app does not understand, or none at all. Everything else a
+   * notification says is in `notify`.
    */
   push: {
     generic: 'Es gibt etwas Neues.',
-    riskTitle: 'Wird knapp',
-    riskBody: (goal: string, missing: number) => (missing === 1
-      ? `${goal}: es fehlt noch ein Nachweis für heute.`
-      : `${goal}: es fehlen noch ${missing} Nachweise für heute.`),
-    challengeTitle: 'Challenge des Tages',
+  },
+
+  /**
+   * The bell, and everything a notification says.
+   *
+   * One wording for both ways a notification arrives: the same sentence is a
+   * line in the bell and the body on a lock screen, composed from a kind, a
+   * name and a subject by `notificationText` in app/utils/display.ts. The
+   * server never sends a sentence, which is what lets it arrive in the language
+   * the person chose — and the service worker imports this file for exactly
+   * that.
+   *
+   * A sentence that names somebody is written without the name, the way the
+   * feed writes it: the bell sets the name in bold in front, and several people
+   * reacting to one thing need "haben" where one needs "hat".
+   *
+   * Flat, like everything about somebody else's doing: who, what, and nothing
+   * more. A verdict and a lifted pause never have a name, because doubt and
+   * objection are anonymous.
+   */
+  notify: {
+    heading: 'Mitteilungen',
+    open: 'Mitteilungen öffnen',
+    openWithCount: (count: number) => (count === 1 ? 'Mitteilungen öffnen, 1 neue' : `Mitteilungen öffnen, ${count} neue`),
+    fresh: 'Neu',
+    earlier: 'Früher',
+    new: 'Neu',
+    empty: 'Noch nichts für dich.',
+    emptyHint: 'Wenn jemand deine Anfrage annimmt, auf deinen Beweis reagiert oder dich zu einem Ziel einlädt, steht es hier.',
+    someone: 'Jemand',
+    others: (name: string, others: number) => (others === 1
+      ? `${name} und eine weitere Person`
+      : `${name} und ${others} weitere`),
+    titles: {
+      friends: 'Freunde',
+      vote: 'Glaubst du das?',
+      result: 'Dein Beweis',
+      reaction: 'Kudos',
+      goals: 'Ziele',
+      risk: 'Wird knapp',
+    },
+    messageInGroup: (name: string, group: string) => `${name} in ${group}`,
+    messageFallback: 'Neue Nachricht',
+    friendRequest: 'möchte mit dir befreundet sein.',
+    friendshipStarted: 'und du seid jetzt befreundet.',
+    proofAwaitingVote: (goal: string) => `hat einen Beweis für „${goal}“ geliefert. Glaubst du es?`,
+    proofConfirmed: (goal: string) => `Dein Beweis für „${goal}“ wurde bestätigt.`,
+    proofRefused: (goal: string) => `Dein Beweis für „${goal}“ wurde nicht anerkannt.`,
+    proofRefusedRetry: (goal: string) => `Dein Beweis für „${goal}“ wurde nicht anerkannt. Du hast noch einen Versuch.`,
+    reactedToProof: (people: number, goal: string) => (people === 1
+      ? `hat auf deinen Beweis für „${goal}“ reagiert.`
+      : `haben auf deinen Beweis für „${goal}“ reagiert.`),
+    reactedToMessage: (people: number): string => (people === 1
+      ? 'hat auf deine Nachricht reagiert.'
+      : 'haben auf deine Nachricht reagiert.'),
+    reactedToChallenge: (people: number): string => (people === 1
+      ? 'hat auf deinen Challenge-Beitrag reagiert.'
+      : 'haben auf deinen Challenge-Beitrag reagiert.'),
+    gaveKudos: (people: number, subject: string) =>
+      `${people === 1 ? 'hat' : 'haben'} dir Kudos ${subject ? `für „${subject}“ ` : ''}gegeben.`,
+    goalInvitation: (goal: string) => `hat dich zu „${goal}“ eingeladen. Du stimmst über die Beweise mit ab.`,
+    goalPaused: (goal: string, days: number) => (days === 1
+      ? `setzt „${goal}“ für einen Tag aus.`
+      : `setzt „${goal}“ für ${days} Tage aus.`),
+    pauseLifted: (goal: string) => `Einsprüche haben die Pause für „${goal}“ beendet. Das Fenster läuft wieder.`,
+    friendAtRisk: (goal: string, missing: number) => (missing === 1
+      ? `droht „${goal}“ zu verpassen — ein Nachweis fehlt noch.`
+      : `droht „${goal}“ zu verpassen — es fehlen noch ${missing} Nachweise.`),
+  },
+
+  /**
+   * The notification screen, under Profil → Einstellungen: one switch per thing
+   * somebody can decide to be interrupted for, grouped the way a person thinks
+   * about them rather than the way the server counts them.
+   */
+  notificationSettings: {
+    heading: 'Benachrichtigungen',
+    device: 'Dieses Gerät',
+    deviceNote: 'Erlaubnis und Empfang gelten nur für diesen Browser. Die Schalter darunter gelten für jedes Gerät, auf dem du Benachrichtigungen eingeschaltet hast.',
+    friends: 'Freunde',
+    goals: 'Ziele',
+    encouragement: 'Rückmeldungen',
+    challenge: 'Challenge',
+    messages: 'Nachrichten',
+    friendships: 'Freundschaftsanfragen',
+    votesDue: 'Ein Beweis wartet auf dein Urteil',
+    proofResults: 'Urteil über deine Beweise',
+    goalUpdates: 'Einladungen & Pausen',
+    friendsAtRisk: 'Wird knapp bei Freunden',
+    reactions: 'Kudos & Reaktionen',
+    dailyChallenge: 'Challenge des Tages',
+    switchesNote: 'Die Schalter entscheiden, was dein Handy klingeln lässt. In der Glocke steht trotzdem alles.',
   },
 
   activityOverview: {
     heading: 'Aktivität',
-    open: 'Aktivität öffnen',
     empty: 'Noch nichts passiert.',
     emptyHint: 'Wenn deine Freunde etwas liefern, steht es hier.',
-    warnings: 'Wird knapp bei deinen Freunden',
-    everythingElse: 'Alles andere',
   },
 
   risk: {
@@ -643,11 +723,7 @@ export const de = {
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
     notifications: 'Benachrichtigungen',
-    notifyReminders: 'Erinnerungen',
-    notifyKudos: 'Kudos',
-    notifyMessages: 'Nachrichten',
-    notifyWeeklyReview: 'Wochenrückblick',
-    notificationsNote: 'Gilt für jedes Gerät, auf dem du sie eingeschaltet hast.',
+    notificationsNote: 'Welche davon dein Handy klingeln lassen, und wann es still bleibt.',
     account: 'Konto',
     editProfile: 'Profil bearbeiten',
     privacy: 'Privatsphäre',
@@ -685,7 +761,6 @@ export const de = {
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht`,
     goalProgress: (subject: string, percent: number) => `ist bei „${subject}“ auf ${percent}\u00A0%`,
     goalCreated: (subject: string) => `hat ein neues Ziel erstellt: ${subject}`,
-    windowAtRisk: (subject: string) => `droht „${subject}“ zu verpassen`,
     giveKudos: 'Kudos geben',
     takeBackKudos: 'Kudos zurücknehmen',
   },
@@ -788,6 +863,8 @@ export const de = {
     goalClosed: { icon: 'i-lucide-archive', text: 'Ziel beendet' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Endgültig gelöscht' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback lässt sich gerade nicht öffnen' },
+    chatMuted: { icon: 'i-lucide-bell-off', text: 'Stummgeschaltet' },
+    chatUnmuted: { icon: 'i-lucide-bell', text: 'Du wirst wieder benachrichtigt' },
   },
 }
 
@@ -1048,6 +1125,9 @@ export const en: Messages = {
     leaveGroup: 'Leave group',
     leaveGroupConfirm: 'Leave this group? You will stop seeing new messages.',
     threadMenu: 'More actions',
+    mute: 'Mute',
+    unmute: 'Unmute',
+    muted: 'Muted',
   },
 
   friends: {
@@ -1237,20 +1317,81 @@ export const en: Messages = {
 
   push: {
     generic: 'Something new happened.',
-    riskTitle: 'Getting tight',
-    riskBody: (goal: string, missing: number) => (missing === 1
-      ? `${goal}: one proof still missing today.`
-      : `${goal}: ${missing} proofs still missing today.`),
-    challengeTitle: 'Challenge of the day',
+  },
+
+  notify: {
+    heading: 'Notifications',
+    open: 'Open notifications',
+    openWithCount: (count: number) => (count === 1 ? 'Open notifications, 1 new' : `Open notifications, ${count} new`),
+    fresh: 'New',
+    earlier: 'Earlier',
+    new: 'New',
+    empty: 'Nothing for you yet.',
+    emptyHint: 'When somebody accepts your request, reacts to your proof or invites you onto a goal, it turns up here.',
+    someone: 'Somebody',
+    others: (name: string, others: number) => (others === 1
+      ? `${name} and one other`
+      : `${name} and ${others} others`),
+    titles: {
+      friends: 'Friends',
+      vote: 'Do you believe it?',
+      result: 'Your proof',
+      reaction: 'Kudos',
+      goals: 'Goals',
+      risk: 'Getting tight',
+    },
+    messageInGroup: (name: string, group: string) => `${name} in ${group}`,
+    messageFallback: 'New message',
+    friendRequest: 'wants to be friends with you.',
+    friendshipStarted: 'and you are friends now.',
+    proofAwaitingVote: (goal: string) => `has delivered a proof for “${goal}”. Do you believe it?`,
+    proofConfirmed: (goal: string) => `Your proof for “${goal}” was confirmed.`,
+    proofRefused: (goal: string) => `Your proof for “${goal}” was not accepted.`,
+    proofRefusedRetry: (goal: string) => `Your proof for “${goal}” was not accepted. You have one more try.`,
+    reactedToProof: (people: number, goal: string) => (people === 1
+      ? `has reacted to your proof for “${goal}”.`
+      : `have reacted to your proof for “${goal}”.`),
+    reactedToMessage: (people: number): string => (people === 1
+      ? 'has reacted to your message.'
+      : 'have reacted to your message.'),
+    reactedToChallenge: (people: number): string => (people === 1
+      ? 'has reacted to your challenge contribution.'
+      : 'have reacted to your challenge contribution.'),
+    gaveKudos: (people: number, subject: string) =>
+      `${people === 1 ? 'has' : 'have'} given you kudos${subject ? ` for “${subject}”` : ''}.`,
+    goalInvitation: (goal: string) => `has invited you onto “${goal}”. You get a vote on its proofs.`,
+    goalPaused: (goal: string, days: number) => (days === 1
+      ? `is setting “${goal}” aside for a day.`
+      : `is setting “${goal}” aside for ${days} days.`),
+    pauseLifted: (goal: string) => `Objections have ended the pause on “${goal}”. The window is running again.`,
+    friendAtRisk: (goal: string, missing: number) => (missing === 1
+      ? `is about to miss “${goal}” — one proof still missing.`
+      : `is about to miss “${goal}” — ${missing} proofs still missing.`),
+  },
+
+  notificationSettings: {
+    heading: 'Notifications',
+    device: 'This device',
+    deviceNote: 'Permission and delivery apply to this browser only. The switches below apply to every device you have turned notifications on for.',
+    friends: 'Friends',
+    goals: 'Goals',
+    encouragement: 'Encouragement',
+    challenge: 'Challenge',
+    messages: 'Messages',
+    friendships: 'Friend requests',
+    votesDue: 'A proof is waiting for your verdict',
+    proofResults: 'Verdicts on your proofs',
+    goalUpdates: 'Invitations & pauses',
+    friendsAtRisk: 'Friends running out of time',
+    reactions: 'Kudos & reactions',
+    dailyChallenge: 'Challenge of the day',
+    switchesNote: 'The switches decide what makes your phone ring. The bell keeps everything either way.',
   },
 
   activityOverview: {
     heading: 'Activity',
-    open: 'Open activity',
     empty: 'Nothing has happened yet.',
     emptyHint: 'When your friends deliver something, it turns up here.',
-    warnings: 'Your friends who are running out of time',
-    everythingElse: 'Everything else',
   },
 
   risk: {
@@ -1340,11 +1481,7 @@ export const en: Messages = {
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
     notifications: 'Notifications',
-    notifyReminders: 'Reminders',
-    notifyKudos: 'Kudos',
-    notifyMessages: 'Messages',
-    notifyWeeklyReview: 'Weekly review',
-    notificationsNote: 'Applies to every device you have turned them on for.',
+    notificationsNote: 'Which of them make your phone ring, and when it stays quiet.',
     account: 'Account',
     editProfile: 'Edit profile',
     privacy: 'Privacy',
@@ -1377,7 +1514,6 @@ export const en: Messages = {
     streakReached: (days: number) => `reached a ${days}-day streak`,
     goalProgress: (subject: string, percent: number) => `is at ${percent}% on “${subject}”`,
     goalCreated: (subject: string) => `started a new goal: ${subject}`,
-    windowAtRisk: (subject: string) => `is about to miss “${subject}”`,
     giveKudos: 'Give kudos',
     takeBackKudos: 'Take kudos back',
   },
@@ -1461,6 +1597,8 @@ export const en: Messages = {
     goalClosed: { icon: 'i-lucide-archive', text: 'Goal stopped' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Deleted for good' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback cannot be opened right now' },
+    chatMuted: { icon: 'i-lucide-bell-off', text: 'Muted' },
+    chatUnmuted: { icon: 'i-lucide-bell', text: 'Notifications are back on' },
   },
 }
 

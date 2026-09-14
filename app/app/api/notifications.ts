@@ -1,15 +1,28 @@
 import type { ApiCaller } from './client'
-import type { PushKey } from './types'
+import type { Counts, NotificationLine, PushKey } from './types'
 
 /**
- * Registering this browser for notifications.
+ * The bell, the badges, and registering this browser for notifications.
  *
- * Three calls and none of them sends anything. Notifications are produced by
- * the two background jobs on the server — a window falling due, a challenge
- * being published — and a client that could ask for one would be a client that
+ * Nothing here sends anything. A notification is a consequence of something
+ * somebody did — a message, a vote, a request — and the server produces it as
+ * part of doing that. A client that could ask for one would be a client that
  * could send somebody else one.
  */
 export interface NotificationsApi {
+  /**
+   * The bell's lines, newest first. Reading them is what marks them seen, the
+   * way opening a conversation marks it read.
+   */
+  list: () => Promise<NotificationLine[]>
+
+  /**
+   * Every number drawn on a badge, in one read: unread conversations, pending
+   * requests, the bell, proofs waiting for a vote. The live connection pushes
+   * the same shape, so a badge never has two sources.
+   */
+  counts: () => Promise<Counts>
+
   /**
    * Whether this deployment sends notifications, and the key to subscribe
    * with. A deployment without VAPID keys is a supported state: the settings
@@ -26,6 +39,10 @@ export interface NotificationsApi {
 
 export function createNotificationsApi(call: ApiCaller): NotificationsApi {
   return {
+    list: () => call<NotificationLine[]>('/api/notifications', { method: 'GET' }),
+
+    counts: () => call<Counts>('/api/counts', { method: 'GET' }),
+
     key: () => call<PushKey>('/api/notifications/key', { method: 'GET' }),
 
     subscribe: async (endpoint, publicKey, authSecret) => {

@@ -3,6 +3,7 @@ using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Observability;
@@ -33,6 +34,7 @@ public sealed class ProofService(
     CurrentPerson currentPerson,
     ImageService images,
     ActivityRecorder activity,
+    Notifier notifier,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
     IIdGenerator idGenerator,
@@ -80,7 +82,7 @@ public sealed class ProofService(
 
         // Brought up to date first, so a photograph cannot land in a window
         // whose deadline passed while the screen was open.
-        GoalMaintenance.Advance(goal, calendar, now, idGenerator);
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
 
         var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.CapturedInApp, now)
             ?? throw new DomainValidationException(
@@ -94,7 +96,19 @@ public sealed class ProofService(
         Settle(goal, proof, ProofVoting.Evaluate(proof.CastValues, goal.VoterCount, proof.Attempt), me, calendar, now);
 
         GoalMaintenance.Advance(goal, calendar, now, idGenerator);
+
+        // The friends who decide it are told it is waiting — unless there was
+        // nobody to ask and it was believed on the spot.
+        if (proof.Status == ProofStatus.Voting)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.ProofAwaitingVote, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                goal.Participants.Select(participant => participant.PersonId),
+                cancellationToken);
+        }
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("A proof was delivered on goal {GoalId}", goal.Id);
         metrics.CountGoalProgress();
@@ -155,7 +169,14 @@ public sealed class ProofService(
         Settle(goal, proof, ProofVoting.Evaluate(proof.CastValues, goal.VoterCount, proof.Attempt), owner, calendar, now);
 
         GoalMaintenance.Advance(goal, calendar, now, idGenerator);
+
+        // The photograph leaves this voter's queue on their other devices too,
+        // and if this vote settled it, the owner hears the verdict.
+        notifier.Touch([me.Id], LiveArea.Proofs);
+        await ProofVerdicts.AnnounceAsync(notifier, goal, proof, cancellationToken);
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         // No title, no names, no verdict: how many, and nothing about whose.
         logger.LogInformation("A vote was cast on proof {ProofId}", proof.Id);
@@ -198,8 +219,30 @@ public sealed class ProofService(
             throw new DomainValidationException("Reaction", "This one is closed.");
         }
 
-        proof.ToggleReaction(idGenerator.NewId(), me.Id, kind);
+        var hadReacted = proof.Reactions.Any(reaction => reaction.PersonId == me.Id);
+        var standing = proof.ToggleReaction(idGenerator.NewId(), me.Id, kind);
+
+        // Told once per person, not once for every change of mind between the
+        // three kinds — and taken back only if nothing of theirs is left.
+        if (!hadReacted && standing is not null)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.ReactionReceived, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                [proof.UploaderPersonId],
+                cancellationToken);
+        }
+        else if (hadReacted && standing is null)
+        {
+            await notifier.RetractAsync(
+                NotificationKind.ReactionReceived,
+                proof.UploaderPersonId,
+                me.Id,
+                goal.Id,
+                cancellationToken);
+        }
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         return await DescribeAsync(goal, proof, me.Id, timeProvider.GetUtcNow(), cancellationToken);
     }
@@ -218,18 +261,10 @@ public sealed class ProofService(
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
-        var waiting = await database.ProofPhotos
+        var waiting = await WaitingForVote(database, me.Id, now)
             .AsNoTracking()
             .Include(proof => proof.Votes)
             .Include(proof => proof.Reactions)
-            .Where(proof =>
-                proof.Status == ProofStatus.Voting
-                && proof.VotingDeadline > now
-                && proof.UploaderPersonId != me.Id
-                && !proof.Votes.Any(vote => vote.VoterPersonId == me.Id)
-                && database.Goals.Any(goal =>
-                    goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
-                    && goal.Participants.Any(participant => participant.PersonId == me.Id)))
             .OrderByDescending(proof => proof.CreatedAt)
             .ThenBy(proof => proof.Id)
             .Take(FeedLimit)
@@ -263,6 +298,29 @@ public sealed class ProofService(
                     pair.Goal!.Title,
                     pair.Goal!.Icon)),
         ];
+    }
+
+    /// <summary>
+    /// The photographs waiting for this person's verdict: the one definition,
+    /// shared by the vote screen and the number on the start screen's banner.
+    /// </summary>
+    /// <remarks>
+    /// A photograph only matches if the person is on its goal, is not its
+    /// owner, and has not voted yet — one expression, so the cards somebody is
+    /// shown and the count that sent them there cannot disagree.
+    /// </remarks>
+    public static IQueryable<ProofPhoto> WaitingForVote(Q2DbContext database, Guid personId, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+
+        return database.ProofPhotos.Where(proof =>
+            proof.Status == ProofStatus.Voting
+            && proof.VotingDeadline > now
+            && proof.UploaderPersonId != personId
+            && !proof.Votes.Any(vote => vote.VoterPersonId == personId)
+            && database.Goals.Any(goal =>
+                goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
+                && goal.Participants.Any(participant => participant.PersonId == personId)));
     }
 
     /// <summary>One photograph, for somebody allowed to see it.</summary>

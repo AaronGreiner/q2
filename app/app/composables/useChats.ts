@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { ChatSummary, KudosKind } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ChatsPayload {
   chats: ChatSummary[]
@@ -27,13 +28,15 @@ export function useChats(search: Ref<string>) {
         return { chats: [], failure: report(caught, { feature: 'chats', action: 'list' }) }
       }
     },
-    { watch: [search], default: (): ChatsPayload => ({ chats: [], failure: null }) },
+    { watch: [search], default: (): ChatsPayload => placeholder({ chats: [], failure: null }) },
   )
 
   return {
     chats: computed(() => data.value?.chats ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+
+    // Not while a reply that just arrived is being read in: see firstLoad.
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
   }
 }
@@ -62,14 +65,18 @@ export function useChatThread(id: Ref<string>) {
         return { chat: null, failure: report(caught, { feature: 'chats', action: 'thread' }) }
       }
     },
-    { watch: [id], default: () => ({ chat: null, failure: null }) },
+    { watch: [id], default: () => placeholder({ chat: null, failure: null }) },
   )
 
   const chat = computed(() => data.value?.chat ?? null)
   const failure = computed(() => data.value?.failure ?? null)
   const isMissing = computed(() => failure.value?.kind === 'notFound')
   const error = computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null))
-  const isLoading = computed(() => status.value === 'pending')
+
+  // Only before the thread first arrives. A reply read in while somebody is
+  // typing must not swap the thread — and the composer with their words in
+  // it — for a skeleton: see firstLoad.
+  const isLoading = computed(() => isFirstLoad(status.value, data.value))
   const isSending = ref(false)
 
   async function send(text: string) {
@@ -113,6 +120,21 @@ export function useChatThread(id: Ref<string>) {
   }
 
   /**
+   * Stops this conversation ringing on this person's devices, or lets it ring
+   * again. It still counts as unread either way — muting is about being
+   * interrupted, not about what is waiting when somebody looks.
+   */
+  async function setMuted(muted: boolean) {
+    try {
+      data.value = { chat: await api.chats.mute(id.value, muted), failure: null }
+      toast.show(muted ? t.value.toast.chatMuted : t.value.toast.chatUnmuted)
+    }
+    catch (caught) {
+      report(caught, { feature: 'chats', action: 'mute' })
+    }
+  }
+
+  /**
    * Leaves a group and goes back to the list.
    *
    * The list is refreshed rather than filtered in place: this conversation is
@@ -121,7 +143,7 @@ export function useChatThread(id: Ref<string>) {
   async function leave() {
     try {
       await api.chats.leave(id.value)
-      await Promise.all([refreshNuxtData('chats'), refreshNuxtData('profile')])
+      await Promise.all([refreshNuxtData('chats'), refreshNuxtData('counts')])
       await router.push('/chats')
       toast.show(t.value.toast.groupLeft)
     }
@@ -130,5 +152,5 @@ export function useChatThread(id: Ref<string>) {
     }
   }
 
-  return { chat, error, isMissing, isLoading, refresh, send, cheer, react, leave, isSending }
+  return { chat, error, isMissing, isLoading, refresh, send, cheer, react, setMuted, leave, isSending }
 }

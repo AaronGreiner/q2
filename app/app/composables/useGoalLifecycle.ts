@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { Goal } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ArchivePayload {
   goals: Goal[]
@@ -116,7 +117,7 @@ export function useGoalArchive() {
         return { goals: [], failure: report(caught, { feature: 'goals', action: 'archive' }) }
       }
     },
-    { default: (): ArchivePayload => ({ goals: [], failure: null }) },
+    { default: (): ArchivePayload => placeholder({ goals: [], failure: null }) },
   )
 
   const isRemoving = ref(false)
@@ -145,7 +146,7 @@ export function useGoalArchive() {
   return {
     goals: computed(() => data.value?.goals ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isRemoving: computed(() => isRemoving.value),
     refresh,
     remove,

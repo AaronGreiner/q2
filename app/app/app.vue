@@ -16,6 +16,11 @@ const t = useMessages()
 // wraps both is where the keyboard has to be watched.
 useKeyboardViewport()
 
+// One connection for the whole app, open while somebody is signed in and the
+// app is in front of them — which is also what tells the server not to ring
+// their phone for what they are already looking at. See useLiveConnection.
+useLiveConnection()
+
 useHead({
   // The product name comes from the catalogue like every other word, but only
   // the German one: a document title is read by the operating system's task

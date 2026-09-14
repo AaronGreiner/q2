@@ -58,3 +58,56 @@ public sealed class PushSubscriptionConfiguration : IEntityTypeConfiguration<Pus
         builder.HasIndex(subscription => subscription.PersonId);
     }
 }
+
+/// <summary>EF Core mapping for a line in the bell.</summary>
+public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.ToTable("Notifications");
+        builder.HasKey(line => line.Id);
+
+        builder.Property(line => line.Kind)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Property(line => line.Target)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Property(line => line.Subject)
+            .HasMaxLength(Notification.MaxSubjectLength);
+
+        builder.Property(line => line.OccurredAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        // Goes with the recipient: their bell is theirs and nobody else's.
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(line => line.RecipientPersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        /*
+         * And with the actor.
+         *
+         * Somebody who deleted their account is gone, and a line in a friend's
+         * bell naming them would be the shape of them left behind — the thing
+         * erasure exists to prevent (docs/adr/0022-blocking-reporting-and-erasure.md).
+         * A cascade rather than a clean-up step, so there is nothing for the
+         * erasure path to forget.
+         */
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(line => line.ActorPersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // The bell reads one person's lines newest first; the retention pass
+        // reads everybody's by age.
+        builder.HasIndex(line => new { line.RecipientPersonId, line.OccurredAt });
+        builder.HasIndex(line => line.OccurredAt);
+        builder.HasIndex(line => line.ActorPersonId);
+    }
+}

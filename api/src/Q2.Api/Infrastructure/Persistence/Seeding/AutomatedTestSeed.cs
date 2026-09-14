@@ -1,6 +1,7 @@
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
@@ -164,6 +165,18 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         // bytes, so the room starts empty and a test that wants somebody in it
         // uploads a picture like a client would.
         build.AddChallenge(ChallengePrompt);
+
+        // One line in the bell, unseen: the friend reacted to the shared goal.
+        // Enough for the badge to read one, and for opening the bell to clear
+        // it.
+        build.AddNotification(
+            me,
+            NotificationKind.ReactionReceived,
+            friend,
+            NotificationTarget.Goal,
+            active.Id,
+            minutesAgo: 15,
+            subject: active.Title);
 
         build.AddDefaultSettings();
 

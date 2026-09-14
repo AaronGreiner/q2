@@ -31,11 +31,13 @@ public enum LanguagePreference
 /// applies the theme immediately and does not wait for a round trip — the
 /// server is where it is remembered, not where it is decided.
 ///
-/// The notification switches were stored and honoured by nothing for four
-/// stages, because a setting has to survive the day it starts working. That day
-/// is [0023](../../../../docs/adr/0023-web-push.md): every one of them now
-/// decides whether something is delivered, and the quiet hours below decide
-/// when.
+/// What may reach this person's devices is one value,
+/// <see cref="Notifications"/>, rather than a row of switches beside the theme:
+/// it is one decision about one thing, and the notification pipeline is what
+/// reads it (<see cref="NotificationRules.ShouldPush"/>). Every switch in it now
+/// does something — the three that were stored and honoured by nothing for
+/// four stages are either wired up or gone
+/// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
 public sealed class UserSettings
 {
@@ -67,68 +69,20 @@ public sealed class UserSettings
 
     public LanguagePreference Language { get; private set; } = LanguagePreference.German;
 
-    /// <summary>Reminders for tasks that are due.</summary>
-    public bool NotifyReminders { get; private set; } = true;
-
-    /// <summary>Somebody gave kudos or reacted.</summary>
-    public bool NotifyKudos { get; private set; } = true;
-
-    /// <summary>A new chat message.</summary>
-    public bool NotifyMessages { get; private set; } = true;
-
-    /// <summary>The Sunday summary of the week.</summary>
-    public bool NotifyWeeklyReview { get; private set; }
-
-    /// <summary>Today's challenge, when it is published.</summary>
-    /// <remarks>
-    /// Its own switch rather than part of <see cref="NotifyReminders"/>, which
-    /// is about goals. Somebody who has turned off "you are about to miss
-    /// something" has said something specific, and taking the one cheerful
-    /// notification in q2 away with it would be reading more into that than
-    /// they said.
-    /// </remarks>
-    public bool NotifyChallenge { get; private set; } = true;
-
-    /// <summary>
-    /// When to stop delivering, in this person's own zone. Null on both sides
-    /// means quiet hours are off.
-    /// </summary>
-    /// <remarks>
-    /// **On by default**, and that is not a neutral choice: a product that has
-    /// to be told not to buzz at three in the morning has already buzzed at
-    /// three in the morning for everybody who never opened this screen. See
-    /// <see cref="QuietHours"/> for what the window means when it crosses
-    /// midnight, and for why a caught notification is dropped rather than held.
-    /// </remarks>
-    public TimeOnly? QuietHoursFrom { get; private set; } = QuietHours.DefaultFrom;
-
-    /// <inheritdoc cref="QuietHoursFrom"/>
-    public TimeOnly? QuietHoursTo { get; private set; } = QuietHours.DefaultTo;
+    /// <summary>What may reach this person's devices, and when nothing may.</summary>
+    public NotificationPreferences Notifications { get; private set; } = NotificationPreferences.Default;
 
     public static UserSettings CreateDefault(Guid id, Guid personId) => new(id, personId);
 
-    public void Update(
-        ThemePreference theme,
-        LanguagePreference language,
-        bool notifyReminders,
-        bool notifyKudos,
-        bool notifyMessages,
-        bool notifyWeeklyReview,
-        bool notifyChallenge,
-        TimeOnly? quietHoursFrom,
-        TimeOnly? quietHoursTo)
+    public void Update(ThemePreference theme, LanguagePreference language, NotificationPreferences notifications)
     {
+        ArgumentNullException.ThrowIfNull(notifications);
+
         Theme = theme;
         Language = language;
-        NotifyReminders = notifyReminders;
-        NotifyKudos = notifyKudos;
-        NotifyMessages = notifyMessages;
-        NotifyWeeklyReview = notifyWeeklyReview;
-        NotifyChallenge = notifyChallenge;
 
-        // Both or neither. One half of a window is not a window, and storing it
-        // would leave QuietHours.Covers deciding what half of one means.
-        QuietHoursFrom = quietHoursFrom is { } from && quietHoursTo is { } ? from : null;
-        QuietHoursTo = quietHoursFrom is not null && quietHoursTo is { } to ? to : null;
+        // Both ends of the quiet window or neither, whatever the caller built —
+        // see NotificationPreferences.WithQuietHours.
+        Notifications = notifications.WithQuietHours(notifications.QuietHoursFrom, notifications.QuietHoursTo);
     }
 }

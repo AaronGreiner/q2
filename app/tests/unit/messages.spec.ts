@@ -121,7 +121,14 @@ describe('one and many', () => {
     ['challenge.remaining', () => de.challenge.remaining(1), () => de.challenge.remaining(5)],
     ['challenge.archiveCount', () => de.challenge.archiveCount(1), () => de.challenge.archiveCount(2)],
     ['challenge.participation', () => de.challenge.participation(0, 1), () => de.challenge.participation(0, 2)],
-    ['push.riskBody', () => de.push.riskBody('Laufen', 1), () => de.push.riskBody('Laufen', 2)],
+    ['notify.friendAtRisk', () => de.notify.friendAtRisk('Laufen', 1), () => de.notify.friendAtRisk('Laufen', 2)],
+    ['notify.goalPaused', () => de.notify.goalPaused('Laufen', 1), () => de.notify.goalPaused('Laufen', 3)],
+    ['notify.others', () => de.notify.others('Lena', 1), () => de.notify.others('Lena', 2)],
+    ['notify.openWithCount', () => de.notify.openWithCount(1), () => de.notify.openWithCount(2)],
+    // "hat" for one person, "haben" for several.
+    ['notify.reactedToProof', () => de.notify.reactedToProof(1, 'Laufen'), () => de.notify.reactedToProof(2, 'Laufen')],
+    ['notify.reactedToMessage', () => de.notify.reactedToMessage(1), () => de.notify.reactedToMessage(2)],
+    ['notify.gaveKudos', () => de.notify.gaveKudos(1, 'Laufen'), () => de.notify.gaveKudos(2, 'Laufen')],
   ]
 
   it.each(counting)('%s says one differently from many', (_path, one, many) => {
@@ -135,7 +142,10 @@ describe('one and many', () => {
     expect(en.proof.doubtCount(1)).not.toBe(en.proof.doubtCount(2))
     expect(en.challenge.archiveCount(1)).not.toBe(en.challenge.archiveCount(2))
     expect(en.challenge.participation(0, 1)).not.toBe(en.challenge.participation(0, 2))
-    expect(en.push.riskBody('Running', 1)).not.toBe(en.push.riskBody('Running', 2))
+    expect(en.notify.friendAtRisk('Running', 1)).not.toBe(en.notify.friendAtRisk('Running', 2))
+    expect(en.notify.goalPaused('Running', 1)).not.toBe(en.notify.goalPaused('Running', 3))
+    expect(en.notify.others('Lena', 1)).not.toBe(en.notify.others('Lena', 2))
+    expect(en.notify.reactedToProof(1, 'Running')).not.toBe(en.notify.reactedToProof(2, 'Running'))
   })
 })
 

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
+import { apiBaseUrl } from './support/e2eEnvironment'
 
 const sharedGoalId = 'e2e00000-0000-4000-8000-000000000001'
 
@@ -7,6 +8,8 @@ const sharedGoalId = 'e2e00000-0000-4000-8000-000000000001'
 const accessibilityScreens = [
   { name: 'dashboard', path: '/' },
   { name: 'goal detail', path: `/goals/${sharedGoalId}` },
+  { name: 'notifications', path: '/notifications' },
+  { name: 'notification settings', path: '/settings/notifications' },
   { name: 'diagnostics', path: '/diagnostics' },
 ] as const
 
@@ -18,7 +21,10 @@ const signedInScreens = [
   '/chats',
   '/search',
   '/profile',
+  '/notifications',
+  '/activity',
   '/settings',
+  '/settings/notifications',
   '/diagnostics',
 ] as const
 
@@ -39,11 +45,26 @@ test.describe('server-rendered HTML', () => {
 })
 
 test.describe('WCAG A and AA', () => {
+  // The account defaults to Dark, which overrides the emulated OS scheme.
+  // Use System for this group so the light cases actually render light.
+  let previousTheme: string
+  test.beforeAll(async ({ request }) => {
+    const settings = await request.get(`${apiBaseUrl}/api/settings`)
+    expect(settings.ok()).toBe(true)
+    previousTheme = (await settings.json() as { theme: string }).theme
+    expect((await request.put(`${apiBaseUrl}/api/settings`, { data: { theme: 'System' } })).ok()).toBe(true)
+  })
+
+  test.afterAll(async ({ request }) => {
+    expect((await request.put(`${apiBaseUrl}/api/settings`, { data: { theme: previousTheme } })).ok()).toBe(true)
+  })
+
   for (const screen of accessibilityScreens) {
     for (const colorScheme of ['light', 'dark'] as const) {
       test(`${screen.name} has no ${colorScheme} accessibility violations`, async ({ page }) => {
         await page.emulateMedia({ colorScheme })
         await page.goto(screen.path)
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`))
 
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa'])
@@ -79,7 +100,7 @@ test.describe('phone geometry', () => {
   test('visible controls meet the 44px touch-target rule', async ({ page }) => {
     const undersized: string[] = []
 
-    for (const path of ['/', '/goals?tab=goals', '/goals/archive', '/diagnostics'] as const) {
+    for (const path of ['/', '/goals?tab=goals', '/goals/archive', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
       await page.goto(path)
 
       const onScreen = await page.locator(

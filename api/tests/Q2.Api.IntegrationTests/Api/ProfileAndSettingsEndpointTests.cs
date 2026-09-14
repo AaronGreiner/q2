@@ -7,8 +7,7 @@ using Q2.Api.IntegrationTests.Infrastructure;
 namespace Q2.Api.IntegrationTests.Api;
 
 /// <summary>
-/// The profile — which is also where the tab bar gets its badges — and the
-/// preferences screen.
+/// The profile, the badges the tab bar draws, and the preferences screen.
 /// </summary>
 [Trait("Category", "Integration")]
 public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
@@ -28,22 +27,39 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         int GoalsCompleted,
         IReadOnlyList<bool> WeekActivity,
         DaySummaryDocument Today,
-        int UnreadChats,
-        int PendingFriendRequests,
         IReadOnlyList<BadgeDocument> Badges,
         IReadOnlyList<ActivityDocument> RecentActivity);
+
+    private sealed record CountsDocument(
+        int UnreadChats,
+        int PendingFriendRequests,
+        int UnseenNotifications,
+        int ProofsAwaitingVote);
+
+    private sealed record NotificationSettingsDocument(
+        bool Messages,
+        bool Friendships,
+        bool VotesDue,
+        bool ProofResults,
+        bool Reactions,
+        bool GoalUpdates,
+        bool FriendsAtRisk,
+        bool Challenge,
+        TimeOnly? QuietHoursFrom,
+        TimeOnly? QuietHoursTo);
 
     private sealed record SettingsDocument(
         ThemePreference Theme,
         LanguagePreference Language,
-        bool NotifyReminders,
-        bool NotifyKudos,
-        bool NotifyMessages,
-        bool NotifyWeeklyReview);
+        NotificationSettingsDocument Notifications);
 
     private async Task<ProfileDocument> ProfileAsync() =>
         await (await Client.GetAsync("/api/profile", TestContext.Current.CancellationToken))
             .ReadAsync<ProfileDocument>();
+
+    private async Task<CountsDocument> CountsAsync() =>
+        await (await Client.GetAsync("/api/counts", TestContext.Current.CancellationToken))
+            .ReadAsync<CountsDocument>();
 
     private async Task<SettingsDocument> SettingsAsync() =>
         await (await Client.GetAsync("/api/settings", TestContext.Current.CancellationToken))
@@ -128,13 +144,19 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         Assert.All(profile.RecentActivity, entry => Assert.Equal(profile.Person.Id, entry.Actor.Id));
     }
 
+    /// <summary>
+    /// Every badge the app draws, from the one read the live connection also
+    /// sends — one unread direct chat, one request, one line in the bell.
+    /// </summary>
     [Fact]
-    public async Task TheBadgeCountsAreOnTheProfileSoTheTabBarNeedsNoSecondRequest()
+    public async Task TheBadgesHaveARead()
     {
-        var profile = await ProfileAsync();
+        var counts = await CountsAsync();
 
-        Assert.Equal(1, profile.UnreadChats);
-        Assert.Equal(1, profile.PendingFriendRequests);
+        Assert.Equal(1, counts.UnreadChats);
+        Assert.Equal(1, counts.PendingFriendRequests);
+        Assert.Equal(1, counts.UnseenNotifications);
+        Assert.Equal(0, counts.ProofsAwaitingVote);
     }
 
     [Fact]
@@ -144,7 +166,7 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}",
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(0, (await ProfileAsync()).UnreadChats);
+        Assert.Equal(0, (await CountsAsync()).UnreadChats);
     }
 
     [Fact]
@@ -158,6 +180,24 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         Assert.Equal(LanguagePreference.German, settings.Language);
     }
 
+    /// <summary>Somebody who never opened the screen gets every switch on, and quiet nights.</summary>
+    [Fact]
+    public async Task EveryNotificationSwitchStartsOn()
+    {
+        var notifications = (await SettingsAsync()).Notifications;
+
+        Assert.True(notifications.Messages);
+        Assert.True(notifications.Friendships);
+        Assert.True(notifications.VotesDue);
+        Assert.True(notifications.ProofResults);
+        Assert.True(notifications.Reactions);
+        Assert.True(notifications.GoalUpdates);
+        Assert.True(notifications.FriendsAtRisk);
+        Assert.True(notifications.Challenge);
+        Assert.Equal(new TimeOnly(22, 0), notifications.QuietHoursFrom);
+        Assert.Equal(new TimeOnly(7, 0), notifications.QuietHoursTo);
+    }
+
     [Fact]
     public async Task UpdatingSettingsKeepsWhatWasNotSent()
     {
@@ -168,20 +208,58 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
 
         Assert.Equal(ThemePreference.Dark, updated.Theme);
 
-        // A client that only knows about four switches must not silently reset
-        // the fifth.
-        Assert.True(updated.NotifyReminders);
+        // A client that only knows about some of the switches must not
+        // silently reset the rest.
+        Assert.True(updated.Notifications.FriendsAtRisk);
         Assert.Equal(LanguagePreference.German, updated.Language);
     }
 
+    /// <summary>
+    /// The screen sends the one switch that was tapped; the others stay where
+    /// they were, which is what lets two quick taps both stick.
+    /// </summary>
     [Fact]
-    public async Task ASettingSurvivesTheNextRead()
+    public async Task OneSwitchChangesAloneAndSurvivesTheNextRead()
     {
-        await Client.PutJsonAsync("/api/settings", new { language = "English", notifyWeeklyReview = true });
+        (await Client.PutJsonAsync("/api/settings", new
+        {
+            language = "English",
+            notifications = new { reactions = false },
+        })).EnsureSuccessStatusCode();
+
+        (await Client.PutJsonAsync("/api/settings", new
+        {
+            notifications = new { challenge = false },
+        })).EnsureSuccessStatusCode();
 
         var settings = await SettingsAsync();
 
         Assert.Equal(LanguagePreference.English, settings.Language);
-        Assert.True(settings.NotifyWeeklyReview);
+        Assert.False(settings.Notifications.Reactions);
+        Assert.False(settings.Notifications.Challenge);
+        Assert.True(settings.Notifications.Messages);
+        Assert.Equal(new TimeOnly(22, 0), settings.Notifications.QuietHoursFrom);
+    }
+
+    [Fact]
+    public async Task QuietHoursCanBeTurnedOffAndBackOnWithTheirWindow()
+    {
+        (await Client.PutJsonAsync("/api/settings", new
+        {
+            notifications = new { quietHoursEnabled = false },
+        })).EnsureSuccessStatusCode();
+
+        var off = (await SettingsAsync()).Notifications;
+        Assert.Null(off.QuietHoursFrom);
+        Assert.Null(off.QuietHoursTo);
+
+        (await Client.PutJsonAsync("/api/settings", new
+        {
+            notifications = new { quietHoursEnabled = true, quietHoursFrom = "21:30:00" },
+        })).EnsureSuccessStatusCode();
+
+        var on = (await SettingsAsync()).Notifications;
+        Assert.Equal(new TimeOnly(21, 30), on.QuietHoursFrom);
+        Assert.Equal(new TimeOnly(7, 0), on.QuietHoursTo);
     }
 }

@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { Friends, PersonSearchResult, Profile, UpdateProfileRequest } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface FriendsPayload {
   friends: Friends
@@ -30,7 +31,7 @@ export function useFriends() {
         return { friends: empty(), failure: report(caught, { feature: 'friends', action: 'list' }) }
       }
     },
-    { default: (): FriendsPayload => ({ friends: empty(), failure: null }) },
+    { default: (): FriendsPayload => placeholder({ friends: empty(), failure: null }) },
   )
 
   const friends = computed(() => data.value?.friends.friends ?? [])
@@ -40,7 +41,7 @@ export function useFriends() {
 
   /** The tab bar counts pending requests, and several of these change it. */
   async function reload() {
-    await Promise.all([refresh(), refreshNuxtData('profile')])
+    await Promise.all([refresh(), refreshNuxtData('counts')])
   }
 
   async function run(action: string, work: () => Promise<void>) {
@@ -89,7 +90,7 @@ export function useFriends() {
     sentRequests,
     suggestions,
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh: reload,
     accept,
     decline,
@@ -181,7 +182,7 @@ export function useProfile() {
         return { profile: null, failure: report(caught, { feature: 'profile', action: 'load' }) }
       }
     },
-    { default: () => ({ profile: null, failure: null }) },
+    { default: () => placeholder({ profile: null, failure: null }) },
   )
 
   const isSaving = ref(false)
@@ -219,7 +220,7 @@ export function useProfile() {
   return {
     profile: computed(() => data.value?.profile ?? null),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isSaving: computed(() => isSaving.value),
     refresh,
 
@@ -278,7 +279,7 @@ export function usePersonProfile(id: Ref<string>) {
       // Without this, tapping from one search result to another leaves the
       // first person's numbers on screen under the second person's name.
       watch: [id],
-      default: () => ({ person: null, failure: null }),
+      default: () => placeholder({ person: null, failure: null }),
     },
   )
 
@@ -291,7 +292,7 @@ export function usePersonProfile(id: Ref<string>) {
     // than the generic "something went wrong".
     isMissing: computed(() => failure.value?.kind === 'notFound'),
     error: computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null)),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
   }
 }

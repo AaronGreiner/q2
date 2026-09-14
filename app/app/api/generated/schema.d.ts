@@ -675,6 +675,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The bell, newest first. Reading it marks everything in it as seen. */
+        get: operations["ListNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications/key": {
         parameters: {
             query?: never;
@@ -720,6 +737,23 @@ export interface paths {
         put?: never;
         /** Forgets this browser. Succeeds whether or not there was anything to forget. */
         post: operations["UnsubscribeFromNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every number the app puts on a badge. */
+        get: operations["GetCounts"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -845,6 +879,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats/{id}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Stops a conversation from ringing on your devices, or lets it ring again. */
+        put: operations["MuteChat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -880,7 +931,7 @@ export interface components {
             challengeEntries: number;
         };
         /** @enum {unknown} */
-        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated" | "WindowAtRisk";
+        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated";
         ActivityResponse: {
             /** Format: uuid */
             id: string;
@@ -965,6 +1016,7 @@ export interface components {
             otherLastSeenAt: string | null;
             pinnedGoal: null | components["schemas"]["ChatPinnedGoalResponse"];
             messages: components["schemas"]["ChatMessageResponse"][];
+            isMuted: boolean;
         };
         ChatMessageResponse: {
             /** Format: uuid */
@@ -1006,12 +1058,23 @@ export interface components {
             lastMessageAt: string | null;
             /** Format: int32 */
             unreadCount: number;
+            isMuted: boolean;
         };
         CloseGoalRequest: {
             completed?: boolean | null;
         };
         /** @enum {unknown} */
         ConversationKind: "Direct" | "Group";
+        CountsResponse: {
+            /** Format: int32 */
+            unreadChats: number;
+            /** Format: int32 */
+            pendingFriendRequests: number;
+            /** Format: int32 */
+            unseenNotifications: number;
+            /** Format: int32 */
+            proofsAwaitingVote: number;
+        };
         CreateGoalRequest: {
             title?: string | null;
             description?: string | null;
@@ -1238,6 +1301,43 @@ export interface components {
             count: number;
             isMine: boolean;
         };
+        MuteChatRequest: {
+            muted?: boolean | null;
+        };
+        /** @enum {unknown} */
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished";
+        NotificationResponse: {
+            /** Format: uuid */
+            id: string | null;
+            kind: components["schemas"]["NotificationKind"];
+            actor: null | components["schemas"]["PersonSummary"];
+            subject: string | null;
+            excerpt: string | null;
+            /** Format: int32 */
+            amount: number | null;
+            target: components["schemas"]["NotificationTarget"];
+            /** Format: uuid */
+            targetId: string | null;
+            /** Format: date-time */
+            occurredAt: string;
+            isNew: boolean;
+        };
+        NotificationSettingsResponse: {
+            messages: boolean;
+            friendships: boolean;
+            votesDue: boolean;
+            proofResults: boolean;
+            reactions: boolean;
+            goalUpdates: boolean;
+            friendsAtRisk: boolean;
+            challenge: boolean;
+            /** Format: time */
+            quietHoursFrom: string | null;
+            /** Format: time */
+            quietHoursTo: string | null;
+        };
+        /** @enum {unknown} */
+        NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
         PersonProfileResponse: {
             person: components["schemas"]["PersonSummary"];
             state: components["schemas"]["FriendshipState"];
@@ -1286,10 +1386,6 @@ export interface components {
             goalsCompleted: number;
             weekActivity: boolean[];
             today: components["schemas"]["DaySummaryResponse"];
-            /** Format: int32 */
-            unreadChats: number;
-            /** Format: int32 */
-            pendingFriendRequests: number;
             badges: components["schemas"]["BadgeResponse"][];
             recentActivity: components["schemas"]["ActivityResponse"][];
             balance: components["schemas"]["BalanceResponse"];
@@ -1387,15 +1483,7 @@ export interface components {
         SettingsResponse: {
             theme: components["schemas"]["ThemePreference"];
             language: components["schemas"]["LanguagePreference"];
-            notifyReminders: boolean;
-            notifyKudos: boolean;
-            notifyMessages: boolean;
-            notifyWeeklyReview: boolean;
-            notifyChallenge: boolean;
-            /** Format: time */
-            quietHoursFrom: string | null;
-            /** Format: time */
-            quietHoursTo: string | null;
+            notifications: components["schemas"]["NotificationSettingsResponse"];
         };
         StartDirectChatRequest: {
             /** Format: uuid */
@@ -1426,6 +1514,21 @@ export interface components {
         UnsubscribeRequest: {
             endpoint?: string | null;
         };
+        UpdateNotificationSettingsRequest: {
+            messages?: boolean | null;
+            friendships?: boolean | null;
+            votesDue?: boolean | null;
+            proofResults?: boolean | null;
+            reactions?: boolean | null;
+            goalUpdates?: boolean | null;
+            friendsAtRisk?: boolean | null;
+            challenge?: boolean | null;
+            quietHoursEnabled?: boolean | null;
+            /** Format: time */
+            quietHoursFrom?: string | null;
+            /** Format: time */
+            quietHoursTo?: string | null;
+        };
         UpdateProfileRequest: {
             displayName?: string | null;
             /** Format: uuid */
@@ -1434,16 +1537,7 @@ export interface components {
         UpdateSettingsRequest: {
             theme?: null | components["schemas"]["ThemePreference"];
             language?: null | components["schemas"]["LanguagePreference"];
-            notifyReminders?: boolean | null;
-            notifyKudos?: boolean | null;
-            notifyMessages?: boolean | null;
-            notifyWeeklyReview?: boolean | null;
-            notifyChallenge?: boolean | null;
-            quietHoursEnabled?: boolean | null;
-            /** Format: time */
-            quietHoursFrom?: string | null;
-            /** Format: time */
-            quietHoursTo?: string | null;
+            notifications?: null | components["schemas"]["UpdateNotificationSettingsRequest"];
         };
         VoteSummaryResponse: {
             /** Format: int32 */
@@ -2971,6 +3065,26 @@ export interface operations {
             };
         };
     };
+    ListNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"][];
+                };
+            };
+        };
+    };
     GetPushKey: {
         parameters: {
             query?: never;
@@ -3041,6 +3155,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    GetCounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountsResponse"];
+                };
             };
         };
     };
@@ -3276,6 +3410,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ToggleReactionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    MuteChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteChatRequest"];
             };
         };
         responses: {

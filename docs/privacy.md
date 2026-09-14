@@ -47,14 +47,23 @@ aspirational.
 | Reports | who reported what, why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
 | Invite codes | 96 random bits per person, created on first use | A credential in everything but name. Replaceable, and never derived from the handle. |
 | Push subscriptions | an endpoint, two browser keys, and when something last arrived | **A stable handle for one browser installation** — the most identifying thing q2 stores. Never logged, never sent to Sentry, and deleted with the account. See [adr/0023-web-push.md](adr/0023-web-push.md). |
-| Preferences | theme, language, notification switches | |
+| Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title or a challenge prompt), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
+| Preferences | theme, language, one switch per kind of notification, quiet hours, and which conversations are muted | |
 
 **What a notification carries.** The payload is encrypted to the browser
 (RFC 8291), so a push service — Google's, Mozilla's, Apple's — carries bytes it
-cannot read. It holds a kind, a goal title and a number; the sentence is
-composed on the device. What the push service does learn is that *this endpoint*
-was sent something at *this moment*, which is metadata q2 cannot hide and does
-not pretend to.
+cannot read. It holds the same parts as a line in the bell — a kind, a name, a
+goal title or group name, a number — and the sentence is composed on the device.
+For a message it also holds the first 140 characters: the sender's words on the
+way to the person they were written for, never stored a second time on the
+server. Whether a lock screen shows them is the operating system's setting,
+where a person already decides that for every other app. What the push service
+does learn is that *this endpoint* was sent something at *this moment*, which is
+metadata q2 cannot hide and does not pretend to.
+
+**What the live connection carries:** badge counts, and the name of the part of
+the screen that changed with an id. No content, no names; the app reads the
+content again through the same endpoints as always.
 
 **Not processed at all:**
 

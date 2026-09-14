@@ -24,10 +24,11 @@ public sealed class PushOptions
     /// How long a push service may hold a message for a device that is off.
     /// </summary>
     /// <remarks>
-    /// Four hours. Both things q2 sends are about *today* — a window closing at
-    /// midnight, a prompt that expires with the day — so a notification
-    /// delivered tomorrow morning would be about something that can no longer
-    /// be acted on, which is the same reason quiet hours drop rather than hold
+    /// Four hours. Most of what q2 sends is about *today* — a window closing at
+    /// midnight, a vote closing in twelve hours, a prompt that expires with the
+    /// day — and everything it sends is in the app anyway, so a push delivered
+    /// tomorrow morning would only be late news of something already on
+    /// screen. The same reason quiet hours drop rather than hold
     /// (<see cref="QuietHours"/>).
     /// </remarks>
     public const int DefaultTimeToLiveSeconds = 4 * 60 * 60;

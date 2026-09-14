@@ -140,7 +140,8 @@ public sealed class ChallengeQueueWorker(
     }
 
     /// <summary>
-    /// Tells everybody about today's challenge, once.
+    /// Tells everybody about today's challenge, once. Returns 1 when this call
+    /// announced it and 0 when there was nothing left to announce.
     /// </summary>
     /// <remarks>
     /// Separate from the queue pass above and called after it, so the network
@@ -157,7 +158,7 @@ public sealed class ChallengeQueueWorker(
     {
         using var scope = scopes.CreateScope();
         var database = scope.ServiceProvider.GetRequiredService<Q2DbContext>();
-        var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
+        var notifier = scope.ServiceProvider.GetRequiredService<Notifier>();
 
         var now = timeProvider.GetUtcNow();
 
@@ -178,15 +179,18 @@ public sealed class ChallengeQueueWorker(
         // the hour, and a second notification is worse than a missing one.
         await database.SaveChangesAsync(cancellationToken);
 
-        var recipients = await database.PushSubscriptions
-            .AsNoTracking()
-            .Select(subscription => subscription.PersonId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
+        // Through the same pipeline as everything else, with the one
+        // difference that is the challenge's whole character: it is addressed
+        // to nobody in particular.
+        notifier.StageForEveryone(new NotificationEvent(
+            NotificationKind.ChallengePublished,
+            ActorPersonId: null,
+            NotificationTarget.Challenge,
+            current.Id,
+            current.Prompt));
 
-        return await notifications.NotifyAsync(
-            recipients,
-            new PushPayload(PushKind.ChallengePublished, current.Prompt, null, current.Id),
-            cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
+
+        return 1;
     }
 }

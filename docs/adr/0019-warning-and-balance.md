@@ -1,6 +1,9 @@
 # 0019 — The warning before, and the record after
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0024](0024-one-notification-pipeline.md):
+the warning is a line in each friend's bell rather than a row in the feed, and
+the bell carries a count because it no longer opens the feed. The rules for when
+a warning is due, and the balance, stand as written.
 **Date:** 2026-09-08
 
 ## Context

@@ -1,8 +1,8 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Q2.Api.Features.Activity;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -164,7 +164,7 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         await RunMaintenanceAtAsync(LocalHour(20, 30));
         var warned = await WarningsAsync();
 
-        var shared = Assert.Single(warned, warning => warning.SourceId == AutomatedTestSeed.ActiveGoalId);
+        var shared = Assert.Single(warned, warning => warning.TargetId == AutomatedTestSeed.ActiveGoalId);
         Assert.Equal(AutomatedTestSeed.CurrentPersonId, shared.ActorPersonId);
         Assert.Equal(1, shared.Amount);
 
@@ -175,7 +175,7 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         await RunMaintenanceAtAsync(LocalHour(22, 0));
 
         Assert.Equal(warned.Count, (await WarningsAsync()).Count);
-        Assert.Single(await WarningsAsync(), warning => warning.SourceId == AutomatedTestSeed.ActiveGoalId);
+        Assert.Single(await WarningsAsync(), warning => warning.TargetId == AutomatedTestSeed.ActiveGoalId);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
 
         Assert.DoesNotContain(
             await WarningsAsync(),
-            warning => warning.SourceId == AutomatedTestSeed.ActiveGoalId);
+            warning => warning.TargetId == AutomatedTestSeed.ActiveGoalId);
     }
 
     [Fact]
@@ -245,14 +245,18 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         return new DateTimeOffset(Q2ApiFactory.Today.ToDateTime(new TimeOnly(hour, minute)), offset);
     }
 
-    private async Task<IReadOnlyList<ActivityEvent>> WarningsAsync()
+    /// <summary>
+    /// The warnings in the friends' bells — a line per friend per window, which
+    /// in this seed is one friend.
+    /// </summary>
+    private async Task<IReadOnlyList<Notification>> WarningsAsync()
     {
-        List<ActivityEvent> warnings = [];
+        List<Notification> warnings = [];
 
         await Factory.WithDatabaseAsync(async database =>
-            warnings = await database.ActivityEvents
+            warnings = await database.Notifications
                 .AsNoTracking()
-                .Where(activity => activity.Kind == ActivityKind.WindowAtRisk)
+                .Where(line => line.Kind == NotificationKind.FriendWindowAtRisk)
                 .ToListAsync(TestContext.Current.CancellationToken));
 
         return warnings;

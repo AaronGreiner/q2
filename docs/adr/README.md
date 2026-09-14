@@ -26,8 +26,9 @@ so the reasoning at the time stays readable.
 | [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted |
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
 | [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted |
-| [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted |
+| [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
 | [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted |
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
 | [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted |
-| [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted |
+| [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
+| [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted |

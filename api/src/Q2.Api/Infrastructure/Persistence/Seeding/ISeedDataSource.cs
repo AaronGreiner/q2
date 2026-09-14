@@ -3,6 +3,7 @@ using Q2.Api.Features.Activity;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Settings;
 
@@ -25,9 +26,10 @@ public sealed record SeedData(
     IReadOnlyList<ActivityEvent> Activity,
     IReadOnlyList<Conversation> Conversations,
     IReadOnlyList<UserSettings> Settings,
-    IReadOnlyList<Challenge> Challenges)
+    IReadOnlyList<Challenge> Challenges,
+    IReadOnlyList<Notification> Notifications)
 {
-    public static SeedData Empty { get; } = new([], [], [], [], [], [], [], []);
+    public static SeedData Empty { get; } = new([], [], [], [], [], [], [], [], []);
 }
 
 /// <summary>

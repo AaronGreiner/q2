@@ -6,6 +6,7 @@ import { createDiagnosticsApi } from '~/api/diagnostics'
 import { ApiError } from '~/api/errors'
 import { createGoalsApi } from '~/api/goals'
 import { createImagesApi, imageUrl, uploadContentType } from '~/api/images'
+import { createNotificationsApi } from '~/api/notifications'
 import { createProofsApi } from '~/api/proofs'
 import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/social'
 
@@ -131,6 +132,7 @@ describe('the API modules', () => {
     await chats.react('chat/one', 'message/one', 'Applause')
     await chats.startDirect('person/one')
     await chats.createGroup(group)
+    await chats.mute('chat/one', true)
     await chats.leave('chat/one')
     await settings.get()
     await settings.update(update)
@@ -143,9 +145,32 @@ describe('the API modules', () => {
       ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { kind: 'Applause' } }],
       ['/api/chats/direct', { method: 'POST', body: { personId: 'person/one' } }],
       ['/api/chats/groups', { method: 'POST', body: group }],
+      ['/api/chats/chat%2Fone/mute', { method: 'PUT', body: { muted: true } }],
       ['/api/chats/chat%2Fone/leave', { method: 'POST' }],
       ['/api/settings', { method: 'GET' }],
       ['/api/settings', { method: 'PUT', body: update }],
+    ])
+  })
+
+  it('maps the bell, the badges and this device\'s subscription', async () => {
+    const api = createNotificationsApi(caller)
+    const endpoint = 'https://push.example/device'
+
+    await api.list()
+    await api.counts()
+    await api.key()
+    await api.subscribe(endpoint, 'public-key', 'auth-secret')
+    await api.unsubscribe(endpoint)
+
+    expect(call.mock.calls).toEqual([
+      ['/api/notifications', { method: 'GET' }],
+      ['/api/counts', { method: 'GET' }],
+      ['/api/notifications/key', { method: 'GET' }],
+      ['/api/notifications/subscribe', {
+        method: 'POST',
+        body: { endpoint, publicKey: 'public-key', authSecret: 'auth-secret' },
+      }],
+      ['/api/notifications/unsubscribe', { method: 'POST', body: { endpoint } }],
     ])
   })
 

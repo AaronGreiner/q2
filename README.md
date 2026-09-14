@@ -27,21 +27,23 @@ reasoning is in
 
 ## 1. What is already implemented
 
-Thirteen screens, and everything behind them:
+Fifteen screens, and everything behind them:
 
 | Screen | What it does |
 | --- | --- |
 | **Anmeldung** | Sign in, or create an account with a name, an email address and a password |
-| **Start** | Streak with the current week, how much of today is delivered, the photographs waiting for your verdict, the windows that are open, a strip of goals, and what friends have been up to |
+| **Start** | Streak with the current week, how much of today is delivered, the photographs waiting for your verdict, the windows that are open, a strip of goals, what friends have been up to, and a bell that counts what concerns you |
 | **Ziele** | What is due today under one tab, the goals themselves under the other; a bottom sheet creates a goal with one of four schedules |
 | **Archiv** | The goals that have stopped, kept with their history and photographs — and the only place one can be deleted for good |
-| **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and kudos in three registers |
+| **Chats** | Direct and group conversations, each thread pinned to the goal it is about, with one-tap encouragements and kudos in three registers; a reply arrives while the list or the thread is open, and any conversation can be muted |
 | **Suche** | Find anybody by name or handle; below that your incoming requests, the ones you sent, suggestions, and your friends |
 | **Abstimmen** | A friend's photograph, what they promised, and the two buttons that decide whether it counted — one card at a time |
 | **Blockierte** | Who you have blocked, and the one button that undoes it. Never who blocked you |
 | **Challenge** | The prompt of the day and the room of friends who answered it — covered until you have contributed one yourself |
 | **Challenge-Archiv** | Every prompt you took part in, as a grid of your own pictures. Other people's are deliberately not kept |
-| **Aktivität** | Everything friends have been up to, with the people who are running out of time at the top |
+| **Aktivität** | Everything friends have been up to |
+| **Mitteilungen** | What happened to you — a new friendship, a verdict on your photograph, kudos and reactions, an invitation or a pause, a friend about to miss — newest first with what is new on top. Opening it clears the bell |
+| **Benachrichtigungen** | One switch per kind of notification, this device's permission, and the quiet hours — under the settings |
 | **Personen** | Somebody else's profile, and their record over the to-dos they let you in on |
 | **Profil** | Streak, kudos, completed goals, the badge collection, your own history — plus editing your name and profile picture, and the settings behind it |
 
@@ -50,14 +52,14 @@ Thirteen screens, and everything behind them:
 | Accounts | Registration and sign-in on ASP.NET Core Identity, a http-only session cookie, lockout after repeated failures; the account holds credentials only and points at the person it signs in as |
 | Domain | `Person` (with the time zone their days are counted in and an optional profile picture), `Goal` with a `GoalSchedule` and a chain of `GoalInstance` windows that can be delivered or missed, streaks and balances derived from those windows, two-sided friendships, activity and kudos, conversations and messages, `Challenge` with one prompt a day and a contribution per person, badges, preferences — all invariants enforced in the model |
 | Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your windows, your friends' feed, the conversations you are in |
-| API | Register (optionally through an invite link)/sign in/sign out/session/delete the account; goals with their schedules and windows, what is due today, the archive of the ones that stopped, pause and objection, feed and kudos, friends with search and requests, chats including starting and leaving them, profile (read and update) and settings; images with an upload, a session-checked read and a delete; the daily challenge with today's room, a contribution, a withdrawal, reactions and your own archive; blocking, unblocking and the list of who you blocked; reporting a person, a photograph or a contribution; your invite code and a way to replace it; the push key, subscribing this browser and unsubscribing it; `GET /health`, OpenAPI document, Problem Details for every error. Deliberately **no ranking endpoint** — see [docs/adr/0015](docs/adr/0015-qdos-design-language.md) |
+| API | Register (optionally through an invite link)/sign in/sign out/session/delete the account; goals with their schedules and windows, what is due today, the archive of the ones that stopped, pause and objection, feed and kudos, friends with search and requests, chats including starting, muting and leaving them, profile (read and update) and settings; images with an upload, a session-checked read and a delete; the daily challenge with today's room, a contribution, a withdrawal, reactions and your own archive; blocking, unblocking and the list of who you blocked; reporting a person, a photograph or a contribution; your invite code and a way to replace it; the bell and every badge count in one read; the push key, subscribing this browser and unsubscribing it; a live connection at `/api/live` that tells an open app what changed; `GET /health`, OpenAPI document, Problem Details for every error. Deliberately **no ranking endpoint** — see [docs/adr/0015](docs/adr/0015-qdos-design-language.md) |
 | Images | Uploaded pictures are stored as files behind `IImageStore`, never given a public URL, never cached, and validated from their own bytes rather than from what the upload claimed — see [docs/adr/0017-image-storage.md](docs/adr/0017-image-storage.md) |
 | The way out | A goal can be set aside for up to seven days with a reason its friends read, twice a month. The window it suspends counts as neither kept nor missed, and two friends objecting put it back. A goal can also be stopped for good — carried through or given up — and it keeps its whole record either way; deleting is a separate decision, from the archive only, and it takes the photographs and the chat with it. See [docs/adr/0020](docs/adr/0020-pause-and-archive.md) |
 | Warning and record | In the evening, a goal's friends are told once that its window is about to be missed — never before 20:00 in the owner's own zone, and at most once per window. A missed window is counted rather than announced, and the record shows on a profile scoped to the to-dos the two people share — see [docs/adr/0019-warning-and-balance.md](docs/adr/0019-warning-and-balance.md) |
 | Proof and vote | A window is closed by a photograph its friends believe, not by its owner saying so. More than a third doubting refuses it, at least two doubters are needed, one retry is allowed, and twelve hours later the votes cast decide it whether or not anybody has the app open. Confirmations are named; doubts never are — see [docs/adr/0018-proof-and-vote.md](docs/adr/0018-proof-and-vote.md) |
 | Safety | Somebody can be reported and blocked. A block ends the friendship, works in both directions and is never announced — search, profiles, requests and direct chats behave as though the other person were not there, and it is reversible. A report reaches a recipient rather than a table, carrying ids and a reason but never the note or the reporter — see [docs/adr/0022](docs/adr/0022-blocking-reporting-and-erasure.md) |
 | Leaving | An account can be deleted: the person, their goals and windows, their pictures and their direct chats go, their messages leave the groups they were in, and the password is asked for again. It is the only irreversible action in q2 |
-| Notifications | Web Push with VAPID, written against RFC 8291/8292 rather than pulled in as a dependency — the payload is encrypted to the browser, so a push service carries bytes it cannot read. The server sends facts and the service worker writes the sentence, in the language the person chose. Quiet hours default to 22:00–07:00 and drop rather than hold; empty VAPID keys turn the whole thing off, which is the default — see [docs/adr/0023](docs/adr/0023-web-push.md) |
+| Notifications | One pipeline for everything a person is told: messages, friend requests, a photograph waiting for their verdict, the verdict on their own, kudos and reactions, invitations and pauses, a friend about to miss, the daily challenge. Each has one place — its own screen with a count, or the bell. An open app hears about it over a WebSocket and reads again what changed; a closed one gets Web Push with VAPID, written against RFC 8291/8292 rather than pulled in as a dependency, so a push service carries bytes it cannot read. The server sends parts and the device writes the sentence, in the language the person chose. One switch per kind decides what may interrupt, not what the bell keeps; a conversation can be muted; quiet hours default to 22:00–07:00 and drop rather than hold; empty VAPID keys turn push off, which is the default — see [docs/adr/0024](docs/adr/0024-one-notification-pipeline.md) and [docs/adr/0023](docs/adr/0023-web-push.md) |
 | Arriving | An invite link — 96 random bits, replaceable, never the handle — makes whoever follows it a friend at registration. That plus the daily challenge is what a new account has on its first day |
 | Daily challenge | One prompt a day, the same for everybody, published from a queue that is written a week ahead — there is no daily editorial shift. It pays into no streak and knows no "missed", so nobody votes on it. Everybody sees a room made of their own friends, covered until they have contributed themselves; the archive keeps your own contributions and nobody else's — see [docs/adr/0021-daily-challenge.md](docs/adr/0021-daily-challenge.md) |
 | Frontend | Sign-in and registration, the six screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
@@ -89,10 +91,10 @@ These are absent on purpose, not by oversight:
 - **Changing your handle.** The display name and the profile picture can be
   changed; the handle cannot, on purpose — it is the string somebody's friends
   searched for and wrote down.
-- **Notifications beyond two kinds.** The evening warning and the daily
-  challenge are delivered. Kudos, messages and the weekly review still have
-  switches with nothing behind them — and a deployment with no VAPID keys sends
-  nothing at all, which is the default and what the screen says.
+- **Native push.** A phone is reached through Web Push, which on iOS means an
+  installed home-screen app, and a deployment with no VAPID keys sends no push
+  at all — the default, and what the screen says. APNs and FCM arrive with a
+  Capacitor build. See [docs/next-steps.md](docs/next-steps.md) item 15.
 - **Updating or deleting goals.** Only reading, creating and making progress.
 - **Exporting your data.** Deleting an account works and is tested; getting a
   copy of what q2 holds about you (Art. 20) does not exist.

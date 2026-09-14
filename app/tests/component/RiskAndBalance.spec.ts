@@ -190,22 +190,14 @@ describe('BalanceCard', () => {
   })
 })
 
-describe('a warning in the feed', () => {
+describe('the feed', () => {
   /**
-   * "Kein Nachtreten". All three kudos are approving, so the button could never
-   * be an insult on its own — but "stark gemacht" under "droht zu verpassen" is
-   * a sentence nobody should be able to send.
+   * "Kein Nachtreten". The warning that somebody is about to miss used to be a
+   * line in this feed, with the kudos button taken off it. It is a
+   * notification to that person's friends now
+   * (docs/adr/0024-one-notification-pipeline.md), so everything left here is
+   * good news — and every line of good news can be cheered.
    */
-  it('offers no kudos button', async () => {
-    const warning = await mountSuspended(ActivityRow, {
-      props: { activity: activity({ kind: 'WindowAtRisk', subject: 'Jeden Tag laufen' }), now: Date.now() },
-    })
-
-    expect(warning.find('[data-testid="kudos-button"]').exists()).toBe(false)
-    expect(warning.get('[data-testid="activity-warning"]').exists()).toBe(true)
-    expect(warning.text()).toContain('droht „Jeden Tag laufen“ zu verpassen')
-  })
-
   it('leaves the button on everything that is good news', async () => {
     const ordinary = await mountSuspended(ActivityRow, {
       props: { activity: activity(), now: Date.now() },

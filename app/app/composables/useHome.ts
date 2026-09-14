@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { Activity, Goal, Profile } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface HomePayload {
   profile: Profile | null
@@ -47,7 +48,7 @@ export function useHome() {
         }
       }
     },
-    { default: empty },
+    { default: () => placeholder(empty()) },
   )
 
   /**
@@ -67,7 +68,7 @@ export function useHome() {
   const goals = computed(() => data.value?.goals ?? [])
   const feed = computed(() => data.value?.feed ?? [])
   const error = computed(() => data.value?.failure ?? null)
-  const isLoading = computed(() => status.value === 'pending')
+  const isLoading = computed(() => isFirstLoad(status.value, data.value))
 
   async function toggleKudos(id: string) {
     try {
@@ -88,7 +89,7 @@ function empty(): HomePayload {
 }
 
 /**
- * The whole feed, for the overview behind the bell.
+ * The whole feed, for the overview linked from the dashboard.
  *
  * A separate read from `useHome` rather than a slice of it: the start screen
  * asks for a dashboard and this asks for one list, and sharing an async-data
@@ -110,7 +111,7 @@ export function useActivityOverview() {
         return { feed: [] as Activity[], failure: report(caught, { feature: 'feed', action: 'load' }) }
       }
     },
-    { default: () => ({ feed: [] as Activity[], failure: null }) },
+    { default: () => placeholder({ feed: [] as Activity[], failure: null }) },
   )
 
   async function toggleKudos(id: string) {
@@ -136,7 +137,7 @@ export function useActivityOverview() {
   return {
     feed: computed(() => data.value?.feed ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
     toggleKudos,
   }

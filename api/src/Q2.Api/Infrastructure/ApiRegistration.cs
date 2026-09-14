@@ -98,7 +98,7 @@ public static class ApiRegistration
         builder.Services.AddScoped<BlockList>();
         builder.Services.AddScoped<BlockService>();
         builder.Services.AddScoped<InviteService>();
-        builder.Services.AddScoped<NotificationService>();
+        builder.Services.AddScoped<PushSubscriptionService>();
         builder.Services.AddScoped<ReportService>();
         builder.Services.AddScoped<AccountService>();
         builder.Services.AddScoped<ActivityRecorder>();
@@ -113,20 +113,52 @@ public static class ApiRegistration
         builder.Services.AddScoped<SettingsService>();
 
         /*
-         * The two things in q2 that happen without somebody asking for them:
-         * windows that fall due while nobody is looking, and the queue of
-         * prompts that has to be a few days deep before anybody opens the app.
+         * The notification pipeline: one way anything tells anybody anything,
+         * with three routes out of it — the bell, the live connection and a
+         * push (docs/adr/0024-one-notification-pipeline.md).
          *
-         * Neither runs in AutomatedTest: integration tests assert on exact
+         * LiveConnections is a singleton because it is the process's own answer
+         * to "who is looking"; everything else holds a DbContext and is scoped.
+         * SignalR speaks the API's JSON conventions, enums by name included, so
+         * a CountsResponse reads the same over the connection as over GET.
+         */
+        builder.Services.AddScoped<Notifier>();
+        builder.Services.AddScoped<NotificationDispatcher>();
+        builder.Services.AddScoped<PushDelivery>();
+        builder.Services.AddScoped<CountsService>();
+        builder.Services.AddScoped<InboxService>();
+        builder.Services.AddSingleton<LiveConnections>();
+
+        builder.Services.AddSignalR()
+            .AddJsonProtocol(options =>
+                options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+        /*
+         * The things in q2 that happen without somebody asking for them:
+         * windows that fall due while nobody is looking, the queue of prompts
+         * that has to be a few days deep before anybody opens the app, the bell
+         * forgetting what is a month old — and notifications being delivered
+         * after the request that caused them has already answered.
+         *
+         * None of them runs in AutomatedTest: integration tests assert on exact
          * rows, and a job writing between the arrange and the assert would make
          * them flaky for a reason unrelated to what they check. Those tests
-         * drive GoalMaintenance and ChallengeQueueWorker.RunOnceAsync directly,
-         * or seed the rows they need.
+         * drive the workers' RunOnceAsync directly, and delivery happens inline
+         * so an assertion straight after a request sees what it caused.
          */
-        if (!builder.Environment.IsAutomatedTest())
+        if (builder.Environment.IsAutomatedTest())
+        {
+            builder.Services.AddSingleton<INotificationQueue, InlineNotificationQueue>();
+        }
+        else
         {
             builder.Services.AddHostedService<GoalMaintenanceWorker>();
             builder.Services.AddHostedService<ChallengeQueueWorker>();
+            builder.Services.AddHostedService<NotificationRetentionWorker>();
+
+            builder.Services.AddSingleton<NotificationQueue>();
+            builder.Services.AddSingleton<INotificationQueue>(provider => provider.GetRequiredService<NotificationQueue>());
+            builder.Services.AddHostedService<NotificationDeliveryWorker>();
         }
 
         builder.Services.ConfigureHttpJsonOptions(options =>

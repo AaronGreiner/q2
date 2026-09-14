@@ -63,7 +63,7 @@ const statusLine = computed(() => {
 
           <span
             v-if="goal.isGroup"
-            class="rounded-full bg-(--ui-bg-accented) px-1.5 py-0.5 text-[10px] font-extrabold text-(--ui-text-muted)"
+            class="rounded-full bg-(--ui-bg-accented) px-1.5 py-0.5 text-[10px] font-extrabold text-(--ui-text-toned)"
           >
             {{ t.goals.group }}
           </span>
@@ -80,7 +80,7 @@ const statusLine = computed(() => {
                something to do; it is the absence of both. -->
           <span
             v-if="goal.pause"
-            class="rounded-full bg-(--ui-bg-accented) px-1.5 py-0.5 text-[10px] font-extrabold text-(--ui-text-muted)"
+            class="rounded-full bg-(--ui-bg-accented) px-1.5 py-0.5 text-[10px] font-extrabold text-(--ui-text-toned)"
             data-testid="goal-paused"
           >
             {{ t.pause.bannerTitle }}

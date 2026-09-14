@@ -119,8 +119,11 @@ Add one only when it earns its place *now*.
 
 Wanted, and already present: Nuxt, Nuxt UI, Vue, TypeScript, ESLint, Vitest,
 Playwright, `@sentry/nuxt`, `@vite-pwa/nuxt` with the `workbox-*` runtime it
-needs ([docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md));
-ASP.NET Core, EF Core, SQLite, `Sentry.AspNetCore`, xunit.
+needs ([docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md)),
+`@microsoft/signalr` for the live connection
+([docs/adr/0024-one-notification-pipeline.md](docs/adr/0024-one-notification-pipeline.md));
+ASP.NET Core (SignalR included), EF Core, SQLite, `Sentry.AspNetCore`, xunit,
+and `Microsoft.AspNetCore.SignalR.Client` in the integration tests only.
 
 Not wanted without a discussion first:
 

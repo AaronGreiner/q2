@@ -140,6 +140,18 @@ public sealed class Person
     /// </remarks>
     public string? InviteCode { get; private set; }
 
+    /// <summary>
+    /// When this person last opened the bell. Null means never.
+    /// </summary>
+    /// <remarks>
+    /// One instant rather than a "seen" flag on every notification, for the
+    /// reason a conversation has one read marker rather than a flag per
+    /// message: what is new is then derived from it
+    /// (<see cref="Q2.Api.Features.Notifications.InboxLines"/>), and a number
+    /// derived from one fact cannot drift away from it.
+    /// </remarks>
+    public DateTimeOffset? NotificationsSeenAt { get; private set; }
+
     public IReadOnlyList<DailyCheckIn> CheckIns => _checkIns;
 
     public IReadOnlyList<PersonBadge> Badges => _badges;
@@ -247,6 +259,15 @@ public sealed class Person
     }
 
     public void SetLastSeen(DateTimeOffset lastSeenAt) => LastSeenAt = lastSeenAt;
+
+    /// <summary>Records that the bell was opened. Never moves backwards.</summary>
+    public void MarkNotificationsSeen(DateTimeOffset seenAt)
+    {
+        if (NotificationsSeenAt is null || seenAt > NotificationsSeenAt)
+        {
+            NotificationsSeenAt = seenAt;
+        }
+    }
 
     /// <summary>Sets the zone this person's days are counted in.</summary>
     public void SetTimeZone(string? zoneId) =>

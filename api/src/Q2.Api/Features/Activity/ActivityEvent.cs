@@ -20,29 +20,16 @@ public enum ActivityKind
     GoalProgress,
 
     /// <summary>Started something new. <c>Subject</c> is the goal title.</summary>
-    GoalCreated,
-
-    /// <summary>
-    /// A window is about to be missed. <c>Subject</c> is the goal title and
-    /// <c>Amount</c> how many proofs are still outstanding.
-    /// </summary>
     /// <remarks>
-    /// The one entry in this feed that is not somebody's good news, and the
-    /// reason it is here rather than in a notification table is that q2 sends
-    /// nothing yet: until stage 9 the feed *is* the delivery. When push
-    /// arrives, this row is what it reads.
-    ///
-    /// It is deliberately the flattest of the kinds — what is missing, and
-    /// nothing else. No streak of past misses, no "schon wieder". The numbers
-    /// are unpleasant enough on their own, and at this point nothing has
-    /// actually gone wrong yet.
-    ///
-    /// There is deliberately no companion kind for a window that *was* missed.
-    /// A finished failure is not announced: it is counted, and the balance on a
-    /// profile is where it shows. Publishing it would be the one thing this
-    /// product is not allowed to do to somebody ("kein Nachtreten").
+    /// The evening warning used to be a fifth kind here, written while the feed
+    /// was the only way q2 could tell anybody anything. It now reaches each of
+    /// the owner's friends as a line in their bell
+    /// (<see cref="Q2.Api.Features.Notifications.NotificationKind.FriendWindowAtRisk"/>),
+    /// which leaves the feed what it is for: what friends did. There is still
+    /// no kind for a window that *was* missed — a finished failure is counted,
+    /// never announced ("kein Nachtreten").
     /// </remarks>
-    WindowAtRisk,
+    GoalCreated,
 }
 
 /// <summary>

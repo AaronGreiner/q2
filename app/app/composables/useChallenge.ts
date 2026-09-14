@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { ChallengeArchiveEntry, ChallengeRoom, Image, KudosKind } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { uploadSizes } from '~/utils/images'
 
 interface RoomPayload {
@@ -35,7 +36,7 @@ export function useChallengeRoom() {
         return { room: null, failure: report(caught, { feature: 'challenge', action: 'today' }) }
       }
     },
-    { default: () => ({ room: null, failure: null }) },
+    { default: () => placeholder({ room: null, failure: null }) },
   )
 
   const isSubmitting = ref(false)
@@ -118,7 +119,7 @@ export function useChallengeRoom() {
   return {
     room: computed(() => data.value?.room ?? null),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isSubmitting: computed(() => isSubmitting.value),
     refresh,
     contribute,
@@ -154,13 +155,13 @@ export function useChallengeArchive() {
         }
       }
     },
-    { default: () => ({ entries: [] as ChallengeArchiveEntry[], failure: null as ApiFailure | null }) },
+    { default: () => placeholder({ entries: [] as ChallengeArchiveEntry[], failure: null as ApiFailure | null }) },
   )
 
   return {
     entries: computed(() => data.value?.entries ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
   }
 }

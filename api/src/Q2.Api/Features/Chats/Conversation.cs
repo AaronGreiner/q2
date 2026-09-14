@@ -192,6 +192,23 @@ public sealed class Conversation
     /// <summary>Marks everything up to <paramref name="readAt"/> as seen.</summary>
     public void MarkRead(Guid personId, DateTimeOffset readAt) =>
         _participants.FirstOrDefault(p => p.PersonId == personId)?.MarkRead(readAt);
+
+    /// <summary>Whether this person has muted the conversation.</summary>
+    public bool IsMutedFor(Guid personId) =>
+        _participants.FirstOrDefault(p => p.PersonId == personId)?.MutedAt is not null;
+
+    /// <summary>
+    /// Mutes the conversation for one person, or lets it ring again.
+    /// </summary>
+    /// <remarks>
+    /// Muting stops a conversation ringing on somebody's devices and does
+    /// nothing else. It still counts as unread and still rises to the top of
+    /// the list: somebody who muted a lively group still wants to find what was
+    /// said when they look — they only did not want to be told about every line
+    /// of it as it arrived.
+    /// </remarks>
+    public void SetMuted(Guid personId, bool muted, DateTimeOffset now) =>
+        _participants.FirstOrDefault(p => p.PersonId == personId)?.SetMuted(muted, now);
 }
 
 /// <summary>Somebody taking part in a conversation, and how far they have read.</summary>
@@ -218,6 +235,18 @@ public sealed class ConversationParticipant
 
     /// <summary>When this person last opened the thread. Null means never.</summary>
     public DateTimeOffset? LastReadAt { get; private set; }
+
+    /// <summary>
+    /// When this person muted the thread, or null while it may ring.
+    /// </summary>
+    /// <remarks>
+    /// A moment rather than a flag: it costs nothing, and "since when" is the
+    /// first question anybody asks about a mute that seems to be stuck.
+    /// </remarks>
+    public DateTimeOffset? MutedAt { get; private set; }
+
+    internal void SetMuted(bool muted, DateTimeOffset now) =>
+        MutedAt = muted ? MutedAt ?? now : null;
 
     internal void MarkRead(DateTimeOffset readAt)
     {

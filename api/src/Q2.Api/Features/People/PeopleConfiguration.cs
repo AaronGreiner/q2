@@ -40,6 +40,9 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.LastSeenAt)
             .HasConversion(InstantConversion.Optional);
 
+        builder.Property(p => p.NotificationsSeenAt)
+            .HasConversion(InstantConversion.Optional);
+
         // Long enough for any IANA identifier ("America/Argentina/Buenos_Aires"
         // is the longest at 32).
         builder.Property(p => p.TimeZoneId)

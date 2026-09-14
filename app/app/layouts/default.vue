@@ -16,9 +16,9 @@
  */
 const t = useMessages()
 
-// Shared with the profile screen under the same `useAsyncData` key, so the
-// badges cost no extra request. Pages that change the counts refresh it.
-const { profile } = useProfile()
+// The badges have one read of their own, shared with the start screen and kept
+// current by the live connection — see useCounts.
+const { counts } = useCounts()
 </script>
 
 <template>
@@ -39,8 +39,8 @@ const { profile } = useProfile()
     </main>
 
     <AppBottomNav
-      :unread-chats="profile?.unreadChats ?? 0"
-      :pending-requests="profile?.pendingFriendRequests ?? 0"
+      :unread-chats="counts.unreadChats"
+      :pending-requests="counts.pendingFriendRequests"
     />
   </div>
 </template>

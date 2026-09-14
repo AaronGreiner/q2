@@ -8,11 +8,9 @@ import type { LanguagePreference, ThemePreference } from '~/api/types'
  * button, because a settings screen with one invites people to change three
  * things and leave without pressing it.
  *
- * Two kinds of notification control sit here and they are not the same thing.
- * The switches are the account's preference and travel between devices; the row
- * below them is *this browser's* permission and subscription, which cannot.
- * Saying which is which is the difference between a switch that appears not to
- * work and one that plainly applies somewhere else.
+ * Notifications are one row here that opens a screen of their own: a switch per
+ * kind, this device, and the quiet hours are three questions, and together
+ * they would bury appearance and account under a dozen toggles.
  *
  * The three greyed-out account rows are still settings for features that do not
  * exist, and saying so is better than a row that quietly does nothing.
@@ -22,7 +20,7 @@ definePageMeta({ layout: 'plain' })
 const t = useMessages()
 const theme = useTheme()
 const language = useLanguage()
-const { settings, update } = useAppSettings()
+const { update } = useAppSettings()
 
 const config = useRuntimeConfig()
 const { person, logout } = useSession()
@@ -69,55 +67,6 @@ const selectedLanguage = computed<LanguagePreference>({
   get: () => language.value,
   set: value => update({ language: value }),
 })
-
-/** One writable flag per switch, so the row stays a plain `v-model`. */
-function notification(key: 'notifyReminders' | 'notifyKudos' | 'notifyMessages' | 'notifyWeeklyReview' | 'notifyChallenge') {
-  return computed<boolean>({
-    get: () => settings.value?.[key] ?? false,
-    set: value => update({ [key]: value }),
-  })
-}
-
-const reminders = notification('notifyReminders')
-const kudos = notification('notifyKudos')
-const chatMessages = notification('notifyMessages')
-const weeklyReview = notification('notifyWeeklyReview')
-const challenge = notification('notifyChallenge')
-
-/*
- * Whether *this device* receives anything, which is a different question from
- * the switches above.
- *
- * The switches are the account's preference and travel between devices; this is
- * one browser's permission and subscription, and it cannot. Resolved on mount
- * rather than stored, because the browser is the authority: a person can revoke
- * the permission in Chrome's own settings and the app would never hear about it.
- */
-const push = usePushNotifications()
-
-onMounted(() => push.resolve())
-
-const quietHoursEnabled = computed<boolean>({
-  get: () => Boolean(settings.value?.quietHoursFrom),
-  set: value => update({ quietHoursEnabled: value }),
-})
-
-/**
- * The two ends of the window, as `<input type="time">` wants them.
- *
- * The server stores a `TimeOnly` and serialises it with seconds; the control
- * takes and gives back `HH:mm`. Trimming here rather than in the catalogue
- * because it is a fact about the control, not about the language.
- */
-function quietHour(key: 'quietHoursFrom' | 'quietHoursTo') {
-  return computed<string>({
-    get: () => (settings.value?.[key] ?? '').slice(0, 5),
-    set: value => update({ quietHoursEnabled: true, [key]: `${value}:00` }),
-  })
-}
-
-const quietFrom = quietHour('quietHoursFrom')
-const quietTo = quietHour('quietHoursTo')
 
 const accountRows = computed(() => [
   { icon: 'i-lucide-user', label: t.value.settings.editProfile },
@@ -171,98 +120,12 @@ useHead({ title: () => t.value.settings.heading })
         :title="t.settings.notifications"
         :note="t.settings.notificationsNote"
       >
-        <SettingsToggleRow
-          v-model="reminders"
-          icon="i-lucide-alarm-clock"
-          :label="t.settings.notifyReminders"
-        />
-        <SettingsToggleRow
-          v-model="kudos"
-          icon="i-lucide-hand-heart"
-          :label="t.settings.notifyKudos"
-        />
-        <SettingsToggleRow
-          v-model="chatMessages"
-          icon="i-lucide-message-circle"
-          :label="t.settings.notifyMessages"
-        />
-        <SettingsToggleRow
-          v-model="challenge"
-          icon="i-lucide-zap"
-          :label="t.challenge.heading"
-        />
-        <SettingsToggleRow
-          v-model="weeklyReview"
-          icon="i-lucide-calendar"
-          :label="t.settings.notifyWeeklyReview"
-        />
-      </SettingsSection>
-
-      <!--
-        This device, which is a different question from the switches above: they
-        are the account's preference and travel; a browser's permission does not.
-
-        Every state says what it is rather than showing a switch that would do
-        nothing — a blocked browser in particular, because that is the one the
-        app cannot undo and the person can.
-      -->
-      <SettingsSection
-        v-if="push.state.value !== 'unsupported'"
-        :title="t.settings.notifications"
-      >
         <SettingsActionRow
-          v-if="push.state.value === 'off' || push.state.value === 'on'"
-          :icon="push.state.value === 'on' ? 'i-lucide-bell-off' : 'i-lucide-bell'"
-          :label="push.state.value === 'on' ? t.settings.notificationsOff : t.settings.notificationsOn"
-          :busy="push.isBusy.value"
-          data-testid="push-toggle"
-          @activate="push.state.value === 'on' ? push.disable() : push.enable()"
+          icon="i-lucide-bell"
+          :label="t.settings.notifications"
+          data-testid="open-notification-settings"
+          @activate="navigateTo('/settings/notifications')"
         />
-
-        <p
-          v-else
-          class="px-4 py-3 text-[13px] font-semibold text-(--ui-text-muted)"
-          data-testid="push-unavailable"
-        >
-          {{ push.state.value === 'blocked' ? t.settings.notificationsBlocked : t.settings.notificationsUnavailable }}
-        </p>
-      </SettingsSection>
-
-      <SettingsSection
-        :title="t.settings.quietHours"
-        :note="t.settings.quietHoursNote"
-      >
-        <SettingsToggleRow
-          v-model="quietHoursEnabled"
-          icon="i-lucide-moon-star"
-          :label="t.settings.quietHours"
-        />
-
-        <div
-          v-if="quietHoursEnabled"
-          class="flex items-center gap-3 px-4 py-3"
-          data-testid="quiet-hours"
-        >
-          <label class="flex min-w-0 flex-1 flex-col gap-1">
-            <span class="text-[11px] font-bold text-(--ui-text-muted)">{{ t.settings.quietHoursFrom }}</span>
-            <input
-              v-model="quietFrom"
-              type="time"
-              class="q2-selectable min-h-11 rounded-(--q2-radius-sm) border border-(--ui-border) bg-(--ui-bg-elevated) px-3 text-sm font-semibold"
-              data-testid="quiet-hours-from"
-            >
-          </label>
-
-          <label class="flex min-w-0 flex-1 flex-col gap-1">
-            <span class="text-[11px] font-bold text-(--ui-text-muted)">{{ t.settings.quietHoursTo }}</span>
-            <input
-              v-model="quietTo"
-              type="time"
-              class="q2-selectable min-h-11 rounded-(--q2-radius-sm) border border-(--ui-border) bg-(--ui-bg-elevated) px-3 text-sm font-semibold"
-              data-testid="quiet-hours-to"
-            >
-          </label>
-        </div>
       </SettingsSection>
 
       <SettingsSection

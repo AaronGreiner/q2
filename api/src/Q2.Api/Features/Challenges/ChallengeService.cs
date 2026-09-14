@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
@@ -37,6 +38,7 @@ public sealed class ChallengeService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     ImageService images,
+    Notifier notifier,
     TimeProvider timeProvider,
     IIdGenerator idGenerator,
     Q2Metrics metrics,
@@ -109,6 +111,11 @@ public sealed class ChallengeService(
         // a picture that comes back broken if the commit fails.
         await images.DeleteBytesAsync(orphaned, cancellationToken);
 
+        // Friends with the room open see a new tile appear — covered or not,
+        // which their own room decides when it is read again.
+        notifier.Touch(await FriendIdsAsync(me.Id, cancellationToken), LiveArea.Challenge);
+        await notifier.FlushAsync(cancellationToken);
+
         // No prompt, no person: that one happened, and nothing about whose.
         logger.LogInformation("A challenge contribution was made");
         metrics.CountChallengeEntry(request.CapturedInApp);
@@ -139,6 +146,9 @@ public sealed class ChallengeService(
 
         await database.SaveChangesAsync(cancellationToken);
         await images.DeleteBytesAsync(orphaned, cancellationToken);
+
+        notifier.Touch(await FriendIdsAsync(me.Id, cancellationToken), LiveArea.Challenge);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("A challenge contribution was withdrawn");
 
@@ -188,8 +198,35 @@ public sealed class ChallengeService(
             throw new ResourceNotFoundException("ChallengeEntry", entryId);
         }
 
-        entry.ToggleReaction(idGenerator.NewId(), me.Id, kind);
+        var hadReacted = entry.Reactions.Any(reaction => reaction.PersonId == me.Id);
+        var standing = entry.ToggleReaction(idGenerator.NewId(), me.Id, kind);
+
+        // Told once per person, not once for every change of mind between the
+        // three kinds — and taken back only if nothing of theirs is left.
+        if (!hadReacted && standing is not null)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(
+                    NotificationKind.ReactionReceived,
+                    me.Id,
+                    NotificationTarget.Challenge,
+                    challenge.Id,
+                    challenge.Prompt),
+                [entry.PersonId],
+                cancellationToken);
+        }
+        else if (hadReacted && standing is null)
+        {
+            await notifier.RetractAsync(
+                NotificationKind.ReactionReceived,
+                entry.PersonId,
+                me.Id,
+                challenge.Id,
+                cancellationToken);
+        }
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         var people = await LoadPeopleAsync([entry.PersonId], cancellationToken);
 

@@ -10,9 +10,9 @@ namespace Q2.Api.Features.Settings;
 /// Reading and changing the signed-in person's preferences.
 /// </summary>
 /// <remarks>
-/// Missing settings are created on first read rather than at sign-up: there is
-/// no sign-up yet, and a screen that fails because a row was never written
-/// would be a strange way to find that out.
+/// A row is written at sign-up, and created here on first read for anybody
+/// whose account predates that: a screen that failed because a row was never
+/// written would be a strange way to find out.
 /// </remarks>
 public sealed class SettingsService(
     Q2DbContext database,
@@ -25,40 +25,60 @@ public sealed class SettingsService(
 
     public async Task<SettingsResponse> UpdateAsync(UpdateSettingsRequest request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         var settings = await LoadAsync(cancellationToken);
 
         // An omitted property keeps its current value, so a client that only
-        // knows about four switches cannot silently reset the fifth.
-        /*
-         * "Off" and "unchanged" are both null in a nullable time, so the switch
-         * decides which of the two this is. Without it, a request that left the
-         * quiet hours alone would clear them.
-         */
-        var quiet = request.QuietHoursEnabled switch
-        {
-            false => (From: (TimeOnly?)null, To: (TimeOnly?)null),
-            true => (
-                From: request.QuietHoursFrom ?? settings.QuietHoursFrom ?? QuietHours.DefaultFrom,
-                To: request.QuietHoursTo ?? settings.QuietHoursTo ?? QuietHours.DefaultTo),
-            null => (From: settings.QuietHoursFrom, To: settings.QuietHoursTo),
-        };
-
+        // knows about some of the switches cannot silently reset the rest.
         settings.Update(
             request.Theme ?? settings.Theme,
             request.Language ?? settings.Language,
-            request.NotifyReminders ?? settings.NotifyReminders,
-            request.NotifyKudos ?? settings.NotifyKudos,
-            request.NotifyMessages ?? settings.NotifyMessages,
-            request.NotifyWeeklyReview ?? settings.NotifyWeeklyReview,
-            request.NotifyChallenge ?? settings.NotifyChallenge,
-            quiet.From,
-            quiet.To);
+            Merge(settings.Notifications, request.Notifications));
 
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Settings updated for {PersonId}", settings.PersonId);
 
         return SettingsResponse.From(settings);
+    }
+
+    private static NotificationPreferences Merge(
+        NotificationPreferences current,
+        UpdateNotificationSettingsRequest? change)
+    {
+        if (change is null)
+        {
+            return current;
+        }
+
+        /*
+         * "Off" and "unchanged" are both null in a nullable time, so the switch
+         * decides which of the two this is. Without it, a request that left the
+         * quiet hours alone would clear them.
+         */
+        var quiet = change.QuietHoursEnabled switch
+        {
+            false => (From: (TimeOnly?)null, To: (TimeOnly?)null),
+            true => (
+                From: change.QuietHoursFrom ?? current.QuietHoursFrom ?? QuietHours.DefaultFrom,
+                To: change.QuietHoursTo ?? current.QuietHoursTo ?? QuietHours.DefaultTo),
+            null => (From: current.QuietHoursFrom, To: current.QuietHoursTo),
+        };
+
+        var switches = current with
+        {
+            Messages = change.Messages ?? current.Messages,
+            Friendships = change.Friendships ?? current.Friendships,
+            VotesDue = change.VotesDue ?? current.VotesDue,
+            ProofResults = change.ProofResults ?? current.ProofResults,
+            Reactions = change.Reactions ?? current.Reactions,
+            GoalUpdates = change.GoalUpdates ?? current.GoalUpdates,
+            FriendsAtRisk = change.FriendsAtRisk ?? current.FriendsAtRisk,
+            Challenge = change.Challenge ?? current.Challenge,
+        };
+
+        return switches.WithQuietHours(quiet.From, quiet.To);
     }
 
     private async Task<UserSettings> LoadAsync(CancellationToken cancellationToken)

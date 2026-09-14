@@ -190,11 +190,23 @@ same viewport remains necessary.
 - **Notifications** — the encryption checked against RFC 8291's own worked
   example by decrypting it with the browser half written out from the same
   specification; quiet hours over both a same-day and a midnight-crossing
-  window; and, through the pipeline, that a warning reaches the friend's device
-  and never the owner's, that either switch stops it, that quiet hours stop it,
-  that a device the push service calls gone is forgotten while one that is
-  merely off is kept, and that an hourly pass does not mean an hourly
-  announcement.
+  window; every kind placed in the rules (kept or not, which switch, which live
+  area), with the rules refusing a kind nobody placed; and, through the
+  pipeline, that a warning reaches the friend's device and never the owner's,
+  that its switch stops it, that quiet hours stop it, that a device the push
+  service calls gone is forgotten while one that is merely off is kept, and
+  that an hourly pass does not mean an hourly announcement. Each action that
+  tells somebody something is exercised end to end: the actor is never told,
+  a block hides a line both ways and in a group, a muted conversation stays
+  silent, a verdict and a lifted pause name nobody, a pause never carries its
+  reason, a reaction reaches its owner once and taking it back takes back the
+  line, reading the bell marks it seen, and deleting a goal or an account takes
+  its lines with it. The live connection is tested over a real SignalR client
+  with a real session: refused without one, a message arriving live, no push to
+  somebody who is watching, the bell read on one device clearing the count on
+  another, and nothing of somebody else's arriving. The E2E suite adds the
+  browser's half — a friend's message and kudos arriving on an open screen
+  without a reload, a switch that survives a reload, and muting.
 - **Invite links** — a code made on first use, a link producing an accepted
   friendship at registration, a stale code being ignored rather than refused,
   and a replaced code no longer working.

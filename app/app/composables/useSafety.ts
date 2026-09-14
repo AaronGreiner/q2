@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { Person, ReportReason, ReportTargetKind } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 /**
  * Reporting and blocking, from wherever they are offered.
@@ -97,7 +98,7 @@ export function useBlockedPeople() {
         }
       }
     },
-    { default: () => ({ people: [] as Person[], failure: null as ApiFailure | null }) },
+    { default: () => placeholder({ people: [] as Person[], failure: null as ApiFailure | null }) },
   )
 
   const isUnblocking = ref(false)
@@ -125,7 +126,7 @@ export function useBlockedPeople() {
   return {
     people: computed(() => data.value?.people ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isUnblocking: computed(() => isUnblocking.value),
     refresh,
     unblock,

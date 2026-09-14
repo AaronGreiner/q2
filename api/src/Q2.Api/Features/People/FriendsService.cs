@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Streaks;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
@@ -19,6 +20,7 @@ public sealed class FriendsService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     BlockList blockList,
+    Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<FriendsService> logger)
@@ -233,8 +235,11 @@ public sealed class FriendsService(
             case { Status: FriendshipStatus.Accepted }:
                 throw new DomainValidationException("PersonId", "You are already friends with this person.");
 
+            // Asking somebody who had already asked you is saying yes, and
+            // they hear it as that rather than as a request.
             case not null when existing.IsIncomingFor(me.Id):
                 existing.Accept(me.Id, now);
+                await notifier.StageAsync(FriendshipStartedBy(me.Id), [personId], cancellationToken);
                 break;
 
             case not null:
@@ -242,10 +247,19 @@ public sealed class FriendsService(
 
             default:
                 database.Friendships.Add(Friendship.Request(idGenerator.NewId(), me.Id, personId, now));
+                await notifier.StageAsync(
+                    new NotificationEvent(NotificationKind.FriendRequestReceived, me.Id, NotificationTarget.Person, me.Id),
+                    [personId],
+                    cancellationToken);
                 break;
         }
 
         await database.SaveChangesAsync(cancellationToken);
+
+        // This person's other devices; the one they asked hears it through the
+        // notification itself.
+        notifier.Touch([me.Id], LiveArea.Friends);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("Friend request from {PersonId} to {OtherPersonId}", me.Id, personId);
 
@@ -265,7 +279,11 @@ public sealed class FriendsService(
             ?? throw new ResourceNotFoundException("Friend request", personId);
 
         friendship.Accept(me.Id, now);
+        await notifier.StageAsync(FriendshipStartedBy(me.Id), [personId], cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch([me.Id], LiveArea.Friends);
+        await notifier.FlushAsync(cancellationToken);
 
         var person = await database.People
             .AsNoTracking()
@@ -304,6 +322,12 @@ public sealed class FriendsService(
         database.Friendships.Remove(friendship);
         await database.SaveChangesAsync(cancellationToken);
 
+        // Nothing is announced — a declined request is not news anybody is
+        // owed — but the request leaves both screens, the asker's list of what
+        // they sent included, as it would on their next visit anyway.
+        notifier.Touch([me.Id, personId], LiveArea.Friends);
+        await notifier.FlushAsync(cancellationToken);
+
         logger.LogInformation("Friend request declined by {PersonId}", me.Id);
     }
 
@@ -324,6 +348,11 @@ public sealed class FriendsService(
 
         database.Friendships.Remove(friendship);
         await database.SaveChangesAsync(cancellationToken);
+
+        // The request, and the badge it put on the other person's search tab,
+        // go at once.
+        notifier.Touch([me.Id, personId], LiveArea.Friends);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("Friend request withdrawn by {PersonId}", me.Id);
     }
@@ -352,6 +381,9 @@ public sealed class FriendsService(
         database.Friendships.Remove(friendship);
         await database.SaveChangesAsync(cancellationToken);
 
+        notifier.Touch([me.Id, personId], LiveArea.Friends);
+        await notifier.FlushAsync(cancellationToken);
+
         logger.LogInformation("Friendship ended by {PersonId}", me.Id);
     }
 
@@ -372,6 +404,14 @@ public sealed class FriendsService(
 
         return [.. friendships.Select(f => f.OtherThan(personId))];
     }
+
+    /// <summary>
+    /// "A friendship began because of this person" — they accepted, they asked
+    /// back, or they arrived through an invite link. One wording for all three,
+    /// because to whoever hears it they are the same news.
+    /// </summary>
+    public static NotificationEvent FriendshipStartedBy(Guid personId) =>
+        new(NotificationKind.FriendshipStarted, personId, NotificationTarget.Person, personId);
 
     /// <summary>The character that turns a LIKE wildcard back into a literal.</summary>
     private const string LikeEscape = "\\";

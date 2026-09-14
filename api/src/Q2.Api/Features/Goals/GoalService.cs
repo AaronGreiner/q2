@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Streaks;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Observability;
@@ -33,6 +35,7 @@ public sealed class GoalService(
     FriendsService friends,
     ActivityRecorder activity,
     ImageService images,
+    Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
@@ -239,7 +242,15 @@ public sealed class GoalService(
         database.Goals.Add(goal);
         activity.Publish(me.Id, ActivityKind.GoalCreated, goal.Title, null, now, goal.Id);
 
+        // Being put on a goal is being made one of the people who decide it,
+        // which is worth knowing before the first photograph arrives.
+        await notifier.StageAsync(
+            new NotificationEvent(NotificationKind.GoalInvitation, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+            goal.Participants.Select(participant => participant.PersonId),
+            cancellationToken);
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         // The title is user content and may be personal — log the id only.
         logger.LogInformation(
@@ -302,7 +313,7 @@ public sealed class GoalService(
 
         // Up to date first, so a pause cannot be granted for a window whose
         // deadline passed overnight — that window is a miss, not a pause.
-        GoalMaintenance.Advance(goal, calendar, now, idGenerator, me);
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
 
         var pause = goal.RequestPause(
             idGenerator.NewId(),
@@ -313,7 +324,20 @@ public sealed class GoalService(
             now);
 
         database.GoalPauses.Add(pause);
+
+        /*
+         * The people it is announced to are the people who may object, so they
+         * are told — how long, and never why. The reason may say somebody is
+         * ill; it belongs on the goal's own screen, one tap away, for the
+         * people allowed to read it, and not on a lock screen.
+         */
+        await notifier.StageAsync(
+            new NotificationEvent(NotificationKind.GoalPaused, me.Id, NotificationTarget.Goal, goal.Id, goal.Title, pause.Days),
+            goal.Participants.Select(participant => participant.PersonId),
+            cancellationToken);
+
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         // The reason is user content and may say why somebody is ill. The id
         // and the length are the whole of what is safe to log (docs/privacy.md).
@@ -339,8 +363,11 @@ public sealed class GoalService(
 
         // The days already covered stay covered, today included, so this opens
         // the next window rather than reviving the one that was set aside.
-        GoalMaintenance.Advance(goal, calendar, now, idGenerator, me);
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(goal.Participants.Select(participant => participant.PersonId), LiveArea.Goals, goal.Id);
+        await notifier.FlushAsync(cancellationToken);
 
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
@@ -371,15 +398,36 @@ public sealed class GoalService(
         var owner = await OwnerOf(goal, me, cancellationToken);
         var calendar = timeZones.For(owner.TimeZoneId);
 
-        if (goal.VetoPause(idGenerator.NewId(), me.Id, now) is null)
+        if (goal.VetoPause(idGenerator.NewId(), me.Id, now) is not { } pause)
         {
             throw new DomainValidationException("Pause", "This goal is not paused.");
         }
 
         // An overturned pause hands the window back with its original deadline.
         // If that has passed, this is the run that makes it a miss.
-        GoalMaintenance.Advance(goal, calendar, now, idGenerator, owner);
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
+
+        /*
+         * A single objection is silent; the owner hears only the consequence.
+         *
+         * Objections are anonymous, and a notification per objection would be
+         * pressure while nothing is decided — "somebody doubts you" is not
+         * something to buzz a phone with. Once enough of them have lifted the
+         * pause, the window is running again, and that is worth knowing. No
+         * actor, for the same reason a verdict has none.
+         */
+        if (pause.Status == PauseStatus.Overturned)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.PauseLifted, ActorPersonId: null, NotificationTarget.Goal, goal.Id, goal.Title),
+                [goal.OwnerPersonId],
+                cancellationToken);
+        }
+
         await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(goal.Participants.Select(participant => participant.PersonId), LiveArea.Goals, goal.Id);
+        await notifier.FlushAsync(cancellationToken);
 
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
@@ -404,7 +452,7 @@ public sealed class GoalService(
         // Up to date first, so what is closed is the real state: a window whose
         // deadline passed last night is a miss, and stopping now must not
         // quietly turn it into a pause.
-        GoalMaintenance.Advance(goal, calendar, now, idGenerator, me);
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
 
         if (!goal.Close(request.Completed ?? false, now))
         {
@@ -412,6 +460,9 @@ public sealed class GoalService(
         }
 
         await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(goal.Participants.Select(participant => participant.PersonId), LiveArea.Goals, goal.Id);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("Goal {GoalId} was closed as {Status}", goal.Id, goal.Status);
 
@@ -470,12 +521,26 @@ public sealed class GoalService(
             .ToListAsync(cancellationToken);
 
         database.ActivityEvents.RemoveRange(events);
+
+        // Nor does it leave a line in anybody's bell: an invitation, a verdict,
+        // a warning about it — all of them quote its title.
+        var lines = await database.Notifications
+            .Where(line => line.Target == NotificationTarget.Goal && line.TargetId == goal.Id)
+            .ToListAsync(cancellationToken);
+
+        database.Notifications.RemoveRange(lines);
+
+        // Held before the goal goes, because its participants go with it.
+        var participantIds = goal.Participants.Select(participant => participant.PersonId).ToList();
         database.Goals.Remove(goal);
 
         await database.SaveChangesAsync(cancellationToken);
 
         // Bytes last, once the rows are safely gone.
         await images.DeleteBytesAsync(removed, cancellationToken);
+
+        notifier.Touch(participantIds, LiveArea.Goals, goal.Id);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation(
             "Goal {GoalId} was deleted with {ImageCount} photograph(s)",
@@ -489,6 +554,7 @@ public sealed class GoalService(
             .Include(g => g.Participants)
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
+            .ThenInclude(proof => proof.Votes)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .Where(g => g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId))
@@ -521,12 +587,13 @@ public sealed class GoalService(
 
         foreach (var goal in mine)
         {
-            changed |= GoalMaintenance.Advance(goal, calendar, now, idGenerator);
+            changed |= await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
         }
 
         if (changed)
         {
             await database.SaveChangesAsync(cancellationToken);
+            await notifier.FlushAsync(cancellationToken);
         }
     }
 
@@ -537,7 +604,8 @@ public sealed class GoalService(
     private async Task<Person> OwnerOf(Goal goal, Person me, CancellationToken cancellationToken) =>
         goal.OwnerPersonId == me.Id
             ? me
-            : await database.People.SingleAsync(p => p.Id == goal.OwnerPersonId, cancellationToken);
+            : await database.People.Include(person => person.CheckIns)
+                .SingleAsync(p => p.Id == goal.OwnerPersonId, cancellationToken);
 
     private static bool Covers(GoalInstance instance, DateOnly day) =>
         instance.StartsOn <= day && day <= instance.DueOn;
@@ -581,6 +649,7 @@ public sealed class GoalService(
             .Include(g => g.Participants)
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
+            .ThenInclude(proof => proof.Votes)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);

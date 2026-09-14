@@ -263,6 +263,11 @@ export default defineNuxtConfig({
         // Stage 9: notifications, and the hours they stay away.
         'lucide:bell-off',
         'lucide:moon-star',
+
+        // The bell and its settings: a pause lifted by objections, and the
+        // friend-request switch.
+        'lucide:play',
+        'lucide:user-plus',
       ],
     },
 

@@ -168,15 +168,22 @@ This is the second change that needs a real migration against existing data.
 writing it: it converts rather than deletes, and it says in a comment what it
 could not convert and why.
 
-### 11. Notification delivery
+### 11. Notification delivery — done
 
-The switches on the settings screen are stored and honoured by nothing. The
-screen says so, which is the honest interim state, but it is the last thing in
-q2 that is visibly a promise rather than a feature.
+Everything a person would want to know reaches them through one pipeline: the
+bell for what has no other home, a live connection while the app is open, and
+Web Push while it is not — one switch per kind, a mute per conversation, quiet
+hours. See
+[adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md).
 
-Push notifications are a Capacitor concern (item 15) and reminders are a
-scheduling one; a weekly review is neither. Pick the one with a real user asking
-for it rather than building the general mechanism first.
+What is still open:
+
+- **Native push.** APNs and FCM come with Capacitor (item 15). Until then iOS is
+  reached only as an installed home-screen app.
+- **One API process.** Who is connected is held in memory, so a second instance
+  needs a SignalR backplane. Revisit with the second instance, not before.
+- **Push on a real device has not been tried.** There are no VAPID keys locally;
+  Staging is the first place it can be.
 
 ---
 
@@ -235,8 +242,8 @@ the decimal separator, which currently lives in the catalogue.
 **Status:** the browser half is done. q2 installs as a PWA — manifest, icons,
 a service worker that precaches the build and serves an offline page, and
 nothing else ([adr/0012-installable-pwa.md](adr/0012-installable-pwa.md)). That
-is a standalone window and a home screen icon, not a native app: no push
-notifications, no store listing, no offline use.
+is a standalone window and a home screen icon, not a native app: no native
+push, no store listing, no offline use.
 
 The architecture keeps the rest possible: a Nuxt frontend talking to an HTTP API
 over a configurable base URL, and a UI that is designed and tested at phone

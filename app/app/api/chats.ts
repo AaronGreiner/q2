@@ -16,6 +16,7 @@ export interface ChatsApi {
   react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatDetail>
   startDirect: (personId: string) => Promise<ChatDetail>
   createGroup: (request: CreateGroupChatRequest) => Promise<ChatDetail>
+  mute: (id: string, muted: boolean) => Promise<ChatDetail>
   leave: (id: string) => Promise<void>
 }
 
@@ -58,6 +59,13 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
     }),
 
     createGroup: request => call<ChatDetail>('/api/chats/groups', { method: 'POST', body: request }),
+
+    // A PUT with the state rather than a toggle: tapping twice on a slow
+    // connection should end where the second tap meant, not back where it began.
+    mute: (id, muted) => call<ChatDetail>(`/api/chats/${encodeURIComponent(id)}/mute`, {
+      method: 'PUT',
+      body: { muted },
+    }),
 
     leave: async (id) => {
       await call<unknown>(`/api/chats/${encodeURIComponent(id)}/leave`, { method: 'POST' })

@@ -19,12 +19,6 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// Monday to Sunday of the current week, seven entries. Always in that order,
 /// so the client never has to work out which end of the array is Monday.
 /// </param>
-/// <param name="UnreadChats">
-/// How many conversations have something unread in them.
-/// </param>
-/// <param name="PendingFriendRequests">
-/// How many people are waiting for an answer.
-/// </param>
 /// <param name="Balance">
 /// Everything this person has delivered and everything they have missed, over
 /// all of their own goals. Unscoped, because it is their own profile — the
@@ -36,11 +30,12 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// Empty for most of the day: the rule only turns on in the evening.
 /// </param>
 /// <remarks>
-/// <see cref="UnreadChats"/> and <see cref="PendingFriendRequests"/> are here
-/// rather than on their own endpoint because they are what the bottom
-/// navigation puts a badge on, and it is on every screen. A dedicated "counts"
-/// call would be a second request on every page load to answer a question this
-/// one already had the data for.
+/// The badge numbers used to ride along here, because the bottom navigation is
+/// on every screen and this was a read every screen made anyway. They have a
+/// read of their own now (<see cref="Q2.Api.Features.Notifications.CountsResponse"/>):
+/// they arrive over the live connection whenever one of them moves, and the
+/// whole profile has no business being sent again for that
+/// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
 public sealed record ProfileResponse(
     PersonSummary Person,
@@ -49,8 +44,6 @@ public sealed record ProfileResponse(
     int GoalsCompleted,
     IReadOnlyList<bool> WeekActivity,
     DaySummaryResponse Today,
-    int UnreadChats,
-    int PendingFriendRequests,
     IReadOnlyList<BadgeResponse> Badges,
     IReadOnlyList<ActivityResponse> RecentActivity,
     BalanceResponse Balance,

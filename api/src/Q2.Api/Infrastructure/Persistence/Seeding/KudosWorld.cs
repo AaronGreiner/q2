@@ -1,6 +1,7 @@
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
@@ -155,7 +156,7 @@ internal static class KudosWorld
 
         // The signed-in person's own history, which is what the profile screen
         // shows and the feed deliberately leaves out.
-        build.AddActivity(me, ActivityKind.TaskCompleted, "30 Seiten lesen", null, kudosCount: 4, minutesAgo: 90);
+        var pages = build.AddActivity(me, ActivityKind.TaskCompleted, "30 Seiten lesen", null, kudosCount: 4, minutesAgo: 90);
         build.AddActivity(me, ActivityKind.StreakReached, null, 12, kudosCount: 11, minutesAgo: 400);
         build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 1, kudosCount: 2, minutesAgo: 1500);
 
@@ -201,6 +202,32 @@ internal static class KudosWorld
             null,
             unread: 0,
             new SeedMessage(tom, "Denk an die Pausen zwischen den Einheiten 👍", 4300));
+
+        /*
+         * The bell on an ordinary afternoon: three lines that arrived since it
+         * was last opened two hours ago, and one from before that.
+         *
+         * Two people reacted to the same photograph, which the bell draws as a
+         * single line; the verdict on the reading carries no name, because a
+         * verdict never does.
+         */
+        me.MarkNotificationsSeen(context.MinutesAgo(120));
+
+        build.AddNotification(
+            me, NotificationKind.ReactionReceived, jonas, NotificationTarget.Goal, halfMarathon.Id,
+            minutesAgo: 25, subject: halfMarathon.Title);
+        build.AddNotification(
+            me, NotificationKind.ReactionReceived, lena, NotificationTarget.Goal, halfMarathon.Id,
+            minutesAgo: 40, subject: halfMarathon.Title);
+        build.AddNotification(
+            me, NotificationKind.ProofConfirmed, null, NotificationTarget.Goal, reading.Id,
+            minutesAgo: 70, subject: reading.Title);
+        build.AddNotification(
+            me, NotificationKind.ReactionReceived, tom, NotificationTarget.Activity, pages.Id,
+            minutesAgo: 80, subject: pages.Subject);
+        build.AddNotification(
+            me, NotificationKind.FriendshipStarted, david, NotificationTarget.Person, david.Id,
+            minutesAgo: 3000);
 
         // Today's prompt, with nobody in the room yet: a seed writes no
         // photographs, so what a developer sees is the state a real morning

@@ -56,7 +56,24 @@ public static class ChatEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
+        group.MapPut("/{id:guid}/mute", MuteChat)
+            .WithName("MuteChat")
+            .WithSummary("Stops a conversation from ringing on your devices, or lets it ring again.")
+            .Produces<ChatDetailResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
+
         return endpoints;
+    }
+
+    private static async Task<Ok<ChatDetailResponse>> MuteChat(
+        ChatService chats,
+        Guid id,
+        MuteChatRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await chats.SetMutedAsync(id, request, cancellationToken);
+        return TypedResults.Ok(result);
     }
 
     private static async Task<Ok<IReadOnlyList<ChatSummaryResponse>>> ListChats(

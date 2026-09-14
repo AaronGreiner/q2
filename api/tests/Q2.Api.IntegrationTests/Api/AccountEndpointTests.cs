@@ -231,6 +231,8 @@ public class AccountEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     [InlineData("/api/friends")]
     [InlineData("/api/chats")]
     [InlineData("/api/settings")]
+    [InlineData("/api/notifications")]
+    [InlineData("/api/counts")]
     public async Task EveryFeatureEndpointRefusesAnAnonymousCaller(string url)
     {
         // The guard is on the endpoint group rather than on each route, and

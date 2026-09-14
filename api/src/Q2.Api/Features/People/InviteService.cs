@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -32,6 +33,7 @@ public sealed record InviteResponse(string Code);
 public sealed class InviteService(
     Q2DbContext database,
     CurrentPerson currentPerson,
+    Notifier notifier,
     TimeProvider timeProvider,
     IIdGenerator idGenerator,
     ILogger<InviteService> logger)
@@ -105,6 +107,11 @@ public sealed class InviteService(
         friendship.Accept(newcomer.Id, timeProvider.GetUtcNow());
 
         database.Friendships.Add(friendship);
+
+        // Whoever sent the link hears that it worked. Staged here, inside the
+        // registration's transaction, and delivered by AccountService once
+        // that has committed.
+        await notifier.StageAsync(FriendsService.FriendshipStartedBy(newcomer.Id), [host.Id], cancellationToken);
 
         logger.LogInformation("An invite link was redeemed");
         return true;

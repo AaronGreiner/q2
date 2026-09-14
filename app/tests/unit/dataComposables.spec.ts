@@ -371,7 +371,7 @@ describe('friend and profile composables', () => {
     expect(show).toHaveBeenCalledWith(de.toast.requestSent)
     expect(show).toHaveBeenCalledWith(de.toast.requestWithdrawn)
     expect(show).toHaveBeenCalledWith(de.toast.friendRemoved)
-    expect(refreshNuxtData).toHaveBeenCalledWith('profile')
+    expect(refreshNuxtData).toHaveBeenCalledWith('counts')
   })
 
   it('reports a failed relationship action', async () => {
@@ -462,6 +462,7 @@ describe('chat composables', () => {
         get: vi.fn().mockResolvedValue(chat()),
         send: vi.fn().mockResolvedValue(chat({ messages: [{ id: 'message-1', text: 'Hello' }] })),
         react: vi.fn().mockResolvedValue(chat({ messages: [{ id: 'message-1', reactions: ['👏'] }] })),
+        mute: vi.fn().mockResolvedValue(chat({ isMuted: true })),
         leave: vi.fn().mockResolvedValue(undefined),
       },
     }
@@ -499,9 +500,14 @@ describe('chat composables', () => {
     await state.react('message-1', '👏')
     expect(api.chats.react).toHaveBeenCalledWith('chat-1', 'message-1', '👏')
 
+    await state.setMuted(true)
+    expect(api.chats.mute).toHaveBeenCalledWith('chat-1', true)
+    expect(state.chat.value).toMatchObject({ isMuted: true })
+    expect(show).toHaveBeenCalledWith(de.toast.chatMuted)
+
     await state.leave()
     expect(refreshNuxtData).toHaveBeenCalledWith('chats')
-    expect(refreshNuxtData).toHaveBeenCalledWith('profile')
+    expect(refreshNuxtData).toHaveBeenCalledWith('counts')
     expect(push).toHaveBeenCalledWith('/chats')
     expect(show).toHaveBeenCalledWith(de.toast.groupLeft)
   })
@@ -517,11 +523,14 @@ describe('chat composables', () => {
     api.chats.send.mockRejectedValueOnce(new Error('send'))
     api.chats.react.mockRejectedValueOnce(new Error('react'))
     api.chats.leave.mockRejectedValueOnce(new Error('leave'))
+    api.chats.mute.mockRejectedValueOnce(new Error('mute'))
     await expect(state.send('Hello')).resolves.toBe(false)
     await state.react('message-1', '👏')
+    await state.setMuted(true)
     await state.leave()
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'send' })
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'react' })
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'mute' })
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'leave' })
 
     vi.stubGlobal('useErrorReporter', () => ({

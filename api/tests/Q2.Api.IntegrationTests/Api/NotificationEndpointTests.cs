@@ -10,18 +10,16 @@ using Q2.Api.IntegrationTests.Infrastructure;
 namespace Q2.Api.IntegrationTests.Api;
 
 /// <summary>
-/// Notifications: who gets told, and what stops it.
+/// Devices, and the gates between a notification and one of them.
 /// </summary>
 /// <remarks>
 /// The encryption is checked against RFC 8291's own worked example in
 /// <c>WebPushCryptoTests</c>, so nothing here is about crypto. What needs a
-/// pipeline is the three gates in front of it — the person's switch, their
-/// quiet hours in their own zone, and whether the recipient set matches the one
-/// the activity feed already uses.
-///
-/// The last of those is the rule this stage turns on: push is a delivery route
-/// for something that already exists, so a notification nobody could then go
-/// and look at would be a new product rather than a new route.
+/// pipeline is what stands in front of it — the person's switch, their quiet
+/// hours in their own zone, and a recipient set that matches who would have
+/// seen the thing anyway. The two jobs that existed before the rest of the
+/// pipeline did, the evening warning and the daily challenge, are the ones
+/// exercised here; <c>NotificationPipelineTests</c> has every other trigger.
 /// </remarks>
 [Trait("Category", "Integration")]
 public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
@@ -139,8 +137,8 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
     }
 
     /// <summary>
-    /// The recipient set is the one the feed already uses: the owner's friends,
-    /// and never the owner.
+    /// The audience the warning has always had: the owner's friends, and never
+    /// the owner.
     /// </summary>
     [Fact]
     public async Task AWarningReachesTheFriendsDeviceAndNotTheOwnersOwn()
@@ -157,7 +155,7 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
         Assert.Contains(sent, message =>
             message.Endpoint == "https://push.example/friend"
-            && message.Payload.Kind == PushKind.WindowAtRisk);
+            && message.Payload.Kind == NotificationKind.FriendWindowAtRisk);
 
         // The one person who does not need telling that they are running out of
         // time is the person running out of time.
@@ -165,7 +163,7 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
     }
 
     /// <summary>
-    /// The wording is not in the payload. A kind, a subject and an amount go
+    /// The wording is not in the payload. The same fields the bell is read as go
     /// out, and the service worker composes the sentence in the person's own
     /// language from the catalogue it already has.
     /// </summary>
@@ -184,26 +182,53 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
             Factory.PushSender.Sent,
             message => message.Payload.Subject == "Automated test: shared active goal");
 
-        Assert.False(string.IsNullOrWhiteSpace(warning.Payload.Subject));
         Assert.NotNull(warning.Payload.Amount);
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, warning.Payload.Actor?.Id);
+        Assert.Null(warning.Payload.Id);
 
         var json = warning.Payload.ToJson();
 
-        Assert.Contains("\"kind\":\"WindowAtRisk\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"kind\":\"FriendWindowAtRisk\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"target\":\"Goal\"", json, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task SomebodyWhoTurnedRemindersOffIsNotTold()
+    public async Task SomebodyWhoTurnedWarningsOffIsNotTold()
     {
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
 
         await SubscribeAsync(friend, "https://push.example/friend");
-        (await friend.PutJsonAsync("/api/settings", new { notifyReminders = false })).EnsureSuccessStatusCode();
+        (await friend.PutJsonAsync("/api/settings", new { notifications = new { friendsAtRisk = false } }))
+            .EnsureSuccessStatusCode();
 
         At(Evening);
         await RunMaintenanceAsync();
 
-        Assert.DoesNotContain(Factory.PushSender.Sent, message => message.Payload.Kind == PushKind.WindowAtRisk);
+        Assert.DoesNotContain(
+            Factory.PushSender.Sent,
+            message => message.Payload.Kind == NotificationKind.FriendWindowAtRisk);
+    }
+
+    /// <summary>
+    /// A switch governs what may interrupt, not what may be found: the warning
+    /// still waits in the bell for somebody who turned the push off.
+    /// </summary>
+    [Fact]
+    public async Task ASwitchStopsThePushButNotTheLineInTheBell()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        (await friend.PutJsonAsync("/api/settings", new { notifications = new { friendsAtRisk = false } }))
+            .EnsureSuccessStatusCode();
+
+        At(Evening);
+        await RunMaintenanceAsync();
+
+        await Factory.WithDatabaseAsync(async database =>
+            Assert.True(await database.Notifications.AnyAsync(
+                line => line.RecipientPersonId == AutomatedTestSeed.FriendPersonId
+                    && line.Kind == NotificationKind.FriendWindowAtRisk,
+                TestContext.Current.CancellationToken)));
     }
 
     /// <summary>
@@ -230,12 +255,13 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
         await SubscribeAsync(friend, "https://push.example/friend");
 
-        (await friend.PutJsonAsync("/api/settings", new { quietHoursEnabled = false })).EnsureSuccessStatusCode();
+        (await friend.PutJsonAsync("/api/settings", new { notifications = new { quietHoursEnabled = false } }))
+            .EnsureSuccessStatusCode();
 
         At(new DateTimeOffset(2026, 6, 15, 21, 0, 0, TimeSpan.Zero));
         await RunMaintenanceAsync();
 
-        Assert.Contains(Factory.PushSender.Sent, message => message.Payload.Kind == PushKind.WindowAtRisk);
+        Assert.Contains(Factory.PushSender.Sent, message => message.Payload.Kind == NotificationKind.FriendWindowAtRisk);
     }
 
     /// <summary>
@@ -286,7 +312,8 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
     /// <summary>
     /// The one notification in q2 that is not scoped to somebody's friends,
-    /// because the prompt is deliberately the same for everybody.
+    /// because the prompt is deliberately the same for everybody — and the one
+    /// that never becomes a line in the bell, because the banner is its home.
     /// </summary>
     [Fact]
     public async Task TheChallengeIsAnnouncedOnceToEverybodyWithADevice()
@@ -298,24 +325,32 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
         Assert.Equal(1, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
 
         var announcement = Assert.Single(Factory.PushSender.Sent);
-        Assert.Equal(PushKind.ChallengePublished, announcement.Payload.Kind);
+        Assert.Equal(NotificationKind.ChallengePublished, announcement.Payload.Kind);
         Assert.Equal(AutomatedTestSeed.ChallengePrompt, announcement.Payload.Subject);
+        Assert.Null(announcement.Payload.Actor);
 
         // Twice a day is worse than never: an hourly pass must not mean an
         // hourly notification.
         Assert.Equal(0, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
         Assert.Single(Factory.PushSender.Sent);
+
+        await Factory.WithDatabaseAsync(async database =>
+            Assert.False(await database.Notifications.AnyAsync(
+                line => line.Kind == NotificationKind.ChallengePublished,
+                TestContext.Current.CancellationToken)));
     }
 
     [Fact]
     public async Task SomebodyWhoTurnedTheChallengeOffIsNotTold()
     {
         await SubscribeAsync(Client);
-        (await Client.PutJsonAsync("/api/settings", new { notifyChallenge = false })).EnsureSuccessStatusCode();
+        (await Client.PutJsonAsync("/api/settings", new { notifications = new { challenge = false } }))
+            .EnsureSuccessStatusCode();
 
         var worker = ActivatorUtilities.CreateInstance<ChallengeQueueWorker>(Factory.Services);
 
-        Assert.Equal(0, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
+        // Announced — it is still today's prompt — but not to this device.
+        Assert.Equal(1, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
         Assert.Empty(Factory.PushSender.Sent);
     }
 

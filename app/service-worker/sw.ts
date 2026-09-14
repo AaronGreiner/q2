@@ -5,7 +5,8 @@
  *
  * It exists so the application can be installed — Chrome and the Android
  * WebView only offer "install" to a site whose service worker handles `fetch`
- * — and it deliberately does very little beyond that.
+ * — and so a notification can arrive while the app is closed. It deliberately
+ * does very little beyond that.
  *
  * What it caches: the hashed build output. Nothing else.
  * What it never caches: **HTML and API responses.**
@@ -28,7 +29,9 @@
 import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { NetworkOnly } from 'workbox-strategies'
+import type { NotificationLine } from '../app/api/types'
 import { de, en, type Messages } from '../app/i18n/messages'
+import { notificationLink, notificationText } from '../app/utils/display'
 
 declare const self: ServiceWorkerGlobalScope & {
   /** Replaced at build time with the precache list; see `injectManifest` in nuxt.config.ts. */
@@ -77,27 +80,14 @@ self.addEventListener('activate', (event) => {
 })
 
 /**
- * What a notification is about, as the server sends it.
- *
- * The server does not write the text. It sends a kind and its parameters, and
- * the sentence is composed here from the same catalogue the rest of the app
- * uses — which is how a notification arrives in the language the person chose,
- * and why adding a language is still one file.
- *
- * Mirrors `PushKind` and `PushPayload` on the server. It is a hand-written
- * mirror rather than a generated type because nothing in the OpenAPI contract
- * describes it: the payload never travels over HTTP, it arrives encrypted
- * through a push service.
- */
-interface PushPayload {
-  kind: 'WindowAtRisk' | 'ChallengePublished'
-  subject: string | null
-  amount: number | null
-  sourceId: string | null
-}
-
-/**
  * A notification arrives.
+ *
+ * The payload is the very shape the bell is read as — a `NotificationLine`,
+ * generated from the API contract — and the words are composed here by the
+ * same `notificationText` the bell uses, from the same catalogue. The server
+ * never sends a sentence, which is how a notification arrives in the language
+ * of the device, and why a lock screen and the bell can never say one event
+ * two ways (docs/adr/0024-one-notification-pipeline.md).
  *
  * **A push event must always end in a visible notification.** Browsers permit a
  * silent one only for a short grace period and then revoke the permission
@@ -138,67 +128,50 @@ self.addEventListener('notificationclick', (event) => {
   })())
 })
 
-function read(data: PushMessageData | null): PushPayload | null {
+function read(data: PushMessageData | null): NotificationLine | null {
   try {
-    return (data?.json() ?? null) as PushPayload | null
+    const line = (data?.json() ?? null) as NotificationLine | null
+
+    // A payload from some other version of the server, or none at all.
+    // Something still has to appear — see the note on the push listener.
+    return line && typeof line.kind === 'string' ? line : null
   }
   catch {
-    // A payload this version does not understand, or none at all. Something
-    // still has to appear — see the note on the push listener.
     return null
   }
 }
 
-/**
- * Turns a payload into the words on the screen.
- *
- * The wording is deliberately the same as the feed's, because it is the same
- * event: push is a delivery route, not a second way of saying things. What is
- * *not* the same is the title — a notification is read on a lock screen with no
- * context around it, so it names the app rather than assuming one.
- */
-async function show(payload: PushPayload | null): Promise<void> {
+async function show(line: NotificationLine | null): Promise<void> {
   const t = language()
 
-  const content = payload === null
+  const content = line === null
     ? { title: t.app.name, body: t.push.generic, url: '/' }
-    : compose(payload, t)
+    : { ...notificationText(line, t), url: notificationLink(line) }
 
   await self.registration.showNotification(content.title, {
     body: content.body,
     icon: '/pwa-192x192.png',
     badge: '/favicon.svg',
-    tag: payload?.kind ?? 'q2',
+    tag: tagOf(line),
 
-    // Replaces rather than stacks: two warnings about the same evening are one
-    // thing to act on, and a lock screen filling up is how notifications get
-    // switched off.
+    // Replaces rather than stacks: a second message in the same conversation,
+    // or a second reaction to the same photograph, updates the one already on
+    // the lock screen without buzzing again. A lock screen filling up is how
+    // notifications get switched off.
     renotify: false,
     data: { url: content.url },
   } as NotificationOptions)
 }
 
-function compose(payload: PushPayload, t: Messages): { title: string, body: string, url: string } {
-  const subject = payload.subject ?? ''
+/**
+ * One notification per thing a notification is about — a conversation, a
+ * goal, a friend — so two chats never replace each other, and one chat never
+ * stacks up.
+ */
+function tagOf(line: NotificationLine | null): string {
+  if (line === null) return 'q2'
 
-  switch (payload.kind) {
-    case 'WindowAtRisk':
-      return {
-        title: t.push.riskTitle,
-        body: t.push.riskBody(subject, payload.amount ?? 0),
-        url: '/activity',
-      }
-
-    case 'ChallengePublished':
-      return {
-        title: t.push.challengeTitle,
-        body: subject || t.push.generic,
-        url: '/challenge',
-      }
-
-    default:
-      return { title: t.app.name, body: t.push.generic, url: '/' }
-  }
+  return line.targetId ? `${line.kind}:${line.targetId}` : line.kind
 }
 
 /**
@@ -283,8 +256,8 @@ function offlinePage(): Response {
  * Which language to say it in.
  *
  * The person's actual preference is stored on their account, and this runs at
- * the one moment the account is unreachable. The browser's language is the
- * best guess available; German is the product default and the fallback.
+ * moments the account is unreachable or not asked. The browser's language is
+ * the best guess available; German is the product default and the fallback.
  */
 function language(): Messages {
   return self.navigator.language.toLowerCase().startsWith('en') ? en : de

@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { FeedProof, Image, ProofVoteValue } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
 
 interface PendingPayload {
@@ -31,7 +32,7 @@ export function usePendingProofs() {
         return { proofs: [], failure: report(caught, { feature: 'proofs', action: 'pending' }) }
       }
     },
-    { default: () => ({ proofs: [], failure: null }) },
+    { default: () => placeholder({ proofs: [], failure: null }) },
   )
 
   const isVoting = ref(false)
@@ -77,7 +78,7 @@ export function usePendingProofs() {
   return {
     proofs: computed(() => data.value?.proofs ?? []),
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isVoting: computed(() => isVoting.value),
     refresh,
     vote,

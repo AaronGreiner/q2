@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -33,6 +34,7 @@ public sealed class BlockService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     BlockList blockList,
+    Notifier notifier,
     TimeProvider timeProvider,
     IIdGenerator idGenerator,
     ILogger<BlockService> logger)
@@ -95,6 +97,18 @@ public sealed class BlockService(
 
         await database.SaveChangesAsync(cancellationToken);
 
+        /*
+         * This person's own other devices, and nobody else's.
+         *
+         * The person blocked finds the friendship gone the next time they look,
+         * exactly as before there was a live connection. Telling their open app
+         * to redraw at that very moment would make a block something they could
+         * watch happen — an announcement in all but words.
+         */
+        notifier.Touch([me.Id], LiveArea.Friends);
+        notifier.Touch([me.Id], LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
         // No names, and not even which direction: that somebody blocked
         // somebody is the most sensitive thing this feature knows.
         logger.LogInformation("A person was blocked");
@@ -125,6 +139,11 @@ public sealed class BlockService(
 
         database.Blocks.Remove(block);
         await database.SaveChangesAsync(cancellationToken);
+
+        // The same restraint as blocking: only this person's own screens move.
+        notifier.Touch([me.Id], LiveArea.Friends);
+        notifier.Touch([me.Id], LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("A block was lifted");
 

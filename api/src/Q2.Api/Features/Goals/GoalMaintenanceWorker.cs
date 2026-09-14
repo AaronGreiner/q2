@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Q2.Api.Features.Activity;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -14,8 +14,10 @@ namespace Q2.Api.Features.Goals;
 /// The read path already brings a person's own goals up to date when they open
 /// the app, so this is not what keeps <em>their</em> screen honest. It is what
 /// keeps everybody else's: a friend has to be able to see that you missed
-/// yesterday even if you have not opened q2 since, and from stage 5 the evening
-/// warning goes out to people who are not the one who is running late.
+/// yesterday even if you have not opened q2 since, the evening warning goes out
+/// to people who are not the one who is running late, and a photograph whose
+/// twelve hours ran out overnight is decided — and its owner told — without
+/// anybody looking.
 ///
 /// Deliberately simple. It is not a scheduler, it has no queue and it holds no
 /// state of its own: every run asks the same question — "is any goal behind?" —
@@ -26,7 +28,7 @@ namespace Q2.Api.Features.Goals;
 /// It does <b>not</b> run in <c>AutomatedTest</c>. Integration tests assert on
 /// exact rows, and a job mutating the database between the arrange and the
 /// assert would make them flaky for a reason that has nothing to do with what
-/// they test; those tests call <see cref="GoalMaintenance"/> directly instead.
+/// they test; those tests call <see cref="RunOnceAsync"/> directly instead.
 /// </remarks>
 public sealed class GoalMaintenanceWorker(
     IServiceScopeFactory scopes,
@@ -83,20 +85,22 @@ public sealed class GoalMaintenanceWorker(
         var database = scope.ServiceProvider.GetRequiredService<Q2DbContext>();
         var ids = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
         var timeZones = scope.ServiceProvider.GetRequiredService<TimeZoneResolver>();
-        var recorder = scope.ServiceProvider.GetRequiredService<ActivityRecorder>();
+        var friends = scope.ServiceProvider.GetRequiredService<FriendsService>();
+
+        /*
+         * Everything this pass has to tell anybody is staged beside the rows it
+         * changes and delivered once the last batch is saved.
+         *
+         * Never from inside the loop: that would put a network call in the
+         * middle of a database transaction, held open for as long as somebody
+         * else's push service feels like taking (docs/adr/0023-web-push.md).
+         */
+        var notifier = scope.ServiceProvider.GetRequiredService<Notifier>();
 
         var now = timeProvider.GetUtcNow();
         var changed = 0;
+        var warned = 0;
         var lastId = Guid.Empty;
-
-        /*
-         * The warnings this pass published, kept until after the save.
-         *
-         * Sending inside the loop would put a network call in the middle of a
-         * database transaction, held open for as long as somebody else's push
-         * service feels like taking. Collecting them costs one list.
-         */
-        var warnings = new List<(Guid OwnerId, string Title, int Missing)>();
 
         while (true)
         {
@@ -104,6 +108,10 @@ public sealed class GoalMaintenanceWorker(
             // the set being written to, and an offset would step over a goal
             // whose predecessor moved out from under it.
             var goals = await database.Goals
+
+                // The people who vote on it, who hear when a vote they were
+                // part of has closed.
+                .Include(g => g.Participants)
                 .Include(g => g.Instances)
                 .ThenInclude(instance => instance.Proofs)
                 .ThenInclude(proof => proof.Votes)
@@ -131,14 +139,38 @@ public sealed class GoalMaintenanceWorker(
                 var owner = owners.GetValueOrDefault(goal.OwnerPersonId);
                 var calendar = timeZones.For(owner?.TimeZoneId);
 
-                if (GoalMaintenance.Advance(goal, calendar, now, ids, owner))
+                if (await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, ids, owner, cancellationToken))
                 {
                     changed++;
                 }
 
-                if (owner is not null && WarnIfAtRisk(goal, owner, calendar, now, recorder) is { } warning)
+                if (owner is not null && WarnIfAtRisk(goal, calendar, now) is { } missing)
                 {
-                    warnings.Add(warning);
+                    warned++;
+
+                    /*
+                     * The recipients are the owner's friends — the audience
+                     * the warning has always had
+                     * (docs/adr/0019-warning-and-balance.md) — and never the
+                     * owner: the one person who does not need telling that they
+                     * are running out of time is the person running out of
+                     * time.
+                     *
+                     * A line in each friend's bell now, where the feed used to
+                     * carry it (docs/adr/0024-one-notification-pipeline.md).
+                     * About the goal, so deleting it takes the line with it;
+                     * naming the owner, which is where tapping it leads.
+                     */
+                    await notifier.StageAsync(
+                        new NotificationEvent(
+                            NotificationKind.FriendWindowAtRisk,
+                            owner.Id,
+                            NotificationTarget.Goal,
+                            goal.Id,
+                            goal.Title,
+                            missing),
+                        await friends.FriendIdsAsync(owner.Id, cancellationToken),
+                        cancellationToken);
                 }
             }
 
@@ -151,101 +183,38 @@ public sealed class GoalMaintenanceWorker(
             logger.LogInformation("Goal maintenance advanced {GoalCount} goal(s)", changed);
         }
 
-        if (warnings.Count > 0)
+        if (warned > 0)
         {
-            logger.LogInformation("Goal maintenance warned about {WindowCount} window(s)", warnings.Count);
-            await NotifyAsync(warnings, cancellationToken);
+            logger.LogInformation("Goal maintenance warned about {WindowCount} window(s)", warned);
         }
+
+        await notifier.FlushAsync(cancellationToken);
 
         return changed;
     }
 
     /// <summary>
-    /// Sends the warnings this pass produced to the people who would have seen
-    /// them in their feed.
-    /// </summary>
-    /// <remarks>
-    /// **The recipients are the owner's friends**, which is exactly who the
-    /// activity feed shows the same warning to
-    /// ([0019](../../../../docs/adr/0019-warning-and-balance.md)). Push is a
-    /// delivery route for something that already exists, so a set that differed
-    /// from the feed's would mean telling somebody something they cannot then
-    /// go and look at — or missing somebody the app has already told.
-    ///
-    /// Never the owner. The warning is for the people who are watching, and the
-    /// one person who does not need telling that they are running out of time
-    /// is the person running out of time.
-    ///
-    /// Failures are swallowed: the pass's real work is committed by now, and a
-    /// push service having a bad afternoon must not stop windows from
-    /// advancing.
-    /// </remarks>
-    private async Task NotifyAsync(
-        IReadOnlyList<(Guid OwnerId, string Title, int Missing)> warnings,
-        CancellationToken cancellationToken)
-    {
-        using var scope = scopes.CreateScope();
-        var notifications = scope.ServiceProvider.GetRequiredService<NotificationService>();
-        var friends = scope.ServiceProvider.GetRequiredService<FriendsService>();
-
-        foreach (var warning in warnings)
-        {
-            try
-            {
-                var recipients = await friends.FriendIdsAsync(warning.OwnerId, cancellationToken);
-
-                await notifications.NotifyAsync(
-                    recipients,
-                    new PushPayload(PushKind.WindowAtRisk, warning.Title, warning.Missing, null),
-                    cancellationToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogWarning(exception, "A warning could not be delivered as a notification");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Tells a goal's friends that its window is about to be missed, at most
-    /// once per window. Returns what to notify about, or null when there was
-    /// nothing to warn about.
+    /// Whether a goal's friends are to be warned about its window — at most
+    /// once per window. Returns how many proofs are still missing, or null.
     /// </summary>
     /// <remarks>
     /// Here rather than inside <see cref="GoalMaintenance"/>, and the split is
     /// deliberate: advancing a goal is a pure function over the goal, while a
-    /// warning is a row written for other people to read. Keeping the pure part
-    /// pure is what lets the window arithmetic be tested without a database.
+    /// warning is something written for other people to read. Keeping the pure
+    /// part pure is what lets the window arithmetic be tested without a
+    /// database.
     ///
     /// It runs only in the background pass, never on a read. A warning is for
     /// the person's *friends*, so tying it to the owner opening the app would
     /// mean the one person whose attention is not in question decides whether
     /// anybody else hears about it.
     /// </remarks>
-    private static (Guid OwnerId, string Title, int Missing)? WarnIfAtRisk(
-        Goal goal,
-        Person owner,
-        LocalCalendar calendar,
-        DateTimeOffset now,
-        ActivityRecorder recorder)
-    {
-        if (goal.CurrentInstance is not { } window
-            || GoalRisk.Assess(window, calendar, now) is not { } risk
-            || !window.NotifyRisk(now))
-        {
-            return null;
-        }
-
-        recorder.Publish(
-            owner.Id,
-            ActivityKind.WindowAtRisk,
-            goal.Title,
-            risk.MissingProofs,
-            now,
-            goal.Id);
-
-        return (owner.Id, goal.Title, risk.MissingProofs);
-    }
+    private static int? WarnIfAtRisk(Goal goal, LocalCalendar calendar, DateTimeOffset now) =>
+        goal.CurrentInstance is { } window
+        && GoalRisk.Assess(window, calendar, now) is { } risk
+        && window.NotifyRisk(now)
+            ? risk.MissingProofs
+            : null;
 
     private static async Task<Dictionary<Guid, Person>> LoadOwnersAsync(
         Q2DbContext database,

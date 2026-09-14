@@ -1,15 +1,16 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Q2.Api.Features.People;
 
 namespace Q2.Api.Features.Notifications;
 
 /// <summary>
-/// HTTP surface for notifications.
+/// HTTP surface for notifications: the bell, the badges, this device, and the
+/// live connection.
 /// </summary>
 /// <remarks>
-/// Three endpoints and none of them sends anything. Notifications are produced
-/// by the two background jobs that already exist — a window falling due, a
-/// challenge being published — and a client that could ask for one would be a
-/// client that could send somebody else a notification.
+/// None of it sends anything. Notifications are produced by the things that
+/// cause them, through <see cref="Notifier"/>, and a client that could ask for
+/// one would be a client that could send somebody else one.
 /// </remarks>
 public static class NotificationEndpoints
 {
@@ -18,6 +19,11 @@ public static class NotificationEndpoints
         var notifications = endpoints.MapGroup("/api/notifications")
             .WithTags("Notifications")
             .RequireAuthorization();
+
+        notifications.MapGet("/", ListNotifications)
+            .WithName("ListNotifications")
+            .WithSummary("The bell, newest first. Reading it marks everything in it as seen.")
+            .Produces<IReadOnlyList<NotificationResponse>>();
 
         notifications.MapGet("/key", GetKey)
             .WithName("GetPushKey")
@@ -35,27 +41,59 @@ public static class NotificationEndpoints
             .WithSummary("Forgets this browser. Succeeds whether or not there was anything to forget.")
             .Produces(StatusCodes.Status204NoContent);
 
+        var counts = endpoints.MapGroup("/api/counts")
+            .WithTags("Notifications")
+            .RequireAuthorization();
+
+        counts.MapGet("/", GetCounts)
+            .WithName("GetCounts")
+            .WithSummary("Every number the app puts on a badge.")
+            .Produces<CountsResponse>();
+
+        /*
+         * The live connection, guarded like every other feature route.
+         *
+         * Left out of the OpenAPI document: it is not a request and response,
+         * and the two events it carries are named in LiveEvents and mirrored by
+         * hand in the frontend. Their payloads — CountsResponse and a
+         * LiveChange — are the documented part.
+         */
+        endpoints.MapHub<LiveHub>(LiveHub.Path)
+            .RequireAuthorization()
+            .ExcludeFromDescription();
+
         return endpoints;
     }
 
-    private static Ok<PushKeyResponse> GetKey(NotificationService notifications) =>
-        TypedResults.Ok(notifications.Key());
+    private static async Task<Ok<IReadOnlyList<NotificationResponse>>> ListNotifications(
+        InboxService inbox,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await inbox.ListAsync(cancellationToken));
+
+    private static async Task<Ok<CountsResponse>> GetCounts(
+        CountsService counts,
+        CurrentPerson currentPerson,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await counts.ForAsync(await currentPerson.GetIdAsync(cancellationToken), cancellationToken));
+
+    private static Ok<PushKeyResponse> GetKey(PushSubscriptionService devices) =>
+        TypedResults.Ok(devices.Key());
 
     private static async Task<NoContent> Subscribe(
-        NotificationService notifications,
+        PushSubscriptionService devices,
         SubscribeRequest request,
         CancellationToken cancellationToken)
     {
-        await notifications.SubscribeAsync(request, cancellationToken);
+        await devices.SubscribeAsync(request, cancellationToken);
         return TypedResults.NoContent();
     }
 
     private static async Task<NoContent> Unsubscribe(
-        NotificationService notifications,
+        PushSubscriptionService devices,
         UnsubscribeRequest request,
         CancellationToken cancellationToken)
     {
-        await notifications.UnsubscribeAsync(request, cancellationToken);
+        await devices.UnsubscribeAsync(request, cancellationToken);
         return TypedResults.NoContent();
     }
 }

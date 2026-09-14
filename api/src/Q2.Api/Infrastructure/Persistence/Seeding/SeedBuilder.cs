@@ -3,6 +3,7 @@ using Q2.Api.Features.Activity;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Time;
@@ -43,6 +44,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     private readonly List<Conversation> _conversations = [];
     private readonly List<UserSettings> _settings = [];
     private readonly List<Challenge> _challenges = [];
+    private readonly List<Notification> _notifications = [];
 
     private Person? _me;
 
@@ -394,8 +396,37 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         return challenge;
     }
 
+    /// <summary>
+    /// A line in somebody's bell.
+    /// </summary>
+    /// <remarks>
+    /// Written through <see cref="Notification.Create"/>, the way the pipeline
+    /// writes one, so a seeded bell cannot hold a kind the bell never keeps.
+    /// Whether it reads as new depends on when the person last opened the bell
+    /// (<see cref="Person.MarkNotificationsSeen"/>), which a seed may set too.
+    /// </remarks>
+    public Notification AddNotification(
+        Person recipient,
+        NotificationKind kind,
+        Person? actor,
+        NotificationTarget target,
+        Guid? targetId,
+        int minutesAgo,
+        string? subject = null,
+        int? amount = null)
+    {
+        var notification = Notification.Create(
+            NextId(SeedEntity.Notification),
+            recipient.Id,
+            new NotificationEvent(kind, actor?.Id, target, targetId, subject, amount),
+            Context.MinutesAgo(minutesAgo));
+
+        _notifications.Add(notification);
+        return notification;
+    }
+
     public SeedData Build() =>
-        new(_people, _accounts, _friendships, _goals, _activity, _conversations, _settings, _challenges);
+        new(_people, _accounts, _friendships, _goals, _activity, _conversations, _settings, _challenges, _notifications);
 
     private Friendship Add(Friendship friendship)
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
@@ -20,6 +21,7 @@ public sealed class ActivityService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     FriendsService friends,
+    Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ActivityService> logger)
@@ -108,14 +110,28 @@ public sealed class ActivityService(
         {
             activity.WithdrawKudos(me.Id);
             actor.WithdrawKudos();
+            await notifier.RetractAsync(NotificationKind.ReactionReceived, actor.Id, me.Id, activity.Id, cancellationToken);
         }
         else
         {
             activity.GiveKudos(idGenerator.NewId(), me.Id);
             actor.ReceiveKudos();
+
+            // The reaction the product is named after, and the one that lands
+            // on a line of somebody's history rather than on a photograph.
+            await notifier.StageAsync(
+                new NotificationEvent(
+                    NotificationKind.ReactionReceived,
+                    me.Id,
+                    NotificationTarget.Activity,
+                    activity.Id,
+                    activity.Subject),
+                [actor.Id],
+                cancellationToken);
         }
 
         await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation(
             "Activity {ActivityId} now has {KudosCount} kudos",

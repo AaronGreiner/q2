@@ -23,6 +23,12 @@ The frontend calls the API both from the server (during SSR) and from the
 browser (after hydration), which is why `NUXT_PUBLIC_API_BASE_URL` has to be
 reachable from both.
 
+While a page is on screen the browser also holds one WebSocket to `/api/live`.
+It only ever receives — fresh badge counts, and "this part changed" — and
+everything it prompts is read again over HTTP, so the OpenAPI document stays
+the only contract
+([adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md)).
+
 ## Who owns what
 
 | Concern | Owner |
@@ -55,7 +61,7 @@ Features/Chats/          conversations, messages, reactions
 Features/Goals/          goals, their schedules, windows, pauses and the archive
 Features/Images/         the byte store behind photographs and avatars
 Features/Moderation/     reports, and where a report actually goes
-Features/Notifications/  Web Push: the crypto, the subscriptions, the rules
+Features/Notifications/  one pipeline: the bell, the live hub, Web Push, the rules
 Features/People/         Person, friendships, blocks, invites, badges, CurrentPerson
 Features/Profile/        the signed-in person's own screen
 Features/Proofs/         photographs, the votes on them and the reactions to them
@@ -105,17 +111,22 @@ Two types answer the questions every read starts from. `CurrentPerson` answers
 and cached for one request — see
 [adr/0022-blocking-reporting-and-erasure.md](adr/0022-blocking-reporting-and-erasure.md).
 
-Two background services are the only things that happen without somebody asking.
-`GoalMaintenanceWorker` advances windows that fell due while nobody was looking;
-`ChallengeQueueWorker` keeps a week of prompts queued ahead of time, which is
-what makes the daily challenge work without a daily editorial shift — see
-[adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). Both are idempotent
-and catching-up, and neither runs in `AutomatedTest`.
+Three background services are the only things that happen without somebody
+asking. `GoalMaintenanceWorker` advances windows that fell due while nobody was
+looking; `ChallengeQueueWorker` keeps a week of prompts queued ahead of time,
+which is what makes the daily challenge work without a daily editorial shift —
+see [adr/0021-daily-challenge.md](adr/0021-daily-challenge.md);
+`NotificationRetentionWorker` forgets the bell's lines after thirty days. All
+three are idempotent and catching-up, and none runs in `AutomatedTest`.
 
-They are also the only two things that send a notification. Nothing a client can
-call produces one — see
-[adr/0023-web-push.md](adr/0023-web-push.md) — and neither sends inside a
-transaction: each collects what to notify, saves, and then delivers.
+A notification is a consequence of an action, and the service that performs the
+action produces it through `Notifier`: the bell's line in the same transaction
+as the action, the delivery after it commits, through a queue that
+`NotificationDeliveryWorker` drains — live to whoever is looking, by push to
+whoever is not. Nothing a client can call asks for a notification, and nothing
+is sent inside a transaction — see
+[adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md)
+and [adr/0023-web-push.md](adr/0023-web-push.md).
 
 `Program.cs` is about thirty-five lines and reads as a table of contents:
 observability, persistence, API services, pipeline, endpoints, run.

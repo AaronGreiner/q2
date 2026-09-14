@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
@@ -15,12 +16,20 @@ namespace Q2.Api.Features.Chats;
 /// A direct conversation has no name of its own, so every read has to resolve
 /// "who is the other person" before it can produce a row. That happens here,
 /// once, rather than in each client.
+///
+/// Every change here also reaches whoever is looking, through
+/// <see cref="Notifier"/>: a message is a notification to the others and a
+/// live update to the sender's own other devices, and reading a thread moves
+/// the badge on all of the reader's. The chat list is where a message lives,
+/// so none of this puts a line in the bell
+/// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
 public sealed class ChatService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     FriendsService friends,
     BlockList blockList,
+    Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ChatService> logger)
@@ -86,7 +95,8 @@ public sealed class ChatService(
                     : null,
                 last?.SenderPersonId == me.Id,
                 last?.SentAt,
-                conversation.UnreadCountFor(me.Id)));
+                conversation.UnreadCountFor(me.Id),
+                conversation.IsMutedFor(me.Id)));
         }
 
         // Newest conversation first, and a brand-new empty one before an old
@@ -121,6 +131,11 @@ public sealed class ChatService(
         conversation.MarkRead(me.Id, now);
         await database.SaveChangesAsync(cancellationToken);
 
+        // Read on the phone, cleared on the laptop too. Only the numbers move:
+        // nothing on anybody's screen changed but the badge.
+        notifier.Touch([me.Id]);
+        await notifier.FlushAsync(cancellationToken);
+
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
     }
 
@@ -135,9 +150,34 @@ public sealed class ChatService(
         EnsureParticipant(conversation, me.Id);
         await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
-        conversation.AddMessage(idGenerator.NewId(), me.Id, request.Text ?? string.Empty, now);
+        var message = conversation.AddMessage(idGenerator.NewId(), me.Id, request.Text ?? string.Empty, now);
         conversation.MarkRead(me.Id, now);
+
+        /*
+         * Everybody else in it hears about it. Who has muted it, who is looking
+         * right now and who is inside their quiet hours is decided on the way to
+         * a device, not here — to the chat list it is an unread message whatever
+         * they chose (NotificationRules.ShouldPush).
+         *
+         * The group's name comes along so a lock screen can say where; a direct
+         * chat is already named by its sender.
+         */
+        await notifier.StageAsync(
+            new NotificationEvent(
+                NotificationKind.MessageReceived,
+                me.Id,
+                NotificationTarget.Conversation,
+                conversation.Id,
+                Subject: conversation.Kind == ConversationKind.Group ? conversation.Title : null,
+                Excerpt: message.Text),
+            conversation.Participants.Select(participant => participant.PersonId),
+            cancellationToken);
+
         await database.SaveChangesAsync(cancellationToken);
+
+        // The sender's own other devices show it arriving too.
+        notifier.Touch([me.Id], LiveArea.Chats, conversation.Id);
+        await notifier.FlushAsync(cancellationToken);
 
         // The text is the most personal thing q2 stores — the id and nothing
         // else (docs/privacy.md).
@@ -164,8 +204,74 @@ public sealed class ChatService(
         var message = conversation.Messages.SingleOrDefault(m => m.Id == messageId)
             ?? throw new ResourceNotFoundException("Message", messageId);
 
+        var hadReacted = message.Reactions.Any(reaction => reaction.PersonId == me.Id);
         message.ToggleReaction(idGenerator.NewId(), me.Id, request.Kind ?? default);
+        var hasReacted = message.Reactions.Any(reaction => reaction.PersonId == me.Id);
+
+        // Told once per person, not once for each of the three kinds they
+        // tapped — and taken back again only if nothing of theirs is left on it.
+        if (!hadReacted && hasReacted)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(
+                    NotificationKind.ReactionReceived,
+                    me.Id,
+                    NotificationTarget.Conversation,
+                    conversation.Id),
+                [message.SenderPersonId],
+                cancellationToken);
+        }
+        else if (hadReacted && !hasReacted)
+        {
+            await notifier.RetractAsync(
+                NotificationKind.ReactionReceived,
+                message.SenderPersonId,
+                me.Id,
+                conversation.Id,
+                cancellationToken);
+        }
+
         await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(conversation.Participants.Select(participant => participant.PersonId), LiveArea.Chats, conversation.Id);
+        await notifier.FlushAsync(cancellationToken);
+
+        return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stops a conversation from ringing on this person's devices, or lets it
+    /// ring again.
+    /// </summary>
+    /// <remarks>
+    /// Theirs alone: everybody else in it hears it exactly as before, and
+    /// nobody is told that somebody muted it.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such conversation of yours.</exception>
+    /// <exception cref="DomainValidationException">The request does not say which.</exception>
+    public async Task<ChatDetailResponse> SetMutedAsync(Guid id, MuteChatRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Muted is not { } muted)
+        {
+            throw new DomainValidationException(nameof(request.Muted), "Say whether to mute the conversation.");
+        }
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        conversation.SetMuted(me.Id, muted, now);
+        await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch([me.Id], LiveArea.Chats, conversation.Id);
+        await notifier.FlushAsync(cancellationToken);
+
+        logger.LogInformation("Conversation {ConversationId} muted: {Muted}", conversation.Id, muted);
 
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
     }
@@ -239,6 +345,9 @@ public sealed class ChatService(
             existing.MarkRead(me.Id, now);
             await database.SaveChangesAsync(cancellationToken);
 
+            notifier.Touch([me.Id]);
+            await notifier.FlushAsync(cancellationToken);
+
             return await DescribeAsync(existing, me.Id, now, cancellationToken);
         }
 
@@ -248,6 +357,10 @@ public sealed class ChatService(
 
         database.Conversations.Add(conversation);
         await database.SaveChangesAsync(cancellationToken);
+
+        // An empty thread is not news, but it is a new row in both lists.
+        notifier.Touch([me.Id, personId], LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("Direct conversation {ConversationId} started", conversation.Id);
 
@@ -339,6 +452,9 @@ public sealed class ChatService(
         database.Conversations.Add(conversation);
         await database.SaveChangesAsync(cancellationToken);
 
+        notifier.Touch(conversation.Participants.Select(participant => participant.PersonId), LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
         logger.LogInformation(
             "Group conversation {ConversationId} created with {MemberCount} member(s)",
             conversation.Id,
@@ -366,12 +482,22 @@ public sealed class ChatService(
 
         conversation.RemoveParticipant(me.Id);
 
-        if (conversation.Participants.Count == 0)
+        var remaining = conversation.Participants.Select(participant => participant.PersonId).ToList();
+
+        if (remaining.Count == 0)
         {
             database.Conversations.Remove(conversation);
         }
 
         await database.SaveChangesAsync(cancellationToken);
+
+        // The thread is gone from this person's devices, so only their list
+        // moves: asking the thread they just left to read itself again would
+        // be a 404 under their thumb before the app has moved on. Everybody
+        // else's member count moves with the thread itself.
+        notifier.Touch([me.Id], LiveArea.Chats);
+        notifier.Touch(remaining, LiveArea.Chats, id);
+        await notifier.FlushAsync(cancellationToken);
 
         logger.LogInformation("Left conversation {ConversationId}", id);
     }
@@ -440,7 +566,8 @@ public sealed class ChatService(
                     goal.CurrentInstance is { } window ? GoalInstanceResponse.From(window) : null,
                     goal.Streak,
                     goal.ActivePauseAt(now)?.EndsOn),
-            messages);
+            messages,
+            conversation.IsMutedFor(meId));
     }
 
     private static IReadOnlyList<MessageReactionResponse> SummariseReactions(ChatMessage message, Guid meId) =>

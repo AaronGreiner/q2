@@ -104,7 +104,7 @@ const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && 
         -->
         <span
           v-if="isWaiting"
-          class="inline-flex items-center gap-1 rounded-full bg-(--ui-bg-accented) px-2 py-0.5 text-[11px] font-bold text-(--ui-text-muted)"
+          class="inline-flex items-center gap-1 rounded-full bg-(--ui-bg-accented) px-2 py-0.5 text-[11px] font-bold text-(--ui-text-toned)"
           data-testid="window-waiting"
         >
           <UIcon
@@ -117,7 +117,7 @@ const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && 
 
         <span
           v-else
-          class="inline-flex items-center gap-1 rounded-full bg-(--ui-bg-accented) px-2 py-0.5 text-[11px] font-bold text-(--ui-text-muted)"
+          class="inline-flex items-center gap-1 rounded-full bg-(--ui-bg-accented) px-2 py-0.5 text-[11px] font-bold text-(--ui-text-toned)"
         >
           <UIcon
             name="i-lucide-repeat"

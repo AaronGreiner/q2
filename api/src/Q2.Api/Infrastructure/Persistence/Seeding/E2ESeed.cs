@@ -1,6 +1,7 @@
 using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
@@ -170,6 +171,25 @@ public sealed class E2ESeed : ISeedDataSource
             new SeedMessage(lena, "E2E group hello", 600));
 
         build.AddChallenge(ChallengePrompt);
+
+        // Two lines in the bell, both unseen, so the badge on it reads two and
+        // opening it is what clears it.
+        build.AddNotification(
+            me,
+            NotificationKind.ReactionReceived,
+            jonas,
+            NotificationTarget.Goal,
+            shared.Id,
+            minutesAgo: 20,
+            subject: shared.Title);
+
+        build.AddNotification(
+            me,
+            NotificationKind.FriendshipStarted,
+            lena,
+            NotificationTarget.Person,
+            lena.Id,
+            minutesAgo: 50);
 
         build.AddDefaultSettings();
 

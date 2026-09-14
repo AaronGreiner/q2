@@ -26,6 +26,7 @@ api/
 │   │   ├── Chats/                   conversations, messages and reactions
 │   │   ├── Diagnostics/             health check and the deliberate-failure endpoints
 │   │   ├── Goals/                   goals, the tasks under them, and their contracts
+│   │   ├── Notifications/           one pipeline: the bell, the live hub, Web Push
 │   │   ├── People/                  Person, friendships, badges, CurrentPerson
 │   │   ├── Profile/                 the signed-in person's own screen
 │   │   ├── Settings/                theme, language and notification preferences
@@ -87,6 +88,15 @@ layer projects.
 - **Sentences are composed by the client.** The API sends `kind`, `subject` and
   `amount`; it never sends a line of prose. The app ships in two languages
   ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
+- **Everything a person is told goes through `Notifier`.** Stage the event
+  before `SaveChanges` and flush after it commits; never send from inside a
+  transaction, and never call `IPushSender` or the hub yourself. A new
+  `NotificationKind` has to be placed in `NotificationRules` — kept in the bell
+  or not, which switch, which live area — and the rules throw for one nobody
+  placed. A change that only moves a badge or a list is `Notifier.Touch`. In
+  `AutomatedTest` delivery is inline, so a test can assert on what was sent as
+  soon as the request returns
+  ([../docs/adr/0024-one-notification-pipeline.md](../docs/adr/0024-one-notification-pipeline.md)).
 
 ## 2. Feature modules
 

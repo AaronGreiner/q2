@@ -27,6 +27,9 @@ namespace Q2.Api.Features.Chats;
 /// The other person's photograph in a direct chat, when they have one. Always
 /// null for a group, which has an icon rather than a face.
 /// </param>
+/// <param name="IsMuted">
+/// Whether you muted it. It still counts as unread; it only does not ring.
+/// </param>
 public sealed record ChatSummaryResponse(
     Guid Id,
     ConversationKind Kind,
@@ -40,7 +43,8 @@ public sealed record ChatSummaryResponse(
     string? LastMessageSenderName,
     bool LastMessageIsMine,
     DateTimeOffset? LastMessageAt,
-    int UnreadCount);
+    int UnreadCount,
+    bool IsMuted);
 
 /// <summary>A reaction, rolled up: which kind, how many, and whether it is yours.</summary>
 public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsMine);
@@ -91,7 +95,8 @@ public sealed record ChatDetailResponse(
     int MemberCount,
     DateTimeOffset? OtherLastSeenAt,
     ChatPinnedGoalResponse? PinnedGoal,
-    IReadOnlyList<ChatMessageResponse> Messages);
+    IReadOnlyList<ChatMessageResponse> Messages,
+    bool IsMuted);
 
 /// <summary>Request body for sending a message.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
@@ -100,6 +105,10 @@ public sealed record SendMessageRequest(string? Text = null);
 /// <summary>Request body for toggling a reaction.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
 public sealed record ToggleReactionRequest(KudosKind? Kind = null);
+
+/// <summary>Request body for muting a conversation, or letting it ring again.</summary>
+/// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
+public sealed record MuteChatRequest(bool? Muted = null);
 
 /// <summary>Request body for opening a direct conversation with somebody.</summary>
 /// <remarks>

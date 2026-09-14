@@ -16,12 +16,13 @@ const model = defineModel<boolean>({ required: true })
 </script>
 
 <template>
+  <!-- Keep the compact pill, but give touch input a full 44px-high target. -->
   <button
     type="button"
     role="switch"
     :aria-checked="model"
     :aria-label="label"
-    class="flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+    class="relative flex h-[26px] w-11 shrink-0 items-center rounded-full p-[3px] transition-colors after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     :class="model ? 'justify-end bg-(--ui-text)' : 'justify-start bg-(--q2-track)'"
     data-testid="toggle"
     @click="model = !model"

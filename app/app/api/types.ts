@@ -110,8 +110,21 @@ export type BadgeKey = Schemas['BadgeKey']
 
 export type PushKey = Schemas['PushKeyResponse']
 
+/*
+ * One shape for a line in the bell and for the payload of a push, so the two
+ * cannot drift — see `notificationText` in app/utils/display.ts.
+ */
+export type NotificationLine = Schemas['NotificationResponse']
+export type NotificationKind = Schemas['NotificationKind']
+export type NotificationTarget = Schemas['NotificationTarget']
+
+/** Every number drawn on a badge, read together and pushed together. */
+export type Counts = Schemas['CountsResponse']
+
 export type Settings = Schemas['SettingsResponse']
 export type UpdateSettingsRequest = Schemas['UpdateSettingsRequest']
+export type NotificationSettings = Schemas['NotificationSettingsResponse']
+export type UpdateNotificationSettingsRequest = Schemas['UpdateNotificationSettingsRequest']
 export type ThemePreference = Schemas['ThemePreference']
 export type LanguagePreference = Schemas['LanguagePreference']
 

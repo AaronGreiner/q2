@@ -53,19 +53,6 @@ public sealed class ProfileService(
                 : new BadgeResponse(key, false, null))
             .ToList();
 
-        var conversations = await database.Conversations
-            .AsNoTracking()
-            .Include(c => c.Participants)
-            .Include(c => c.Messages)
-            .Where(c => c.Participants.Any(p => p.PersonId == me.Id))
-            .ToListAsync(cancellationToken);
-
-        // Waiting for *me*, not waiting in general: the badge on the tab bar
-        // counts what this person still has to answer.
-        var pendingRequests = await database.Friendships
-            .AsNoTracking()
-            .CountAsync(f => f.Status == FriendshipStatus.Pending && f.AddresseeId == me.Id, cancellationToken);
-
         return new ProfileResponse(
             PersonSummary.From(me, now),
             me.StreakOn(today),
@@ -73,8 +60,6 @@ public sealed class ProfileService(
             me.GoalsCompleted,
             me.WeekActivity(today),
             await goals.SummariseTodayAsync(cancellationToken),
-            conversations.Count(c => c.UnreadCountFor(me.Id) > 0),
-            pendingRequests,
             badges,
             await activity.ListOwnAsync(RecentActivityLimit, cancellationToken),
             await BalanceOfAsync(me.Id, cancellationToken),

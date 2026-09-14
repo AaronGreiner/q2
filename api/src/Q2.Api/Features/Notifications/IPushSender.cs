@@ -29,8 +29,10 @@ public enum PushOutcome
 /// An interface with one implementation, the same posture as
 /// <see cref="Q2.Api.Features.Images.IImageStore"/> and
 /// <see cref="Q2.Api.Features.Moderation.IReportSink"/> — and here it earns its
-/// place twice over, because it is also what lets the delivery rules be tested
-/// without a push service on the other end of the network.
+/// place twice over: it is what lets the delivery rules be tested without a
+/// push service on the other end of the network, and it is the seam a native
+/// sender (APNs, FCM) will be added behind once there is a Capacitor build to
+/// send to ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
 public interface IPushSender
 {
@@ -40,53 +42,24 @@ public interface IPushSender
     /// <summary>The public key a browser needs in order to subscribe.</summary>
     string? PublicKey { get; }
 
+    /// <summary>
+    /// Sends <paramref name="payload"/> — the same shape as a line in the bell,
+    /// never a sentence. The service worker writes the words, in the language
+    /// the person chose, from the catalogue the rest of the app uses.
+    /// </summary>
     Task<PushOutcome> SendAsync(
         PushSubscription subscription,
-        PushPayload payload,
+        NotificationResponse payload,
         CancellationToken cancellationToken);
-}
-
-/// <summary>
-/// What a notification says, as data rather than as a sentence.
-/// </summary>
-/// <remarks>
-/// **The server does not write the text.** It sends a kind and its parameters,
-/// and the service worker composes the sentence from the same message catalogue
-/// the rest of the app uses — which is how a notification arrives in the
-/// language the person chose, and why adding a language is still one file.
-///
-/// It is the same shape the activity feed already uses
-/// (<see cref="Q2.Api.Features.Activity.ActivityEvent"/>): a kind, a subject
-/// and an amount. Push is a delivery route for something that already exists,
-/// not a second way of saying it.
-/// </remarks>
-public sealed record PushPayload(PushKind Kind, string? Subject, int? Amount, Guid? SourceId)
-{
-    public string ToJson() => JsonSerializer.Serialize(this, PushJson.Options);
-}
-
-/// <summary>What a notification is about.</summary>
-/// <remarks>
-/// Deliberately shorter than <see cref="Q2.Api.Features.Activity.ActivityKind"/>.
-/// Not everything worth recording is worth interrupting somebody for: a
-/// finished goal belongs in the feed and nowhere else, while a window about to
-/// be missed is the one thing in q2 that stops being useful the moment it is
-/// read late.
-/// </remarks>
-public enum PushKind
-{
-    /// <summary>
-    /// A goal's window is about to be missed. <c>Subject</c> is the goal, and
-    /// <c>Amount</c> how many proofs are still outstanding.
-    /// </summary>
-    WindowAtRisk,
-
-    /// <summary>Today's challenge has been published. <c>Subject</c> is the prompt.</summary>
-    ChallengePublished,
 }
 
 internal static class PushJson
 {
+    /// <summary>
+    /// The API's own conventions — camelCase names, enums by name — so what a
+    /// device decrypts is exactly what <c>GET /api/notifications</c> answers
+    /// with, and the generated type describes both.
+    /// </summary>
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
@@ -120,7 +93,7 @@ public sealed class WebPushSender(
 
     public async Task<PushOutcome> SendAsync(
         PushSubscription subscription,
-        PushPayload payload,
+        NotificationResponse payload,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subscription);

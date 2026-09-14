@@ -14,7 +14,10 @@ const theme = useTheme()
 
 const { profile, due, goals, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
-const { proofs: waiting, refresh: refreshWaiting } = usePendingProofs()
+
+// The bell and the vote banner are counts, and counts have one read of their
+// own that the live connection keeps current — see useCounts.
+const { counts } = useCounts()
 
 // Its own read rather than part of `useHome`: the challenge is one row and the
 // dashboard is four, and a shared key would refetch all of them whenever
@@ -35,7 +38,7 @@ async function onDelivered(image: Image) {
   deliveringFor.value = null
 
   if (goalId && await deliver(goalId, image)) {
-    await Promise.all([refresh(), refreshWaiting()])
+    await refresh()
   }
 }
 
@@ -57,20 +60,12 @@ useHead({ title: () => t.value.nav.home })
     >
       <template #actions>
         <!--
-          The bell, and it is a plain link rather than a badge count: a number
-          on it would turn "have my friends done anything" into something to
-          clear, which is the mechanic this product is trying not to be.
+          The bell: what concerns you, with a count of what is new. The
+          friends' feed it used to open is "Alle anzeigen" under the feed —
+          see NotificationBell for why one carries a number and the other does
+          not.
         -->
-        <UButton
-          to="/activity"
-          icon="i-lucide-bell"
-          color="neutral"
-          variant="outline"
-          size="lg"
-          :ui="{ base: 'size-11 justify-center rounded-full' }"
-          :aria-label="t.activityOverview.open"
-          data-testid="open-activity"
-        />
+        <NotificationBell :count="counts.unseenNotifications" />
 
         <UButton
           :icon="theme.isDark.value ? 'i-lucide-sun' : 'i-lucide-moon'"
@@ -173,7 +168,7 @@ useHead({ title: () => t.value.nav.home })
           reading "0" is furniture.
         -->
         <NuxtLink
-          v-if="waiting.length > 0"
+          v-if="counts.proofsAwaitingVote > 0"
           to="/vote"
           class="mt-3 flex items-center gap-3 rounded-(--q2-radius-lg) bg-(--q2-accent-solid) px-3.5 py-3 text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
           data-testid="vote-banner"
@@ -183,7 +178,7 @@ useHead({ title: () => t.value.nav.home })
             class="size-5 shrink-0"
             aria-hidden="true"
           />
-          <span class="min-w-0 flex-1 text-[13px] font-extrabold">{{ t.vote.banner(waiting.length) }}</span>
+          <span class="min-w-0 flex-1 text-[13px] font-extrabold">{{ t.vote.banner(counts.proofsAwaitingVote) }}</span>
           <span class="shrink-0 text-[12px] font-bold underline">{{ t.vote.open }}</span>
         </NuxtLink>
 
@@ -262,12 +257,21 @@ useHead({ title: () => t.value.nav.home })
           class="mt-6"
           aria-labelledby="feed-heading"
         >
-          <h2
-            id="feed-heading"
-            class="q2-eyebrow mb-3 px-0.5"
-          >
-            {{ t.home.feedHeading }}
-          </h2>
+          <div class="mb-3 flex items-center justify-between px-0.5">
+            <h2
+              id="feed-heading"
+              class="q2-eyebrow"
+            >
+              {{ t.home.feedHeading }}
+            </h2>
+            <NuxtLink
+              to="/activity"
+              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
+              data-testid="open-activity"
+            >
+              {{ t.common.showAll }}
+            </NuxtLink>
+          </div>
 
           <div
             v-if="feed.length > 0"

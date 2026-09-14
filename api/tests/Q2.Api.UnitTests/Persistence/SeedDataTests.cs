@@ -109,6 +109,7 @@ public class SeedDataTests
             .Concat(data.Conversations.Select(c => c.Id))
             .Concat(data.Conversations.SelectMany(c => c.Messages).Select(m => m.Id))
             .Concat(data.Settings.Select(s => s.Id))
+            .Concat(data.Notifications.Select(n => n.Id))
             .ToList();
 
         Assert.Equal(ids.Count, ids.Distinct().Count());
@@ -143,6 +144,16 @@ public class SeedDataTests
         Assert.All(data.Goals.SelectMany(g => g.Participants), p => Assert.Contains(p.PersonId, people));
         Assert.All(data.Activity, a => Assert.Contains(a.ActorPersonId, people));
         Assert.All(data.Settings, s => Assert.Contains(s.PersonId, people));
+
+        // A line in the bell belongs to somebody, names somebody who exists,
+        // and a line about a goal is about a goal in the same world.
+        Assert.All(data.Notifications, n => Assert.Contains(n.RecipientPersonId, people));
+        Assert.All(
+            data.Notifications.Where(n => n.ActorPersonId is not null),
+            n => Assert.Contains(n.ActorPersonId!.Value, people));
+        Assert.All(
+            data.Notifications.Where(n => n.Target == Q2.Api.Features.Notifications.NotificationTarget.Goal),
+            n => Assert.Contains(n.TargetId!.Value, goals));
 
         Assert.All(
             data.Conversations.Where(c => c.GoalId is not null),

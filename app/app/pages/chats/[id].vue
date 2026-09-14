@@ -3,8 +3,13 @@
  * One conversation.
  *
  * Opening it marks it read on the server, which is why the navigation badge is
- * refreshed afterwards — the count lives on the profile, and it has just
- * changed under it.
+ * refreshed afterwards — the count has just changed under it. A reply arriving
+ * while it is open comes in over the live connection, which refreshes this
+ * thread by its key (useLiveConnection).
+ *
+ * The bell in the header mutes this conversation on every device of this
+ * person's. It is the one switch that is about a single conversation rather
+ * than a kind of notification, so it lives here and not in the settings.
  */
 // The header and the composer sit on the edges of the display and pad
 // themselves — see app/layouts/plain.vue.
@@ -25,7 +30,7 @@ const t = useMessages()
 const now = useNow()
 
 const id = computed(() => String(route.params.id))
-const { chat, error, isMissing, isLoading, refresh, send, cheer, react, leave, isSending } = useChatThread(id)
+const { chat, error, isMissing, isLoading, refresh, send, cheer, react, setMuted, leave, isSending } = useChatThread(id)
 
 const thread = useTemplateRef<HTMLElement>('thread')
 
@@ -72,7 +77,7 @@ const isLeaveOpen = ref(false)
 onMounted(async () => {
   // The badge in the tab bar counts unread conversations, and this one is not
   // one any more.
-  await refreshNuxtData('profile')
+  await refreshNuxtData('counts')
 })
 
 useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
@@ -119,6 +124,24 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           {{ status }}
         </p>
       </div>
+
+      <!-- Grey in both states: muting is a state, not something waiting to be
+           done. The last button in the row pulls into the edge padding. -->
+      <button
+        type="button"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :class="{ '-me-2': chat.kind !== 'Group' }"
+        :aria-label="chat.isMuted ? t.chats.unmute : t.chats.mute"
+        :aria-pressed="chat.isMuted"
+        data-testid="mute-chat"
+        @click="setMuted(!chat.isMuted)"
+      >
+        <UIcon
+          :name="chat.isMuted ? 'i-lucide-bell-off' : 'i-lucide-bell'"
+          class="size-5"
+          aria-hidden="true"
+        />
+      </button>
 
       <!-- Only a group can be left; a direct conversation is between the two
            of you and there would be nothing left of it. -->

@@ -44,6 +44,8 @@ public class AnonymousRequestTests(Q2ApiFactory factory) : ApiTestBase(factory)
         "/api/friends",
         "/api/chats",
         "/api/settings",
+        "/api/notifications",
+        "/api/counts",
         "/api/auth/session",
     ];
 

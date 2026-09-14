@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { CreateGoalRequest, Goal } from '~/api/types'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface GoalsPayload {
   goals: Goal[]
@@ -37,13 +38,13 @@ export function useGoals() {
         return { goals: [], due: [], failure: report(caught, { feature: 'goals', action: 'list' }) }
       }
     },
-    { default: (): GoalsPayload => ({ goals: [], due: [], failure: null }) },
+    { default: (): GoalsPayload => placeholder({ goals: [], due: [], failure: null }) },
   )
 
   const goals = computed(() => data.value?.goals ?? [])
   const due = computed(() => data.value?.due ?? [])
   const error = computed(() => data.value?.failure ?? null)
-  const isLoading = computed(() => status.value === 'pending')
+  const isLoading = computed(() => isFirstLoad(status.value, data.value))
 
   const isCreating = ref(false)
   const createError = ref<ApiFailure | null>(null)
@@ -95,7 +96,7 @@ export function useGoalDetail(id: Ref<string>) {
         return { goal: null, failure: report(caught, { feature: 'goals', action: 'detail' }) }
       }
     },
-    { watch: [id], default: () => ({ goal: null, failure: null }) },
+    { watch: [id], default: () => placeholder({ goal: null, failure: null }) },
   )
 
   const detail = computed(() => data.value?.goal ?? null)
@@ -105,7 +106,7 @@ export function useGoalDetail(id: Ref<string>) {
   // its own calm state rather than the generic "something went wrong".
   const isMissing = computed(() => failure.value?.kind === 'notFound')
   const error = computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null))
-  const isLoading = computed(() => status.value === 'pending')
+  const isLoading = computed(() => isFirstLoad(status.value, data.value))
 
   return { detail, error, isMissing, isLoading, refresh }
 }

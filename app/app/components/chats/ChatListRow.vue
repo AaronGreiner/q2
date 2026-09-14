@@ -52,10 +52,24 @@ const preview = computed(() => {
       data-q2-private
     >
       <div class="flex items-center justify-between gap-2">
-        <span
-          class="truncate text-[15px]"
-          :class="chat.unreadCount > 0 ? 'font-extrabold' : 'font-semibold'"
-        >{{ chat.name }}</span>
+        <span class="flex min-w-0 items-center gap-1">
+          <span
+            class="truncate text-[15px]"
+            :class="chat.unreadCount > 0 ? 'font-extrabold' : 'font-semibold'"
+          >{{ chat.name }}</span>
+
+          <!-- Muted still counts as unread: muting is about being interrupted,
+               not about what is waiting when somebody looks. -->
+          <template v-if="chat.isMuted">
+            <UIcon
+              name="i-lucide-bell-off"
+              class="size-3.5 shrink-0 text-(--ui-text-dimmed)"
+              aria-hidden="true"
+              data-testid="chat-muted"
+            />
+            <span class="sr-only">{{ t.chats.muted }}</span>
+          </template>
+        </span>
         <span class="shrink-0 text-[11px] font-semibold text-(--ui-text-dimmed)">{{ time }}</span>
       </div>
 

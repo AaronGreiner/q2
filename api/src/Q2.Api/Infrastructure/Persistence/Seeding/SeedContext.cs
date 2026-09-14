@@ -62,6 +62,7 @@ public enum SeedEntity
     Account = 15,
     Challenge = 16,
     ChallengeEntry = 17,
+    Notification = 18,
 }
 
 /// <summary>

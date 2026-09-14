@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, GoalSchedule, GoalStatus, GoalWindow, KudosKind, Risk, Weekday } from '~/api/types'
+import type { Activity, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, Risk, Weekday } from '~/api/types'
 
 /**
  * Presentation logic.
@@ -188,24 +188,9 @@ export function activitySentence(activity: Activity, t: Messages): string {
       return t.activity.goalProgress(activity.subject ?? '', activity.amount ?? 0)
     case 'GoalCreated':
       return t.activity.goalCreated(activity.subject ?? '')
-    case 'WindowAtRisk':
-      return t.activity.windowAtRisk(activity.subject ?? '')
     default:
       return activity.subject ?? ''
   }
-}
-
-/**
- * Whether a feed entry is somebody's bad news.
- *
- * The one row in the feed that is not a celebration, and the one that must not
- * offer a way to pile on: a warning gets no kudos button. All three kudos are
- * approving, so the button could never be an insult on its own — but "stark
- * gemacht" under "droht zu verpassen" is a sentence nobody should be able to
- * send, and the cheapest way to make sure is not to draw the control.
- */
-export function isWarning(activity: Activity): boolean {
-  return activity.kind === 'WindowAtRisk'
 }
 
 /**
@@ -362,5 +347,172 @@ export function windowOutcome(window: GoalWindow, t: Messages): StatusPresentati
     case 'Open':
     default:
       return { label: t.window.open, color: 'primary', icon: 'i-lucide-circle-dot' }
+  }
+}
+
+/**
+ * What one notification says.
+ *
+ * A title for a lock screen, and the line itself in two parts — who, and what
+ * they did — the way the feed writes a line. The bell sets `who` in bold before
+ * `text`; a device shows `title` above `body`, which is the two together.
+ *
+ * One function for both, imported by the service worker as well as the bell,
+ * so the same event is never said two ways
+ * (docs/adr/0024-one-notification-pipeline.md). The server sends the parts and
+ * never a sentence, which is what lets it arrive in the reader's language.
+ *
+ * A verdict and a lifted pause have no `who`. That is not a gap in the data:
+ * doubt and objection are anonymous, and the server never sends a name for
+ * either.
+ */
+export interface NotificationText {
+  title: string
+  who: string | null
+  text: string
+  body: string
+}
+
+function said(title: string, who: string | null, text: string): NotificationText {
+  return { title, who, text, body: who ? `${who} ${text}` : text }
+}
+
+export function notificationText(line: NotificationLine, t: Messages): NotificationText {
+  const name = line.actor?.displayName ?? t.notify.someone
+  const subject = line.subject ?? ''
+
+  switch (line.kind) {
+    case 'MessageReceived': {
+      // The one kind whose words are somebody's own. It only ever reaches a
+      // device — the chat list is where a message lives — and a lock screen
+      // says who and where above it.
+      const words = line.excerpt ?? t.notify.messageFallback
+      return {
+        title: line.subject ? t.notify.messageInGroup(name, line.subject) : name,
+        who: null,
+        text: words,
+        body: words,
+      }
+    }
+    case 'FriendRequestReceived':
+      return said(t.notify.titles.friends, name, t.notify.friendRequest)
+    case 'FriendshipStarted':
+      return said(t.notify.titles.friends, name, t.notify.friendshipStarted)
+    case 'ProofAwaitingVote':
+      return said(t.notify.titles.vote, name, t.notify.proofAwaitingVote(subject))
+    case 'ProofConfirmed':
+      return said(t.notify.titles.result, null, t.notify.proofConfirmed(subject))
+    case 'ProofRefused':
+      return said(
+        t.notify.titles.result,
+        null,
+        (line.amount ?? 0) > 0 ? t.notify.proofRefusedRetry(subject) : t.notify.proofRefused(subject),
+      )
+    case 'ReactionReceived':
+      return reactionText(line, name, subject, t)
+    case 'GoalInvitation':
+      return said(t.notify.titles.goals, name, t.notify.goalInvitation(subject))
+    case 'GoalPaused':
+      return said(t.notify.titles.goals, name, t.notify.goalPaused(subject, line.amount ?? 1))
+    case 'PauseLifted':
+      return said(t.notify.titles.goals, null, t.notify.pauseLifted(subject))
+    case 'FriendWindowAtRisk':
+      return said(t.notify.titles.risk, name, t.notify.friendAtRisk(subject, line.amount ?? 1))
+    case 'ChallengePublished':
+      return said(t.challenge.heading, null, subject || t.push.generic)
+    default:
+      return said(t.app.name, null, t.push.generic)
+  }
+}
+
+/**
+ * Several people reacting to one thing are one line — "Lena und 2 weitere" —
+ * and the sentence after them takes the plural. `amount` is how many different
+ * people there were; a single push carries none, which is one.
+ */
+function reactionText(line: NotificationLine, name: string, subject: string, t: Messages): NotificationText {
+  const people = Math.max(1, line.amount ?? 1)
+  const who = people > 1 ? t.notify.others(name, people - 1) : name
+  const title = t.notify.titles.reaction
+
+  switch (line.target) {
+    case 'Goal':
+      return said(title, who, t.notify.reactedToProof(people, subject))
+    case 'Conversation':
+      return said(title, who, t.notify.reactedToMessage(people))
+    case 'Challenge':
+      return said(title, who, t.notify.reactedToChallenge(people))
+    case 'Activity':
+    default:
+      return said(title, who, t.notify.gaveKudos(people, subject))
+  }
+}
+
+/**
+ * Where tapping a notification leads — in the bell and on a lock screen alike.
+ *
+ * A route is this client's vocabulary, so the server sends what a notification
+ * is about and this decides the path. A warning about a friend leads to the
+ * friend rather than to the goal: their goal is not necessarily one you are
+ * on, and it is them you can do something for.
+ */
+export function notificationLink(line: NotificationLine): string {
+  const id = line.targetId
+
+  switch (line.kind) {
+    case 'MessageReceived':
+      return id ? `/chats/${id}` : '/chats'
+    case 'FriendRequestReceived':
+      return '/search'
+    case 'FriendshipStarted':
+    case 'FriendWindowAtRisk':
+      return line.actor ? `/people/${line.actor.id}` : '/search'
+    case 'ProofAwaitingVote':
+      return '/vote'
+    case 'ChallengePublished':
+      return '/challenge'
+    case 'ReactionReceived':
+      return reactionLink(line)
+    default:
+      return line.target === 'Goal' && id ? `/goals/${id}` : '/notifications'
+  }
+}
+
+function reactionLink(line: NotificationLine): string {
+  const id = line.targetId
+
+  switch (line.target) {
+    case 'Goal':
+      return id ? `/goals/${id}` : '/goals'
+    case 'Conversation':
+      return id ? `/chats/${id}` : '/chats'
+    case 'Challenge':
+      return '/challenge'
+    case 'Activity':
+      return '/profile'
+    default:
+      return '/notifications'
+  }
+}
+
+/**
+ * The tile a line gets when there is nobody to picture.
+ *
+ * Drawn in the text colour on a neutral surface: none of these is something to
+ * do this second, so none of them gets the accent — a refusal included, which is
+ * news rather than a failure of the reader's.
+ */
+export function notificationIcon(line: NotificationLine): string {
+  switch (line.kind) {
+    case 'ProofConfirmed':
+      return 'i-lucide-circle-check-big'
+    case 'ProofRefused':
+      return 'i-lucide-circle-alert'
+    case 'PauseLifted':
+      return 'i-lucide-play'
+    case 'ChallengePublished':
+      return 'i-lucide-zap'
+    default:
+      return 'i-lucide-bell'
   }
 }

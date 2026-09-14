@@ -1,6 +1,9 @@
 # 0023 — Notifications: a delivery route, not a second product
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0024](0024-one-notification-pipeline.md):
+a notification is now produced by the action that causes it rather than by the
+two workers, the payload is the bell's own line, and there is a switch per kind.
+The crypto, the gates and the subscription rules below still stand.
 **Date:** 2026-09-09
 
 ## Context

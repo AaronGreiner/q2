@@ -26,8 +26,8 @@ app/
 │   ├── app.vue error.vue
 │   ├── api/                  the HTTP layer (see §3)
 │   ├── assets/css/main.css   the design tokens — almost the only file with a hex
-│   ├── components/           chats/ friends/ goals/ home/ layout/ profile/
-│   │                         settings/ social/ ui/
+│   ├── components/           chats/ friends/ goals/ home/ layout/
+│   │                         notifications/ profile/ settings/ social/ ui/
 │   ├── composables/          state and side effects
 │   ├── middleware/           auth.global.ts — the route guard
 │   ├── i18n/messages.ts      every user-facing word, in both languages
@@ -111,6 +111,7 @@ Current components, by folder:
 | `HistoryGrid` | the windows a goal has been through, deliberately without the accent |
 | `GoalCreateSheet` | the bottom sheet that creates a goal |
 | `ActivityRow` | one line of the friends' feed, with its kudos button |
+| `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries the three kinds of kudos |
@@ -129,7 +130,7 @@ app/api/accounts.ts             register, sign in, sign out, session
 app/api/goals.ts                goals, what is due today, and delivering a proof
 app/api/challenges.ts           the prompt of the day, the room, and your archive
 app/api/moderation.ts           reporting, blocking, and the invite link
-app/api/notifications.ts        the push key, and subscribing this browser
+app/api/notifications.ts        the bell, every badge count, the push key, subscribing this browser
 app/api/social.ts               feed, kudos, friends, profile
 app/api/chats.ts                conversations, messages and settings
 app/api/diagnostics.ts          the diagnostics endpoints (hand-written, see below)
@@ -137,6 +138,13 @@ app/composables/useQ2Api.ts     the configured client
 ```
 
 - **Nothing outside `app/api/` builds a URL or reads a response body.**
+- **The live connection is the one exception, and it only listens.**
+  `useLiveConnection` opens `/api/live` while a page is visible and somebody is
+  signed in. What arrives is fresh badge counts and "this part changed", which
+  it answers by refreshing the `useAsyncData` keys that part is made of
+  (`keysFor`) — so a new read that should follow live changes needs its key
+  there. Nothing is ever sent over it
+  ([../docs/adr/0024-one-notification-pipeline.md](../docs/adr/0024-one-notification-pipeline.md)).
 - **The session is a cookie, and it does not travel by itself.** In the browser
   the client sends `credentials: 'include'`, because the API is a different
   origin; during server rendering it copies the `cookie` header off the incoming
@@ -220,6 +228,13 @@ and capturing again would duplicate the issue.
 `data.value` changes the object without telling anything watching it: the
 request succeeds and the screen does not move. Always replace the whole
 payload — `data.value = { ...data.value, feed: … }`.
+
+**A live refresh keeps the current screen mounted.** Mark every async-data
+default with `placeholder` and draw skeletons from `isFirstLoad` in
+`utils/firstLoad.ts`. Using `status === 'pending'` alone replaces the screen
+during every background read and erases drafts in its child components. This
+applies to every read, not only the ones `keysFor` names: reconnecting
+refreshes all mounted reads, because missed live events are not replayed.
 
 ## 7. Sentry
 

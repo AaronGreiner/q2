@@ -9,6 +9,9 @@ import {
   formatRelativeTime,
   goalIconName,
   goalStatusPresentation,
+  notificationIcon,
+  notificationLink,
+  notificationText,
   scheduleExplanation,
   scheduleLabel,
   windowLabel,
@@ -16,7 +19,7 @@ import {
   windowPercent,
 } from '~/utils/display'
 import { de, en } from '~/i18n/messages'
-import type { Activity, GoalSchedule, GoalWindow } from '~/api/types'
+import type { Activity, GoalSchedule, GoalWindow, NotificationKind, NotificationLine } from '~/api/types'
 
 /**
  * The presentation helpers.
@@ -43,6 +46,158 @@ describe('clampProgress', () => {
 
   it('treats a value that is not a number as no progress', () => {
     expect(clampProgress(Number.NaN)).toBe(0)
+  })
+})
+
+function line(overrides: Partial<NotificationLine> = {}): NotificationLine {
+  return {
+    id: 'line-1',
+    kind: 'ReactionReceived',
+    actor: {
+      id: 'person-lena',
+      displayName: 'Lena',
+      handle: '@lena',
+      initials: 'L',
+      avatarColor: '#4f46e5',
+      isOnline: false,
+      avatarImageId: null,
+    },
+    subject: 'Jeden Tag laufen',
+    excerpt: null,
+    amount: null,
+    target: 'Goal',
+    targetId: 'goal-1',
+    occurredAt: '2026-06-17T08:45:00Z',
+    isNew: true,
+    ...overrides,
+  }
+}
+
+const everyKind: readonly NotificationKind[] = [
+  'MessageReceived',
+  'FriendRequestReceived',
+  'FriendshipStarted',
+  'ProofAwaitingVote',
+  'ProofConfirmed',
+  'ProofRefused',
+  'ReactionReceived',
+  'GoalInvitation',
+  'GoalPaused',
+  'PauseLifted',
+  'FriendWindowAtRisk',
+  'ChallengePublished',
+]
+
+/**
+ * What a notification says. One function for the bell and the lock screen, so
+ * these assertions hold for both.
+ */
+describe('notificationText', () => {
+  it('names who and says what, and joins the two for a lock screen', () => {
+    const text = notificationText(line(), de)
+
+    expect(text.title).toBe('Kudos')
+    expect(text.who).toBe('Lena')
+    expect(text.text).toBe('hat auf deinen Beweis für „Jeden Tag laufen“ reagiert.')
+    expect(text.body).toBe('Lena hat auf deinen Beweis für „Jeden Tag laufen“ reagiert.')
+  })
+
+  it('makes several people reacting to one thing one line, in the plural', () => {
+    const text = notificationText(line({ amount: 3 }), de)
+
+    expect(text.who).toBe('Lena und 2 weitere')
+    expect(text.text).toBe('haben auf deinen Beweis für „Jeden Tag laufen“ reagiert.')
+  })
+
+  it('names nobody for a verdict — doubt is anonymous', () => {
+    const confirmed = notificationText(line({ kind: 'ProofConfirmed', actor: null }), de)
+
+    expect(confirmed.who).toBeNull()
+    expect(confirmed.body).toBe('Dein Beweis für „Jeden Tag laufen“ wurde bestätigt.')
+
+    // Not even if a name arrived, which the server never sends.
+    expect(notificationText(line({ kind: 'ProofRefused', amount: 1 }), de).who).toBeNull()
+  })
+
+  it('says whether a refused proof can be tried again', () => {
+    expect(notificationText(line({ kind: 'ProofRefused', actor: null, amount: 1 }), de).text)
+      .toContain('noch einen Versuch')
+    expect(notificationText(line({ kind: 'ProofRefused', actor: null, amount: 0 }), de).text)
+      .not.toContain('Versuch')
+  })
+
+  it('puts a message\'s own words under who wrote them, and where', () => {
+    const direct = notificationText(
+      line({ kind: 'MessageReceived', target: 'Conversation', subject: null, excerpt: 'Bis gleich!' }),
+      de,
+    )
+    const group = notificationText(
+      line({ kind: 'MessageReceived', target: 'Conversation', subject: 'Laufgruppe', excerpt: 'Wer kommt?' }),
+      de,
+    )
+
+    expect(direct).toEqual({ title: 'Lena', who: null, text: 'Bis gleich!', body: 'Bis gleich!' })
+    expect(group.title).toBe('Lena in Laufgruppe')
+  })
+
+  it('says how long a pause is, and there is no field that could say why', () => {
+    expect(notificationText(line({ kind: 'GoalPaused', amount: 3 }), de).text)
+      .toBe('setzt „Jeden Tag laufen“ für 3 Tage aus.')
+  })
+
+  it('stands in for somebody whose account is gone', () => {
+    expect(notificationText(line({ actor: null }), de).who).toBe('Jemand')
+  })
+
+  it('speaks the language it is given', () => {
+    expect(notificationText(line({ kind: 'FriendshipStarted', target: 'Person', subject: null }), en).body)
+      .toBe('Lena and you are friends now.')
+  })
+
+  it('has a whole sentence for every kind, in both languages', () => {
+    for (const messages of [de, en]) {
+      for (const kind of everyKind) {
+        const text = notificationText(line({ kind }), messages)
+
+        expect(text.title, kind).toBeTruthy()
+        expect(text.body, kind).toBeTruthy()
+        expect(text.body, kind).not.toContain('undefined')
+      }
+    }
+  })
+})
+
+describe('notificationLink', () => {
+  const cases: Array<[string, NotificationLine, string]> = [
+    ['a message, to its conversation', line({ kind: 'MessageReceived', target: 'Conversation', targetId: 'chat-1' }), '/chats/chat-1'],
+    ['a friend request, to where requests are answered', line({ kind: 'FriendRequestReceived', target: 'Person', targetId: null }), '/search'],
+    ['a new friendship, to the friend', line({ kind: 'FriendshipStarted', target: 'Person' }), '/people/person-lena'],
+    ['a friend about to miss, to the friend rather than their goal', line({ kind: 'FriendWindowAtRisk' }), '/people/person-lena'],
+    ['a proof to vote on, to the vote', line({ kind: 'ProofAwaitingVote' }), '/vote'],
+    ['a verdict, to the goal', line({ kind: 'ProofConfirmed', actor: null }), '/goals/goal-1'],
+    ['an invitation, to the goal', line({ kind: 'GoalInvitation' }), '/goals/goal-1'],
+    ['a reaction to a proof, to the goal', line(), '/goals/goal-1'],
+    ['a reaction to a message, to the conversation', line({ target: 'Conversation', targetId: 'chat-1' }), '/chats/chat-1'],
+    ['a reaction to a contribution, to the challenge', line({ target: 'Challenge', targetId: 'challenge-1' }), '/challenge'],
+    ['kudos on the feed, to your own history', line({ target: 'Activity', targetId: 'activity-1' }), '/profile'],
+    ['a new challenge, to the challenge', line({ kind: 'ChallengePublished', actor: null, target: 'Challenge' }), '/challenge'],
+  ]
+
+  it.each(cases)('leads %s', (_name, input, path) => {
+    expect(notificationLink(input)).toBe(path)
+  })
+})
+
+describe('notificationIcon', () => {
+  it('draws a bundled Lucide icon for every kind', () => {
+    for (const kind of everyKind) {
+      expect(notificationIcon(line({ kind }))).toMatch(/^i-lucide-/)
+    }
+  })
+
+  it('tells a confirmed proof from a refused one by shape, not by colour', () => {
+    expect(notificationIcon(line({ kind: 'ProofConfirmed' })))
+      .not.toBe(notificationIcon(line({ kind: 'ProofRefused' })))
   })
 })
 

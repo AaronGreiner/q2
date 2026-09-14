@@ -56,7 +56,7 @@ const t = useMessages()
       </p>
       <p
         v-if="goal.risk"
-        class="mt-0.5 text-[12px] font-semibold text-(--ui-text-muted)"
+        class="mt-0.5 text-[12px] font-semibold text-(--ui-text-toned)"
         data-testid="risk-sentence"
       >
         {{ riskSentence(goal.risk, t) }}

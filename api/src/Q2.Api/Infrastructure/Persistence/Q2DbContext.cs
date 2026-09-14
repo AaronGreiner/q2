@@ -84,6 +84,8 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
 
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // First, not last: the base call is what puts Identity's own entity

@@ -83,6 +83,10 @@ public sealed class DatabaseSeeder(
         // at one.
         database.Challenges.AddRange(data.Challenges);
 
+        // Last of all: a line in the bell points at people who have to exist
+        // first, and quotes goals that do.
+        database.Notifications.AddRange(data.Notifications);
+
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
@@ -117,6 +121,7 @@ public sealed class DatabaseSeeder(
     /// </remarks>
     private static async Task ClearAsync(Q2DbContext database, CancellationToken cancellationToken)
     {
+        await database.Notifications.ExecuteDeleteAsync(cancellationToken);
         await database.ChallengeReactions.ExecuteDeleteAsync(cancellationToken);
         await database.ChallengeEntries.ExecuteDeleteAsync(cancellationToken);
         await database.Challenges.ExecuteDeleteAsync(cancellationToken);

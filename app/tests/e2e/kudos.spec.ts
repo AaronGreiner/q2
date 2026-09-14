@@ -443,17 +443,13 @@ test.describe('profile and settings', () => {
     await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
   })
 
-  test('a notification switch is a real switch and remembers its state', async ({ page }) => {
+  test('notifications have a screen of their own under the settings', async ({ page }) => {
     await page.goto('/settings')
 
-    const weekly = page.getByRole('switch', { name: 'Wochenrückblick' })
+    await page.getByTestId('open-notification-settings').click()
 
-    await expect(weekly).toHaveAttribute('aria-checked', 'false')
-    await weekly.click()
-    await expect(weekly).toHaveAttribute('aria-checked', 'true')
-
-    await page.reload()
-    await expect(page.getByRole('switch', { name: 'Wochenrückblick' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page).toHaveURL('/settings/notifications')
+    await expect(page.getByRole('heading', { name: 'Benachrichtigungen' })).toBeVisible()
   })
 })
 

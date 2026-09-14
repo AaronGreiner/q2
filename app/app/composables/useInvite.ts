@@ -1,4 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
+import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 /**
  * The invite link, and replacing it.
@@ -24,7 +25,7 @@ export function useInvite() {
         return { code: '', failure: report(caught, { feature: 'invite', action: 'get' }) }
       }
     },
-    { default: () => ({ code: '', failure: null as ApiFailure | null }) },
+    { default: () => placeholder({ code: '', failure: null as ApiFailure | null }) },
   )
 
   /**
@@ -97,7 +98,7 @@ export function useInvite() {
     code: computed(() => data.value?.code ?? ''),
     url,
     error: computed(() => data.value?.failure ?? null),
-    isLoading: computed(() => status.value === 'pending'),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isReplacing: computed(() => isReplacing.value),
     refresh,
     replace,

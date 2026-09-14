@@ -69,7 +69,7 @@ public sealed class SequentialTestIdGenerator : IIdGenerator
 /// </remarks>
 public sealed class RecordingPushSender : IPushSender
 {
-    private readonly List<(string Endpoint, PushPayload Payload)> _sent = [];
+    private readonly List<(string Endpoint, NotificationResponse Payload)> _sent = [];
 
     private readonly Lock _gate = new();
 
@@ -84,7 +84,7 @@ public sealed class RecordingPushSender : IPushSender
     public PushOutcome Outcome { get; set; } = PushOutcome.Delivered;
 
     /// <summary>Everything this host would have sent, in order.</summary>
-    public IReadOnlyList<(string Endpoint, PushPayload Payload)> Sent
+    public IReadOnlyList<(string Endpoint, NotificationResponse Payload)> Sent
     {
         get
         {
@@ -97,7 +97,7 @@ public sealed class RecordingPushSender : IPushSender
 
     public Task<PushOutcome> SendAsync(
         PushSubscription subscription,
-        PushPayload payload,
+        NotificationResponse payload,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subscription);

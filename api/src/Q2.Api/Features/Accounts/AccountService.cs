@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
@@ -33,6 +34,7 @@ public sealed class AccountService(
     CurrentPerson currentPerson,
     ImageService images,
     InviteService invites,
+    Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
@@ -122,6 +124,10 @@ public sealed class AccountService(
         await database.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
+
+        // After the commit: the friendship an invite link made is real now, so
+        // whoever sent the link can be told it worked.
+        await notifier.FlushAsync(cancellationToken);
 
         await signIn.SignInAsync(account, isPersistent: true);
 
