@@ -270,8 +270,8 @@ export default defineNuxtConfig({
   /**
    * q2 as an installable application.
    *
-   * This is the web half of what [next-steps.md](../docs/next-steps.md) item
-   * 15 will finish with Capacitor: the same UI, installed from the browser
+   * This is the web half of what issue #7 will finish with Capacitor: the
+   * same UI, installed from the browser
    * rather than from a store. It buys the standalone window, the icon on the
    * home screen and a start that does not wait for the network — and it
    * deliberately buys nothing else. See docs/adr/0012-installable-pwa.md.

@@ -38,9 +38,10 @@ export function useNow(): Ref<number> {
  * with a timestamp. Correcting *after* hydration is an ordinary reactive
  * update instead.
  *
- * q2 stores instants in UTC and has no notion of a person's time zone in the
- * model — there are no accounts to hang one on — so this is the browser's own
- * offset, not a stored preference. See docs/next-steps.md.
+ * Deadlines are counted in the owner's zone on the server (`Person.TimeZoneId`,
+ * through `LocalCalendar`); this is only about showing an instant to whoever is
+ * reading, so it is the browser's own offset rather than a stored preference.
+ * TODO(#9): render the first paint in the person's stored zone instead.
  */
 export function useTimeZoneOffset(): Ref<number> {
   const offset = useState('q2:zone-offset', () => 0)

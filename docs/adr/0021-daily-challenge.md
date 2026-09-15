@@ -15,7 +15,7 @@ worth doing unless you already have a goal and already have friends on it. A new
 account sees an empty list, and somebody having a bad month sees only what they
 owe.
 
-`QDOS-UEBERNAHME.md`, stage 7, asks for the counterweight the source project
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md), stage 7, asks for the counterweight the source project
 built for exactly that: a daily challenge — a prompt everybody gets at the same
 time, a room made of your own friends, covered until you take part, and an
 archive of your own contributions. Its completion criteria are four assertions:

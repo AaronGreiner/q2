@@ -8,7 +8,7 @@
 Until now q2 stored no file at all. An avatar was two letters on a colour from a
 closed palette, and every byte the product held was a row in SQLite.
 
-Stage 3 of `QDOS-UEBERNAHME.md` ends that, and it does so for the feature the
+Stage 3 of [`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md) ends that, and it does so for the feature the
 whole migration exists for: in Qdos a goal is delivered by photographing the
 evidence and letting friends vote on it. Stage 4 needs somewhere to put that
 photograph. Avatars come along in the same stage — same storage, far smaller

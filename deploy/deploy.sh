@@ -196,7 +196,7 @@ info "New release in place, previous kept in $PREVIOUS"
 
 # ---------------------------------------------------------------------------
 # 5. Migrations — an explicit deployment step. Staging and Production have
-#    MigrateOnStartup=false on purpose (docs/next-steps.md section 11).
+#    MigrateOnStartup=false on purpose (docs/deployment.md section 3).
 # ---------------------------------------------------------------------------
 log "Applying database migrations"
 

@@ -319,12 +319,16 @@ Real errors report normally; that is what the environment is for.
 
 - **No zero-downtime deployment.** Services stop, files swap, services start —
   a few seconds. Two SSR processes behind a load balancer would be a different
-  system, and nothing here needs one yet.
+  system, and nothing here needs one yet
+  ([#17](https://github.com/AaronGreiner/q2/issues/17)).
 - **No Docker.** The host runs Caddy and two Node services directly; q2 follows
   the same pattern. See [adr/0008](adr/0008-deployment-topology.md).
 - **No production environment.** This host is `Staging`. A production
-  deployment is a second host and a second set of secrets, not a flag.
+  deployment is a second host and a second set of secrets, not a flag
+  ([#14](https://github.com/AaronGreiner/q2/issues/14)).
 - **No secret rotation automation.** Changing a DSN is: update the secret,
   re-run the release.
-- **No database backup.** SQLite with no real data yet, on a test host. The
-  first time the data matters, this is the first gap to close.
+- **No backup.** Neither the SQLite database nor the image files under
+  `.data/` are copied anywhere. There is no real data on this test host yet;
+  the first time the data matters, this is the first gap to close
+  ([#13](https://github.com/AaronGreiner/q2/issues/13)).

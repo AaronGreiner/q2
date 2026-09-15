@@ -6,12 +6,15 @@ namespace Q2.Api.Features.Goals;
 /// </summary>
 public enum GoalStatus
 {
-    /// <summary>Being worked on. Progress is below 100%.</summary>
+    /// <summary>Running: its windows open, and are delivered or missed, on its schedule.</summary>
     Active,
 
-    /// <summary>Reached 100% progress.</summary>
+    /// <summary>
+    /// Carried through: closed by its owner, or finished by delivering the only
+    /// window of a one-off. Keeps its whole record.
+    /// </summary>
     Completed,
 
-    /// <summary>Put aside without completing it. Stays visible in history.</summary>
+    /// <summary>Given up: stopped by its owner without carrying it through. Keeps its whole record.</summary>
     Archived,
 }

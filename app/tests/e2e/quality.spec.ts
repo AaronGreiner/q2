@@ -4,7 +4,7 @@ import { apiBaseUrl } from './support/e2eEnvironment'
 
 const sharedGoalId = 'e2e00000-0000-4000-8000-000000000001'
 
-/** The representative screens named in docs/next-steps.md. */
+/** The representative screens every accessibility run covers. */
 const accessibilityScreens = [
   { name: 'dashboard', path: '/' },
   { name: 'goal detail', path: `/goals/${sharedGoalId}` },

@@ -9,7 +9,8 @@ namespace Q2.Api.Infrastructure.Observability;
 /// <remarks>
 /// A metric answers "how often", never "for whom" or "about what". It carries a
 /// name, a count, and at most an attribute from a closed vocabulary such as a
-/// rhythm — never a title, a person, an id or anything else somebody authored.
+/// schedule kind — never a title, a person, an id or anything else somebody
+/// authored.
 /// An id is fine in a log line, where it is looked up deliberately; a metric is
 /// aggregated and read by everyone, so it stays anonymous. That is why the
 /// methods below take enums and booleans rather than strings: a call site

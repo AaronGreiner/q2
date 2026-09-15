@@ -184,8 +184,8 @@ the style gate rejects.
 - The documented exception is the 31 July 2026 test-audit correction to
   `KudosExperience` and `AccountsAndTwoSidedFriendships`: their published ids
   were retained so already-migrated databases remain untouched, while fresh
-  databases receive the atomic implementation. See
-  [../docs/test-audit-findings.md](../docs/test-audit-findings.md).
+  databases receive the atomic implementation. See QA-001 in the
+  [test-audit findings](https://github.com/AaronGreiner/q2/blob/505fafb/docs/test-audit-findings.md#qa-001--two-sqlite-migrations-are-not-atomic).
 - `MigrationTests` applies every migration to a genuinely empty file, seeds,
   writes and reads back. It also rejects SQL that disables foreign keys and
   proves that a failed conversion rolls back schema and data.

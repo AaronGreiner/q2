@@ -13,10 +13,9 @@ commitments you make to yourself, by making them in front of people: you say
 what you intend to do, your friends are invited to it, and they see whether it
 happened.
 
-This repository holds the **initial version** — six working screens: goals and
-the tasks under them, chats about them, search and friends, and a profile. Read
-[README.md](README.md) sections 1 and 2 for exactly what exists and what is
-deliberately absent, and `QDOS-UEBERNAHME.md` for the stages still ahead.
+This repository holds the **initial version**. Read [README.md](README.md)
+sections 1 and 2 for exactly what exists and what is deliberately absent; what
+is still to be built is in [GitHub Issues](https://github.com/AaronGreiner/q2/issues).
 
 **The look is not negotiable per screen.** Black, dark by default, one accent
 used only for something the person can do right now, the flame gradient only for
@@ -28,9 +27,10 @@ permissions engine, no event sourcing, no microservices, no generic
 abstractions waiting for a second use case. When something genuinely needs to
 exist, it gets built then, with the real requirement in hand.
 
-Planned work and known gaps are in
-[docs/next-steps.md](docs/next-steps.md). Check it before starting something
-substantial — it may already say why the obvious approach is the wrong one.
+Planned work and known gaps are
+[GitHub Issues](https://github.com/AaronGreiner/q2/issues), and nowhere else.
+Read the issue before starting something substantial — it may already say why
+the obvious approach is the wrong one.
 
 ## 2. Repository structure
 
@@ -103,6 +103,13 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
   [docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
 - **Comments** explain *why*, not *what*. A comment that restates the code is
   noise; a comment that records a decision, a constraint or a trap is valuable.
+- **Backlog.** Remaining work is a GitHub issue, never a list in a document. A
+  document says what exists and why; where it has to mention a gap, it links
+  the issue rather than describing its status. Unfinished work in code is
+  marked `TODO(#123): what is missing`, always with its issue, and the TODO goes
+  when the issue is closed. `launch-blocker` marks what must be done before q2
+  processes real users' data; `deferred` marks work that waits for the trigger
+  its issue names.
 - **Naming.** Say what a thing is for. `DatabaseResetGuard`, not `Helper`.
 - **Formatting** is not a discussion: `dotnet format` for the backend, ESLint
   (with stylistic rules) for the frontend. Both run in `bun run validate`.

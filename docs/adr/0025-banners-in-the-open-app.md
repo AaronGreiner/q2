@@ -5,7 +5,7 @@
 
 Amends [0024](0024-one-notification-pipeline.md): the live connection now
 carries one piece of content, and a switch governs a banner as well as a push.
-`BENACHRICHTIGUNGEN.md` §10 had left in-app banners out — "der Zähler ist das
+[`BENACHRICHTIGUNGEN.md`](https://github.com/AaronGreiner/q2/blob/505fafb/BENACHRICHTIGUNGEN.md#10-bewusst-nicht-enthalten) §10 had left in-app banners out — "der Zähler ist das
 Signal". This reverses that, at the product owner's request.
 
 ## Context

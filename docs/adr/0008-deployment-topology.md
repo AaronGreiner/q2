@@ -5,7 +5,8 @@
 
 ## Context
 
-[docs/next-steps.md](../next-steps.md) section 11 listed deployment as "decide
+[docs/next-steps.md](https://github.com/AaronGreiner/q2/blob/5b9880d/docs/next-steps.md#11-deployment)
+section 11 listed deployment as "decide
 where the two applications run, then …". The decision was taken: a single Linux
 host that already runs two unrelated Nuxt projects behind Caddy.
 

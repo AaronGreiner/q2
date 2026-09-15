@@ -21,7 +21,7 @@ than complain:
   record to do it. The balance this product is built around was also the thing
   standing in the way of ever finishing with a goal.
 
-`QDOS-UEBERNAHME.md`, stage 6, asks for `GoalPause` with an allowance and an
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md), stage 6, asks for `GoalPause` with an allowance and an
 anonymous objection, a `completedAt`, an archive screen, and deletion from
 there. Its completion criteria are the four assertions this record is really
 about: a goal reported sick is set aside at once, the window counts as neither

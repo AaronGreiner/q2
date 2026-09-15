@@ -93,7 +93,7 @@ it looks tidier.
 
 ## When to revisit
 
-**The accessibility work in [next-steps.md](../next-steps.md) item 3 has
+**The automated accessibility checks in `app/tests/e2e/quality.spec.ts` have
 landed.** `@axe-core/playwright` flags `user-scalable=no` under its
 `meta-viewport` rule. That one rule is disabled next to a link back to this
 decision; every other WCAG A/AA rule must return zero violations. Revisit the

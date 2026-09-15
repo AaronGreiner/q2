@@ -11,7 +11,7 @@ rhythm was an enum of four words — Daily, Weekdays, Weekly, Once — that deci
 nothing: no code read it, and nothing was due at any particular moment.
 
 Three things follow from that, and all three are fatal to the product described
-in `QDOS-UEBERNAHME.md`:
+in [`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md):
 
 - **Nothing can be late.** "14 of 21" says how far somebody has turned a number
   up, not whether they did the thing they said they would do this week.
@@ -133,7 +133,9 @@ crash.
 **Goals with steps**, `Contribute`, `ProgressPercent`, `GoalContribution` and
 `GoalRhythm` are gone. So is `GoalTask` — the tasks under a goal — and with it
 the `/api/tasks` endpoints. That is the most painful item on the list and it is
-recorded as a deliberate bet in `QDOS-UEBERNAHME.md` section 3b: a task was the
+recorded as a deliberate bet in
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md)
+section 3b: a task was the
 only interaction in q2 with no social hurdle at all, and if the product turns
 out to be too demanding without one, this is the piece to bring back.
 

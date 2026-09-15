@@ -15,7 +15,7 @@ The product it now has to carry is a different one. Qdos is built on social
 accountability: you commit to something, your friends witness it, you photograph
 the proof, they confirm or doubt it, and a missed window breaks the streak and
 shows up in a balance the people involved can see. The plan for that change is
-in `QDOS-UEBERNAHME.md`.
+in [`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md).
 
 Two things follow.
 
@@ -152,7 +152,9 @@ back by accident.
   as kudos on a profile. The name of the product is therefore still the name of
   a gesture it has.
 - Goals with steps and the tasks under them survive this stage unchanged; they
-  are replaced in stage 2 of `QDOS-UEBERNAHME.md`, not here.
+  are replaced in stage 2 of
+  [`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md),
+  not here.
 - The light theme is now the secondary one and will get less attention. That is
   a stated risk, not an accident: if it decays, this ADR is what says it was not
   supposed to.

@@ -285,11 +285,10 @@ public sealed class ProofVote
 /// Deliberately not the same table as <see cref="MessageReaction"/>, and it is
 /// worth saying why, because two near-identical types is normally a smell. They
 /// hang off different things and are read in different queries, and merging
-/// them means a `TargetId` that is a foreign key to nothing — which the
-/// migration plan does propose for the day the daily challenge needs a third
-/// target (stage 7), and which is the right shape *then*. Until there is a
-/// third, one shared column pointing at two tables would buy nothing and cost
-/// every reader a branch.
+/// them means a `TargetId` that is a foreign key to nothing. The migration plan
+/// proposed exactly that once the daily challenge brought a third target; it
+/// was weighed then and not done, because each table's real foreign key is what
+/// lets a reaction go with the thing it hangs off — see ADR 0021.
 /// </remarks>
 public sealed class ProofReaction
 {

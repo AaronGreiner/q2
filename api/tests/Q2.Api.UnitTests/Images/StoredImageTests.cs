@@ -124,7 +124,7 @@ public sealed class StoredImageTests
         Assert.True(ImageService.CanRead(avatar, stranger));
         Assert.True(ImageService.CanRead(avatar, Owner));
 
-        // Until stage 4 gives a proof its audience, its owner is that audience.
+        // A proof's wider audience is its goal's, which only CanReadAsync can ask.
         Assert.False(ImageService.CanRead(proof, stranger));
         Assert.True(ImageService.CanRead(proof, Owner));
     }

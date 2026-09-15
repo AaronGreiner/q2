@@ -8,7 +8,7 @@
 q2 is a phone application that currently runs in a browser. The UI is designed
 and tested at 390 × 844, the layout accounts for a notch, and the plan has
 always been to package it with Capacitor
-([next-steps.md](../next-steps.md) item 15).
+([#7](https://github.com/AaronGreiner/q2/issues/7)).
 
 Capacitor is not the next step, but the gap between "a website that looks like
 an app" and "an app" is smaller than it looks: a web app manifest and a service
@@ -128,7 +128,7 @@ when it arrives an hour late. At that point the caching rule above changes, and
 the thing that has to be designed first is not the cache but **what happens on
 sign-out** — see [privacy.md](../privacy.md) section 8.
 
-**When Capacitor lands** ([next-steps.md](../next-steps.md) item 15). A native
+**When Capacitor lands** ([#7](https://github.com/AaronGreiner/q2/issues/7)). A native
 shell replaces the manifest and the install flow, and the icons here are the
 source the native icon sets are generated from. The service worker does not
 travel: a Capacitor WebView serves its assets from the bundle already.

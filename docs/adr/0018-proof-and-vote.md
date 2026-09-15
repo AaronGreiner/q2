@@ -10,7 +10,7 @@ What it did not give it was anybody to miss it *in front of*: the window was
 still closed by its owner pressing a button, which is the self-report the whole
 migration exists to replace.
 
-`QDOS-UEBERNAHME.md` puts it plainly in its first table. The two products differ
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md) puts it plainly in its first table. The two products differ
 on one question — **who decides whether something was done** — and every other
 difference follows from it. In q2 it was you. In Qdos it is your friends, and
 that is why Qdos can say "verpasst" and mean it.

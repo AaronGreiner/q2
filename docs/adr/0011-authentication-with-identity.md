@@ -116,7 +116,7 @@ account out.
 
 - **There is no way back into a forgotten account.** No mail, no reset. This is
   the first thing to fix before anybody who is not a developer uses q2, and it
-  is on [next-steps.md](../next-steps.md).
+  is [#3](https://github.com/AaronGreiner/q2/issues/3).
 - **Registration discloses that an address is already taken.** The alternative —
   accepting the sign-up and saying nothing — trades a real usability problem for
   a small enumeration one. Sign-*in* does not disclose it: a wrong password and

@@ -12,7 +12,7 @@ a warning is due, and the balance, stand as written.
 it did not do is give anybody a reason to act *before* the deadline, or a place
 where a missed one shows afterwards.
 
-`QDOS-UEBERNAHME.md` calls this "die Shame-Hälfte", and its own note about it is
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md) calls this "die Shame-Hälfte", and its own note about it is
 the important part: the effective half of "do it or shame it" is not behind the
 deadline but in front of it. Somebody who knows their friends are about to hear
 that it is getting tight can still act. Somebody who finds out afterwards can

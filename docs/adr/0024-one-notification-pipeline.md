@@ -9,7 +9,8 @@ Everything else stands as written.
 Amends [0019](0019-warning-and-balance.md) — the bell now carries a count, and
 the evening warning left the feed — and [0023](0023-web-push.md): the payload,
 the switches and where a notification comes from. The reasoning in German, with
-the alternatives that were weighed, is in `BENACHRICHTIGUNGEN.md` at the root.
+the alternatives that were weighed, is in
+[`BENACHRICHTIGUNGEN.md`](https://github.com/AaronGreiner/q2/blob/505fafb/BENACHRICHTIGUNGEN.md).
 
 ## Context
 
@@ -179,5 +180,5 @@ reason.
   the side that was blocked is not, because a screen changing under somebody at
   the moment they were blocked would be the announcement.
 - **Native push is later.** APNs and FCM arrive with a Capacitor build
-  ([next-steps.md](../next-steps.md) item 15). Until then a phone is reached by
+  ([#12](https://github.com/AaronGreiner/q2/issues/12)). Until then a phone is reached by
   Web Push, which on iOS means an installed home-screen app.

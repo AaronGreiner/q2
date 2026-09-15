@@ -8,8 +8,8 @@ whether it happened.
 This repository is the **initial version**: a small, working, fully tested
 reference implementation. It is deliberately not a finished product. It exists
 so that the next feature can be built on something that already works, is
-already documented, and is already verified end to end. The plan for the
-remaining stages is in `QDOS-UEBERNAHME.md`.
+already documented, and is already verified end to end. What is still to be
+built is tracked in [GitHub Issues](https://github.com/AaronGreiner/q2/issues).
 
 The interface is German, with English available in the settings. That follows
 the design it is built from — see
@@ -76,12 +76,16 @@ truth, not this table.
 
 ## 2. What is deliberately missing
 
-These are absent on purpose, not by oversight:
+These are absent today, and knowingly so. The ones that are planned link their
+issue; the others are decisions and say why:
 
-- **Account recovery.** No password reset, no email confirmation, no two-factor.
-  All three need to send mail, and nothing here needs a running service to
-  develop against. A forgotten password currently means a new account — this is
-  the first gap to close before anybody who is not a developer signs up. See
+- **Account recovery.** No password reset
+  ([#3](https://github.com/AaronGreiner/q2/issues/3)), no email confirmation
+  ([#5](https://github.com/AaronGreiner/q2/issues/5)) and no two-factor
+  ([#6](https://github.com/AaronGreiner/q2/issues/6)). The first two need to
+  send mail, and nothing here needs a running service to develop against. A
+  forgotten password currently means a new account — the first gap to close
+  before anybody who is not a developer signs up. See
   [docs/adr/0011-authentication-with-identity.md](docs/adr/0011-authentication-with-identity.md).
 - **Roles and sharing rules.** Access control exists and is per person: your
   data is yours, a shared goal is readable by the people it is shared with, and
@@ -93,20 +97,25 @@ These are absent on purpose, not by oversight:
   searched for and wrote down.
 - **Native push.** A phone is reached through Web Push, which on iOS means an
   installed home-screen app, and a deployment with no VAPID keys sends no push
-  at all — the default, and what the screen says. APNs and FCM arrive with a
-  Capacitor build. See [docs/next-steps.md](docs/next-steps.md) item 15.
-- **Updating or deleting goals.** Only reading, creating and making progress.
+  at all — the default, what the screen says, and so far the state of Staging
+  ([#8](https://github.com/AaronGreiner/q2/issues/8)). APNs and FCM arrive with
+  a Capacitor build ([#12](https://github.com/AaronGreiner/q2/issues/12)).
+- **Editing a running goal.** A goal can be created, set aside, stopped and
+  deleted from the archive, but its title, description, schedule and invitees
+  are fixed once it runs ([#4](https://github.com/AaronGreiner/q2/issues/4)).
 - **Exporting your data.** Deleting an account works and is tested; getting a
-  copy of what q2 holds about you (Art. 20) does not exist.
-  See [docs/privacy.md](docs/privacy.md).
+  copy of what q2 holds about you (Art. 20) does not exist
+  ([#36](https://github.com/AaronGreiner/q2/issues/36)). See
+  [docs/privacy.md](docs/privacy.md).
 - **Somebody to answer a report.** Reporting and blocking exist, and a report
   is delivered rather than filed away — but the recipient is an alert channel,
-  not a person whose job this is. `IReportSink` is the seam where that changes.
-- **Reading reports in the app.** There is no console and no queue; reading
-  them means opening the database.
-- **Time zones.** Instants are stored and reasoned about in UTC; the browser
-  shifts a displayed clock into its own zone after hydration, and nothing is
-  remembered per person. See [docs/next-steps.md](docs/next-steps.md).
+  not a person whose job this is, and there is no console or queue to read
+  reports in; reading them means opening the database. `IReportSink` is the
+  seam where that changes ([#38](https://github.com/AaronGreiner/q2/issues/38)).
+- **Choosing a time zone.** Every deadline is counted in its owner's zone, but
+  that zone is the deployment's default for everybody and nothing changes it;
+  a displayed clock is shifted into the browser's zone after hydration
+  ([#9](https://github.com/AaronGreiner/q2/issues/9)).
 - **Location features.** Nothing collects or stores a position. See
   [docs/privacy.md](docs/privacy.md).
 - **Working offline.** q2 installs as a PWA, and a person who opens it with no
@@ -115,14 +124,18 @@ These are absent on purpose, not by oversight:
   screen is somebody's signed-in one. See
   [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
 - **Mobile apps.** No Capacitor packaging and no native abstractions exist yet —
-  installing from the browser is as far as it goes today. The *format* is not
+  installing from the browser is as far as it goes today
+  ([#7](https://github.com/AaronGreiner/q2/issues/7)). The *format* is not
   missing, though: q2 is designed for a phone, and the browser is only where it
   is developed and tested — always at phone width. See
   [AGENTS.md](AGENTS.md) section 5.
-- **PostgreSQL.** SQLite is the initial provider; no SQLite-specific business
-  logic exists, so the switch is a provider change, not a rewrite.
+- **PostgreSQL.** SQLite is the initial provider. Almost nothing depends on it —
+  the people search relies on SQLite's case-insensitive `LIKE` — so the switch
+  is a provider change, not a rewrite
+  ([#15](https://github.com/AaronGreiner/q2/issues/15)).
 - **More than two languages.** German and English are hand-written message
-  catalogues; a third would be the moment to bring in a real i18n layer.
+  catalogues; a third would be the moment to bring in a real i18n layer
+  ([#11](https://github.com/AaronGreiner/q2/issues/11)).
 
 ---
 
@@ -570,7 +583,7 @@ committed, and CI fails if they do not match the code.
 ## Further reading
 
 - [AGENTS.md](AGENTS.md) — conventions, expectations and the definition of done
-- [docs/next-steps.md](docs/next-steps.md) — what to build next, and in what order
+- [GitHub Issues](https://github.com/AaronGreiner/q2/issues) — what to build next; the only backlog
 - [docs/architecture.md](docs/architecture.md)
 - [docs/testing.md](docs/testing.md)
 - [docs/observability.md](docs/observability.md)

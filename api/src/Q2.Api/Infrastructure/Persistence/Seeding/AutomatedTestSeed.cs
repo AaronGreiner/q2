@@ -15,11 +15,11 @@ namespace Q2.Api.Infrastructure.Persistence.Seeding;
 /// state stays testable. Tests that need more may arrange extra rows
 /// themselves — this seed is a floor, not a ceiling.
 ///
-/// Every recurring task is <see cref="GoalRhythm.Daily"/> and the one-off is
-/// due in three days. That is not an accident: a Weekdays or Weekly task would
-/// make "how many tasks are on today's list" depend on the day the suite
-/// happens to run, and a test that passes on Tuesday and fails on Saturday is
-/// worse than no test.
+/// No goal here is tied to particular weekdays: the repeating ones are due
+/// every day or three times a week, and the one-off's target date is three days
+/// out. That is not an accident: a weekday schedule would make what is on
+/// today's list depend on the day the suite happens to run, and a test that
+/// passes on Tuesday and fails on Saturday is worse than no test.
 /// </remarks>
 public sealed class AutomatedTestSeed : ISeedDataSource
 {

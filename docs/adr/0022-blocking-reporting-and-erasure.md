@@ -13,14 +13,15 @@ appear, and has nothing whatsoever for somebody who wants any of it to stop.
 Three gaps, and none of them is a feature request:
 
 - **Nothing can be reported.** With user-generated pictures that is an
-  obligation rather than a nicety ([privacy.md](privacy.md) section 8).
+  obligation rather than a nicety ([privacy.md](../privacy.md) section 8).
 - **Nobody can be blocked.** The only way out of a friendship is to end it, and
   ending it leaves the other person able to ask again tomorrow.
 - **No account can be deleted.** Art. 17, over a face
-  ([next-steps.md](next-steps.md) item 8).
+  ([next-steps.md](https://github.com/AaronGreiner/q2/blob/505fafb/docs/next-steps.md#8-deleting-an-account)
+  item 8).
 
 And one that is: a new account has no friends, so almost everything in q2 is
-something it cannot do. `QDOS-UEBERNAHME.md` puts onboarding in this stage
+something it cannot do. [`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md) puts onboarding in this stage
 precisely because the challenge had to exist first — there is now something to
 *do* on the first day, and what was missing is the first friend.
 

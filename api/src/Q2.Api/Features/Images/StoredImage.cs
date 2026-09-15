@@ -25,8 +25,8 @@ public enum ImagePurpose
     /// that goal is shared with.
     /// </summary>
     /// <remarks>
-    /// The audience arrives with stage 4, together with the vote it hangs off.
-    /// Until then the rule is the safe one: only its owner can see it.
+    /// That set is a question about the goal rather than the image, so it is
+    /// answered in <see cref="ImageService.CanReadAsync"/> and not here.
     /// </remarks>
     Proof,
 

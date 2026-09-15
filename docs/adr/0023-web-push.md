@@ -14,7 +14,7 @@ act before a window closes; the daily challenge ([0021](0021-daily-challenge.md)
 expires at midnight. Both were written to be found by somebody who happened to
 open the app.
 
-`QDOS-UEBERNAHME.md` puts notifications last for a reason it states plainly:
+[`QDOS-UEBERNAHME.md`](https://github.com/AaronGreiner/q2/blob/505fafb/QDOS-UEBERNAHME.md) puts notifications last for a reason it states plainly:
 **"Push ist ein Zustellweg, kein Neubau."** By this stage the rule, the
 recipients and the wording all exist. What is missing is only that the thing
 arrives without the app being open. The same document notes that quiet hours

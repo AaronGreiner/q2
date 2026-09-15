@@ -21,7 +21,7 @@ aspirational.
 | Data minimisation (Art. 5(1)(c)) | An account is an address and a password hash, and nothing else. No product analytics, no tracking, no location. |
 | Purpose limitation (Art. 5(1)(b)) | Stored content renders the product. It is not sent to telemetry; only anonymous operational counters are aggregated. |
 | Transparency (Art. 5(1)(a)) | The environment is visible in the UI; the diagnostics page states plainly what reporting is active. |
-| Storage limitation (Art. 5(1)(e)) | Local and test databases are throwaway by design. Production retention is an open decision — section 8. |
+| Storage limitation (Art. 5(1)(e)) | Local and test databases are throwaway by design. The bell's lines are deleted after thirty days; retention for everything else is open — section 8, item 5. |
 | Integrity and confidentiality (Art. 5(1)(f)) | Secrets never in source; internal detail never in responses; central scrubbing before anything leaves the process. |
 | Data protection by default (Art. 25) | No request-body logging, no location, no product analytics. **Two switches are deliberately not on the private setting in the frontend** — `sendDefaultPii` and Session Replay — see section 4. |
 
@@ -113,16 +113,15 @@ Every name in the database is invented — but a goal description, a task title
 and a message all can identify somebody, so all three are treated as personal
 data throughout.
 
-Chat messages, the social graph, the account itself and now uploaded images are
-the categories that need a retention and erasure answer before real people are
-in the database. The initial version does not have one; see
-[next-steps.md](next-steps.md) items 7 and 8. **Images make that overdue rather
-than open**: there is still no way to delete an account, which is Art. 17 over a
-face. What did arrive is erasure at the level of one commitment — deleting a
-stopped goal from the archive removes its windows, every photograph behind them,
-the conversation about it and the feed entries naming it, for everybody on it
-([adr/0020](adr/0020-pause-and-archive.md)). That is one whole category gone in
-one action, and it is the shape the account-level answer should take.
+Chat messages, the social graph, the account itself and uploaded images are the
+categories that need a retention answer before real people are in the database
+(section 8, item 5). Erasure exists at two levels. Deleting a stopped goal from
+the archive removes its windows, every photograph behind them, the conversation
+about it and the feed entries naming it, for everybody on it
+([adr/0020](adr/0020-pause-and-archive.md)). Deleting an account removes the
+person and everything of theirs, the image files included, which sit outside
+the database and outside any transaction
+([adr/0022](adr/0022-blocking-reporting-and-erasure.md)).
 
 **Stored on the device:** the service worker's cache holds the build output —
 JavaScript, CSS, fonts, icons, the web app manifest — and no rendered page and
@@ -282,53 +281,65 @@ database file is ever committed or cached.
 
 ## 8. Required before production
 
-Technical preparation is not compliance. Before q2 processes real users' data:
+Technical preparation is not compliance. Before q2 processes real users' data,
+every item below has to hold. Each one that does not yet is a GitHub issue
+labelled `launch-blocker`: this list says what is required, the issue says how
+far it has got.
 
-1. **Record of processing activities** (Art. 30) for each purpose.
+1. **Record of processing activities** (Art. 30) for each purpose
+   ([#28](https://github.com/AaronGreiner/q2/issues/28)).
 2. **Legal basis** per purpose — consent, or legitimate interest with a
    balancing test. Goal content may be health data (Art. 9), which needs
-   explicit consent.
+   explicit consent ([#28](https://github.com/AaronGreiner/q2/issues/28)).
 3. **Privacy notice** (Art. 13) in plain language: what, why, how long, who
-   with, which rights.
+   with, which rights ([#34](https://github.com/AaronGreiner/q2/issues/34)).
 4. **Data processing agreements** (Art. 28) with every processor, including
-   Sentry, and a documented decision on their data region and retention.
+   Sentry, and a documented decision on their data region and retention
+   ([#33](https://github.com/AaronGreiner/q2/issues/33)).
 5. **Retention policy**: how long goals, activity history and Sentry events are
-   kept, and automated deletion when that period expires.
+   kept, and automated deletion when that period expires. The bell's lines are
+   the only category with a period so far — thirty days
+   ([#30](https://github.com/AaronGreiner/q2/issues/30)).
 6. **Right to erasure** (Art. 17): a working deletion path covering the
-   database, backups and error-reporting data.
+   database, backups and error-reporting data. The database and the image files
+   are covered (item 8); backups and Sentry are not
+   ([#35](https://github.com/AaronGreiner/q2/issues/35)).
 7. **Right to data portability** (Art. 20): export in a machine-readable
-   format.
-8. **Account recovery and deletion**: there is no password reset and no way to
-   delete an account. The second is Art. 17 with a deadline attached to it, and
-   uploaded photographs make it the most pressing item on this list. **Done:**
-   `DELETE /api/auth/account` erases the person and everything of theirs,
-   asks for the password again, and reaches the image files as well as the rows
-   — they sit outside the database and outside any transaction. See [next-steps.md](next-steps.md)
-   items 7 and 8.
+   format ([#36](https://github.com/AaronGreiner/q2/issues/36)).
+8. **Account recovery and deletion.** Deletion exists: `DELETE /api/auth/account`
+   erases the person and everything of theirs, asks for the password again, and
+   reaches the image files as well as the rows. Recovery does not — there is no
+   password reset ([#3](https://github.com/AaronGreiner/q2/issues/3)).
 9. **DPIA** (Art. 35) if health-related content, community features or any
-   location processing are confirmed — likely for this product.
-10. **Breach process** (Art. 33/34): who is notified, by whom, within 72 hours.
+   location processing are confirmed — likely for this product
+   ([#29](https://github.com/AaronGreiner/q2/issues/29)).
+10. **Breach process** (Art. 33/34): who is notified, by whom, within 72 hours
+    ([#37](https://github.com/AaronGreiner/q2/issues/37)).
 11. **Third-country transfers** (Art. 44 ff.) if Sentry or hosting are outside
-    the EEA.
-12. **Deletion is tested; export is not.** `AccountDeletionTests` demonstrates
-    the erasure over every table that pointed at somebody, and it is the test
-    that found the images not cascading. There is still no way to *export* what
-    q2 holds about a person (Art. 20).
-13. **Re-decide `sendDefaultPii` and Session Replay** (section 4). Both are on
-    in the frontend for the Staging host. Recording every session of a real
+    the EEA ([#33](https://github.com/AaronGreiner/q2/issues/33)).
+12. **Erasure and export are tested, not only documented.**
+    `AccountDeletionTests` demonstrates the erasure over every table that
+    pointed at somebody, and it is the test that found the images not
+    cascading. The export needs the same
+    ([#36](https://github.com/AaronGreiner/q2/issues/36)).
+13. **Re-decide `sendDefaultPii` and Session Replay** (section 4). Both are
+    switched on unconditionally — `sendDefaultPii` in both halves, Session
+    Replay for every frontend session — so they apply wherever a DSN is
+    configured, not only on the Staging host. Recording every session of a real
     user, plus their IP address, needs a lawful basis, a retention period, a
     line in the privacy notice, and almost certainly a DPIA — and it is a
-    strong argument for masking staying on permanently.
-14. **Reporting needs a recipient.** With user-generated pictures, "report this"
-    is an obligation rather than a nicety, and a report landing in a table
-    nobody reads is worse than none. **Reporting now exists** and so does a
-    recipient: `IReportSink` delivers every report to the one channel this
-    deployment already watches, carrying ids and a reason but never the note or
-    the reporter
-    ([adr/0022-blocking-reporting-and-erasure.md](adr/0022-blocking-reporting-and-erasure.md)).
-    What is still missing is somebody whose job it is to answer — the seam
-    exists so that a mailbox or a console is a registration rather than a
-    rewrite. No upload is readable by a stranger meanwhile: an avatar is visible
+    strong argument for masking staying on permanently
+    ([#31](https://github.com/AaronGreiner/q2/issues/31)).
+14. **Reporting needs somebody to answer it.** With user-generated pictures,
+    "report this" is an obligation rather than a nicety, and a report landing
+    where nobody reads it is worse than none. `IReportSink` delivers every
+    report to the one channel this deployment already watches, carrying ids and
+    a reason but never the note or the reporter
+    ([adr/0022-blocking-reporting-and-erasure.md](adr/0022-blocking-reporting-and-erasure.md));
+    it is nobody's job yet to answer one, and nothing in the app reads them
+    back ([#38](https://github.com/AaronGreiner/q2/issues/38)). The seam exists
+    so that a mailbox or a console is a registration rather than a rewrite. No
+    upload is readable by a stranger meanwhile: an avatar is visible
     to anybody signed in, a proof photograph only to the people its goal is
     shared with, and a challenge contribution only to the contributor's friends
     who have contributed to the same challenge themselves.

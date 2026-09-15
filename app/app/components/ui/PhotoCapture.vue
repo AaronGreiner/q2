@@ -6,10 +6,10 @@ import { downscaleForUpload, uploadSizes } from '~/utils/images'
 /**
  * Taking a picture and handing back the stored one.
  *
- * This is what the migration plan calls `ProofCamera`, named for what it does
- * rather than for the one thing it will be used for: stage 3 uses it for a
- * profile picture and stage 4 will use the same component, unchanged, for the
- * photograph a goal's friends vote on.
+ * This is what the migration plan called `ProofCamera`, named for what it does
+ * rather than for any one thing it is used for: a profile picture, the
+ * photograph a goal's friends vote on and a contribution to the daily
+ * challenge all go through it, unchanged.
  *
  * It offers two routes, and both are needed:
  *

@@ -319,7 +319,7 @@ The consequence for everyday work:
 Nothing Capacitor-specific exists in the repository yet, and nothing should be
 added ahead of the requirement. This section is about the format the UI is
 designed and verified in, not about adding a native layer now
-([../docs/next-steps.md](../docs/next-steps.md), item 15).
+([#7](https://github.com/AaronGreiner/q2/issues/7)).
 
 ## 9a. Installable, and deliberately not offline
 

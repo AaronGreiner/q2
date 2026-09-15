@@ -13,7 +13,7 @@ to working in Claude Code.
 | work on the frontend | [app/AGENTS.md](app/AGENTS.md) |
 | work on the backend | [api/AGENTS.md](api/AGENTS.md) |
 | understand why something is the way it is | [docs/adr/](docs/adr/) |
-| know what to build next | [docs/next-steps.md](docs/next-steps.md) |
+| know what to build next | [GitHub Issues](https://github.com/AaronGreiner/q2/issues) — the only backlog |
 | release or debug a deployment | [docs/deployment.md](docs/deployment.md) |
 
 ## Things that are easy to get wrong here
