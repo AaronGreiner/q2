@@ -71,8 +71,9 @@ const identifyingKeys = [
  * and leave the token itself in the payload.
  */
 const redactionPatterns: RegExp[] = [
-  // Query strings on any URL — where tokens and ids end up.
-  /(https?:\/\/[^\s?"']+)\?[^\s"']*/gi,
+  // Query strings and fragments on any URL — where tokens and ids end up. A
+  // reset link carries its token in the fragment.
+  /(https?:\/\/[^\s?#"']+)[?#][^\s"']*/gi,
   /\bbearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
   /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g,
   // key=value / "key": "value" in free text.
@@ -98,7 +99,7 @@ export function redactText(value: string): string {
 
   for (const pattern of redactionPatterns) {
     result = result.replace(pattern, (match, ...groups) => {
-      // The URL pattern keeps the path and only replaces the query.
+      // The URL pattern keeps the path and only replaces the query or fragment.
       if (typeof groups[0] === 'string' && match.startsWith(groups[0])) {
         return groups.length >= 2 && typeof groups[1] === 'string'
           ? `${groups[0]}${groups[1]}${redactionPlaceholder}`
@@ -175,7 +176,7 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
       event.request.query_string = redactionPlaceholder
     }
     if (typeof event.request.url === 'string') {
-      event.request.url = event.request.url.split('?')[0]
+      event.request.url = event.request.url.split(/[?#]/)[0]
     }
   }
 
@@ -225,7 +226,7 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   if (scrubbed.data) {
     const data = sanitiseRecord(scrubbed.data)
     if (typeof data.url === 'string') {
-      data.url = data.url.split('?')[0]
+      data.url = data.url.split(/[?#]/)[0]
     }
     scrubbed.data = data
   }

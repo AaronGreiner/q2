@@ -1,6 +1,6 @@
 /**
- * Nothing in q2 is reachable without a session, except the two screens that
- * create one.
+ * Nothing in q2 is reachable without a session, except the screens that create
+ * one and the ones that get somebody back into theirs.
  *
  * Global rather than per-page: a new page is written by adding a file, and a
  * guard somebody has to remember to add is a guard that will eventually be
@@ -12,7 +12,16 @@
  * does is take somebody to the sign-in screen instead of showing them five
  * error states.
  */
-const publicRoutes = new Set(['/login', '/register'])
+const publicRoutes = new Set(['/login', '/register', '/forgot-password'])
+
+/**
+ * Reachable with or without a session, and never redirected away from.
+ *
+ * The diagnostics page has to work when nothing else does. A reset link is
+ * opened on whatever device its mail was read on, and somebody who happens to
+ * be signed in there must still be able to use it.
+ */
+const openRoutes = new Set(['/diagnostics', '/reset-password'])
 
 /**
  * An invite link, which by definition is followed by somebody with no session.
@@ -31,9 +40,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  // The diagnostics page deliberately exists outside the app — it is how the
-  // Sentry wiring is checked, and it must work when nothing else does.
-  if (publicRoutes.has(to.path) || to.path === '/diagnostics') {
+  if (publicRoutes.has(to.path) || openRoutes.has(to.path)) {
     const { isSignedIn, resolve } = useSession()
     await resolve()
 

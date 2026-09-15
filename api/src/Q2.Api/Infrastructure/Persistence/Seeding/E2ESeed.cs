@@ -26,7 +26,7 @@ public sealed class E2ESeed : ISeedDataSource
 
     public SeedProfile Profile => Owner;
 
-    public string Description => "5 people, 4 goals with their windows and 2 conversations with stable ids for Playwright.";
+    public string Description => "6 people, 4 goals with their windows and 2 conversations with stable ids for Playwright.";
 
     /// <summary>Shared active goal — the row E2E tests open and assert on.</summary>
     public static Guid SharedGoalId => SeedIds.Goal(Owner, 1);
@@ -51,6 +51,16 @@ public sealed class E2ESeed : ISeedDataSource
     public const string RequestingPersonName = "E2E Max";
 
     public const string SuggestedPersonName = "E2E Emma";
+
+    /// <summary>
+    /// The account the password reset spec takes back. An account of its own,
+    /// because a reset ends every session of the account it is for — doing
+    /// that to <see cref="CurrentPersonEmail"/> would sign the rest of the
+    /// suite out halfway through.
+    /// </summary>
+    public const string RecoveringPersonEmail = "e2e.rosa@" + SeedAccounts.EmailDomain;
+
+    public const string RecoveringPersonName = "E2E Rosa";
 
     public const string SharedGoalTitle = "E2E shared goal with participants";
 
@@ -93,6 +103,11 @@ public sealed class E2ESeed : ISeedDataSource
 
         var max = build.AddPerson(RequestingPersonName, "@e2e.max", "EX", AvatarColors.Teal);
         var emma = build.AddPerson(SuggestedPersonName, "@e2e.emma", "EE", AvatarColors.Red);
+
+        // Nobody's friend and nobody's request, so no other spec sees her —
+        // see RecoveringPersonEmail. Added after everybody else, so every id
+        // handed out before it stays the one the suite already navigates to.
+        build.AddPerson(RecoveringPersonName, "@e2e.rosa", "ER", AvatarColors.Teal);
 
         build.Befriend(me, jonas);
         build.Befriend(me, lena);

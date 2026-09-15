@@ -36,7 +36,7 @@ aspirational.
 | Progress | steps done, days worked on, task completion dates | A day-by-day record of somebody's habits. |
 | Time | creation timestamp, optional target date, reminder time | |
 | People | display name, handle, initials, avatar colour | Separate from the account, and the only thing other people ever see of somebody. |
-| Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). |
+| Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). A reset link's token is not stored at all — Identity derives it from the security stamp, which changes with the password — and which account was last mailed one is kept in memory for two minutes, never on disk ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)). |
 | Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
 | Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
 | Activity | what somebody did, when, and who cheered it | The subject is a goal or task title, so it inherits their treatment. |
@@ -108,6 +108,11 @@ the credential and nothing else: it is never shown to another person, never
 searchable — `GET /api/friends/search` matches display names and handles only,
 which is deliberate, because matching addresses would turn it into a way to
 check whether a given address has an account here — and never sent to Sentry.
+It is also where a reset link goes: asking for one hands the address and the
+link to the mail provider, a processor with the same need for an agreement as
+Sentry ([#33](https://github.com/AaronGreiner/q2/issues/33)). The mail names
+nobody and carries nothing but the link
+([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)).
 
 Every name in the database is invented — but a goal description, a task title
 and a message all can identify somebody, so all three are treated as personal
@@ -294,7 +299,8 @@ far it has got.
 3. **Privacy notice** (Art. 13) in plain language: what, why, how long, who
    with, which rights ([#34](https://github.com/AaronGreiner/q2/issues/34)).
 4. **Data processing agreements** (Art. 28) with every processor, including
-   Sentry, and a documented decision on their data region and retention
+   Sentry and the mail provider, and a documented decision on their data region
+   and retention
    ([#33](https://github.com/AaronGreiner/q2/issues/33)).
 5. **Retention policy**: how long goals, activity history and Sentry events are
    kept, and automated deletion when that period expires. The bell's lines are
@@ -308,8 +314,12 @@ far it has got.
    format ([#36](https://github.com/AaronGreiner/q2/issues/36)).
 8. **Account recovery and deletion.** Deletion exists: `DELETE /api/auth/account`
    erases the person and everything of theirs, asks for the password again, and
-   reaches the image files as well as the rows. Recovery does not — there is no
-   password reset ([#3](https://github.com/AaronGreiner/q2/issues/3)).
+   reaches the image files as well as the rows. Recovery exists too: a link
+   mailed to the account's address sets a new password, works once and for an
+   hour, and ends every session of the account
+   ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)).
+   It needs a mail account, which Production cannot start without and Staging
+   does not have yet ([#3](https://github.com/AaronGreiner/q2/issues/3)).
 9. **DPIA** (Art. 35) if health-related content, community features or any
    location processing are confirmed — likely for this product
    ([#29](https://github.com/AaronGreiner/q2/issues/29)).

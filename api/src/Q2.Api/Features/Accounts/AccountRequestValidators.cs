@@ -4,7 +4,8 @@ using Q2.Api.Features.People;
 namespace Q2.Api.Features.Accounts;
 
 /// <summary>
-/// Validates the shape of a registration before Identity ever sees it.
+/// Validates the shape of the requests under <c>/api/auth</c> before Identity
+/// ever sees them.
 /// </summary>
 /// <remarks>
 /// Identity validates too, and its answers are perfectly correct — they are
@@ -19,6 +20,18 @@ namespace Q2.Api.Features.Accounts;
 /// </remarks>
 public static class AccountRequestValidator
 {
+    /// <summary>
+    /// What every refused reset link is told, whatever the reason: expired,
+    /// used, tampered with, or never one of ours.
+    /// </summary>
+    public const string InvalidResetLink = "This link is invalid, has expired, or has been used already.";
+
+    /// <summary>
+    /// Far longer than any link q2 writes. A bound, like the password's, so a
+    /// megabyte of text is refused before anything decodes it.
+    /// </summary>
+    public const int MaximumResetTokenLength = 2048;
+
     /// <summary>Returns field name → messages. An empty dictionary means "valid".</summary>
     public static Dictionary<string, string[]> Validate(RegisterRequest request)
     {
@@ -35,24 +48,7 @@ public static class AccountRequestValidator
         }
 
         AddEmailErrors(request.Email, nameof(request.Email), errors);
-
-        var password = request.Password ?? string.Empty;
-        if (password.Length == 0)
-        {
-            errors[nameof(request.Password)] = ["A password is required."];
-        }
-        else if (password.Length < AccountPolicy.MinimumPasswordLength)
-        {
-            errors[nameof(request.Password)] =
-                [$"A password must be at least {AccountPolicy.MinimumPasswordLength} characters long."];
-        }
-        else if (password.Length > AccountPolicy.MaximumPasswordLength)
-        {
-            // Not a security rule — a bound, so a megabyte of text cannot be
-            // handed to the hasher.
-            errors[nameof(request.Password)] =
-                [$"A password may be at most {AccountPolicy.MaximumPasswordLength} characters long."];
-        }
+        AddNewPasswordErrors(request.Password, nameof(request.Password), errors);
 
         return errors;
     }
@@ -77,6 +73,55 @@ public static class AccountRequestValidator
         }
 
         return errors;
+    }
+
+    /// <summary>Validates a request for a reset link: an address, and nothing about whether it has an account.</summary>
+    public static Dictionary<string, string[]> Validate(ForgotPasswordRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        AddEmailErrors(request.Email, nameof(request.Email), errors);
+
+        return errors;
+    }
+
+    /// <summary>Validates that a token came with a new password, and that the password would be accepted.</summary>
+    /// <remarks>
+    /// The same password rule as registration, checked before the token is
+    /// used, so a password that would be refused never spends the link.
+    /// </remarks>
+    public static Dictionary<string, string[]> Validate(ResetPasswordRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(request.Token) || request.Token.Length > MaximumResetTokenLength)
+        {
+            errors[nameof(request.Token)] = [InvalidResetLink];
+        }
+
+        AddNewPasswordErrors(request.Password, nameof(request.Password), errors);
+
+        return errors;
+    }
+
+    private static void AddNewPasswordErrors(string? value, string field, Dictionary<string, string[]> errors)
+    {
+        var password = value ?? string.Empty;
+
+        if (password.Length == 0)
+        {
+            errors[field] = ["A password is required."];
+        }
+        else if (password.Length < AccountPolicy.MinimumPasswordLength)
+        {
+            errors[field] = [$"A password must be at least {AccountPolicy.MinimumPasswordLength} characters long."];
+        }
+        else if (password.Length > AccountPolicy.MaximumPasswordLength)
+        {
+            // Not a security rule — a bound, so a megabyte of text cannot be
+            // handed to the hasher.
+            errors[field] = [$"A password may be at most {AccountPolicy.MaximumPasswordLength} characters long."];
+        }
     }
 
     private static void AddEmailErrors(string? value, string field, Dictionary<string, string[]> errors)

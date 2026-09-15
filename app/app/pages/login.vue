@@ -7,6 +7,9 @@
  *
  * `?next=` carries where somebody was heading before the middleware sent them
  * here, so a link to a chat still opens that chat after signing in.
+ *
+ * The address is shared with "forgot password" and with the end of a reset
+ * (`useAuthEmail`), so neither asks for it again.
  */
 import { toApiFailure, type ApiFailure } from '~/api/errors'
 import { isApiError } from '~/api/errors'
@@ -18,7 +21,7 @@ const route = useRoute()
 const { public: config } = useRuntimeConfig()
 const { login } = useSession()
 
-const email = ref('')
+const email = useAuthEmail()
 const password = ref('')
 const isSubmitting = ref(false)
 const failure = ref<ApiFailure | null>(null)
@@ -56,6 +59,10 @@ async function onSubmit() {
 
   try {
     await login({ email: email.value.trim(), password: password.value })
+
+    // Signed in: the next person to open the sign-in screen on this device
+    // should not find this address waiting in it.
+    email.value = ''
 
     // Only ever a path from our own middleware, never an absolute URL: a
     // `next` somebody could point at another host would turn the sign-in
@@ -159,8 +166,14 @@ useHead({ title: () => t.value.auth.signInHeading })
       </NuxtLink>
     </p>
 
-    <p class="mt-3 text-center text-xs text-(--ui-text-muted)">
-      {{ t.auth.noRecovery }}
+    <p class="mt-1 text-center text-sm">
+      <NuxtLink
+        to="/forgot-password"
+        class="inline-flex min-h-11 items-center font-bold text-(--ui-text-muted) underline underline-offset-2 hover:text-(--ui-text)"
+        data-testid="to-forgot-password"
+      >
+        {{ t.auth.forgotPassword }}
+      </NuxtLink>
     </p>
 
     <section

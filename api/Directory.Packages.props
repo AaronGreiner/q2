@@ -21,6 +21,15 @@
   </ItemGroup>
 
   <!--
+    The SMTP client (docs/adr/0026-mail-and-password-reset.md). The framework's
+    own System.Net.Mail.SmtpClient is the alternative, and Microsoft's
+    documentation advises against it for new code.
+  -->
+  <ItemGroup Label="Mail">
+    <PackageVersion Include="MailKit" Version="4.18.0" />
+  </ItemGroup>
+
+  <!--
     Transitive pins that only exist to pull known-vulnerable dependencies up to
     a patched version. Remove an entry as soon as the direct dependency ships a
     version that already references something safe.

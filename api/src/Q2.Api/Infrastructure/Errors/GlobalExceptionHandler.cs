@@ -46,7 +46,7 @@ public sealed class GlobalExceptionHandler(
             DomainValidationException validation => ValidationProblem(validation),
             ResourceNotFoundException notFound => NotFoundProblem(notFound),
             AuthenticationRequiredException unauthenticated => UnauthenticatedProblem(unauthenticated),
-            AccessDeniedException denied => ForbiddenProblem(denied.Message),
+            AccessDeniedException denied => ForbiddenProblem(denied.Message, denied.Reason),
             DatabaseResetNotAllowedException => ForbiddenProblem(
                 "This operation is not permitted in the current environment."),
             BadHttpRequestException badRequest => MalformedRequestProblem(badRequest),
@@ -113,13 +113,24 @@ public sealed class GlobalExceptionHandler(
         return problem;
     }
 
-    private ProblemDetails ForbiddenProblem(string detail) => new()
+    private static ProblemDetails ForbiddenProblem(string detail, string? reason = null)
     {
-        Title = "Operation not permitted",
-        Detail = detail,
-        Status = StatusCodes.Status403Forbidden,
-        Type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.4",
-    };
+        var problem = new ProblemDetails
+        {
+            Title = "Operation not permitted",
+            Detail = detail,
+            Status = StatusCodes.Status403Forbidden,
+            Type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.4",
+        };
+
+        // As for a 401: structure the client can word, rather than a sentence.
+        if (reason is not null)
+        {
+            problem.Extensions["reason"] = reason;
+        }
+
+        return problem;
+    }
 
     private ProblemDetails MalformedRequestProblem(BadHttpRequestException exception)
     {

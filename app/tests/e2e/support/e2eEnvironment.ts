@@ -48,6 +48,13 @@ export const databasePath = join(runDirectory, `q2-e2e-${runId}.db`)
 export const sentryEventsPath = join(runDirectory, 'sentry-events.jsonl')
 
 /**
+ * Where the API writes the mails it would have sent — one `.eml` each, because
+ * E2E runs with `Q2:Mail:Transport=File`. The password reset spec reads its
+ * link out of here the way a person would read it out of their inbox.
+ */
+export const mailDirectory = join(runDirectory, 'mail')
+
+/**
  * The signed-in session every spec starts from.
  *
  * globalSetup signs in through the real form once and writes the cookie here;
@@ -60,6 +67,15 @@ export const storageStatePath = join(runDirectory, 'storage-state.json')
 export const e2eAccount = {
   email: 'e2e.mara@kudos.example',
   password: 'kudos-demo-2026',
+} as const
+
+/**
+ * The seeded account the password reset spec takes back — nobody else's
+ * sign-in, because a reset ends every session of the account it is for. See
+ * `RecoveringPersonEmail` in E2ESeed.cs.
+ */
+export const recoveringAccount = {
+  email: 'e2e.rosa@kudos.example',
 } as const
 
 /**
@@ -84,6 +100,12 @@ export function apiEnvironment(): Record<string, string> {
     // separate reset would fight the server for the same file.
     Database__ResetOnStartup: 'true',
     Cors__AllowedOrigins__0: appBaseUrl,
+
+    // Every link a mail carries points at this run's app, and every mail lands
+    // in this run's directory rather than in the developer's api/.data/mail.
+    Q2__PublicAppUrl: appBaseUrl,
+    Q2__Mail__FileDirectory: mailDirectory,
+
     SENTRY_TEST_TRANSPORT: 'recording',
     SENTRY_TEST_TRANSPORT_FILE: sentryEventsPath,
     Sentry__Release: 'q2@e2e',

@@ -15,6 +15,8 @@ export type ApiErrorKind
     | 'notFound'
   /** 409 — the request conflicts with the current state. */
     | 'conflict'
+  /** 429 — too many requests in a short while; waiting is the whole answer. */
+    | 'rateLimited'
   /** 401/403 — no session, wrong credentials, or not yours to touch. */
     | 'unauthorized'
   /** The request never got an answer: offline, DNS, CORS, timeout. */
@@ -29,6 +31,8 @@ const expectedKinds: ReadonlySet<ApiErrorKind> = new Set<ApiErrorKind>([
   'notFound',
   'conflict',
   'unauthorized',
+  // A limit doing its job — asking for too many reset links, say — is not a defect.
+  'rateLimited',
   // A network failure is nearly always the user's connectivity, not a defect.
   // Reporting it would drown the real issues in noise.
   'network',
@@ -127,6 +131,7 @@ function kindForStatus(status: number): ApiErrorKind {
   if (status === 401 || status === 403) return 'unauthorized'
   if (status === 404) return 'notFound'
   if (status === 409) return 'conflict'
+  if (status === 429) return 'rateLimited'
   if (status >= 500) return 'server'
   return 'unknown'
 }

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi;
 using Q2.Api.Features.Accounts;
@@ -87,6 +88,10 @@ public static class ApiRegistration
          */
         builder.Services.AddSingleton<IReportSink, ObservabilityReportSink>();
 
+        // Which account was last mailed a reset link, and when. The process's
+        // own memory, like LiveConnections: q2 is one process on one host.
+        builder.Services.AddSingleton<PasswordResetCooldown>();
+
         // Scoped, all of them: each holds a DbContext for the duration of one
         // request, and CurrentPerson caches the answer to "who is asking?" for
         // exactly that long.
@@ -101,6 +106,8 @@ public static class ApiRegistration
         builder.Services.AddScoped<PushSubscriptionService>();
         builder.Services.AddScoped<ReportService>();
         builder.Services.AddScoped<AccountService>();
+        builder.Services.AddScoped<PasswordResetService>();
+        builder.Services.AddScoped<PasswordResetMailer>();
         builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();
         builder.Services.AddScoped<ImageService>();
@@ -138,8 +145,8 @@ public static class ApiRegistration
          * The things in q2 that happen without somebody asking for them:
          * windows that fall due while nobody is looking, the queue of prompts
          * that has to be a few days deep before anybody opens the app, the bell
-         * forgetting what is a month old — and notifications being delivered
-         * after the request that caused them has already answered.
+         * forgetting what is a month old — and notifications and reset mails
+         * being sent after the request that caused them has already answered.
          *
          * None of them runs in AutomatedTest: integration tests assert on exact
          * rows, and a job writing between the arrange and the assert would make
@@ -150,6 +157,7 @@ public static class ApiRegistration
         if (builder.Environment.IsAutomatedTest())
         {
             builder.Services.AddSingleton<INotificationQueue, InlineNotificationQueue>();
+            builder.Services.AddSingleton<IPasswordResetQueue, InlinePasswordResetQueue>();
         }
         else
         {
@@ -160,6 +168,10 @@ public static class ApiRegistration
             builder.Services.AddSingleton<NotificationQueue>();
             builder.Services.AddSingleton<INotificationQueue>(provider => provider.GetRequiredService<NotificationQueue>());
             builder.Services.AddHostedService<NotificationDeliveryWorker>();
+
+            builder.Services.AddSingleton<PasswordResetQueue>();
+            builder.Services.AddSingleton<IPasswordResetQueue>(provider => provider.GetRequiredService<PasswordResetQueue>());
+            builder.Services.AddHostedService<PasswordResetMailWorker>();
         }
 
         builder.Services.ConfigureHttpJsonOptions(options =>
@@ -242,13 +254,37 @@ public static class ApiRegistration
                 .AllowCredentials();
         }));
 
+        /*
+         * The caller's own address, not the reverse proxy's.
+         *
+         * The API listens on 127.0.0.1 behind Caddy
+         * (docs/adr/0008-deployment-topology.md), so without this every request
+         * would come from 127.0.0.1 — and the limit on reset links would be one
+         * budget shared by everybody. Only X-Forwarded-For, and only from a
+         * proxy on this machine: the defaults trust loopback and nothing else,
+         * and read only the last entry, which is the one the proxy wrote. It is
+         * also the address a backend Sentry event carries (SendDefaultPii) — the
+         * client's, as docs/privacy.md describes, rather than the proxy's.
+         *
+         * X-Forwarded-Proto is left alone on purpose: applying it would change
+         * how the session cookie is issued, which is a decision of its own.
+         */
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor);
+
+        builder.Services.AddPasswordResetRateLimit(builder.Configuration);
+
         return builder;
     }
 
     /// <summary>Middleware, in the order it has to run.</summary>
     public static WebApplication UseQ2Pipeline(this WebApplication app)
     {
-        // First, so everything after it produces Problem Details instead of a
+        // Before anything reads who the caller is: the limit on reset links,
+        // and the request data Sentry attaches to an event.
+        app.UseForwardedHeaders();
+
+        // Next, so everything after it produces Problem Details instead of a
         // raw stack trace — including in Development, where the developer
         // exception page would otherwise leak internals to the browser.
         app.UseExceptionHandler();
@@ -260,6 +296,10 @@ public static class ApiRegistration
         app.UseSentryTracing();
 
         app.UseCors(CorsPolicyName);
+
+        // After CORS, so a refused request still carries the headers a browser
+        // needs to read the refusal; before the endpoints, which name the limit.
+        app.UseRateLimiter();
 
         // After CORS, before the endpoints: a rejected pre-flight must not
         // depend on a session it was never going to send.

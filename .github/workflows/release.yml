@@ -38,6 +38,10 @@ env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
   PUBLIC_URL: https://q2.aarongreiner.dev
+  # The sender of every mail q2 sends. The provider behind the MAIL_SMTP_*
+  # secrets has to be allowed to send for this domain (docs/deployment.md
+  # section 5), and every link in a mail starts with PUBLIC_URL.
+  MAIL_FROM: noreply@q2.aarongreiner.dev
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -273,9 +277,32 @@ jobs:
         env:
           SENTRY_DSN_API: ${{ secrets.SENTRY_DSN_API }}
           SENTRY_DSN_APP: ${{ secrets.SENTRY_DSN_APP }}
+          MAIL_SMTP_HOST: ${{ secrets.MAIL_SMTP_HOST }}
+          MAIL_SMTP_PORT: ${{ secrets.MAIL_SMTP_PORT }}
+          MAIL_SMTP_USERNAME: ${{ secrets.MAIL_SMTP_USERNAME }}
+          MAIL_SMTP_PASSWORD: ${{ secrets.MAIL_SMTP_PASSWORD }}
         run: |
           set -euo pipefail
           umask 077
+
+          # Mail: SMTP once the provider's secrets exist, off until then —
+          # which Staging may be and Production may not (MailSettings).
+          if [ -n "$MAIL_SMTP_HOST" ]; then
+            mail_transport=Smtp
+          else
+            mail_transport=Off
+            echo "::warning::MAIL_SMTP_HOST is not configured - Staging runs without password reset. See docs/deployment.md section 5."
+          fi
+
+          # The login is written in single quotes, so a quote or a line break
+          # in it would end the value early — and systemd and deploy.sh would
+          # each read the rest differently. Refused rather than rendered.
+          case "$MAIL_SMTP_USERNAME$MAIL_SMTP_PASSWORD" in
+            *\'*|*$'\n'*)
+              echo "::error::MAIL_SMTP_USERNAME and MAIL_SMTP_PASSWORD must not contain a single quote or a line break."
+              exit 1
+              ;;
+          esac
 
           cat > upload/api.env <<EOF
           ASPNETCORE_ENVIRONMENT=Staging
@@ -293,6 +320,13 @@ jobs:
           Sentry__TracesSampleRate=1.0
           Sentry__EnableLogs=true
           Sentry__EnableMetrics=true
+          Q2__PublicAppUrl=${{ env.PUBLIC_URL }}
+          Q2__Mail__Transport=$mail_transport
+          Q2__Mail__From=${{ env.MAIL_FROM }}
+          Q2__Mail__Smtp__Host=$MAIL_SMTP_HOST
+          Q2__Mail__Smtp__Port=${MAIL_SMTP_PORT:-587}
+          Q2__Mail__Smtp__UserName='$MAIL_SMTP_USERNAME'
+          Q2__Mail__Smtp__Password='$MAIL_SMTP_PASSWORD'
           EOF
 
           cat > upload/app.env <<EOF

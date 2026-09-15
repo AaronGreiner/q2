@@ -158,8 +158,10 @@ public class DatabaseSeederTests
         var people = await context.People.CountAsync(TestContext.Current.CancellationToken);
         var accounts = await context.Users.CountAsync(TestContext.Current.CancellationToken);
 
+        // The E2E world is seeded last, and it has six people — the sixth is
+        // the one the password reset spec takes back.
         Assert.Equal(people, accounts);
-        Assert.Equal(5, people);
+        Assert.Equal(6, people);
     }
 
     [Fact]

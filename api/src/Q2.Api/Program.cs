@@ -12,6 +12,7 @@ using Q2.Api.Features.Profile;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure;
+using Q2.Api.Infrastructure.Mail;
 using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
 
@@ -23,6 +24,10 @@ builder.AddQ2Persistence();
 // After persistence: Identity's stores are registered against Q2DbContext.
 builder.AddQ2Authentication();
 builder.AddQ2ApiServices();
+
+// Refuses to start on mail settings it cannot honour — Production without
+// SMTP, a mail file on a protected host. See MailSettings.
+builder.AddQ2Mail();
 
 var app = builder.Build();
 

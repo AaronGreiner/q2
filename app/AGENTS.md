@@ -102,7 +102,7 @@ Current components, by folder:
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen; the bar's middle slot creates rather than navigating |
-| `AuthScreen` | the frame the sign-in and sign-up screens share |
+| `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
 | `GoalCard` `GoalTile` | one goal in the list, and in the horizontal strip |
@@ -126,7 +126,7 @@ app/api/generated/schema.d.ts   GENERATED — never edit
 app/api/types.ts                named re-exports of the contract
 app/api/errors.ts               ApiError, ApiFailure, normalisation
 app/api/client.ts               the fetch wrapper that normalises every failure
-app/api/accounts.ts             register, sign in, sign out, session
+app/api/accounts.ts             register, sign in, sign out, session, password reset
 app/api/goals.ts                goals, what is due today, and delivering a proof
 app/api/challenges.ts           the prompt of the day, the room, and your archive
 app/api/moderation.ts           reporting, blocking, and the invite link
@@ -173,8 +173,17 @@ app/composables/useQ2Api.ts     the configured client
 `middleware/auth.global.ts` guards every route. It is global rather than
 per-page on purpose: a new screen is a new file, and a guard somebody has to
 remember to add is the one that will be missing from exactly the screen that
-needed it. `/login`, `/register` and `/diagnostics` opt out, explicitly and
-visibly.
+needed it. `/login`, `/register` and `/forgot-password` opt out and send
+somebody who is signed in home; `/diagnostics` and `/reset-password` opt out
+without sending anybody anywhere, because a reset link is opened on whatever
+device its mail was read on. Both lists are explicit and visible.
+
+**A reset token is never in the address bar when anything could record it.** It
+arrives as `/reset-password#token=…`, and an inline script in that page's
+`<head>` lifts it out before the bundle, Sentry or the router run
+(`utils/resetLink.ts`). Anything that reads the address earlier than that script
+could record a key to somebody's account
+([../docs/adr/0026-mail-and-password-reset.md](../docs/adr/0026-mail-and-password-reset.md)).
 
 It is convenience, not security — the API refuses every request without a
 session on its own. All the middleware does is take somebody to the sign-in
@@ -202,6 +211,7 @@ with a `kind`:
 | `validation` | 400 | yes |
 | `notFound` | 404 | yes |
 | `conflict` | 409 | yes |
+| `rateLimited` | 429 — asked too often, for reset links for instance | yes |
 | `unauthorized` | 401/403 (for later) | yes |
 | `network` | offline, DNS, CORS, timeout | yes |
 | `server` | 5xx | **no** |

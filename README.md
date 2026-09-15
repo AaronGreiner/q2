@@ -31,7 +31,7 @@ Fifteen screens, and everything behind them:
 
 | Screen | What it does |
 | --- | --- |
-| **Anmeldung** | Sign in, or create an account with a name, an email address and a password |
+| **Anmeldung** | Sign in, or create an account with a name, an email address and a password — or ask for a link that sets a new one |
 | **Start** | Streak with the current week, how much of today is delivered, the photographs waiting for your verdict, the windows that are open, a strip of goals, what friends have been up to, and a bell that counts what concerns you |
 | **Ziele** | What is due today under one tab, the goals themselves under the other; a bottom sheet creates a goal with one of four schedules |
 | **Archiv** | The goals that have stopped, kept with their history and photographs — and the only place one can be deleted for good |
@@ -49,10 +49,10 @@ Fifteen screens, and everything behind them:
 
 | Area | What exists |
 | --- | --- |
-| Accounts | Registration and sign-in on ASP.NET Core Identity, a http-only session cookie, lockout after repeated failures; the account holds credentials only and points at the person it signs in as |
+| Accounts | Registration and sign-in on ASP.NET Core Identity, a http-only session cookie, lockout after repeated failures; the account holds credentials only and points at the person it signs in as. A forgotten password is reset through a link mailed to the account's address — valid once and for an hour, and the end of every session the account had. Outside Staging and Production nothing is sent: each mail is written to `api/.data/mail` — see [docs/adr/0026](docs/adr/0026-mail-and-password-reset.md) |
 | Domain | `Person` (with the time zone their days are counted in and an optional profile picture), `Goal` with a `GoalSchedule` and a chain of `GoalInstance` windows that can be delivered or missed, streaks and balances derived from those windows, two-sided friendships, activity and kudos, conversations and messages, `Challenge` with one prompt a day and a contribution per person, badges, preferences — all invariants enforced in the model |
 | Access | Every feature endpoint requires a session, and every read is scoped to the caller: your goals, your windows, your friends' feed, the conversations you are in |
-| API | Register (optionally through an invite link)/sign in/sign out/session/delete the account; goals with their schedules and windows, what is due today, the archive of the ones that stopped, pause and objection, feed and kudos, friends with search and requests, chats including starting, muting and leaving them, profile (read and update) and settings; images with an upload, a session-checked read and a delete; the daily challenge with today's room, a contribution, a withdrawal, reactions and your own archive; blocking, unblocking and the list of who you blocked; reporting a person, a photograph or a contribution; your invite code and a way to replace it; the bell and every badge count in one read; the push key, subscribing this browser and unsubscribing it; a live connection at `/api/live` that tells an open app what changed and hands it what would otherwise have been a push; `GET /health`, OpenAPI document, Problem Details for every error. Deliberately **no ranking endpoint** — see [docs/adr/0015](docs/adr/0015-qdos-design-language.md) |
+| API | Register (optionally through an invite link)/sign in/sign out/session/delete the account/ask for a reset link/set a new password with it; goals with their schedules and windows, what is due today, the archive of the ones that stopped, pause and objection, feed and kudos, friends with search and requests, chats including starting, muting and leaving them, profile (read and update) and settings; images with an upload, a session-checked read and a delete; the daily challenge with today's room, a contribution, a withdrawal, reactions and your own archive; blocking, unblocking and the list of who you blocked; reporting a person, a photograph or a contribution; your invite code and a way to replace it; the bell and every badge count in one read; the push key, subscribing this browser and unsubscribing it; a live connection at `/api/live` that tells an open app what changed and hands it what would otherwise have been a push; `GET /health`, OpenAPI document, Problem Details for every error. Deliberately **no ranking endpoint** — see [docs/adr/0015](docs/adr/0015-qdos-design-language.md) |
 | Images | Uploaded pictures are stored as files behind `IImageStore`, never given a public URL, never cached, and validated from their own bytes rather than from what the upload claimed — see [docs/adr/0017-image-storage.md](docs/adr/0017-image-storage.md) |
 | The way out | A goal can be set aside for up to seven days with a reason its friends read, twice a month. The window it suspends counts as neither kept nor missed, and two friends objecting put it back. A goal can also be stopped for good — carried through or given up — and it keeps its whole record either way; deleting is a separate decision, from the archive only, and it takes the photographs and the chat with it. See [docs/adr/0020](docs/adr/0020-pause-and-archive.md) |
 | Warning and record | In the evening, a goal's friends are told once that its window is about to be missed — never before 20:00 in the owner's own zone, and at most once per window. A missed window is counted rather than announced, and the record shows on a profile scoped to the to-dos the two people share — see [docs/adr/0019-warning-and-balance.md](docs/adr/0019-warning-and-balance.md) |
@@ -62,7 +62,7 @@ Fifteen screens, and everything behind them:
 | Notifications | One pipeline for everything a person is told: messages, friend requests, a photograph waiting for their verdict, the verdict on their own, kudos and reactions, invitations and pauses, a friend about to miss, the daily challenge. Each has one place — its own screen with a count, or the bell. An open app hears about it over a WebSocket, reads again what changed, and shows what concerns the person as a banner at the top — never over the screen it is about; a closed one gets Web Push with VAPID, written against RFC 8291/8292 rather than pulled in as a dependency, so a push service carries bytes it cannot read. The server sends parts and the device writes the sentence, in the language the person chose. One switch per kind decides what may interrupt — a push or a banner — not what the bell keeps; a conversation can be muted; quiet hours default to 22:00–07:00 and drop rather than hold; empty VAPID keys turn push off, which is the default — see [docs/adr/0024](docs/adr/0024-one-notification-pipeline.md) and [docs/adr/0023](docs/adr/0023-web-push.md) |
 | Arriving | An invite link — 96 random bits, replaceable, never the handle — makes whoever follows it a friend at registration. That plus the daily challenge is what a new account has on its first day |
 | Daily challenge | One prompt a day, the same for everybody, published from a queue that is written a week ahead — there is no daily editorial shift. It pays into no streak and knows no "missed", so nobody votes on it. Everybody sees a room made of their own friends, covered until they have contributed themselves; the archive keeps your own contributions and nobody else's — see [docs/adr/0021-daily-challenge.md](docs/adr/0021-daily-challenge.md) |
-| Frontend | Sign-in and registration, the six screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
+| Frontend | Sign-in, registration and password reset, the six screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark; mobile-first, developed and tested at phone width, keyboard accessible |
 | Installable | A web app manifest, the Q icon set and a service worker make q2 installable from the browser: its own window, an icon on the home screen, and the build already on the device. The worker caches the build output and nothing else — see [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md) |
 | Contract | OpenAPI exported from the code, TypeScript types generated from it, both committed |
 | Database | SQLite via EF Core, migrations, six environments, four seed profiles, guarded destructive resets |
@@ -79,14 +79,16 @@ truth, not this table.
 These are absent today, and knowingly so. The ones that are planned link their
 issue; the others are decisions and say why:
 
-- **Account recovery.** No password reset
-  ([#3](https://github.com/AaronGreiner/q2/issues/3)), no email confirmation
-  ([#5](https://github.com/AaronGreiner/q2/issues/5)) and no two-factor
-  ([#6](https://github.com/AaronGreiner/q2/issues/6)). The first two need to
-  send mail, and nothing here needs a running service to develop against. A
-  forgotten password currently means a new account — the first gap to close
-  before anybody who is not a developer signs up. See
-  [docs/adr/0011-authentication-with-identity.md](docs/adr/0011-authentication-with-identity.md).
+- **Account security beyond a password reset.** A forgotten password can be
+  reset through a mailed link
+  ([docs/adr/0026](docs/adr/0026-mail-and-password-reset.md)), but an address
+  is not confirmed at registration
+  ([#5](https://github.com/AaronGreiner/q2/issues/5)) and there is no
+  two-factor ([#6](https://github.com/AaronGreiner/q2/issues/6)). Staging has
+  no password reset until its mail secrets are set
+  ([#3](https://github.com/AaronGreiner/q2/issues/3),
+  [docs/deployment.md](docs/deployment.md) section 5); Production refuses to
+  start without them.
 - **Roles and sharing rules.** Access control exists and is per person: your
   data is yours, a shared goal is readable by the people it is shared with, and
   a conversation by the people in it. What does not exist is a *second kind* of

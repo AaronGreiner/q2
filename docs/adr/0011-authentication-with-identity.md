@@ -1,6 +1,8 @@
 # 0011 — Accounts with ASP.NET Core Identity and a session cookie
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0026](0026-mail-and-password-reset.md): q2
+sends mail now, and a forgotten password is reset through a mailed link. Email
+confirmation and two-factor authentication are still not built.
 **Date:** 2026-07-31
 **Supersedes:** [0006 — Authentication deliberately deferred](0006-authentication-deferred.md)
 and [0009 — One known person, flagged in the database](0009-single-known-person.md).

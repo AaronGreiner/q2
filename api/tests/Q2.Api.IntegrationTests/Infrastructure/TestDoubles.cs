@@ -1,4 +1,5 @@
 using Q2.Api.Features.Notifications;
+using Q2.Api.Infrastructure.Mail;
 using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.IntegrationTests.Infrastructure;
@@ -119,5 +120,57 @@ public sealed class RecordingPushSender : IPushSender
 
         IsConfigured = true;
         Outcome = PushOutcome.Delivered;
+    }
+}
+
+/// <summary>
+/// A mail transport that records instead of sending.
+/// </summary>
+/// <remarks>
+/// What is worth testing about a reset mail is who gets one, in which language,
+/// and whether its link works — none of which needs an SMTP server.
+/// <see cref="IsConfigured"/> is true unless a test says otherwise, which is
+/// how the "this deployment sends no mail" answer is reached.
+/// </remarks>
+public sealed class RecordingMailTransport : IMailTransport
+{
+    private readonly List<OutgoingMail> _sent = [];
+
+    private readonly Lock _gate = new();
+
+    public bool IsConfigured { get; set; } = true;
+
+    /// <summary>Everything this host would have sent, in order.</summary>
+    public IReadOnlyList<OutgoingMail> Sent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _sent];
+            }
+        }
+    }
+
+    public Task SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(mail);
+
+        lock (_gate)
+        {
+            _sent.Add(mail);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public void Reset()
+    {
+        lock (_gate)
+        {
+            _sent.Clear();
+        }
+
+        IsConfigured = true;
     }
 }

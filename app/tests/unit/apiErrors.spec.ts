@@ -20,6 +20,7 @@ describe('normalizeApiError', () => {
     [403, 'unauthorized'],
     [404, 'notFound'],
     [409, 'conflict'],
+    [429, 'rateLimited'],
     [500, 'server'],
     [503, 'server'],
     [418, 'unknown'],
@@ -78,6 +79,8 @@ describe('ApiError.isExpected', () => {
     ['notFound', true],
     ['conflict', true],
     ['unauthorized', true],
+    // A limit doing its job, not a defect worth an issue.
+    ['rateLimited', true],
     ['network', true],
     ['server', false],
     ['unknown', false],
@@ -112,7 +115,7 @@ describe('isApiError', () => {
 
 describe('the copy behind a failure', () => {
   const kinds: ApiErrorKind[] = [
-    'validation', 'notFound', 'conflict', 'unauthorized', 'network', 'server', 'unknown',
+    'validation', 'notFound', 'conflict', 'rateLimited', 'unauthorized', 'network', 'server', 'unknown',
   ]
 
   it('exists in both languages for every kind', () => {

@@ -101,6 +101,10 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
   on request, and every word of it lives in `app/app/i18n/messages.ts`. No
   component or page may contain a literal user-facing string; see
   [docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
+  The one exception is a mail, which is read with no app running to word it:
+  its German and English live in
+  `api/src/Q2.Api/Features/Accounts/PasswordResetMail.cs`
+  ([docs/adr/0026-mail-and-password-reset.md](docs/adr/0026-mail-and-password-reset.md)).
 - **Comments** explain *why*, not *what*. A comment that restates the code is
   noise; a comment that records a decision, a constraint or a trap is valuable.
 - **Backlog.** Remaining work is a GitHub issue, never a list in a document. A
@@ -129,8 +133,9 @@ Playwright, `@sentry/nuxt`, `@vite-pwa/nuxt` with the `workbox-*` runtime it
 needs ([docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md)),
 `@microsoft/signalr` for the live connection
 ([docs/adr/0024-one-notification-pipeline.md](docs/adr/0024-one-notification-pipeline.md));
-ASP.NET Core (SignalR included), EF Core, SQLite, `Sentry.AspNetCore`, xunit,
-and `Microsoft.AspNetCore.SignalR.Client` in the integration tests only.
+ASP.NET Core (SignalR included), EF Core, SQLite, `Sentry.AspNetCore`, MailKit
+for SMTP ([docs/adr/0026-mail-and-password-reset.md](docs/adr/0026-mail-and-password-reset.md)),
+xunit, and `Microsoft.AspNetCore.SignalR.Client` in the integration tests only.
 
 Not wanted without a discussion first:
 

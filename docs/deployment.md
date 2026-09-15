@@ -160,6 +160,9 @@ server.
 | `SENTRY_PROJECT_APP` | Frontend source map upload |
 | `SENTRY_PROJECT_API` | Backend debug symbol and source upload |
 | `SENTRY_TEST_DSN` | Optional canary |
+| `MAIL_SMTP_HOST` | The mail provider's SMTP server. Without it Staging runs with password reset off, and the release says so |
+| `MAIL_SMTP_PORT` | Optional. 587 with STARTTLS unless set; 465 means TLS from the first byte |
+| `MAIL_SMTP_USERNAME`, `MAIL_SMTP_PASSWORD` | The SMTP login. Neither may contain a single quote or a line break — the release refuses to render them |
 
 Without `SENTRY_AUTH_TOKEN` both builds still succeed and the workflow says so
 loudly in each job: no source maps and no debug symbols are uploaded, so stack
@@ -167,6 +170,17 @@ traces in Sentry have no line numbers. The frontend maps are additionally
 deleted from the artefact in that case — everything under `.output/public` is
 publicly fetchable, so a map that reached the server would be readable by
 anyone.
+
+**Mail** goes out as `noreply@q2.aarongreiner.dev` (`MAIL_FROM` at the top of
+`release.yml`), through whichever EU provider the four `MAIL_SMTP_*` secrets
+belong to. Before the first release with them, the provider has to be allowed to
+send for that domain: its SPF, DKIM and DMARC records go into the DNS zone of
+`q2.aarongreiner.dev`, or the mail lands in spam or is refused outright. Every
+link in a mail starts with `PUBLIC_URL`, never with whatever host a request
+named. Without `MAIL_SMTP_HOST` the release renders `Q2__Mail__Transport=Off`
+and warns; the reset screen then says that this environment sends no mail. A
+Production host refuses to start that way — see
+[adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md).
 
 ## 6. Operating it
 

@@ -1,8 +1,17 @@
 import type { ApiCaller } from './client'
-import type { AccountDeletion, LoginRequest, RegisterRequest, Session } from './types'
+import type {
+  AccountDeletion,
+  ForgotPasswordRequest,
+  LoginRequest,
+  PasswordReset,
+  RegisterRequest,
+  ResetPasswordRequest,
+  Session,
+} from './types'
 
 /**
- * Registering, signing in, signing out, and asking who is signed in.
+ * Registering, signing in, signing out, asking who is signed in — and getting
+ * back into an account whose password is gone.
  *
  * Nothing here carries a token. The session is an http-only cookie the browser
  * stores and sends by itself, which is why every one of these returns only the
@@ -23,6 +32,21 @@ export interface AccountsApi {
    * resolves — the server clears the cookie with the account.
    */
   remove: (password: string) => Promise<AccountDeletion>
+
+  /**
+   * Asks for a reset link.
+   *
+   * Resolves the same for every well-formed address, whether or not it has an
+   * account: the server answers 202 either way and mails the link afterwards,
+   * which is the whole point.
+   */
+  requestPasswordReset: (request: ForgotPasswordRequest) => Promise<void>
+
+  /**
+   * Sets a new password with the token from a reset link. Every session of the
+   * account ends with it, this device's included.
+   */
+  resetPassword: (request: ResetPasswordRequest) => Promise<PasswordReset>
 }
 
 export function createAccountsApi(call: ApiCaller): AccountsApi {
@@ -42,5 +66,12 @@ export function createAccountsApi(call: ApiCaller): AccountsApi {
       method: 'DELETE',
       body: { password },
     }),
+
+    // 202 Accepted with no body, for an address with an account and without.
+    requestPasswordReset: async (request) => {
+      await call<unknown>('/api/auth/password/forgot', { method: 'POST', body: request })
+    },
+
+    resetPassword: request => call<PasswordReset>('/api/auth/password/reset', { method: 'POST', body: request }),
   }
 }

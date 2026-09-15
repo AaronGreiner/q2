@@ -51,8 +51,45 @@ public static class AccountEndpoints
             .Produces<SessionResponse>()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/password/forgot", RequestPasswordReset)
+            .AllowAnonymous()
+            .RequireRateLimiting(PasswordResetRateLimit.PolicyName)
+            .WithName("RequestPasswordReset")
+            .WithSummary("Mails a link to set a new password, if the address has an account. Answers the same either way.")
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        group.MapPost("/password/reset", ResetPassword)
+            .AllowAnonymous()
+            .WithName("ResetPassword")
+            .WithSummary("Sets a new password with the token from a reset link, and ends every session of the account.")
+            .Produces<PasswordResetResponse>()
+            .ProducesValidationProblem();
+
         return endpoints;
     }
+
+    /// <remarks>
+    /// 202 for every well-formed address, known or not. What happens next —
+    /// looking the account up, the mail — happens after this answer, so the
+    /// answer cannot give away which addresses have accounts
+    /// (<see cref="IPasswordResetQueue"/>).
+    /// </remarks>
+    private static async Task<Accepted> RequestPasswordReset(
+        PasswordResetService resets,
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await resets.RequestAsync(request, cancellationToken);
+        return TypedResults.Accepted((string?)null);
+    }
+
+    private static async Task<Ok<PasswordResetResponse>> ResetPassword(
+        PasswordResetService resets,
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await resets.ResetAsync(request, cancellationToken));
 
     private static async Task<Ok<SessionResponse>> Register(
         AccountService accounts,

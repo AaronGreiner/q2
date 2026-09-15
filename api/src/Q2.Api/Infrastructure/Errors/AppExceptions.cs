@@ -83,7 +83,7 @@ public static class AuthenticationFailures
 }
 
 /// <summary>
-/// The caller is signed in, but this is not theirs to do.
+/// This is not the caller's to do — or not something this deployment does.
 /// </summary>
 /// <remarks>
 /// Used only where hiding the resource would be worse than naming the rule —
@@ -91,10 +91,17 @@ public static class AuthenticationFailures
 /// resource is itself private, features answer
 /// <see cref="ResourceNotFoundException"/> instead: telling somebody that a
 /// conversation exists but is not theirs is already a disclosure.
+///
+/// <see cref="Reason"/> is for the refusals a client has to tell apart, such as
+/// a password reset on a deployment that sends no mail. It travels in the
+/// problem details exactly as a 401's reason does.
 /// </remarks>
-public sealed class AccessDeniedException(string message)
+public sealed class AccessDeniedException(string message, string? reason = null)
     : Exception(message), IExpectedFailure
 {
+    /// <summary>A machine-readable reason, or null where the status says enough.</summary>
+    public string? Reason { get; } = reason;
+
     public int StatusCode => StatusCodes.Status403Forbidden;
 }
 

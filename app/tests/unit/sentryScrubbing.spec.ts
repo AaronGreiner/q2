@@ -35,6 +35,13 @@ describe('redactText', () => {
     expect(result).toContain('/api/goals')
   })
 
+  it('strips a fragment too, which is where a reset link carries its token', () => {
+    const result = redactText('opened https://q2.example.com/reset-password#token=aaaa.bbbbsecret')
+
+    expect(result).not.toContain('bbbbsecret')
+    expect(result).toContain('/reset-password')
+  })
+
   it.each([
     ['token=abc123secret', 'abc123secret'],
     ['"password": "hunter2"', 'hunter2'],
@@ -96,6 +103,14 @@ describe('scrubEvent', () => {
     expect(event?.request?.url).toBe('https://q2.example.com/goals')
     expect(JSON.stringify(event)).not.toContain('leak')
     expect(JSON.stringify(event)).not.toContain('Therapy appointment')
+  })
+
+  it('removes the fragment from the request URL', () => {
+    const event = scrubEvent(errorEvent({
+      request: { url: 'https://q2.example.com/reset-password#token=aaaa.bbbbsecret' },
+    }))
+
+    expect(event?.request?.url).toBe('https://q2.example.com/reset-password')
   })
 
   it('drops sensitive keys from extras and tags', () => {
@@ -188,6 +203,15 @@ describe('scrubBreadcrumb', () => {
 
     expect(crumb.data?.url).toBe('https://q2.example.com/api/goals')
     expect(crumb.data?.status_code).toBe(500)
+  })
+
+  it('strips the fragment from a breadcrumb URL', () => {
+    const crumb = scrubBreadcrumb({
+      category: 'navigation',
+      data: { url: 'https://q2.example.com/reset-password#token=aaaa.bbbbsecret' },
+    }) as Breadcrumb
+
+    expect(crumb.data?.url).toBe('https://q2.example.com/reset-password')
   })
 
   it('redacts breadcrumb messages', () => {

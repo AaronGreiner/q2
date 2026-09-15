@@ -46,16 +46,22 @@ describe('the API modules', () => {
     const registration = { displayName: 'Mara', email: 'mara@example.test', password: 'long-enough-password' }
     const login = { email: registration.email, password: registration.password }
 
+    const reset = { token: 'account.token', password: 'a-new-long-password' }
+
     await api.register(registration)
     await api.login(login)
     await api.session()
     await api.logout()
+    await api.requestPasswordReset({ email: registration.email })
+    await api.resetPassword(reset)
 
     expect(call.mock.calls).toEqual([
       ['/api/auth/register', { method: 'POST', body: registration }],
       ['/api/auth/login', { method: 'POST', body: login }],
       ['/api/auth/session', { method: 'GET' }],
       ['/api/auth/logout', { method: 'POST' }],
+      ['/api/auth/password/forgot', { method: 'POST', body: { email: registration.email } }],
+      ['/api/auth/password/reset', { method: 'POST', body: reset }],
     ])
   })
 

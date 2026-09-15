@@ -207,7 +207,9 @@ rather than a copy of it.
 
 - cookies, and all request headers except a small allow-list (`Accept`,
   `Content-Type`, `User-Agent`, `traceparent`, `tracestate`, `X-Request-Id`)
-- query strings, replaced with `[redacted]`; URLs keep only their path
+- query strings and fragments, replaced with `[redacted]`; URLs keep only their
+  path. The fragment matters in the browser: a reset link carries its token
+  there ([adr/0026](adr/0026-mail-and-password-reset.md))
 - request and response bodies
 - user id, email and username — but **not the IP address**, on either side.
   `sendDefaultPii` is on, and removing the address in a scrubber would silently

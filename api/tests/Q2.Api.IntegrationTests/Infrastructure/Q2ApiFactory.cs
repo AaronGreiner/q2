@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure;
+using Q2.Api.Infrastructure.Mail;
 using Q2.Api.Infrastructure.Observability.Testing;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Persistence.Seeding;
@@ -150,6 +152,9 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Everything this host would have pushed, and the dial that makes it fail.</summary>
     public RecordingPushSender PushSender => Services.GetRequiredService<RecordingPushSender>();
 
+    /// <summary>Every mail this host would have sent, and the switch that turns mail off.</summary>
+    public RecordingMailTransport Mail => Services.GetRequiredService<RecordingMailTransport>();
+
     /// <summary>The hub under test, for the tests that emit a metric themselves.</summary>
     public IHub Hub => Services.GetRequiredService<IHub>();
 
@@ -201,6 +206,10 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // Same reasoning as the clock: a test that changed how the sender
         // behaves must not leave it that way for whatever runs next.
         PushSender.Reset();
+        Mail.Reset();
+
+        // And a reset mail one test sent must not hold back the next test's.
+        Services.GetRequiredService<PasswordResetCooldown>().Clear();
 
         // The seed inserts no images, so an empty directory is the matching
         // starting point — otherwise the second test in a class would begin
@@ -259,6 +268,16 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IPushSender>();
             services.AddSingleton<RecordingPushSender>();
             services.AddSingleton<IPushSender>(provider => provider.GetRequiredService<RecordingPushSender>());
+
+            /*
+             * Mail is recorded rather than sent, for the same reason: what the
+             * tests prove is who is mailed and whether the link works, and
+             * neither needs a mail server. Registered over whatever transport
+             * the configuration chose.
+             */
+            services.RemoveAll<IMailTransport>();
+            services.AddSingleton<RecordingMailTransport>();
+            services.AddSingleton<IMailTransport>(provider => provider.GetRequiredService<RecordingMailTransport>());
         });
     }
 

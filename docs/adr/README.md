@@ -18,7 +18,7 @@ so the reasoning at the time stays readable.
 | [0008](0008-deployment-topology.md) | One host, two systemd services, one origin | Accepted |
 | [0009](0009-single-known-person.md) | One known person, flagged in the database | Superseded by [0011](0011-authentication-with-identity.md) |
 | [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |
-| [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted |
+| [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted, amended by [0026](0026-mail-and-password-reset.md) |
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
 | [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |
@@ -33,3 +33,4 @@ so the reasoning at the time stays readable.
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
+| [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |

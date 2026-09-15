@@ -9,15 +9,16 @@ namespace Q2.Api.Infrastructure;
 /// Registers ASP.NET Core Identity and the cookie session it signs in with.
 /// </summary>
 /// <remarks>
-/// <see cref="IdentityBuilderExtensions.AddDefaultTokenProviders"/> and
-/// <c>MapIdentityApi</c> are both deliberately absent. The token providers
-/// exist for email confirmation, password reset and two-factor codes, none of
-/// which q2 can deliver without a mail service; the ready-made endpoints bring
-/// that same set of routes along with a response shape that is not the Problem
-/// Details every other endpoint here answers with.
+/// Identity's default token providers are registered for one thing so far: the
+/// link in a password-reset mail (docs/adr/0026-mail-and-password-reset.md).
+/// Email confirmation and two-factor codes will use the same providers when
+/// they are built. <c>MapIdentityApi</c> stays deliberately absent: its
+/// ready-made routes answer in a shape that is not the Problem Details every
+/// other endpoint here answers with, so the reset endpoints are written against
+/// <see cref="UserManager{TUser}"/> in <c>AccountEndpoints</c> instead.
 ///
 /// What is used is the part that matters: the password hasher, the security
-/// stamp, lockout, and the cookie. None of that is written by hand
+/// stamp, lockout, the cookie and the tokens. None of that is written by hand
 /// (docs/adr/0011-authentication-with-identity.md).
 /// </remarks>
 public static class AuthenticationRegistration
@@ -45,14 +46,31 @@ public static class AuthenticationRegistration
                 options.Lockout.MaxFailedAccessAttempts = 10;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 
-                // There is no way to confirm an address in this version: q2
-                // sends no mail. Requiring confirmation would lock every new
-                // account out of the app it just signed up for.
+                // Confirming an address is not built yet. q2 can send mail now,
+                // but requiring a confirmed address without that flow would
+                // lock every new account out of the app it just signed up for.
                 options.SignIn.RequireConfirmedAccount = false;
                 options.SignIn.RequireConfirmedEmail = false;
             })
             .AddEntityFrameworkStores<Q2DbContext>()
-            .AddSignInManager();
+            .AddSignInManager()
+            .AddDefaultTokenProviders();
+
+        // A reset link works for an hour. Identity's token provider reads the
+        // system clock and takes no TimeProvider — the one place in q2 where
+        // time is not injected — so the lifetime is tested as configuration
+        // (PasswordResetEndpointTests) rather than by moving a clock.
+        builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+            options.TokenLifespan = AccountPolicy.PasswordResetLinkLifetime);
+
+        // How soon a changed security stamp — a reset — ends the sessions that
+        // were opened before it. See AccountPolicy.SessionRecheckInterval.
+        builder.Services.AddOptions<SecurityStampValidatorOptions>()
+            .Configure<TimeProvider>((options, time) =>
+            {
+                options.ValidationInterval = AccountPolicy.SessionRecheckInterval;
+                options.TimeProvider = time;
+            });
 
         builder.Services
             .AddAuthentication(IdentityConstants.ApplicationScheme)

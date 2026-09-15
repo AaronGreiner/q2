@@ -43,4 +43,34 @@ public static class AccountPolicy
     /// opens q2 every day is never signed out.
     /// </summary>
     public static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
+
+    /// <summary>
+    /// How often a session is checked against its account's security stamp.
+    /// </summary>
+    /// <remarks>
+    /// Identity's default is thirty minutes, which means a session opened with
+    /// the old password would outlive a reset by up to half an hour. A minute
+    /// costs one extra read per session per minute, and is the difference
+    /// between "whoever knew the old password is out" and "is out by lunch".
+    /// </remarks>
+    public static readonly TimeSpan SessionRecheckInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// How long the link in a reset mail works. Once, and for an hour.
+    /// </summary>
+    /// <remarks>
+    /// Long enough to find the mail and sit down with it; short enough that a
+    /// mail found in somebody's inbox next week is no longer a key. The mail
+    /// itself says "one hour" (<see cref="PasswordResetMail"/>), and a test
+    /// holds the two together.
+    /// </remarks>
+    public static readonly TimeSpan PasswordResetLinkLifetime = TimeSpan.FromHours(1);
+
+    /// <summary>At most one reset mail per account in this long.</summary>
+    /// <remarks>
+    /// Long enough that nobody can fill an inbox with them, short enough that
+    /// somebody whose first mail went missing does not wait long for a second
+    /// (<see cref="PasswordResetCooldown"/>).
+    /// </remarks>
+    public static readonly TimeSpan PasswordResetMailCooldown = TimeSpan.FromMinutes(2);
 }

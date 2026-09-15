@@ -21,7 +21,7 @@ api/
 │   ├── Program.cs                   composition root, ~35 lines
 │   ├── appsettings.*.json           one file per environment
 │   ├── Features/
-│   │   ├── Accounts/                registration, sign-in, the Identity user
+│   │   ├── Accounts/                registration, sign-in, password reset, the Identity user
 │   │   ├── Activity/                the feed, kudos and the leaderboard
 │   │   ├── Chats/                   conversations, messages and reactions
 │   │   ├── Diagnostics/             health check and the deliberate-failure endpoints
@@ -37,6 +37,7 @@ api/
 │       ├── CommandLineRunner.cs     `db …` and `openapi …` commands
 │       ├── ApplicationEnvironments.cs
 │       ├── Errors/                  exception types + the global handler
+│       ├── Mail/                    how a mail leaves: SMTP, a file, or not at all
 │       ├── Observability/           Sentry configuration, scrubbing, recording transport
 │       ├── Persistence/             DbContext, options, reset guard, maintenance, migrations
 │       │   └── Seeding/             one class per seed profile
@@ -88,6 +89,13 @@ layer projects.
 - **Sentences are composed by the client.** The API sends `kind`, `subject` and
   `amount`; it never sends a line of prose. The app ships in two languages
   ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
+  The one exception is a mail, which is read with no app running to compose
+  it: `PasswordResetMail` writes it in the language the account chose
+  ([../docs/adr/0026-mail-and-password-reset.md](../docs/adr/0026-mail-and-password-reset.md)).
+- **A mail goes through `IMailTransport`, and its links start from
+  `Q2:PublicAppUrl`** — never from the request's `Host` header. Outside Staging
+  and Production nothing is sent: `File` writes a `.eml` under `api/.data/mail`,
+  and the integration tests read `Q2ApiFactory.Mail`.
 - **Everything a person is told goes through `Notifier`.** Stage the event
   before `SaveChanges` and flush after it commits; never send from inside a
   transaction, and never call `IPushSender` or the hub yourself. A new
