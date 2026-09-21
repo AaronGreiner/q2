@@ -26,7 +26,7 @@ public sealed class E2ESeed : ISeedDataSource
 
     public SeedProfile Profile => Owner;
 
-    public string Description => "6 people, 4 goals with their windows and 2 conversations with stable ids for Playwright.";
+    public string Description => "6 people, 5 goals with their windows, the shared goal's conversation and 2 free conversations with stable ids for Playwright.";
 
     /// <summary>Shared active goal — the row E2E tests open and assert on.</summary>
     public static Guid SharedGoalId => SeedIds.Goal(Owner, 1);
@@ -130,6 +130,14 @@ public sealed class E2ESeed : ISeedDataSource
             reminderAt: new TimeOnly(18, 0),
             participants: [jonas, lena]);
 
+        /*
+         * The goals below have nobody on them. The app no longer creates such a
+         * goal, but databases hold ones from before a friend was required, and
+         * they have to keep working: no conversation, and a photograph that
+         * confirms itself because there is nobody to ask
+         * (docs/adr/0027-goal-conversations.md).
+         */
+
         // A delivered one-off: the only route to Completed.
         build.AddGoal(
             CompletedGoalTitle,
@@ -172,7 +180,6 @@ public sealed class E2ESeed : ISeedDataSource
 
         build.AddDirectChat(
             jonas,
-            shared,
             unread: 1,
             new SeedMessage(me, "E2E first message", 40),
             new SeedMessage(jonas, "E2E unread reply", 25));
@@ -181,7 +188,6 @@ public sealed class E2ESeed : ISeedDataSource
             GroupChatTitle,
             "sunrise",
             [jonas, lena],
-            null,
             unread: 0,
             new SeedMessage(lena, "E2E group hello", 600));
 

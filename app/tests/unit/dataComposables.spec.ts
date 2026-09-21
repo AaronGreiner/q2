@@ -106,13 +106,24 @@ function installFeatureGlobals(api: object) {
   const show = vi.fn()
   const refreshNuxtData = vi.fn().mockResolvedValue(undefined)
 
+  // Nuxt's hook bus, reduced to what a composable subscribes to — so a test
+  // can play "these keys are being read again" the way refreshNuxtData does.
+  const hooks = new Map<string, (keys?: string[]) => Promise<void> | void>()
+  vi.stubGlobal('useNuxtApp', () => ({
+    hook: (name: string, handler: (keys?: string[]) => Promise<void> | void) => {
+      hooks.set(name, handler)
+      return () => hooks.delete(name)
+    },
+  }))
+  vi.stubGlobal('onScopeDispose', vi.fn())
+
   vi.stubGlobal('useQ2Api', () => api)
   vi.stubGlobal('useErrorReporter', () => ({ report }))
   vi.stubGlobal('useToastMessage', () => ({ show }))
   vi.stubGlobal('useMessages', () => ref(de))
   vi.stubGlobal('refreshNuxtData', refreshNuxtData)
 
-  return { report, show, refreshNuxtData }
+  return { report, show, refreshNuxtData, hooks }
 }
 
 async function settle() {
@@ -464,8 +475,53 @@ describe('chat composables', () => {
         mute: vi.fn().mockResolvedValue(chat({ isMuted: true })),
         leave: vi.fn().mockResolvedValue(undefined),
       },
+      proofs: {
+        vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
+      },
     }
   }
+
+  it('votes from a goal\'s thread and reads it again, with the vote screen and the badges', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ pinnedGoal: { id: 'goal-1' }, events: [] }))
+    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    const { refreshNuxtData, report } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    const reads = api.chats.get.mock.calls.length
+
+    await state.vote('proof-1', 'Confirm')
+
+    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Confirm')
+    expect(api.chats.get.mock.calls.length).toBe(reads + 1)
+    expect(refreshNuxtData).toHaveBeenCalledWith(['counts', 'proofs-pending'])
+    expect(state.isVoting.value).toBe(false)
+
+    // A vote that no longer fits is reported, and the thread is read again
+    // rather than left offering buttons that cannot work.
+    api.proofs.vote.mockRejectedValueOnce(new Error('closed'))
+    await state.vote('proof-1', 'Doubt')
+
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'vote' })
+    expect(api.chats.get.mock.calls.length).toBe(reads + 2)
+  })
+
+  it('reads a goal\'s thread again when its goal changes, and not for another goal', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ pinnedGoal: { id: 'goal-1' }, events: [] }))
+    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    const { hooks } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    const reads = api.chats.get.mock.calls.length
+    const onRefresh = hooks.get('app:data:refresh')!
+
+    await onRefresh(['goals', 'goal:goal-2'])
+    expect(api.chats.get.mock.calls.length).toBe(reads)
+
+    await onRefresh(['proofs-pending', 'chats', 'goal:goal-1'])
+    expect(api.chats.get.mock.calls.length).toBe(reads + 1)
+  })
 
   it('loads and filters the conversation list', async () => {
     const api = chatsApi()

@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { BadgeKey, GoalStatus, KudosKind, QuotaPeriod } from '../api/types'
+import type { BadgeKey, GoalEventKind, GoalStatus, KudosKind, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -144,6 +144,7 @@ export const de = {
     notFoundHint: 'Wir konnten dieses Ziel nicht finden. Vielleicht wurde es entfernt.',
     overdue: 'Überfällig',
     archive: 'Archiv',
+    openChat: 'Zum Chat',
   },
 
   /**
@@ -214,6 +215,10 @@ export const de = {
     periodLabel: 'Pro',
     dueOnLabel: 'Bis wann?',
     reminderLabel: 'Tägliche Erinnerung',
+    friendsLabel: 'Wer prüft dich?',
+    friendsHint: 'Mindestens eine Person. Sie sieht deine Beweise und stimmt ab — im Chat zum Ziel.',
+    friendsChosen: (count: number) => (count === 1 ? '1 ausgewählt' : `${count} ausgewählt`),
+    noFriendsHint: 'Ein Ziel braucht jemanden, der es prüft. Lade zuerst einen Freund ein.',
     submit: 'Ziel erstellen',
     open: 'Neues Ziel anlegen',
   },
@@ -312,6 +317,48 @@ export const de = {
     mute: 'Stummschalten',
     unmute: 'Wieder benachrichtigen',
     muted: 'Stummgeschaltet',
+
+    // The list, in three: what you have to deliver, what you are asked to
+    // check, and conversations that are about no goal at all.
+    sectionMine: 'Deine Ziele',
+    sectionMineHint: 'Du lieferst den Beweis',
+    sectionFriends: 'Von Freunden',
+    sectionFriendsHint: 'Du prüfst',
+    sectionConversations: 'Unterhaltungen',
+    awaitingVote: 'Wartet auf dein Urteil',
+    openGoal: 'Ziel ansehen',
+
+    /**
+     * What happened to a goal, as its conversation says it between the
+     * messages. Flat on purpose — a missed window is stated, never commented
+     * on, and nothing here can be used to rub it in.
+     */
+    event: {
+      created: (name: string | null) => (name ? `${name} hat das Ziel erstellt.` : 'Du hast das Ziel erstellt.'),
+      windowDone: (streak: number) => `Geschafft · Streak ${streak}`,
+      windowMissed: (confirmed: number, required: number) => (required > 1
+        ? `Verpasst · ${confirmed} von ${required} geliefert`
+        : 'Verpasst'),
+      // No full stop of its own: the day is written "3.8." already.
+      pauseStarted: (name: string | null, day: string) => (name ? `${name} setzt aus bis ${day}` : `Du setzt aus bis ${day}`),
+      pauseEnded: 'Die Pause ist vorbei.',
+      pauseOverturned: 'Die Pause wurde durch Einspruch aufgehoben.',
+      completed: 'Ziel abgeschlossen.',
+      stopped: (name: string | null) => (name ? `${name} hat das Ziel beendet.` : 'Du hast das Ziel beendet.'),
+    },
+
+    /** The same, as the one line a row in the list has room for. */
+    lastEvent: {
+      Created: 'Ziel erstellt',
+      ProofDelivered: 'Neuer Beweis',
+      WindowDone: 'Geschafft',
+      WindowMissed: 'Verpasst',
+      PauseStarted: 'Ausgesetzt',
+      PauseEnded: 'Pause vorbei',
+      PauseOverturned: 'Pause aufgehoben',
+      Completed: 'Abgeschlossen',
+      Stopped: 'Beendet',
+    } satisfies Record<GoalEventKind, string>,
   },
 
   friends: {
@@ -982,6 +1029,7 @@ export const en: Messages = {
     notFoundHint: 'We could not find that goal. It may have been removed.',
     overdue: 'Overdue',
     archive: 'Archive',
+    openChat: 'Open chat',
   },
 
   pause: {
@@ -1045,6 +1093,10 @@ export const en: Messages = {
     periodLabel: 'Per',
     dueOnLabel: 'By when?',
     reminderLabel: 'Daily reminder',
+    friendsLabel: 'Who checks you?',
+    friendsHint: 'At least one person. They see your proof and vote on it — in the goal\'s chat.',
+    friendsChosen: (count: number) => `${count} selected`,
+    noFriendsHint: 'A goal needs somebody to check it. Invite a friend first.',
     submit: 'Create goal',
     open: 'Add a goal',
   },
@@ -1135,6 +1187,39 @@ export const en: Messages = {
     mute: 'Mute',
     unmute: 'Unmute',
     muted: 'Muted',
+
+    sectionMine: 'Your goals',
+    sectionMineHint: 'You deliver the proof',
+    sectionFriends: 'From friends',
+    sectionFriendsHint: 'You check',
+    sectionConversations: 'Conversations',
+    awaitingVote: 'Waiting for your verdict',
+    openGoal: 'View goal',
+
+    event: {
+      created: (name: string | null) => (name ? `${name} created the goal.` : 'You created the goal.'),
+      windowDone: (streak: number) => `Done · streak ${streak}`,
+      windowMissed: (confirmed: number, required: number) => (required > 1
+        ? `Missed · ${confirmed} of ${required} delivered`
+        : 'Missed'),
+      pauseStarted: (name: string | null, day: string) => (name ? `${name} is pausing until ${day}` : `You are pausing until ${day}`),
+      pauseEnded: 'The pause is over.',
+      pauseOverturned: 'The pause was lifted by objection.',
+      completed: 'Goal completed.',
+      stopped: (name: string | null) => (name ? `${name} stopped the goal.` : 'You stopped the goal.'),
+    },
+
+    lastEvent: {
+      Created: 'Goal created',
+      ProofDelivered: 'New proof',
+      WindowDone: 'Done',
+      WindowMissed: 'Missed',
+      PauseStarted: 'Paused',
+      PauseEnded: 'Pause over',
+      PauseOverturned: 'Pause lifted',
+      Completed: 'Completed',
+      Stopped: 'Stopped',
+    } satisfies Record<GoalEventKind, string>,
   },
 
   friends: {

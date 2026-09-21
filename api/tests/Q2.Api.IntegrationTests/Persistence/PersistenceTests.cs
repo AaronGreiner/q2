@@ -226,14 +226,21 @@ public class PersistenceTests
         }
     }
 
+    /// <summary>
+    /// The database only nulls a deleted goal's reference; removing the
+    /// conversation is the code's job (GoalService.DeleteAsync, the account
+    /// erasure), because making the key cascade would rebuild the table with
+    /// foreign keys off. What the database must never do is refuse the delete
+    /// or leave a reference to a goal that is gone.
+    /// </summary>
     [Fact]
-    public async Task DeletingAGoalLeavesTheConversationAboutItStanding()
+    public async Task ADeletedGoalLeavesNoConversationPointingAtIt()
     {
         await using var database = await MigratedAsync();
 
         var person = BuildPerson();
         var goal = BuildGoal(person);
-        var conversation = Conversation.CreateDirect(Guid.CreateVersion7(), goal.Id, Now);
+        var conversation = Conversation.CreateForGoal(Guid.CreateVersion7(), goal.Id, Now);
         conversation.AddParticipant(Guid.CreateVersion7(), person.Id);
 
         await using (var context = database.CreateContext())
@@ -246,17 +253,33 @@ public class PersistenceTests
 
         await using (var context = database.CreateContext())
         {
-            context.Goals.Remove(await context.Goals.SingleAsync(TestContext.Current.CancellationToken));
-            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await context.Goals.ExecuteDeleteAsync(TestContext.Current.CancellationToken);
         }
 
         await using (var context = database.CreateContext())
         {
-            var stored = await context.Conversations.SingleAsync(TestContext.Current.CancellationToken);
-
-            // It just stops showing the progress bar.
-            Assert.Null(stored.GoalId);
+            Assert.False(await context.Conversations.AnyAsync(
+                stored => stored.GoalId == goal.Id,
+                TestContext.Current.CancellationToken));
         }
+    }
+
+    [Fact]
+    public async Task AGoalHasAtMostOneConversation()
+    {
+        await using var database = await MigratedAsync();
+
+        var person = BuildPerson();
+        var goal = BuildGoal(person);
+
+        await using var context = database.CreateContext();
+        context.People.Add(person);
+        context.Goals.Add(goal);
+        context.Conversations.Add(Conversation.CreateForGoal(Guid.CreateVersion7(), goal.Id, Now));
+        context.Conversations.Add(Conversation.CreateForGoal(Guid.CreateVersion7(), goal.Id, Now));
+
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => context.SaveChangesAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

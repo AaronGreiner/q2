@@ -91,15 +91,19 @@ const confirmedNames = computed(() =>
         </p>
       </div>
 
-      <span
-        v-if="hoursLeft !== null"
-        class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)"
-        data-testid="proof-expiry"
-      >{{ t.proof.expiresIn(hoursLeft) }}</span>
-      <span
-        v-else
-        class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)"
-      >{{ t.proof.expired }}</span>
+      <!-- Only while the vote runs. In a goal's conversation older photographs
+           stay in the thread, and a decided one has no deadline left to show. -->
+      <template v-if="proof.status === 'Voting'">
+        <span
+          v-if="hoursLeft !== null"
+          class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)"
+          data-testid="proof-expiry"
+        >{{ t.proof.expiresIn(hoursLeft) }}</span>
+        <span
+          v-else
+          class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)"
+        >{{ t.proof.expired }}</span>
+      </template>
     </header>
 
     <!--
@@ -187,7 +191,7 @@ const confirmedNames = computed(() =>
       </template>
 
       <p
-        v-else-if="proof.votes.myVote"
+        v-else-if="proof.votes.myVote && proof.status === 'Voting'"
         class="text-[12px] font-bold text-(--ui-text-muted)"
         role="status"
         data-testid="proof-my-vote"

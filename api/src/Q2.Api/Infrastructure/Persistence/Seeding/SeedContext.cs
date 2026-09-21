@@ -63,6 +63,11 @@ public enum SeedEntity
     Challenge = 16,
     ChallengeEntry = 17,
     Notification = 18,
+
+    // Their own groups, so opening a goal's conversation does not renumber the
+    // free conversations E2E navigates to.
+    GoalConversation = 19,
+    GoalConversationParticipant = 20,
 }
 
 /// <summary>

@@ -76,7 +76,24 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       :title="t.goals.detailHeading"
       back-to="/goals"
       :back-label="t.common.back"
-    />
+    >
+      <!-- Where this goal is checked: its photographs, the votes on them and
+           what its friends say. Grey — it goes somewhere, it does nothing. -->
+      <template #actions>
+        <UButton
+          v-if="detail?.conversationId"
+          :to="`/chats/${detail.conversationId}`"
+          icon="i-lucide-message-circle"
+          size="lg"
+          color="neutral"
+          variant="outline"
+          class="min-h-11 rounded-full font-extrabold"
+          data-testid="goal-open-chat"
+        >
+          {{ t.goals.openChat }}
+        </UButton>
+      </template>
+    </AppScreenHeader>
 
     <div class="q2-scroll flex-1 px-[18px] pt-1 pb-8">
       <div

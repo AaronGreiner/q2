@@ -33,6 +33,11 @@ to working in Claude Code.
   while nobody is looking goes through `GoalMaintenance`, which is idempotent
   and catches up — see
   [docs/adr/0016-windows-instead-of-steps.md](docs/adr/0016-windows-instead-of-steps.md).
+- **A goal is made in front of somebody.** Creating one needs at least one
+  friend, and it comes with its own conversation (`ConversationKind.Goal`)
+  where its photographs are voted on. What happened to the goal is *derived*
+  into that thread from the goal (`GoalTimeline`), never written as messages —
+  see [docs/adr/0027-goal-conversations.md](docs/adr/0027-goal-conversations.md).
 - **The Development database is never reset automatically**, and
   `bun run db:reset` refuses to run in Development. That is deliberate; do not
   "fix" it.

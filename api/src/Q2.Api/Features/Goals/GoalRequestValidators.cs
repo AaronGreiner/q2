@@ -47,7 +47,14 @@ public static class CreateGoalRequestValidator
             errors[field] = messages;
         }
 
-        if (request.ParticipantIds is { } participants)
+        // At least one friend: a goal is checked by the people it is made in
+        // front of, and one nobody is on would confirm its own photographs
+        // (docs/adr/0027-goal-conversations.md).
+        if (request.ParticipantIds is not { Count: > 0 } participants)
+        {
+            errors[nameof(request.ParticipantIds)] = ["Invite at least one friend to check this goal."];
+        }
+        else
         {
             if (participants.Count > Goal.MaxParticipants)
             {

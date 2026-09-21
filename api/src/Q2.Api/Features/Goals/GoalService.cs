@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Activity;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
@@ -193,10 +194,20 @@ public sealed class GoalService(
             .Select(GoalInstanceResponse.From)
             .ToList();
 
+        // Everybody on the goal is in its conversation, so the link is theirs
+        // to follow — including for a goal from before conversations, which
+        // has none until the maintenance pass opens it.
+        var conversationId = await database.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.GoalId == goal.Id)
+            .Select(conversation => (Guid?)conversation.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
         return new GoalDetailResponse(
             GoalResponse.From(goal, people, me.Id, now, timeZones.For(owner.TimeZoneId)),
             team,
-            history);
+            history,
+            conversationId);
     }
 
     /// <exception cref="DomainValidationException">The request violates a domain rule.</exception>
@@ -234,12 +245,29 @@ public sealed class GoalService(
             goal.AddParticipant(idGenerator.NewId(), personId);
         }
 
+        // A goal nobody else is on is a promise nobody checks — its photographs
+        // would confirm themselves. The validator says so for an empty list;
+        // this is the same rule for a list that was only its own owner.
+        if (goal.Participants.Count == 0)
+        {
+            throw new DomainValidationException(
+                nameof(request.ParticipantIds),
+                "Invite at least one friend to check this goal.");
+        }
+
         // The first window opens now, through the same code that opens every
         // later one — so "created today" and "rolled over overnight" cannot
         // disagree about where a window starts.
         GoalMaintenance.Advance(goal, timeZones.For(me.TimeZoneId), now, idGenerator);
 
         database.Goals.Add(goal);
+
+        // Its conversation opens with it, in the same save: there is no moment
+        // at which the goal exists and the place its friends check it does not
+        // (docs/adr/0027-goal-conversations.md).
+        var conversation = GoalConversations.Open(goal, idGenerator.NewId(), idGenerator.NewId, now);
+        database.Conversations.Add(conversation);
+
         activity.Publish(me.Id, ActivityKind.GoalCreated, goal.Title, null, now, goal.Id);
 
         // Being put on a goal is being made one of the people who decide it,
@@ -248,6 +276,9 @@ public sealed class GoalService(
             new NotificationEvent(NotificationKind.GoalInvitation, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
             goal.Participants.Select(participant => participant.PersonId),
             cancellationToken);
+
+        // A new row in everybody's chat list, the owner's other devices too.
+        notifier.Touch(conversation.Participants.Select(participant => participant.PersonId), LiveArea.Chats);
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
@@ -503,9 +534,9 @@ public sealed class GoalService(
 
         var removed = await images.RemoveOwnedAsync(imageIds, me.Id, cancellationToken);
 
-        // The conversation is pointed at the goal rather than owned by it, so
-        // the database would only null the reference. Everything said about a
-        // goal goes when the goal does.
+        // The conversation belongs to the goal, but the database would only
+        // null the reference (ConversationConfiguration). Everything said about
+        // a goal goes when the goal does.
         var conversations = await database.Conversations
             .Include(conversation => conversation.Messages)
             .Include(conversation => conversation.Participants)

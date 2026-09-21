@@ -25,12 +25,13 @@ so the reasoning at the time stays readable.
 | [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Accepted |
 | [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted |
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
-| [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted |
+| [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md) |
 | [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
-| [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted |
+| [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted, amended by [0027](0027-goal-conversations.md) |
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
 | [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted |
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
+| [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted |

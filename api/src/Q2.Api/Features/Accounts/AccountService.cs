@@ -372,19 +372,25 @@ public sealed class AccountService(
             .CountAsync(goal => goal.OwnerPersonId == personId, cancellationToken);
 
         /*
-         * Direct conversations whole; group conversations only this person's
+         * Direct conversations whole, the conversations of their own goals
+         * whole; group conversations and friends' goals only this person's
          * messages.
          *
          * A direct thread had two people in it and one is leaving for good, so
-         * there is nothing left to keep. A group is somebody else's
-         * conversation too, and removing it would take a thread away from
-         * everybody still in it.
+         * there is nothing left to keep. A goal's conversation goes with the
+         * goal, exactly as deleting the goal from the archive takes it — the
+         * database would only null its reference, so it is removed here. A
+         * group, or a friend's goal, is somebody else's conversation too, and
+         * removing it would take a thread away from everybody still in it.
          */
         var direct = await database.Conversations
             .Include(conversation => conversation.Participants)
             .Include(conversation => conversation.Messages)
-            .Where(conversation => conversation.Kind == ConversationKind.Direct
-                && conversation.Participants.Any(participant => participant.PersonId == personId))
+            .Where(conversation =>
+                (conversation.Kind == ConversationKind.Direct
+                    && conversation.Participants.Any(participant => participant.PersonId == personId))
+                || (conversation.Kind == ConversationKind.Goal
+                    && database.Goals.Any(goal => goal.Id == conversation.GoalId && goal.OwnerPersonId == personId)))
             .ToListAsync(cancellationToken);
 
         var messages = direct.Sum(conversation => conversation.Messages.Count)

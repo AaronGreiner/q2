@@ -95,6 +95,14 @@ export type ChatMessage = Schemas['ChatMessageResponse']
 export type MessageReaction = Schemas['MessageReactionResponse']
 export type KudosKind = Schemas['KudosKind']
 export type ChatPinnedGoal = Schemas['ChatPinnedGoalResponse']
+export type GoalEvent = Schemas['GoalEventResponse']
+
+/**
+ * `NonNullable` for the same reason as `QuotaPeriod`: the generated union
+ * carries the `null` of the one place it is optional — a chat row whose newest
+ * thing was a message.
+ */
+export type GoalEventKind = NonNullable<Schemas['GoalEventKind']>
 export type StartDirectChatRequest = Schemas['StartDirectChatRequest']
 export type CreateGroupChatRequest = Schemas['CreateGroupChatRequest']
 

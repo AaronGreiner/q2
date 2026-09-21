@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Goals;
 using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.UnitTests.Chats;
@@ -16,7 +17,7 @@ public class ConversationTests
 
     private Conversation BuildDirect()
     {
-        var conversation = Conversation.CreateDirect(Guid.CreateVersion7(), goalId: null, Start);
+        var conversation = Conversation.CreateDirect(Guid.CreateVersion7(), Start);
         conversation.AddParticipant(Guid.CreateVersion7(), _me);
         conversation.AddParticipant(Guid.CreateVersion7(), _friend);
         return conversation;
@@ -26,7 +27,7 @@ public class ConversationTests
     public void AGroupNeedsAName()
     {
         var error = Assert.Throws<DomainValidationException>(
-            () => Conversation.CreateGroup(Guid.CreateVersion7(), "  ", "🌅", null, Start));
+            () => Conversation.CreateGroup(Guid.CreateVersion7(), "  ", "🌅", Start));
 
         Assert.Contains(nameof(Conversation.Title), error.Errors.Keys);
     }
@@ -37,6 +38,69 @@ public class ConversationTests
         // Naming it would store somebody's name a second time and let it go
         // stale; the name is derived from the other participant on read.
         Assert.Null(BuildDirect().Title);
+    }
+
+    [Fact]
+    public void AGoalsConversationIsCalledWhateverItsGoalIsCalled()
+    {
+        var goalId = Guid.CreateVersion7();
+
+        var conversation = Conversation.CreateForGoal(Guid.CreateVersion7(), goalId, Start);
+
+        Assert.Equal(ConversationKind.Goal, conversation.Kind);
+        Assert.Equal(goalId, conversation.GoalId);
+
+        // Named on read from the goal, like a direct chat from the other person.
+        Assert.Null(conversation.Title);
+        Assert.Null(conversation.Icon);
+    }
+
+    [Fact]
+    public void AGoalsConversationNeedsItsGoal()
+    {
+        var error = Assert.Throws<DomainValidationException>(
+            () => Conversation.CreateForGoal(Guid.CreateVersion7(), Guid.Empty, Start));
+
+        Assert.Contains(nameof(Conversation.GoalId), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void AGoalsConversationCannotBeLeft()
+    {
+        var conversation = Conversation.CreateForGoal(Guid.CreateVersion7(), Guid.CreateVersion7(), Start);
+        conversation.AddParticipant(Guid.CreateVersion7(), _me);
+        conversation.AddParticipant(Guid.CreateVersion7(), _friend);
+
+        // Leaving would take a vote off the goal without anybody deciding to.
+        Assert.Throws<DomainValidationException>(() => conversation.RemoveParticipant(_friend));
+        Assert.True(conversation.Includes(_friend));
+    }
+
+    [Fact]
+    public void AGoalsConversationIsItsOwnerAndEverybodyInvited()
+    {
+        var goal = Goal.Create(
+            Guid.CreateVersion7(),
+            _me,
+            "Jeden Tag lesen",
+            null,
+            null,
+            GoalSchedule.EveryNDays(1),
+            isGroup: false,
+            reminderAt: null,
+            targetDate: null,
+            Start);
+        goal.AddParticipant(Guid.CreateVersion7(), _friend);
+
+        var conversation = GoalConversations.Open(goal, Guid.CreateVersion7(), Guid.CreateVersion7, Start);
+
+        Assert.Equal(goal.Id, conversation.GoalId);
+        Assert.Equal([_me, _friend], conversation.Participants.Select(participant => participant.PersonId));
+        Assert.DoesNotContain(_stranger, conversation.Participants.Select(participant => participant.PersonId));
+
+        // The owner opened it; everybody else has it waiting for them.
+        Assert.Equal(Start, conversation.Participants.Single(participant => participant.PersonId == _me).LastReadAt);
+        Assert.Null(conversation.Participants.Single(participant => participant.PersonId == _friend).LastReadAt);
     }
 
     [Fact]

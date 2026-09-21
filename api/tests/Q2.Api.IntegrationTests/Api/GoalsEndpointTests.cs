@@ -63,7 +63,13 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     private sealed record GoalDetailDocument(
         GoalDocument Goal,
         IReadOnlyList<TeamMemberDocument> Team,
-        IReadOnlyList<WindowDocument> History);
+        IReadOnlyList<WindowDocument> History,
+        Guid? ConversationId);
+
+    private sealed record ChatRowDocument(Guid Id, string Name, Guid? GoalId, bool IsMyGoal);
+
+    /// <summary>Somebody to check the goal: every goal needs one now.</summary>
+    private static readonly Guid[] Friend = [AutomatedTestSeed.FriendPersonId];
 
     private sealed record ValidationDocument(IReadOnlyDictionary<string, string[]> Errors);
 
@@ -237,6 +243,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         {
             title = "Dreimal die Woche",
             schedule = new { kind = "Times", times = 3, period = "Week" },
+            participantIds = Friend,
         })).ReadAsync<GoalDocument>();
 
         Assert.NotNull(created.Current);
@@ -255,6 +262,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         {
             title = "Montags und donnerstags",
             schedule = new { kind = "Weekdays", weekdays = new[] { "Monday", "Thursday" } },
+            participantIds = Friend,
         })).ReadAsync<GoalDocument>();
 
         Assert.Equal([Weekday.Monday, Weekday.Thursday], created.Schedule.Weekdays);
@@ -265,7 +273,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     [Fact]
     public async Task SayingNothingAboutTheScheduleMeansEveryDay()
     {
-        var created = await (await Client.PostJsonAsync("/api/goals", new { title = "Ohne Angabe" }))
+        var created = await (await Client.PostJsonAsync("/api/goals", new { title = "Ohne Angabe", participantIds = Friend }))
             .ReadAsync<GoalDocument>();
 
         Assert.Equal(ScheduleKind.Interval, created.Schedule.Kind);
@@ -276,11 +284,72 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     [Fact]
     public async Task ACreatedGoalIsInTheListAfterwards()
     {
-        await Client.PostJsonAsync("/api/goals", new { title = "Taucht in der Liste auf" });
+        await Client.PostJsonAsync("/api/goals", new { title = "Taucht in der Liste auf", participantIds = Friend });
 
         var goals = await ListAsync();
 
         Assert.Contains(goals, goal => goal.Title == "Taucht in der Liste auf");
+    }
+
+    [Fact]
+    public async Task CreatingAGoalNobodyChecksIsAValidationProblem()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new { title = "Allein" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("ParticipantIds", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task InvitingOnlyYourselfIsStillNobody()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Allein, aber eingeladen",
+            participantIds = new[] { AutomatedTestSeed.CurrentPersonId },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("ParticipantIds", problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task ANewGoalComesWithItsConversation()
+    {
+        var created = await (await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Automated test: with its conversation",
+            participantIds = Friend,
+        })).ReadAsync<GoalDocument>();
+
+        var detail = await (await Client.GetAsync($"/api/goals/{created.Id}", TestContext.Current.CancellationToken))
+            .ReadAsync<GoalDetailDocument>();
+
+        Assert.NotNull(detail.ConversationId);
+
+        // In the friend's list too, named after the goal and marked as not theirs.
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirs = await (await friend.GetAsync("/api/chats", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<ChatRowDocument>>();
+
+        var row = Assert.Single(theirs, chat => chat.Id == detail.ConversationId);
+        Assert.Equal(created.Id, row.GoalId);
+        Assert.Equal("Automated test: with its conversation", row.Name);
+        Assert.False(row.IsMyGoal);
+    }
+
+    [Fact]
+    public async Task AGoalNobodyElseIsOnHasNoConversation()
+    {
+        var detail = await (await Client.GetAsync(
+            $"/api/goals/{AutomatedTestSeed.GoalWithoutTargetDateId}",
+            TestContext.Current.CancellationToken)).ReadAsync<GoalDetailDocument>();
+
+        Assert.Null(detail.ConversationId);
     }
 
     [Fact]

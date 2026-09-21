@@ -107,6 +107,7 @@ public class SeedDataTests
             .Concat(data.Goals.SelectMany(g => g.Instances).Select(i => i.Id))
             .Concat(data.Activity.Select(a => a.Id))
             .Concat(data.Conversations.Select(c => c.Id))
+            .Concat(data.Conversations.SelectMany(c => c.Participants).Select(p => p.Id))
             .Concat(data.Conversations.SelectMany(c => c.Messages).Select(m => m.Id))
             .Concat(data.Settings.Select(s => s.Id))
             .Concat(data.Notifications.Select(n => n.Id))
@@ -191,6 +192,45 @@ public class SeedDataTests
             .ToList();
 
         Assert.Equal(pairs.Count, pairs.Distinct().Count());
+    }
+
+    /// <summary>
+    /// A shared goal comes with exactly one conversation, and it is made up of
+    /// exactly the people on the goal — as it is when a goal is created in the
+    /// app (docs/adr/0027-goal-conversations.md).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllSources))]
+    public void EverySharedGoalHasOneConversationOfExactlyItsPeople(ISeedDataSource source)
+    {
+        var data = source.Create(Context);
+
+        foreach (var goal in data.Goals.Where(goal => goal.Participants.Count > 0))
+        {
+            var conversation = Assert.Single(data.Conversations, conversation => conversation.GoalId == goal.Id);
+
+            Assert.Equal(Features.Chats.ConversationKind.Goal, conversation.Kind);
+            Assert.Equal(
+                goal.Participants.Select(participant => participant.PersonId).Append(goal.OwnerPersonId).Order(),
+                conversation.Participants.Select(participant => participant.PersonId).Order());
+        }
+
+        // And a conversation that is not a goal's is about no goal.
+        Assert.All(
+            data.Conversations.Where(conversation => conversation.Kind != Features.Chats.ConversationKind.Goal),
+            conversation => Assert.Null(conversation.GoalId));
+    }
+
+    /// <summary>
+    /// What a developer opens the app on: every goal in it is checked by
+    /// somebody, as every goal made in the app now is. Only the test profiles
+    /// keep goals nobody is on, standing for ones made before that was required.
+    /// </summary>
+    [Fact]
+    public void EveryDemonstrationGoalIsShared()
+    {
+        Assert.All(new DevelopmentSeed().Create(Context).Goals, goal => Assert.NotEmpty(goal.Participants));
+        Assert.All(new ManualTestingSeed().Create(Context).Goals, goal => Assert.NotEmpty(goal.Participants));
     }
 
     [Theory]

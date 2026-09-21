@@ -124,8 +124,9 @@ categories that need a retention answer before real people are in the database
 the archive removes its windows, every photograph behind them, the conversation
 about it and the feed entries naming it, for everybody on it
 ([adr/0020](adr/0020-pause-and-archive.md)). Deleting an account removes the
-person and everything of theirs, the image files included, which sit outside
-the database and outside any transaction
+person and everything of theirs — their goals with the conversation of each
+([adr/0027](adr/0027-goal-conversations.md)) — the image files included, which
+sit outside the database and outside any transaction
 ([adr/0022](adr/0022-blocking-reporting-and-erasure.md)).
 
 **Stored on the device:** the service worker's cache holds the build output —

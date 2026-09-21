@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, GoalScheduleRequest } from '~/api/types'
+import type { CreateGoalRequest, Friend, GoalScheduleRequest } from '~/api/types'
 import { goalIcons } from '~/api/types'
 
 /**
@@ -10,11 +10,20 @@ import { goalIcons } from '~/api/types'
  * page decides what to do with it. Server-side field errors are passed back in
  * via `error`, so the messages the user reads are the ones the API produced —
  * no second copy of the rules living in the browser.
+ *
+ * **Somebody has to check it.** A goal is made in front of friends, and they
+ * are chosen here: the goal's conversation is opened with exactly them, and
+ * they are who votes on its photographs. Without a friend there is nothing to
+ * choose, so the sheet offers the invite link instead of a form that could
+ * only be refused (docs/adr/0027-goal-conversations.md).
  */
 const props = withDefaults(defineProps<{
+  friends: Friend[]
+  friendsLoading?: boolean
   submitting?: boolean
   error?: ApiFailure | null
 }>(), {
+  friendsLoading: false,
   submitting: false,
   error: null,
 })
@@ -30,6 +39,13 @@ const maxTitleLength = 120
 const title = ref('')
 const icon = ref<string>(goalIcons[0]!)
 const withReminder = ref(true)
+const participantIds = ref<string[]>([])
+
+function toggleFriend(personId: string) {
+  participantIds.value = participantIds.value.includes(personId)
+    ? participantIds.value.filter(id => id !== personId)
+    : [...participantIds.value, personId]
+}
 
 /*
  * Every day, which is what most people mean by a new habit and the one the
@@ -44,8 +60,9 @@ function fieldError(field: string): string | undefined {
   return match ? errors[match]?.[0] : undefined
 }
 
-/** Only blocks the obviously empty case; the API remains the authority. */
-const canSubmit = computed(() => title.value.trim().length > 0 && !props.submitting)
+/** Only blocks the obviously empty cases; the API remains the authority. */
+const canSubmit = computed(() =>
+  title.value.trim().length > 0 && participantIds.value.length > 0 && !props.submitting)
 
 function onSubmit() {
   if (!canSubmit.value) return
@@ -59,6 +76,7 @@ function onSubmit() {
     // this version does not have, and inventing a time picker for it would be
     // building ahead of the requirement.
     reminderAt: withReminder.value ? '09:00:00' : null,
+    participantIds: [...participantIds.value],
   })
 }
 
@@ -68,6 +86,7 @@ function reset() {
   icon.value = goalIcons[0]!
   schedule.value = { kind: 'Interval', everyDays: 1 }
   withReminder.value = true
+  participantIds.value = []
 }
 
 defineExpose({ reset })
@@ -81,7 +100,31 @@ defineExpose({ reset })
     :ui="{ container: 'max-w-[430px] mx-auto' }"
   >
     <template #body>
+      <div
+        v-if="friendsLoading && friends.length === 0"
+        class="flex flex-col gap-3 pb-2"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <span class="sr-only">{{ t.common.loading }}</span>
+        <USkeleton class="h-12 w-full rounded-(--q2-radius-md)" />
+        <USkeleton class="h-32 w-full rounded-(--q2-radius-md)" />
+      </div>
+
+      <div
+        v-else-if="friends.length === 0"
+        class="flex flex-col gap-3 pb-2"
+        data-testid="goal-create-no-friends"
+      >
+        <p class="text-[13px] leading-relaxed font-semibold text-(--ui-text-muted)">
+          {{ t.create.noFriendsHint }}
+        </p>
+
+        <InviteCard />
+      </div>
+
       <form
+        v-else
         class="flex flex-col gap-4 pb-2"
         novalidate
         data-testid="goal-create-form"
@@ -103,6 +146,48 @@ defineExpose({ reset })
             class="w-full"
             data-testid="goal-title-input"
           />
+        </UFormField>
+
+        <UFormField
+          :label="t.create.friendsLabel"
+          name="participantIds"
+          required
+          :help="participantIds.length > 0 ? t.create.friendsChosen(participantIds.length) : t.create.friendsHint"
+          :error="fieldError('participantIds')"
+        >
+          <ul
+            class="flex max-h-[32vh] list-none flex-col gap-1.5 overflow-y-auto p-0"
+            data-testid="goal-friend-picker"
+          >
+            <li
+              v-for="friend in friends"
+              :key="friend.person.id"
+            >
+              <label
+                class="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-(--q2-radius-md) px-2 py-2"
+                :data-testid="`goal-friend-${friend.person.id}`"
+              >
+                <UCheckbox
+                  :model-value="participantIds.includes(friend.person.id)"
+                  @update:model-value="toggleFriend(friend.person.id)"
+                />
+
+                <AppAvatar
+                  :initials="friend.person.initials"
+                  :color="friend.person.avatarColor"
+                  :image-id="friend.person.avatarImageId"
+                  :size="32"
+                />
+
+                <span
+                  class="min-w-0 flex-1 truncate text-sm font-bold"
+                  data-q2-private
+                >
+                  {{ friend.person.displayName }}
+                </span>
+              </label>
+            </li>
+          </ul>
         </UFormField>
 
         <UFormField

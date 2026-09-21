@@ -40,7 +40,7 @@ afterEach(() => {
 describe('GoalCreateSheet', () => {
   it('starts disabled and emits the complete trimmed default request', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
-      props: { open: true },
+      props: { open: true, friends: [friend()] },
       attachTo: document.body,
     })
 
@@ -52,6 +52,12 @@ describe('GoalCreateSheet', () => {
     await wrapper.vm.$nextTick()
     element<HTMLButtonElement>('[data-testid="schedule-times-3"]').click()
     element<HTMLButtonElement>('[data-testid="icon-flame"]').click()
+    await wrapper.vm.$nextTick()
+
+    // A title is not enough: somebody has to check it.
+    expect(submit.disabled).toBe(true)
+
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
     await wrapper.vm.$nextTick()
     expect(submit.disabled).toBe(false)
 
@@ -67,13 +73,38 @@ describe('GoalCreateSheet', () => {
       schedule: { kind: 'Times', times: 3, period: 'Week' },
       icon: 'flame',
       reminderAt: '09:00:00',
+      participantIds: ['person-1'],
     }])
+    wrapper.unmount()
+  })
+
+  it('keeps the names of the friends to choose from out of Session Replay', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    const row = element('[data-testid="goal-friend-person-1"]')
+    expect(row.textContent).toContain('Mara Beispiel')
+    expect(row.querySelector('[data-q2-private]')).not.toBeNull()
+    wrapper.unmount()
+  })
+
+  it('offers the invite link instead of a form nobody could check', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [] },
+      attachTo: document.body,
+    })
+
+    expect(element('[data-testid="goal-create-no-friends"]').textContent).toContain('Lade zuerst einen Freund ein')
+    expect(element('[data-testid="invite-card"]')).toBeTruthy()
+    expect(document.querySelector('[data-testid="goal-create-form"]')).toBeNull()
     wrapper.unmount()
   })
 
   it('never leaves a weekday schedule with no day in it', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
-      props: { open: true },
+      props: { open: true, friends: [friend()] },
       attachTo: document.body,
     })
 
@@ -97,25 +128,26 @@ describe('GoalCreateSheet', () => {
       kind: 'validation',
       isExpected: true,
       status: 400,
-      fieldErrors: { Title: ['Titel fehlt'], ICON: ['Icon ungültig'] },
+      fieldErrors: { Title: ['Titel fehlt'], ICON: ['Icon ungültig'], participantIds: ['Freund fehlt'] },
       traceId: null,
       errorId: null,
       reason: null,
     }
     const fieldWrapper = await mountSuspended(GoalCreateSheet, {
-      props: { open: true, error: fieldFailure },
+      props: { open: true, friends: [friend()], error: fieldFailure },
       attachTo: document.body,
     })
 
     expect(document.body.textContent).toContain('Titel fehlt')
     expect(document.body.textContent).toContain('Icon ungültig')
+    expect(document.body.textContent).toContain('Freund fehlt')
     expect(document.querySelector('[data-testid="goal-create-error"]')).toBeNull()
     fieldWrapper.unmount()
     document.body.replaceChildren()
 
     const requestFailure = { ...fieldFailure, kind: 'network' as const, fieldErrors: {} }
     const requestWrapper = await mountSuspended(GoalCreateSheet, {
-      props: { open: true, error: requestFailure },
+      props: { open: true, friends: [friend()], error: requestFailure },
       attachTo: document.body,
     })
     expect(element('[data-testid="goal-create-error"]').getAttribute('role')).toBe('alert')

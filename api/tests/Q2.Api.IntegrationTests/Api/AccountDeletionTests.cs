@@ -105,6 +105,53 @@ public class AccountDeletionTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     /// <summary>
+    /// A goal's conversation goes with the goal, as deleting it from the archive
+    /// takes it — the database alone would leave a thread about nothing.
+    /// </summary>
+    [Fact]
+    public async Task TheConversationOfTheirOwnGoalGoesWithThem()
+    {
+        (await DeleteAsync(Client, SeedAccounts.Password)).EnsureSuccessStatusCode();
+
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            Assert.False(await database.Conversations.AnyAsync(
+                conversation => conversation.Id == AutomatedTestSeed.SharedGoalConversationId,
+                TestContext.Current.CancellationToken));
+        });
+    }
+
+    /// <summary>
+    /// A friend's goal is somebody else's conversation: it stays, without them.
+    /// </summary>
+    [Fact]
+    public async Task AFriendsGoalConversationStaysWithoutThem()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        (await friend.PostJsonAsync(
+            $"/api/chats/{AutomatedTestSeed.SharedGoalConversationId}/messages",
+            new { text = "Automated test: from the friend" })).EnsureSuccessStatusCode();
+
+        (await DeleteAsync(friend, SeedAccounts.Password)).EnsureSuccessStatusCode();
+
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            var token = TestContext.Current.CancellationToken;
+
+            var conversation = await database.Conversations
+                .Include(candidate => candidate.Participants)
+                .SingleAsync(candidate => candidate.Id == AutomatedTestSeed.SharedGoalConversationId, token);
+
+            Assert.DoesNotContain(
+                conversation.Participants,
+                participant => participant.PersonId == AutomatedTestSeed.FriendPersonId);
+            Assert.False(await database.ChatMessages.AnyAsync(
+                message => message.SenderPersonId == AutomatedTestSeed.FriendPersonId, token));
+        });
+    }
+
+    /// <summary>
     /// The counters are stored rather than derived, so a cascade would leave
     /// every person they ever cheered counting something that is gone.
     /// </summary>

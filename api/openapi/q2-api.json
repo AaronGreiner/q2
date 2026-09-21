@@ -2902,7 +2902,8 @@
           "otherLastSeenAt",
           "pinnedGoal",
           "messages",
-          "isMuted"
+          "isMuted",
+          "events"
         ],
         "type": "object",
         "properties": {
@@ -2963,6 +2964,12 @@
           },
           "isMuted": {
             "type": "boolean"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoalEventResponse"
+            }
           }
         }
       },
@@ -3014,7 +3021,8 @@
           "title",
           "current",
           "streak",
-          "pausedUntil"
+          "pausedUntil",
+          "isMine"
         ],
         "type": "object",
         "properties": {
@@ -3045,6 +3053,9 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "isMine": {
+            "type": "boolean"
           }
         }
       },
@@ -3063,7 +3074,11 @@
           "lastMessageIsMine",
           "lastMessageAt",
           "unreadCount",
-          "isMuted"
+          "isMuted",
+          "lastEvent",
+          "goalId",
+          "isMyGoal",
+          "awaitingMyVote"
         ],
         "type": "object",
         "properties": {
@@ -3117,6 +3132,29 @@
           },
           "isMuted": {
             "type": "boolean"
+          },
+          "lastEvent": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalEventKind"
+              }
+            ]
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "isMyGoal": {
+            "type": "boolean"
+          },
+          "awaitingMyVote": {
+            "type": "boolean"
           }
         }
       },
@@ -3132,7 +3170,8 @@
       "ConversationKind": {
         "enum": [
           "Direct",
-          "Group"
+          "Group",
+          "Goal"
         ]
       },
       "CountsResponse": {
@@ -3230,11 +3269,6 @@
               "type": "string",
               "format": "uuid"
             },
-            "nullable": true
-          },
-          "goalId": {
-            "type": "string",
-            "format": "uuid",
             "nullable": true
           }
         }
@@ -3443,7 +3477,8 @@
         "required": [
           "goal",
           "team",
-          "history"
+          "history",
+          "conversationId"
         ],
         "type": "object",
         "properties": {
@@ -3461,6 +3496,91 @@
             "items": {
               "$ref": "#/components/schemas/GoalInstanceResponse"
             }
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "GoalEventKind": {
+        "enum": [
+          "Created",
+          "ProofDelivered",
+          "WindowDone",
+          "WindowMissed",
+          "PauseStarted",
+          "PauseEnded",
+          "PauseOverturned",
+          "Completed",
+          "Stopped",
+          null
+        ]
+      },
+      "GoalEventResponse": {
+        "required": [
+          "key",
+          "kind",
+          "at",
+          "actorName",
+          "isMine",
+          "streak",
+          "confirmedProofs",
+          "requiredProofs",
+          "until",
+          "proof"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GoalEventKind"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "isMine": {
+            "type": "boolean"
+          },
+          "streak": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "confirmedProofs": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "requiredProofs": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "until": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "proof": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ProofResponse"
+              }
+            ]
           }
         }
       },

@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import type { Image } from '~/api/types'
+
 /**
  * One conversation.
+ *
+ * A goal's conversation is where its friends check it: its photographs arrive
+ * here with their vote, and what became of each window is a line between the
+ * messages (docs/adr/0027-goal-conversations.md). The goal's owner gets the
+ * camera in the composer while the open window takes a photograph.
  *
  * Opening it marks it read on the server, which is why the navigation badge is
  * refreshed afterwards — the count has just changed under it. A reply arriving
@@ -30,7 +37,42 @@ const t = useMessages()
 const now = useNow()
 
 const id = computed(() => String(route.params.id))
-const { chat, error, isMissing, isLoading, refresh, send, cheer, react, setMuted, leave, isSending } = useChatThread(id)
+const {
+  chat,
+  error,
+  isMissing,
+  isLoading,
+  refresh,
+  send,
+  cheer,
+  react,
+  vote,
+  setMuted,
+  leave,
+  isSending,
+  isVoting,
+} = useChatThread(id)
+
+/** Messages and what happened to the goal, as one thread by time. */
+const items = computed(() => (chat.value ? threadItems(chat.value.messages, chat.value.events) : []))
+
+/**
+ * The camera, for the owner, while the open window takes a photograph —
+ * `acceptsProof` rather than a rule of our own, because the server's answer
+ * involves the attempt count and a pending vote as well.
+ */
+const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const isCameraOpen = ref(false)
+
+const canDeliver = computed(() =>
+  Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
+
+async function onDelivered(image: Image) {
+  isCameraOpen.value = false
+
+  const goalId = chat.value?.pinnedGoal?.id
+  if (goalId && await deliver(goalId, image)) await refresh()
+}
 
 const thread = useTemplateRef<HTMLElement>('thread')
 
@@ -40,7 +82,7 @@ function scrollToLatest() {
 }
 
 /*
- * Both moments that put the newest message out of sight, in one place.
+ * Every moment that puts the newest message out of sight, in one place.
  *
  * `thread` is the scroll region, and it only exists once the conversation has
  * loaded — which, on a tap from the list, is *after* this page is mounted.
@@ -56,11 +98,11 @@ function scrollToLatest() {
  * `flush: 'post'` because the height being measured is the one after Vue has
  * patched the DOM, not before.
  */
-watch([thread, () => chat.value?.messages.length], scrollToLatest, { flush: 'post' })
+watch([thread, () => items.value.length], scrollToLatest, { flush: 'post' })
 
 const status = computed(() => {
   if (!chat.value) return ''
-  if (chat.value.kind === 'Group') return t.value.chats.members(chat.value.memberCount)
+  if (chat.value.kind !== 'Direct') return t.value.chats.members(chat.value.memberCount)
   if (chat.value.isOnline) return t.value.chats.online
   if (chat.value.otherLastSeenAt) {
     return t.value.chats.lastSeen(formatRelativeTime(chat.value.otherLastSeenAt, now.value, t.value))
@@ -109,6 +151,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         :initials="chat.initials"
         :color="chat.avatarColor"
         :image-id="chat.avatarImageId"
+        :icon="chat.icon"
         :size="38"
         :online="chat.isOnline"
       />
@@ -211,17 +254,41 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         />
 
         <ul
-          v-if="chat.messages.length > 0"
+          v-if="items.length > 0"
           class="flex list-none flex-col gap-1 p-0"
           data-testid="chat-messages"
         >
-          <ChatBubble
-            v-for="message in chat.messages"
-            :key="message.id"
-            :message="message"
-            :now="now"
-            @react="react"
-          />
+          <template
+            v-for="item in items"
+            :key="item.key"
+          >
+            <ChatBubble
+              v-if="item.kind === 'message'"
+              :message="item.message"
+              :now="now"
+              @react="react"
+            />
+
+            <ChatEventLine
+              v-else-if="item.kind === 'event'"
+              :event="item.event"
+            />
+
+            <!-- The owner's photograph sits on their side of the thread, a
+                 friend's on the other, like the messages around it. -->
+            <li
+              v-else
+              class="my-1.5 w-[85%] list-none"
+              :class="item.event.isMine ? 'self-end' : 'self-start'"
+              data-testid="chat-proof"
+            >
+              <ProofCard
+                :proof="item.proof"
+                :busy="isVoting"
+                @vote="vote(item.proof.id, $event)"
+              />
+            </li>
+          </template>
         </ul>
 
         <AppStateMessage
@@ -235,9 +302,18 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
 
       <ChatComposer
         :busy="isSending"
+        :can-deliver="canDeliver"
         @send="send"
+        @deliver="isCameraOpen = true"
       />
     </template>
+
+    <PhotoCapture
+      v-model:open="isCameraOpen"
+      purpose="Proof"
+      :max-edge="maxEdge"
+      @uploaded="onDelivered"
+    />
 
     <AppConfirmDialog
       v-model:open="isLeaveOpen"

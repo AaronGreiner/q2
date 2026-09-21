@@ -151,7 +151,11 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         const string personalTitle = "Therapy appointment every Tuesday";
 
-        await Client.PostJsonAsync("/api/goals", new { title = personalTitle });
+        await Client.PostJsonAsync("/api/goals", new
+        {
+            title = personalTitle,
+            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
+        });
         await Client.GetAsync("/api/diagnostics/boom", TestContext.Current.CancellationToken);
 
         var recorded = (await Factory.RecordedEventsAsync()).Single();
@@ -273,6 +277,7 @@ public class SentryPipelineTests(Q2ApiFactory factory) : ApiTestBase(factory)
         {
             title = personalTitle,
             schedule = new { kind = "Weekdays", weekdays = new[] { "Tuesday" } },
+            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
         });
 
         var metrics = await Factory.RecordedMetricsAsync(metric => metric.Name == Q2Metrics.GoalCreated);

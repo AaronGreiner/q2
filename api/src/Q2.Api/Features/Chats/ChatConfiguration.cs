@@ -29,12 +29,21 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
             .IsRequired()
             .HasConversion(InstantConversion.Required);
 
-        // A pinned goal is a reference, not ownership: deleting the goal leaves
-        // the conversation standing, it just stops showing the progress bar.
+        // A goal's conversation goes when the goal does — but the code says
+        // so, not the database: GoalService.DeleteAsync and the account erasure
+        // remove it explicitly. Moving this to Cascade would make SQLite
+        // rebuild the table with its foreign keys switched off, which no
+        // migration here may do (MigrationTests). SetNull is what the database
+        // does if something else ever deletes a goal, and a goal's
+        // conversation without its goal is shown to nobody.
         builder.HasOne<Goal>()
             .WithMany()
             .HasForeignKey(c => c.GoalId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // One conversation per goal. Two would split its photographs and its
+        // friends' replies between threads that each look complete.
+        builder.HasIndex(c => c.GoalId).IsUnique();
 
         builder.HasMany(c => c.Participants)
             .WithOne()

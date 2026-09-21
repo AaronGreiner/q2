@@ -164,8 +164,11 @@ worth reading before touching anything to do with a picture
   cannot `ORDER BY` a `DateTimeOffset` at all, and UTC maps cleanly onto
   PostgreSQL's `timestamptz` later.
 - Explicit lengths and indexes. Foreign keys cascade where a child cannot exist
-  alone, and a reference that must survive its target (a pinned goal on a
-  conversation) is `SetNull` instead.
+  alone, and a reference that must survive its target is `SetNull` instead.
+  Changing an existing key's delete rule makes SQLite rebuild the table with
+  foreign keys off, which `MigrationTests` forbids — so a goal's conversation
+  keeps `SetNull` and is removed with its goal by the code
+  ([../docs/adr/0027-goal-conversations.md](../docs/adr/0027-goal-conversations.md)).
 - Queries that only read use `AsNoTracking()`.
 - Queries split collection includes by default. Goal, profile and chat reads
   materialise several collections; one joined query multiplies their rows as

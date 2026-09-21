@@ -21,7 +21,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
     public SeedData Create(SeedContext context)
     {
         var build = new SeedBuilder(Profile, context);
-        KudosWorld.Compose(build);
+        var cast = KudosWorld.Compose(build);
 
         build.AddGoal(
             "Zehn Kilometer am Stück",
@@ -30,7 +30,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             GoalSchedule.Once(),
             createdDaysAgo: 90,
             confirmedNow: 1,
-            targetDate: context.DaysFromToday(-4));
+            targetDate: context.DaysFromToday(-4),
+            participants: [cast.Jonas]);
 
         build.AddGoal(
             "Jeden Sonntag Meal Prep",
@@ -38,7 +39,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             "calendar",
             GoalSchedule.OnWeekdays([Weekday.Sunday]),
             createdDaysAgo: 120,
-            history: "ddmmm");
+            history: "ddmmm",
+            participants: [cast.Lena, cast.Tom]);
 
         var archived = build.AddGoal(
             "Kalt duschen",
@@ -46,7 +48,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             "droplet",
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 150,
-            history: "dd");
+            history: "dd",
+            participants: [cast.Sarah]);
         archived.Close(completed: false, build.Context.DaysAgo(2));
 
         var completed = build.AddGoal(
@@ -55,7 +58,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             "medal",
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 90,
-            history: "dddd");
+            history: "dddd",
+            participants: [cast.David]);
         completed.Close(completed: true, build.Context.DaysAgo(1));
 
         // A title long enough to wrap on a 390-pixel screen, which is where a
@@ -65,7 +69,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             null,
             "target",
             GoalSchedule.EveryNDays(1),
-            createdDaysAgo: 3);
+            createdDaysAgo: 3,
+            participants: [cast.Jonas, cast.Lena, cast.Tom, cast.Sarah, cast.David]);
 
         // Every second day, so the schedule label has to say a number.
         build.AddGoal(
@@ -74,7 +79,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             "flame",
             GoalSchedule.EveryNDays(2),
             createdDaysAgo: 30,
-            history: "dddmd");
+            history: "dddmd",
+            participants: [cast.Tom]);
 
         // A monthly quota: the other period, and the longest window there is.
         build.AddGoal(
@@ -84,7 +90,8 @@ public sealed class ManualTestingSeed : ISeedDataSource
             GoalSchedule.TimesPer(2, QuotaPeriod.Month),
             createdDaysAgo: 120,
             history: "dd",
-            confirmedNow: 1);
+            confirmedNow: 1,
+            participants: [cast.Lena]);
 
         return build.Build();
     }

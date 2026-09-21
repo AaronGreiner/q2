@@ -27,7 +27,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
 
     public SeedProfile Profile => Owner;
 
-    public string Description => "3 people, 3 goals, 3 tasks, 2 conversations — one of each branch.";
+    public string Description => "4 people, 4 goals, the shared goal's conversation and 2 free conversations — one of each branch.";
 
     /// <summary>The person the tests sign in as by default.</summary>
     public static Guid CurrentPersonId => SeedIds.For(Owner, SeedEntity.Person, 1);
@@ -67,6 +67,9 @@ public sealed class AutomatedTestSeed : ISeedDataSource
 
     /// <summary>The direct conversation, which starts with one unread message.</summary>
     public static Guid DirectConversationId => SeedIds.For(Owner, SeedEntity.Conversation, 1);
+
+    /// <summary>The conversation of the shared active goal, opened with it.</summary>
+    public static Guid SharedGoalConversationId => SeedIds.For(Owner, SeedEntity.GoalConversation, 1);
 
     /// <summary>A conversation the current person is not part of.</summary>
     public static Guid ForeignConversationId => SeedIds.For(Owner, SeedEntity.Conversation, 2);
@@ -119,6 +122,10 @@ public sealed class AutomatedTestSeed : ISeedDataSource
             reminderAt: new TimeOnly(18, 0),
             participants: [friend]);
 
+        // The goals below have nobody on them: ones from before a friend was
+        // required, which databases still hold and which have to keep working
+        // without a conversation (docs/adr/0027-goal-conversations.md).
+
         // A one-off that has been delivered: the only way a goal reaches
         // Completed.
         build.AddGoal(
@@ -154,7 +161,6 @@ public sealed class AutomatedTestSeed : ISeedDataSource
 
         build.AddDirectChat(
             friend,
-            active,
             unread: 1,
             new SeedMessage(me, "Automated test: first message", 30),
             new SeedMessage(friend, "Automated test: unread reply", 20, KudosKind.Applause));

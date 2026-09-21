@@ -377,10 +377,17 @@ public class PauseAndArchiveEndpointTests(Q2ApiFactory factory) : ApiTestBase(fa
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
 
         var chat = await friend.GetAsync(
-            $"/api/chats/{AutomatedTestSeed.DirectConversationId}",
+            $"/api/chats/{AutomatedTestSeed.SharedGoalConversationId}",
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, chat.StatusCode);
+
+        // What the two of them say to each other was never about the goal.
+        var direct = await friend.GetAsync(
+            $"/api/chats/{AutomatedTestSeed.DirectConversationId}",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, direct.StatusCode);
     }
 
     /// <summary>

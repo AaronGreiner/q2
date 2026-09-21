@@ -450,18 +450,7 @@ public sealed class ProofService(
         IEnumerable<Goal> goals,
         CancellationToken cancellationToken)
     {
-        /*
-         * Uploaders, and the people who *confirmed*. Not the doubters.
-         *
-         * This is where anonymity is actually enforced: their ids are never
-         * loaded, so no later change to the mapping can leak a name that was
-         * never fetched. Owners come along because the uploader always is one.
-         */
-        var ids = proofs
-            .SelectMany(proof => proof.ConfirmedBy.Append(proof.UploaderPersonId))
-            .Concat(goals.Select(goal => goal.OwnerPersonId))
-            .Distinct()
-            .ToList();
+        var ids = PeopleShownWith(proofs, goals);
 
         return await database.People
             .AsNoTracking()
@@ -469,7 +458,31 @@ public sealed class ProofService(
             .ToDictionaryAsync(person => person.Id, cancellationToken);
     }
 
-    private static ProofResponse Describe(
+    /// <summary>
+    /// Everybody whose name a description of these photographs may carry.
+    /// </summary>
+    /// <remarks>
+    /// Uploaders, and the people who *confirmed*. Not the doubters.
+    ///
+    /// This is where anonymity is actually enforced: their ids are never
+    /// loaded, so no later change to the mapping can leak a name that was
+    /// never fetched. Owners come along because the uploader always is one.
+    /// Shared with the goal's conversation, which shows the same photographs
+    /// and must not be a second place that decides whose names to load.
+    /// </remarks>
+    internal static List<Guid> PeopleShownWith(IEnumerable<ProofPhoto> proofs, IEnumerable<Goal> goals) =>
+    [
+        .. proofs
+            .SelectMany(proof => proof.ConfirmedBy.Append(proof.UploaderPersonId))
+            .Concat(goals.Select(goal => goal.OwnerPersonId))
+            .Distinct(),
+    ];
+
+    /// <summary>
+    /// One photograph as <paramref name="viewerId"/> sees it. <paramref name="people"/>
+    /// must have been loaded through <see cref="PeopleShownWith"/>.
+    /// </summary>
+    internal static ProofResponse Describe(
         Goal goal,
         ProofPhoto proof,
         Guid viewerId,

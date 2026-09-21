@@ -6,9 +6,12 @@ using Q2.Api.Features.People;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
 
+/// <summary>The people of the demonstration world a seed on top of it may invite.</summary>
+internal sealed record KudosCast(Person Me, Person Jonas, Person Lena, Person Tom, Person Sarah, Person David);
+
 /// <summary>
-/// The demonstration world: one person, five friends, four goals, a week's
-/// worth of chat.
+/// The demonstration world: one person, five friends, their shared goals with
+/// a conversation each, and a week's worth of chat.
 /// </summary>
 /// <remarks>
 /// Shared by the Development and ManualTesting profiles, because "what a
@@ -21,7 +24,7 @@ namespace Q2.Api.Infrastructure.Persistence.Seeding;
 /// </remarks>
 internal static class KudosWorld
 {
-    public static void Compose(SeedBuilder build)
+    public static KudosCast Compose(SeedBuilder build)
     {
         var context = build.Context;
 
@@ -107,7 +110,8 @@ internal static class KudosWorld
             createdDaysAgo: 25,
             history: "dddddddddddddddddddd",
             confirmedNow: 1,
-            reminderAt: new TimeOnly(21, 0));
+            reminderAt: new TimeOnly(21, 0),
+            participants: [sarah]);
 
         var earlyBirds = build.AddGoal(
             "Frühaufsteher-Challenge",
@@ -128,7 +132,8 @@ internal static class KudosWorld
             "droplet",
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 9,
-            history: "dddmddd");
+            history: "dddmddd",
+            participants: [lena]);
 
         build.AddGoal(
             "Meditation an Wochentagen",
@@ -137,7 +142,8 @@ internal static class KudosWorld
             GoalSchedule.OnWeekdays([Weekday.Monday, Weekday.Wednesday, Weekday.Friday]),
             createdDaysAgo: 30,
             history: "dddd",
-            reminderAt: new TimeOnly(8, 0));
+            reminderAt: new TimeOnly(8, 0),
+            participants: [tom]);
 
         build.AddGoal(
             "Wocheneinkauf",
@@ -145,7 +151,29 @@ internal static class KudosWorld
             "calendar",
             GoalSchedule.Once(),
             createdDaysAgo: 1,
-            targetDate: context.DaysFromToday(2));
+            targetDate: context.DaysFromToday(2),
+            participants: [david]);
+
+        // Friends' goals I was invited to check: what the "Von Freunden" half of
+        // the chat list is made of, and the other end of every vote.
+        var morningRun = build.AddGoal(
+            "Jeden Morgen joggen",
+            "5 km vor der Arbeit.",
+            "sunrise",
+            GoalSchedule.EveryNDays(1),
+            createdDaysAgo: 12,
+            history: "dddddddddd",
+            owner: jonas,
+            participants: [me, lena]);
+
+        build.AddGoal(
+            "Klettern lernen",
+            "Zweimal die Woche in die Halle.",
+            "trophy",
+            GoalSchedule.TimesPer(2, QuotaPeriod.Week),
+            createdDaysAgo: 0,
+            owner: tom,
+            participants: [me]);
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "Joggen 5 km", null, kudosCount: 8, minutesAgo: 12);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 7, kudosCount: 13, minutesAgo: 40, kudosFromMe: true);
@@ -162,17 +190,15 @@ internal static class KudosWorld
 
         build.AddDirectChat(
             jonas,
-            halfMarathon,
             unread: 2,
             new SeedMessage(jonas, "Na, schon wach? 😄", 96),
             new SeedMessage(jonas, "Stark, dass du gestern die 5 km durchgezogen hast! 👏", 95, KudosKind.Strong),
             new SeedMessage(me, "Danke! War hart, aber hat sich gelohnt 💪", 92),
             new SeedMessage(jonas, "Sehen wir uns morgen beim Lauf? 🏃", 88));
 
-        build.AddGroupChat(
-            "Frühaufsteher",
-            "sunrise",
-            [lena, tom, sarah],
+        // The group that used to be pinned to this goal is now simply the
+        // goal's own conversation — the same four people either way.
+        build.AddGoalMessages(
             earlyBirds,
             unread: 3,
             new SeedMessage(lena, "Guten Morgen! Wer ist heute um 6 dabei? ☀️", 220),
@@ -181,25 +207,36 @@ internal static class KudosWorld
             new SeedMessage(sarah, "Zehn Minuten später bei mir, aber ich komme 🙂", 180),
             new SeedMessage(lena, "Acht von zehn Tagen — das Team steht 💚", 140));
 
+        build.AddGoalMessages(
+            halfMarathon,
+            unread: 0,
+            new SeedMessage(lena, "Drei Läufe diese Woche — ich schau genau hin.", 300),
+            new SeedMessage(me, "Einer ist drin, heute Abend kommt der nächste.", 280));
+
+        build.AddGoalMessages(
+            morningRun,
+            unread: 2,
+            new SeedMessage(jonas, "Tag elf. Heute 5 km in 27 Minuten.", 35),
+            new SeedMessage(lena, "Schneller als letzte Woche!", 30, KudosKind.Fire, jonas));
+
         build.AddDirectChat(
             lena,
-            null,
             unread: 0,
             new SeedMessage(me, "Mega Streak, weiter so! 🔥", 1500),
             new SeedMessage(lena, "Danke für die Motivation 💚", 1440, KudosKind.Applause));
 
+        // A conversation about a book rather than about a promise: what the
+        // "Unterhaltungen" section of the chat list is for.
         build.AddGroupChat(
             "Lesekreis",
             "book-open",
             [sarah, david],
-            reading,
             unread: 0,
             new SeedMessage(sarah, "Kapitel 7 ist der Hammer 📖", 2200),
             new SeedMessage(david, "Bin fast durch, keine Spoiler!", 2100));
 
         build.AddDirectChat(
             tom,
-            null,
             unread: 0,
             new SeedMessage(tom, "Denk an die Pausen zwischen den Einheiten 👍", 4300));
 
@@ -235,5 +272,7 @@ internal static class KudosWorld
         build.AddChallenge("Zeig deinen Arbeitsplatz, so wie er gerade aussieht.");
 
         build.AddDefaultSettings();
+
+        return new KudosCast(me, jonas, lena, tom, sarah, david);
     }
 }

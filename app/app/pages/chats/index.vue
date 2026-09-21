@@ -5,6 +5,11 @@
  * Search is debounced before it reaches the server: a request per keystroke on
  * a phone connection is a list that flickers between three different answers
  * while somebody is still typing a name.
+ *
+ * Three sections, because the rows are three different jobs: your own goals,
+ * where you deliver; friends' goals, where you check; and conversations about
+ * no goal at all. Each keeps the server's order — newest first — and search
+ * runs across all of them (docs/adr/0027-goal-conversations.md).
  */
 const t = useMessages()
 const now = useNow()
@@ -26,6 +31,27 @@ watch(input, (value) => {
 onScopeDispose(() => clearTimeout(debounce))
 
 const { chats, error, isLoading, refresh } = useChats(search)
+
+const sections = computed(() => [
+  {
+    key: 'mine',
+    title: t.value.chats.sectionMine,
+    hint: t.value.chats.sectionMineHint,
+    chats: chats.value.filter(chat => chat.kind === 'Goal' && chat.isMyGoal),
+  },
+  {
+    key: 'friends',
+    title: t.value.chats.sectionFriends,
+    hint: t.value.chats.sectionFriendsHint,
+    chats: chats.value.filter(chat => chat.kind === 'Goal' && !chat.isMyGoal),
+  },
+  {
+    key: 'conversations',
+    title: t.value.chats.sectionConversations,
+    hint: null,
+    chats: chats.value.filter(chat => chat.kind !== 'Goal'),
+  },
+].filter(section => section.chats.length > 0))
 
 // The picker only ever offers friends, which is also the server's rule.
 const { friends } = useFriends()
@@ -118,21 +144,41 @@ useHead({ title: () => t.value.chats.heading })
         @retry="refresh()"
       />
 
-      <ul
+      <div
         v-else-if="chats.length > 0"
-        class="list-none p-0"
+        class="flex flex-col gap-4"
         data-testid="chat-list"
       >
-        <li
-          v-for="chat in chats"
-          :key="chat.id"
+        <section
+          v-for="section in sections"
+          :key="section.key"
+          :aria-labelledby="`chat-section-${section.key}`"
+          :data-testid="`chat-section-${section.key}`"
         >
-          <ChatListRow
-            :chat="chat"
-            :now="now"
-          />
-        </li>
-      </ul>
+          <h2
+            :id="`chat-section-${section.key}`"
+            class="flex items-baseline justify-between gap-2 px-0.5 pb-1"
+          >
+            <span class="q2-eyebrow">{{ section.title }}</span>
+            <span
+              v-if="section.hint"
+              class="text-[11px] font-semibold text-(--ui-text-dimmed)"
+            >{{ section.hint }}</span>
+          </h2>
+
+          <ul class="list-none p-0">
+            <li
+              v-for="chat in section.chats"
+              :key="chat.id"
+            >
+              <ChatListRow
+                :chat="chat"
+                :now="now"
+              />
+            </li>
+          </ul>
+        </section>
+      </div>
 
       <AppStateMessage
         v-else

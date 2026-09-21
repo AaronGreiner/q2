@@ -58,6 +58,9 @@ ceremony: waiting twelve hours for a photograph no friend will ever see.
 It is expressed as `expectedVoterCount <= 0` rather than "is this a group",
 because the question is always *is there anybody to ask*.
 
+Since [0027](0027-goal-conversations.md) no such goal can be made: a goal needs
+a friend to check it. The rule stays for the goals databases already hold.
+
 ### Doubt is anonymous, and it is enforced by not loading it
 
 Confirmations come back with names; doubts come back as a number. If a doubter

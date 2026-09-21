@@ -1051,6 +1051,7 @@ export interface components {
             pinnedGoal: null | components["schemas"]["ChatPinnedGoalResponse"];
             messages: components["schemas"]["ChatMessageResponse"][];
             isMuted: boolean;
+            events: components["schemas"]["GoalEventResponse"][];
         };
         ChatMessageResponse: {
             /** Format: uuid */
@@ -1073,6 +1074,7 @@ export interface components {
             streak: number;
             /** Format: date */
             pausedUntil: string | null;
+            isMine: boolean;
         };
         ChatSummaryResponse: {
             /** Format: uuid */
@@ -1093,12 +1095,17 @@ export interface components {
             /** Format: int32 */
             unreadCount: number;
             isMuted: boolean;
+            lastEvent: null | components["schemas"]["GoalEventKind"];
+            /** Format: uuid */
+            goalId: string | null;
+            isMyGoal: boolean;
+            awaitingMyVote: boolean;
         };
         CloseGoalRequest: {
             completed?: boolean | null;
         };
         /** @enum {unknown} */
-        ConversationKind: "Direct" | "Group";
+        ConversationKind: "Direct" | "Group" | "Goal";
         CountsResponse: {
             /** Format: int32 */
             unreadChats: number;
@@ -1125,8 +1132,6 @@ export interface components {
             title?: string | null;
             icon?: string | null;
             memberIds?: string[] | null;
-            /** Format: uuid */
-            goalId?: string | null;
         };
         CreateReportRequest: {
             targetKind?: null | components["schemas"]["ReportTargetKind"];
@@ -1185,6 +1190,27 @@ export interface components {
             goal: components["schemas"]["GoalResponse"];
             team: components["schemas"]["GoalTeamMemberResponse"][];
             history: components["schemas"]["GoalInstanceResponse"][];
+            /** Format: uuid */
+            conversationId: string | null;
+        };
+        /** @enum {unknown} */
+        GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | null;
+        GoalEventResponse: {
+            key: string;
+            kind: components["schemas"]["GoalEventKind"];
+            /** Format: date-time */
+            at: string;
+            actorName: string | null;
+            isMine: boolean;
+            /** Format: int32 */
+            streak: number | null;
+            /** Format: int32 */
+            confirmedProofs: number | null;
+            /** Format: int32 */
+            requiredProofs: number | null;
+            /** Format: date */
+            until: string | null;
+            proof: null | components["schemas"]["ProofResponse"];
         };
         GoalInstanceResponse: {
             /** Format: uuid */

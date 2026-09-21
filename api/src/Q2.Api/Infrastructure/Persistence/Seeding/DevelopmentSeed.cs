@@ -12,7 +12,7 @@ public sealed class DevelopmentSeed : ISeedDataSource
 {
     public SeedProfile Profile => SeedProfile.Development;
 
-    public string Description => "The demonstration world: 10 people, 4 goals, 6 tasks, 5 conversations.";
+    public string Description => "The demonstration world: 10 people, 8 shared goals with a conversation each, 4 free conversations.";
 
     public SeedData Create(SeedContext context)
     {

@@ -5,8 +5,13 @@ import type { ChatSummary } from '~/api/types'
  * One conversation in the list.
  *
  * The name, avatar and presence are already resolved by the server — for a
- * group they come from the conversation, for a direct chat from the other
- * person — so this component does not need to know that rule exists.
+ * group they come from the conversation, for a goal's from the goal, for a
+ * direct chat from the other person — so this component does not need to know
+ * that rule exists.
+ *
+ * A photograph waiting for the reader's verdict is said in the accent, and it
+ * is the only thing in the list that is: it is something they can do now,
+ * which being unread is not.
  */
 const props = defineProps<{
   chat: ChatSummary
@@ -20,6 +25,8 @@ const time = computed(() => formatChatTime(props.chat.lastMessageAt, props.now, 
 
 /** "Du: ", "Lena: ", or nothing at all in a direct chat. */
 const preview = computed(() => {
+  if (props.chat.awaitingMyVote) return t.value.chats.awaitingVote
+  if (props.chat.lastEvent) return t.value.chats.lastEvent[props.chat.lastEvent]
   if (!props.chat.lastMessage) return t.value.chats.empty
 
   const prefix = props.chat.lastMessageIsMine
@@ -75,6 +82,13 @@ const preview = computed(() => {
 
       <div class="mt-0.5 flex items-center justify-between gap-2">
         <span
+          v-if="chat.awaitingMyVote"
+          class="min-w-0 truncate rounded-full bg-(--q2-accent-soft) px-2 py-0.5 text-[12px] font-extrabold text-(--q2-accent-soft-text)"
+          data-testid="chat-awaiting-vote"
+        >{{ preview }}</span>
+
+        <span
+          v-else
           class="min-w-0 flex-1 truncate text-[13px]"
           :class="chat.unreadCount > 0 ? 'font-bold text-(--ui-text)' : 'font-medium text-(--ui-text-muted)'"
         >{{ preview }}</span>

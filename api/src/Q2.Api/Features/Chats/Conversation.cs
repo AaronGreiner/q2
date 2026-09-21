@@ -2,7 +2,7 @@ using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.Features.Chats;
 
-/// <summary>Whether a conversation is between two people or among a group.</summary>
+/// <summary>What a conversation is: two people, a group, or a goal's own thread.</summary>
 public enum ConversationKind
 {
     /// <summary>Two people. The name and avatar come from the other one.</summary>
@@ -10,6 +10,12 @@ public enum ConversationKind
 
     /// <summary>Three or more, with a name of its own.</summary>
     Group,
+
+    /// <summary>
+    /// A goal's own thread: its owner and everybody invited to check it. The
+    /// name and the icon come from the goal.
+    /// </summary>
+    Goal,
 }
 
 /// <summary>
@@ -19,10 +25,14 @@ public enum ConversationKind
 /// A direct conversation deliberately has no <see cref="Title"/>: naming it
 /// would mean storing "Jonas Weber" a second time and having it go stale the
 /// day he changes his name. The name is derived from the other participant when
-/// the conversation is read.
+/// the conversation is read. A goal's conversation has no title for the same
+/// reason — it is called whatever the goal is called.
 ///
-/// A conversation may be pinned to a goal, which is what puts the shared
-/// progress bar and the "Anfeuern" button at the top of the thread.
+/// Every goal that somebody else checks has exactly one conversation of its
+/// own, opened with the goal and gone with it. That is where its photographs
+/// arrive, where they are voted on and where its windows are seen to be kept
+/// or missed; a free conversation is never about a goal
+/// ([0027](../../../../docs/adr/0027-goal-conversations.md)).
 /// </remarks>
 public sealed class Conversation
 {
@@ -67,7 +77,10 @@ public sealed class Conversation
     /// </summary>
     public string? Icon { get; private set; }
 
-    /// <summary>The goal this thread is about, when it is about one.</summary>
+    /// <summary>
+    /// The goal this is the conversation of. Set for <see cref="ConversationKind.Goal"/>
+    /// and for nothing else.
+    /// </summary>
     public Guid? GoalId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
@@ -76,12 +89,26 @@ public sealed class Conversation
 
     public IReadOnlyList<ChatMessage> Messages => _messages;
 
-    /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
-    public static Conversation CreateDirect(Guid id, Guid? goalId, DateTimeOffset createdAt) =>
-        new(id, ConversationKind.Direct, null, null, goalId, createdAt);
+    public static Conversation CreateDirect(Guid id, DateTimeOffset createdAt) =>
+        new(id, ConversationKind.Direct, null, null, null, createdAt);
+
+    /// <summary>
+    /// Opens the conversation of a goal. Its members are the goal's: the owner
+    /// and everybody invited, added by the caller.
+    /// </summary>
+    /// <exception cref="DomainValidationException">There is no goal.</exception>
+    public static Conversation CreateForGoal(Guid id, Guid goalId, DateTimeOffset createdAt)
+    {
+        if (goalId == Guid.Empty)
+        {
+            throw new DomainValidationException(nameof(GoalId), "A goal's conversation needs its goal.");
+        }
+
+        return new Conversation(id, ConversationKind.Goal, null, null, goalId, createdAt);
+    }
 
     /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
-    public static Conversation CreateGroup(Guid id, string title, string? icon, Guid? goalId, DateTimeOffset createdAt)
+    public static Conversation CreateGroup(Guid id, string title, string? icon, DateTimeOffset createdAt)
     {
         var normalisedTitle = title?.Trim() ?? string.Empty;
         var normalisedIcon = string.IsNullOrWhiteSpace(icon) ? null : icon.Trim();
@@ -105,7 +132,7 @@ public sealed class Conversation
                 "That group icon is not one of the available icons.");
         }
 
-        return new Conversation(id, ConversationKind.Group, normalisedTitle, normalisedIcon, goalId, createdAt);
+        return new Conversation(id, ConversationKind.Group, normalisedTitle, normalisedIcon, null, createdAt);
     }
 
     /// <exception cref="DomainValidationException">The conversation is full.</exception>
@@ -138,7 +165,9 @@ public sealed class Conversation
     /// what everybody else remembers of it — which is also why the sender of a
     /// message is looked up by id rather than through the participant row.
     /// </remarks>
-    /// <exception cref="DomainValidationException">A direct conversation cannot be left.</exception>
+    /// <exception cref="DomainValidationException">
+    /// A direct conversation or a goal's conversation cannot be left.
+    /// </exception>
     public void RemoveParticipant(Guid personId)
     {
         if (Kind == ConversationKind.Direct)
@@ -146,6 +175,16 @@ public sealed class Conversation
             throw new DomainValidationException(
                 nameof(Participants),
                 "A direct conversation cannot be left; it is between the two of you.");
+        }
+
+        // Who is in a goal's conversation is decided by the goal. Leaving it
+        // would quietly take somebody's vote off the goal — and when the last
+        // friend left, the goal would go back to confirming its own photographs.
+        if (Kind == ConversationKind.Goal)
+        {
+            throw new DomainValidationException(
+                nameof(Participants),
+                "A goal's conversation cannot be left; it can be muted.");
         }
 
         var participant = _participants.FirstOrDefault(p => p.PersonId == personId);

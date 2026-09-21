@@ -89,9 +89,16 @@ describe('keysFor', () => {
     expect(keysFor({ area: 'Feed', id: null })).toEqual(expect.arrayContaining(['home', 'activity-overview']))
   })
 
+  it('reads the chat list again when a goal or its photographs move, and a goal\'s thread by its goal', () => {
+    // The list sorts by what last happened in a goal's conversation and marks
+    // what waits for a vote; an open thread of that goal follows `goal:<id>`.
+    expect(keysFor({ area: 'Goals', id: null })).toContain('chats')
+    expect(keysFor({ area: 'Proofs', id: 'goal-1' })).toEqual(['proofs-pending', 'chats', 'goal:goal-1'])
+  })
+
   it.each([
     ['Friends', ['friends']],
-    ['Proofs', ['proofs-pending']],
+    ['Proofs', ['proofs-pending', 'chats']],
     ['Challenge', ['challenge-today']],
     ['Notifications', ['notifications']],
   ] as const)('maps %s to its read', (area, keys) => {

@@ -13,12 +13,13 @@ import { expect, test } from '@playwright/test'
 /** Long enough to pass the ten-character rule the sheet enforces. */
 const reason = 'Grippe, seit Freitag im Bett.'
 
-/** Creates a daily goal and returns its title. */
+/** Creates a daily goal, checked by the seeded friend, and returns its title. */
 async function createGoal(page: import('@playwright/test').Page, name: string): Promise<string> {
   const title = `${name} ${Date.now()}`
 
   await page.goto('/goals?create=1')
   await page.getByTestId('goal-title-input').fill(title)
+  await page.getByTestId('goal-friend-picker').getByText('E2E Jonas').click()
   await page.getByTestId('goal-submit').click()
 
   await expect(page.getByTestId('goal-card').filter({ hasText: title })).toBeVisible()

@@ -42,6 +42,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     private readonly List<Goal> _goals = [];
     private readonly List<ActivityEvent> _activity = [];
     private readonly List<Conversation> _conversations = [];
+    private readonly Dictionary<Guid, Conversation> _goalConversations = [];
     private readonly List<UserSettings> _settings = [];
     private readonly List<Challenge> _challenges = [];
     private readonly List<Notification> _notifications = [];
@@ -209,7 +210,37 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         AddWindows(goal, schedule, history, confirmedNow, targetDate);
 
         _goals.Add(goal);
+
+        // A shared goal comes with its conversation, exactly as one created in
+        // the app does — through the same rule for who is in it. A goal with
+        // nobody on it stands for one made before a friend was required, and
+        // has none (docs/adr/0027-goal-conversations.md).
+        if (goal.Participants.Count > 0)
+        {
+            var conversation = GoalConversations.Open(
+                goal,
+                NextId(SeedEntity.GoalConversation),
+                () => NextId(SeedEntity.GoalConversationParticipant),
+                goal.CreatedAt);
+
+            _goalConversations[goal.Id] = conversation;
+            _conversations.Add(conversation);
+        }
+
         return goal;
+    }
+
+    /// <summary>
+    /// Writes into a shared goal's conversation, which <see cref="AddGoal"/>
+    /// opened.
+    /// </summary>
+    public Conversation AddGoalMessages(Goal goal, int unread, params SeedMessage[] messages)
+    {
+        var conversation = _goalConversations.GetValueOrDefault(goal.Id)
+            ?? throw new InvalidOperationException("Only a goal somebody else is on has a conversation to write into.");
+
+        Write(conversation, unread, messages);
+        return conversation;
     }
 
     /// <summary>
@@ -319,9 +350,9 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         return activity;
     }
 
-    public Conversation AddDirectChat(Person other, Goal? goal, int unread, params SeedMessage[] messages) =>
+    public Conversation AddDirectChat(Person other, int unread, params SeedMessage[] messages) =>
         AddConversation(
-            Conversation.CreateDirect(NextId(SeedEntity.Conversation), goal?.Id, Context.DaysAgo(14)),
+            Conversation.CreateDirect(NextId(SeedEntity.Conversation), Context.DaysAgo(14)),
             [Me, other],
             unread,
             messages);
@@ -330,11 +361,10 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         string title,
         string icon,
         IReadOnlyList<Person> members,
-        Goal? goal,
         int unread,
         params SeedMessage[] messages) =>
         AddConversation(
-            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, goal?.Id, Context.DaysAgo(21)),
+            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, Context.DaysAgo(21)),
             [Me, .. members],
             unread,
             messages);
@@ -348,7 +378,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// </remarks>
     public Conversation AddChatWithoutMe(string title, string icon, IReadOnlyList<Person> members) =>
         AddConversation(
-            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, null, Context.DaysAgo(21)),
+            Conversation.CreateGroup(NextId(SeedEntity.Conversation), title, icon, Context.DaysAgo(21)),
             members,
             unread: 0,
             []);
@@ -445,6 +475,14 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             conversation.AddParticipant(NextId(SeedEntity.ConversationParticipant), participant.Id);
         }
 
+        Write(conversation, unread, messages);
+
+        _conversations.Add(conversation);
+        return conversation;
+    }
+
+    private void Write(Conversation conversation, int unread, IReadOnlyList<SeedMessage> messages)
+    {
         var written = new List<ChatMessage>(messages.Count);
 
         foreach (var message in messages.OrderByDescending(m => m.MinutesAgo))
@@ -479,8 +517,6 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
 
         // Fewer messages than `unread` means "never opened", which is what a
         // null read marker already says.
-        _conversations.Add(conversation);
-        return conversation;
     }
 
     private Guid NextId(SeedEntity entity)

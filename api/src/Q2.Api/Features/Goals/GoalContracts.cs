@@ -286,10 +286,15 @@ public sealed record GoalTeamMemberResponse(PersonSummary Person, int Streak);
 /// The windows that have already been resolved, newest first — what the history
 /// grid is drawn from.
 /// </param>
+/// <param name="ConversationId">
+/// The goal's own conversation, where its photographs are checked. Null only
+/// for a goal nobody else is on, which was created before a friend was required.
+/// </param>
 public sealed record GoalDetailResponse(
     GoalResponse Goal,
     IReadOnlyList<GoalTeamMemberResponse> Team,
-    IReadOnlyList<GoalInstanceResponse> History);
+    IReadOnlyList<GoalInstanceResponse> History,
+    Guid? ConversationId);
 
 /// <summary>How much of today is done. What the ring on the home screen shows.</summary>
 /// <remarks>

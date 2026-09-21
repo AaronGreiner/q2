@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatSummary, KudosKind } from '~/api/types'
+import type { ChatSummary, KudosKind, ProofVoteValue } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ChatsPayload {
@@ -42,11 +42,16 @@ export function useChats(search: Ref<string>) {
 }
 
 /**
- * One thread: the messages, the pinned goal, and writing into it.
+ * One thread: the messages, the goal it belongs to, and writing into it.
  *
  * Every write returns the whole thread rather than just what changed. A reply
  * may have arrived while a message was being typed, and re-rendering from one
  * authoritative answer is simpler to get right than merging two.
+ *
+ * A goal's conversation is also a view of the goal — its photographs and what
+ * became of its windows are read off it. So whatever makes the goal's own
+ * screen read again makes this thread read again: a photograph arriving, a
+ * verdict, a pause (`keysFor` names `goal:<id>` for all of them).
  */
 export function useChatThread(id: Ref<string>) {
   const api = useQ2Api()
@@ -78,6 +83,18 @@ export function useChatThread(id: Ref<string>) {
   // it — for a skeleton: see firstLoad.
   const isLoading = computed(() => isFirstLoad(status.value, data.value))
   const isSending = ref(false)
+  const isVoting = ref(false)
+
+  if (import.meta.client) {
+    const unhook = useNuxtApp().hook('app:data:refresh', async (keys) => {
+      const goalId = data.value?.chat?.pinnedGoal?.id
+
+      // With no keys everything is being read again already, this included.
+      if (goalId && keys?.includes(`goal:${goalId}`)) await refresh()
+    })
+
+    onScopeDispose(unhook)
+  }
 
   async function send(text: string) {
     const trimmed = text.trim()
@@ -118,6 +135,33 @@ export function useChatThread(id: Ref<string>) {
   }
 
   /**
+   * A verdict on a photograph in the thread — the same vote as on the vote
+   * screen, through the same endpoint and the same rules.
+   *
+   * The thread is read again rather than patched: a vote can decide the
+   * photograph, keep the window and move the streak, and the server is the
+   * one that knows which. The vote screen's queue and the badges move too.
+   */
+  async function vote(proofId: string, value: ProofVoteValue) {
+    if (isVoting.value) return
+
+    isVoting.value = true
+
+    try {
+      await api.proofs.vote(proofId, value)
+    }
+    catch (caught) {
+      // Out of step — the vote closed, or it was already cast elsewhere.
+      // Reading the thread again is the honest answer either way.
+      report(caught, { feature: 'chats', action: 'vote' })
+    }
+    finally {
+      await Promise.all([refresh(), refreshNuxtData(['counts', 'proofs-pending'])])
+      isVoting.value = false
+    }
+  }
+
+  /**
    * Stops this conversation ringing on this person's devices, or lets it ring
    * again. It still counts as unread either way — muting is about being
    * interrupted, not about what is waiting when somebody looks.
@@ -149,5 +193,19 @@ export function useChatThread(id: Ref<string>) {
     }
   }
 
-  return { chat, error, isMissing, isLoading, refresh, send, cheer, react, setMuted, leave, isSending }
+  return {
+    chat,
+    error,
+    isMissing,
+    isLoading,
+    refresh,
+    send,
+    cheer,
+    react,
+    vote,
+    setMuted,
+    leave,
+    isSending,
+    isVoting: computed(() => isVoting.value),
+  }
 }

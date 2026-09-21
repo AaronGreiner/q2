@@ -37,6 +37,10 @@ const isSheetOpen = computed({
 })
 
 const { goals, due, error, isLoading, refresh, create, isCreating, createError } = useGoals()
+
+// Who can be asked to check a new goal. The sheet only offers friends, which
+// is the server's rule too.
+const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 
 /** Which goal the camera is open for — one sheet per screen, never per row. */
@@ -199,6 +203,8 @@ useHead({ title: () => t.value.goals.heading })
     <GoalCreateSheet
       ref="sheet"
       v-model:open="isSheetOpen"
+      :friends="friends"
+      :friends-loading="friendsLoading"
       :submitting="isCreating"
       :error="createError"
       @submit="onCreate"

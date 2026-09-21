@@ -259,6 +259,10 @@ export default defineNuxtConfig({
         'lucide:user-plus',
         'lucide:user-check',
         'lucide:pause',
+
+        // What happened to a goal, between the messages of its conversation
+        // (goalEventIcon in chatTimeline.ts). The rest of that set is above.
+        'lucide:circle-x',
       ],
     },
 

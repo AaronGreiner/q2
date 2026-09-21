@@ -13,6 +13,9 @@ namespace Q2.Api.UnitTests.Goals;
 /// </remarks>
 public class CreateGoalRequestValidatorTests
 {
+    /// <summary>Somebody to check the goal, which every request needs now.</summary>
+    private static readonly IReadOnlyList<Guid> AFriend = [Guid.CreateVersion7()];
+
     [Fact]
     public void AFullyPopulatedRequestIsValid()
     {
@@ -30,13 +33,24 @@ public class CreateGoalRequestValidatorTests
     }
 
     [Fact]
-    public void AnEmptyRequestReportsOnlyTheTitle()
+    public void AnEmptyRequestReportsTheTitleAndTheMissingFriend()
     {
-        // Everything else has a sensible default; a goal without a title has
-        // nothing to be.
+        // Everything else has a sensible default. A goal without a title has
+        // nothing to be, and one without a friend has nobody to check it.
         var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest());
 
-        Assert.Equal([nameof(CreateGoalRequest.Title)], errors.Keys);
+        Assert.Equal(
+            [nameof(CreateGoalRequest.Title), nameof(CreateGoalRequest.ParticipantIds)],
+            errors.Keys);
+    }
+
+    [Fact]
+    public void AnEmptyListOfFriendsIsReported()
+    {
+        var errors = CreateGoalRequestValidator.Validate(
+            new CreateGoalRequest(Title: "Anything", ParticipantIds: []));
+
+        Assert.Equal([nameof(CreateGoalRequest.ParticipantIds)], errors.Keys);
     }
 
     [Theory]
@@ -53,7 +67,7 @@ public class CreateGoalRequestValidatorTests
     public void ATitleAtTheLimitIsAccepted()
     {
         var errors = CreateGoalRequestValidator.Validate(
-            new CreateGoalRequest(Title: new string('a', Goal.MaxTitleLength)));
+            new CreateGoalRequest(Title: new string('a', Goal.MaxTitleLength), ParticipantIds: AFriend));
 
         Assert.Empty(errors);
     }
@@ -95,7 +109,8 @@ public class CreateGoalRequestValidatorTests
     {
         foreach (var icon in GoalIcons.All)
         {
-            var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(Title: "Anything", Icon: icon));
+            var errors = CreateGoalRequestValidator.Validate(
+                new CreateGoalRequest(Title: "Anything", Icon: icon, ParticipantIds: AFriend));
 
             Assert.Empty(errors);
         }
@@ -104,7 +119,7 @@ public class CreateGoalRequestValidatorTests
     [Fact]
     public void ASayingNothingAboutTheScheduleIsAllowedAndMeansEveryDay()
     {
-        var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(Title: "Anything"));
+        var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(Title: "Anything", ParticipantIds: AFriend));
 
         Assert.Empty(errors);
 
@@ -128,7 +143,7 @@ public class CreateGoalRequestValidatorTests
     public void AScheduleTheServerWouldAcceptPassesItsOwnValidator(GoalScheduleRequest schedule)
     {
         var errors = CreateGoalRequestValidator.Validate(
-            new CreateGoalRequest(Title: "Anything", Schedule: schedule));
+            new CreateGoalRequest(Title: "Anything", Schedule: schedule, ParticipantIds: AFriend));
 
         Assert.Empty(errors);
 

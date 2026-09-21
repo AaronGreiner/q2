@@ -115,9 +115,9 @@ everything; deleting keeps nothing, and separating them is what stops half a
 year of record going in one press.
 
 It is also the only way photographs ever really go, so it takes the conversation
-with them: the chat is *pointed at* a goal rather than owned by it, so the
-database alone would null the reference and leave every proof message in the
-thread aimed at a picture that no longer exists. Activity rows carrying the
+with them: the database alone would only null the reference and leave a thread
+about nothing (since [0027](0027-goal-conversations.md) the conversation is the
+goal's own, and its photographs are drawn in it). Activity rows carrying the
 goal's title go too. Image rows are removed inside the same save and their bytes
 afterwards — a row removed with the file left behind is wasted disk, the other
 way round is a reference to nothing.

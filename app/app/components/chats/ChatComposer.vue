@@ -4,10 +4,20 @@
  *
  * A real `<form>`, so the on-screen keyboard shows a send key and pressing it
  * submits — which on a phone is how most messages are actually sent.
+ *
+ * In the owner's own goal conversation it also carries the camera, while the
+ * open window takes a photograph: the proof goes where the friends who check
+ * it are already looking. The page decides when that is; this only draws it.
  */
-defineProps<{ busy?: boolean }>()
+withDefaults(defineProps<{
+  busy?: boolean
+  canDeliver?: boolean
+}>(), {
+  busy: false,
+  canDeliver: false,
+})
 
-const emit = defineEmits<{ send: [text: string] }>()
+const emit = defineEmits<{ send: [text: string], deliver: [] }>()
 
 const t = useMessages()
 const draft = ref('')
@@ -42,6 +52,23 @@ function submit() {
       class="flex items-center gap-2 px-[18px] pt-1 pb-3"
       @submit.prevent="submit"
     >
+      <!-- The accent, because it is the one thing in this thread the owner can
+           do right now that nobody else can (docs/adr/0015). -->
+      <button
+        v-if="canDeliver"
+        type="button"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :aria-label="t.proof.deliver"
+        data-testid="chat-deliver"
+        @click="emit('deliver')"
+      >
+        <UIcon
+          name="i-lucide-camera"
+          class="size-5"
+          aria-hidden="true"
+        />
+      </button>
+
       <label
         class="sr-only"
         for="chat-message"

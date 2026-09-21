@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
@@ -18,6 +19,11 @@ namespace Q2.Api.Features.Goals;
 /// to people who are not the one who is running late, and a photograph whose
 /// twelve hours ran out overnight is decided — and its owner told — without
 /// anybody looking.
+///
+/// It also opens the conversation of any shared goal that has none — goals
+/// from before a goal came with one. Here because this is the pass that runs
+/// once at startup and then on its own, so an existing database catches up
+/// without anybody running anything (<see cref="GoalConversations.OpenMissingAsync"/>).
 ///
 /// Deliberately simple. It is not a scheduler, it has no queue and it holds no
 /// state of its own: every run asks the same question — "is any goal behind?" —
@@ -101,6 +107,16 @@ public sealed class GoalMaintenanceWorker(
         var changed = 0;
         var warned = 0;
         var lastId = Guid.Empty;
+
+        var opened = await GoalConversations.OpenMissingAsync(database, ids, now, cancellationToken);
+
+        if (opened > 0)
+        {
+            await database.SaveChangesAsync(cancellationToken);
+
+            // How many, and nothing about whose.
+            logger.LogInformation("Goal maintenance opened {ConversationCount} missing goal conversation(s)", opened);
+        }
 
         while (true)
         {

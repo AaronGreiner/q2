@@ -63,8 +63,10 @@ test.describe('the start screen', () => {
     // photograph is believed at once and the window closes.
     await expect(page.getByTestId('window-row').filter({ hasText: seeded.zeroProgressGoal })).toHaveCount(0)
 
-    // The ring is derived from the same windows, so it has to have moved.
-    await expect(page.getByTestId('today-progress')).not.toContainText('0%')
+    // The ring is derived from the same windows, so it has to have moved. Read
+    // off its value rather than its text: "40%" contains "0%", and what else is
+    // due today depends on what earlier specs created.
+    await expect(page.getByTestId('today-progress').getByRole('progressbar')).not.toHaveAttribute('aria-valuenow', '0')
   })
 
   test('giving kudos raises the count and can be taken back', async ({ page }) => {
@@ -194,6 +196,10 @@ test.describe('goals', () => {
     // created.
     await expect(page.getByTestId('schedule-preview')).toContainText('3× pro Woche')
 
+    // Nobody to check it, nothing to create.
+    await expect(page.getByTestId('goal-submit')).toBeDisabled()
+    await page.getByTestId('goal-friend-picker').getByText(seeded.friend).click()
+
     await page.getByTestId('goal-submit').click()
 
     const created = page.getByTestId('goal-card').filter({ hasText: title })
@@ -208,6 +214,7 @@ test.describe('goals', () => {
     await page.getByTestId('goal-title-input').fill(title)
     await page.getByTestId('schedule-kind-Weekdays').click()
     await page.getByTestId('schedule-weekday-Thursday').click()
+    await page.getByTestId('goal-friend-picker').getByText(seeded.friend).click()
     await page.getByTestId('goal-submit').click()
 
     await expect(page.getByTestId('goal-list').filter({ hasText: title })).toBeVisible()
@@ -232,13 +239,35 @@ test.describe('chats', () => {
     await expect(page.getByTestId('chat-list')).toContainText(seeded.groupChat)
   })
 
-  test('opening a thread shows the shared goal and marks it read', async ({ page }) => {
+  test('the list keeps your goals, friends\' goals and conversations apart', async ({ page }) => {
+    await page.goto('/chats')
+
+    await expect(page.getByTestId('chat-section-mine')).toContainText(seeded.sharedGoal)
+    await expect(page.getByTestId('chat-section-conversations')).toContainText(seeded.friend)
+    await expect(page.getByTestId('chat-section-conversations')).toContainText(seeded.groupChat)
+    await expect(page.getByTestId('chat-section-mine')).not.toContainText(seeded.friend)
+  })
+
+  test('a goal\'s thread carries the goal and what happened to it', async ({ page }) => {
+    await page.goto('/chats')
+
+    await page.getByTestId('chat-section-mine').getByTestId('chat-row').filter({ hasText: seeded.sharedGoal }).click()
+
+    await expect(page.getByRole('heading', { name: seeded.sharedGoal })).toBeVisible()
+    await expect(page.getByTestId('chat-goal-banner')).toContainText(seeded.sharedGoal)
+    await expect(page.getByTestId('chat-event').first()).toContainText('Du hast das Ziel erstellt.')
+
+    // Everybody on the goal is in it, and nobody can walk out of it.
+    await expect(page.getByTestId('leave-group')).toHaveCount(0)
+  })
+
+  test('opening a thread marks it read', async ({ page }) => {
     await page.goto('/chats')
 
     await page.getByTestId('chat-row').filter({ hasText: seeded.friend }).click()
 
     await expect(page.getByRole('heading', { name: seeded.friend })).toBeVisible()
-    await expect(page.getByTestId('chat-goal-banner')).toContainText(seeded.sharedGoal)
+    await expect(page.getByTestId('chat-goal-banner')).toHaveCount(0)
     await expect(page.getByTestId('chat-messages')).toContainText('E2E unread reply')
 
     await page.getByTestId('back-link').click()

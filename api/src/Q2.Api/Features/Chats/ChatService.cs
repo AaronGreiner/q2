@@ -3,6 +3,7 @@ using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -15,7 +16,9 @@ namespace Q2.Api.Features.Chats;
 /// <remarks>
 /// A direct conversation has no name of its own, so every read has to resolve
 /// "who is the other person" before it can produce a row. That happens here,
-/// once, rather than in each client.
+/// once, rather than in each client. A goal's conversation is named after its
+/// goal the same way, and shows what happened to the goal between its messages
+/// — read off the goal, never written into the thread (<see cref="GoalTimeline"/>).
 ///
 /// Every change here also reaches whoever is looking, through
 /// <see cref="Notifier"/>: a message is a notification to the others and a
@@ -62,13 +65,30 @@ public sealed class ChatService(
          */
         conversations = [.. conversations.Where(conversation => !IsHiddenDirect(conversation, me.Id, hidden))];
 
-        var people = await LoadPeopleAsync(conversations, cancellationToken);
+        var goals = await LoadGoalsAsync(conversations, me.Id, cancellationToken);
+
+        // A goal's conversation is listed only while its goal can be read. The
+        // two memberships are the same set of people by construction; this is
+        // the guard for a row that somehow is not.
+        conversations = [.. conversations.Where(conversation => conversation.Kind != ConversationKind.Goal
+            || (conversation.GoalId is { } goalId && goals.ContainsKey(goalId)))];
+
+        var people = await LoadPeopleAsync(conversations, [], cancellationToken);
+
+        // The one definition of "waiting for this person's verdict", shared
+        // with the vote screen and its badge, so a row cannot say a photograph
+        // is waiting that the vote screen does not show.
+        var waitingInWindows = (await ProofService.WaitingForVote(database, me.Id, now)
+            .Select(proof => proof.GoalInstanceId)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
 
         var summaries = new List<ChatSummaryResponse>(conversations.Count);
 
         foreach (var conversation in conversations)
         {
-            var identity = ResolveIdentity(conversation, people, me.Id, now);
+            var goal = GoalOf(conversation, goals);
+            var identity = ResolveIdentity(conversation, goal, people, me.Id, now);
             var last = conversation.Messages.OrderBy(m => m.SentAt).ThenBy(m => m.Id).LastOrDefault();
 
             if (!string.IsNullOrEmpty(term)
@@ -76,6 +96,14 @@ public sealed class ChatService(
             {
                 continue;
             }
+
+            // In a goal's conversation the newest thing may be something that
+            // happened to the goal — a photograph, a missed window — and that
+            // is what the row shows and is sorted by, not a quieter message
+            // from before it.
+            var lastEvent = goal is null ? null : GoalTimeline.For(goal, now)[^1];
+            var eventIsNewest = lastEvent is not null && (last is null || lastEvent.At > last.SentAt);
+            var message = eventIsNewest ? null : last;
 
             summaries.Add(new ChatSummaryResponse(
                 conversation.Id,
@@ -86,17 +114,21 @@ public sealed class ChatService(
                 identity.AvatarColor,
                 identity.AvatarImageId,
                 identity.IsOnline,
-                last?.Text,
+                message?.Text,
 
-                // Only a group names the sender; in a direct chat the row is
-                // already the other person.
-                last is not null && conversation.Kind == ConversationKind.Group && last.SenderPersonId != me.Id
-                    ? people.GetValueOrDefault(last.SenderPersonId)?.DisplayName
+                // Only a conversation of more than two names the sender; in a
+                // direct chat the row is already the other person.
+                message is not null && conversation.Kind != ConversationKind.Direct && message.SenderPersonId != me.Id
+                    ? people.GetValueOrDefault(message.SenderPersonId)?.DisplayName
                     : null,
-                last?.SenderPersonId == me.Id,
-                last?.SentAt,
+                message?.SenderPersonId == me.Id,
+                eventIsNewest ? lastEvent!.At : last?.SentAt,
                 conversation.UnreadCountFor(me.Id),
-                conversation.IsMutedFor(me.Id)));
+                conversation.IsMutedFor(me.Id),
+                eventIsNewest ? lastEvent!.Kind : null,
+                goal?.Id,
+                goal?.OwnerPersonId == me.Id,
+                goal is not null && goal.Instances.Any(instance => waitingInWindows.Contains(instance.Id))));
         }
 
         // Newest conversation first, and a brand-new empty one before an old
@@ -153,14 +185,26 @@ public sealed class ChatService(
         var message = conversation.AddMessage(idGenerator.NewId(), me.Id, request.Text ?? string.Empty, now);
         conversation.MarkRead(me.Id, now);
 
+        // The goal's title is its conversation's name, and lives on the goal.
+        var subject = conversation.Kind switch
+        {
+            ConversationKind.Group => conversation.Title,
+            ConversationKind.Goal => await database.Goals
+                .AsNoTracking()
+                .Where(goal => goal.Id == conversation.GoalId)
+                .Select(goal => goal.Title)
+                .SingleOrDefaultAsync(cancellationToken),
+            _ => null,
+        };
+
         /*
          * Everybody else in it hears about it. Who has muted it, who is looking
          * right now and who is inside their quiet hours is decided on the way
          * out — a banner, a push or nothing — not here: to the chat list it is
          * an unread message whatever they chose (NotificationRules.InterruptionFor).
          *
-         * The group's name comes along so a lock screen can say where; a direct
-         * chat is already named by its sender.
+         * The group's or the goal's name comes along so a lock screen can say
+         * where; a direct chat is already named by its sender.
          */
         await notifier.StageAsync(
             new NotificationEvent(
@@ -168,7 +212,7 @@ public sealed class ChatService(
                 me.Id,
                 NotificationTarget.Conversation,
                 conversation.Id,
-                Subject: conversation.Kind == ConversationKind.Group ? conversation.Title : null,
+                Subject: subject,
                 Excerpt: message.Text),
             conversation.Participants.Select(participant => participant.PersonId),
             cancellationToken);
@@ -351,7 +395,7 @@ public sealed class ChatService(
             return await DescribeAsync(existing, me.Id, now, cancellationToken);
         }
 
-        var conversation = Conversation.CreateDirect(idGenerator.NewId(), goalId: null, now);
+        var conversation = Conversation.CreateDirect(idGenerator.NewId(), now);
         conversation.AddParticipant(idGenerator.NewId(), me.Id, now);
         conversation.AddParticipant(idGenerator.NewId(), personId);
 
@@ -376,7 +420,6 @@ public sealed class ChatService(
     /// which is exactly what somebody who made one for a different purpose
     /// wanted.
     /// </remarks>
-    /// <exception cref="ResourceNotFoundException">A pinned goal that is not yours.</exception>
     /// <exception cref="DomainValidationException">The request is not usable.</exception>
     public async Task<ChatDetailResponse> CreateGroupAsync(
         CreateGroupChatRequest request,
@@ -408,29 +451,6 @@ public sealed class ChatService(
                 "A group can only be made up of your friends.");
         }
 
-        if (request.GoalId is { } goalId)
-        {
-            var goal = await database.Goals
-                .AsNoTracking()
-                .Include(g => g.Participants)
-                .SingleOrDefaultAsync(g => g.Id == goalId, cancellationToken);
-
-            if (goal is null || !goal.IsVisibleTo(me.Id))
-            {
-                throw new ResourceNotFoundException("Goal", goalId);
-            }
-
-            var visibleTo = goal.Participants.Select(participant => participant.PersonId).ToHashSet();
-            visibleTo.Add(goal.OwnerPersonId);
-
-            if (memberIds.Any(memberId => !visibleTo.Contains(memberId)))
-            {
-                throw new DomainValidationException(
-                    nameof(request.GoalId),
-                    "A goal can only be pinned in a group whose members may see it.");
-            }
-        }
-
         var icon = string.IsNullOrWhiteSpace(request.Icon) ? DefaultGroupIcon : request.Icon.Trim();
 
         // Conversation.CreateGroup enforces the title and the icon itself, so
@@ -439,7 +459,6 @@ public sealed class ChatService(
             idGenerator.NewId(),
             request.Title ?? string.Empty,
             icon,
-            request.GoalId,
             now);
 
         conversation.AddParticipant(idGenerator.NewId(), me.Id, now);
@@ -472,7 +491,9 @@ public sealed class ChatService(
     /// personal data with no remaining reason to be stored (docs/privacy.md).
     /// </remarks>
     /// <exception cref="ResourceNotFoundException">No such conversation of yours.</exception>
-    /// <exception cref="DomainValidationException">A direct conversation cannot be left.</exception>
+    /// <exception cref="DomainValidationException">
+    /// A direct conversation, or a goal's, cannot be left (<see cref="Conversation.RemoveParticipant"/>).
+    /// </exception>
     public async Task LeaveAsync(Guid id, CancellationToken cancellationToken)
     {
         var me = await currentPerson.GetAsync(cancellationToken);
@@ -508,23 +529,21 @@ public sealed class ChatService(
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var people = await LoadPeopleAsync([conversation], cancellationToken);
-        var identity = ResolveIdentity(conversation, people, meId, now);
+        var goal = GoalOf(conversation, await LoadGoalsAsync([conversation], meId, cancellationToken));
+        var timeline = goal is null ? [] : GoalTimeline.For(goal, now);
+        var proofs = timeline.Select(entry => entry.Proof).OfType<ProofPhoto>().ToList();
 
-        // Conversation membership does not grant goal access. The creation
-        // path prevents a mismatch, and this predicate also protects legacy or
-        // otherwise inconsistent rows already present in the database.
-        var goal = conversation.GoalId is { } goalId
-            ? await database.Goals
-                .AsNoTracking()
-                .Include(g => g.Instances)
-                .ThenInclude(instance => instance.Proofs)
-                .Include(g => g.Pauses)
-                .SingleOrDefaultAsync(
-                    g => g.Id == goalId
-                        && (g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId)),
-                    cancellationToken)
-            : null;
+        var proofPeopleIds = goal is null ? [] : ProofService.PeopleShownWith(proofs, [goal]);
+        var people = await LoadPeopleAsync([conversation], proofPeopleIds, cancellationToken);
+        var identity = ResolveIdentity(conversation, goal, people, meId, now);
+
+        // The photographs are described from their own, narrower set of
+        // people: the uploader and whoever confirmed, never a doubter. Handing
+        // them everybody in the thread would put a doubter's name within reach
+        // of a mapping that only has to slip once (ProofService.PeopleShownWith).
+        var proofPeople = people
+            .Where(entry => proofPeopleIds.Contains(entry.Key))
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
 
         var messages = conversation.Messages
             .OrderBy(m => m.SentAt)
@@ -533,10 +552,10 @@ public sealed class ChatService(
                 m.Id,
                 m.SenderPersonId,
 
-                // Only a group needs to say who is speaking; in a direct chat
-                // the header already does, and repeating it above every bubble
-                // is noise.
-                conversation.Kind == ConversationKind.Group && m.SenderPersonId != meId
+                // Only a conversation of more than two needs to say who is
+                // speaking; in a direct chat the header already does, and
+                // repeating it above every bubble is noise.
+                conversation.Kind != ConversationKind.Direct && m.SenderPersonId != meId
                     ? people.GetValueOrDefault(m.SenderPersonId)?.DisplayName
                     : null,
                 m.Text,
@@ -565,9 +584,27 @@ public sealed class ChatService(
                     goal.Title,
                     goal.CurrentInstance is { } window ? GoalInstanceResponse.From(window) : null,
                     goal.Streak,
-                    goal.ActivePauseAt(now)?.EndsOn),
+                    goal.ActivePauseAt(now)?.EndsOn,
+                    goal.OwnerPersonId == meId),
             messages,
-            conversation.IsMutedFor(meId));
+            conversation.IsMutedFor(meId),
+            goal is null
+                ? []
+                : [
+                    .. timeline.Select(entry => new GoalEventResponse(
+                        entry.Key,
+                        entry.Kind,
+                        entry.At,
+                        entry.ActorPersonId is { } actor && actor != meId
+                            ? people.GetValueOrDefault(actor)?.DisplayName
+                            : null,
+                        entry.ActorPersonId == meId,
+                        entry.Streak,
+                        entry.ConfirmedProofs,
+                        entry.RequiredProofs,
+                        entry.Until,
+                        entry.Proof is { } proof ? ProofService.Describe(goal, proof, meId, proofPeople, now) : null)),
+                ]);
     }
 
     private static IReadOnlyList<MessageReactionResponse> SummariseReactions(ChatMessage message, Guid meId) =>
@@ -592,14 +629,29 @@ public sealed class ChatService(
 
     /// <summary>
     /// The name, avatar and presence a conversation is shown with: its own for
-    /// a group, the other person's for a direct chat.
+    /// a group, its goal's for a goal's conversation, the other person's for a
+    /// direct chat.
     /// </summary>
     private static ChatIdentity ResolveIdentity(
         Conversation conversation,
+        Goal? goal,
         IReadOnlyDictionary<Guid, Person> people,
         Guid meId,
         DateTimeOffset now)
     {
+        if (conversation.Kind == ConversationKind.Goal)
+        {
+            // Drawn like a group — an icon on a neutral tile — with the goal's
+            // own icon, which the client already bundles.
+            return new ChatIdentity(
+                goal?.Title ?? string.Empty,
+                ProfileDefaults.Initials(goal?.Title),
+                goal?.Icon ?? GoalIcons.Default,
+                AvatarColors.Teal,
+                null,
+                false);
+        }
+
         if (conversation.Kind == ConversationKind.Group)
         {
             return new ChatIdentity(
@@ -648,6 +700,57 @@ public sealed class ChatService(
         string AvatarColor,
         Guid? AvatarImageId,
         bool IsOnline);
+
+    private static Goal? GoalOf(Conversation conversation, IReadOnlyDictionary<Guid, Goal> goals) =>
+        conversation.Kind == ConversationKind.Goal && conversation.GoalId is { } goalId
+            ? goals.GetValueOrDefault(goalId)
+            : null;
+
+    /// <summary>
+    /// The goals of these conversations that <paramref name="meId"/> may read,
+    /// with everything their timeline is made of.
+    /// </summary>
+    /// <remarks>
+    /// Conversation membership does not grant goal access; being on the goal
+    /// does. The creation path keeps the two identical, and this predicate
+    /// protects against a row where they are not.
+    ///
+    /// Read as they are, without bringing them up to date: opening a thread
+    /// should not be what decides a vote or misses a window. The maintenance
+    /// pass does that within minutes, and every write through the goal or a
+    /// photograph does it on the spot.
+    /// </remarks>
+    private async Task<Dictionary<Guid, Goal>> LoadGoalsAsync(
+        IEnumerable<Conversation> conversations,
+        Guid meId,
+        CancellationToken cancellationToken)
+    {
+        var ids = conversations
+            .Where(conversation => conversation.Kind == ConversationKind.Goal)
+            .Select(conversation => conversation.GoalId)
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await database.Goals
+            .AsNoTracking()
+            .Include(g => g.Participants)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.Proofs)
+            .ThenInclude(proof => proof.Votes)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.Proofs)
+            .ThenInclude(proof => proof.Reactions)
+            .Include(g => g.Pauses)
+            .Where(g => ids.Contains(g.Id)
+                && (g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId)))
+            .ToDictionaryAsync(g => g.Id, cancellationToken);
+    }
 
     private async Task<List<Conversation>> LoadMineAsync(Guid meId, CancellationToken cancellationToken) =>
         await database.Conversations
@@ -709,10 +812,12 @@ public sealed class ChatService(
 
     private async Task<IReadOnlyDictionary<Guid, Person>> LoadPeopleAsync(
         IReadOnlyCollection<Conversation> conversations,
+        IEnumerable<Guid> alsoIds,
         CancellationToken cancellationToken)
     {
         var ids = conversations
             .SelectMany(c => c.Participants.Select(p => p.PersonId).Concat(c.Messages.Select(m => m.SenderPersonId)))
+            .Concat(alsoIds)
             .Distinct()
             .ToList();
 
