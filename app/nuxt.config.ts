@@ -128,6 +128,19 @@ export default defineNuxtConfig({
     typeCheck: false,
   },
 
+  /**
+   * Nuxt's own usage telemetry, off for everybody who works on q2.
+   *
+   * Left unset, `nuxt dev` asks for consent on the first start of every
+   * machine that has not answered it in ~/.nuxtrc — and the question blocks
+   * the dev server until somebody answers it. The listener already prints its
+   * URL, so the browser simply hangs, and inside `bun run dev` and
+   * `bun run test:manual:start` the prompt is easy to miss among the API's
+   * output. Nothing about this project needs to report to Nuxt either
+   * (docs/privacy.md: data minimisation is the default).
+   */
+  telemetry: false,
+
   eslint: {
     config: {
       stylistic: true,
