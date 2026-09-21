@@ -193,6 +193,23 @@ bun run dev:api
 bun run dev:app
 ```
 
+On macOS there is a one-click equivalent, for when you want the whole thing
+running without thinking about what is installed:
+
+```bash
+./start-dev.command
+```
+
+Double-clicking it in Finder works too — that is why it is a `.command`. It
+checks Bun, the .NET SDK and Node, creates any missing `.env` file from its
+template, installs the frontend dependencies when they are missing or older
+than the lockfile, creates the development database on a first run, offers to
+free ports 3000 and 5080 when something else is holding them, and then hands
+over to `bun run dev` and opens the browser. It prepares nothing the root
+scripts already do; `--manual` starts the environment of section 7 instead,
+`--help` lists the remaining flags. A completely fresh checkout still wants
+`bun run setup` once, for the Playwright browsers.
+
 ## 6. The development database
 
 `bun run dev` uses a persistent SQLite file at `api/.data/q2-development.db`.

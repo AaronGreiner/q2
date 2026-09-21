@@ -38,6 +38,7 @@ the obvious approach is the wrong one.
 /
 ├── AGENTS.md CLAUDE.md README.md      this guidance
 ├── package.json                       root task runner (bun scripts)
+├── start-dev.command                  macOS one-click start; wraps those scripts
 ├── scripts/                           the implementation behind those scripts
 ├── docs/                              architecture, testing, observability, privacy
 │   └── adr/                           why decisions were made
