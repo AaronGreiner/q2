@@ -161,7 +161,8 @@ test.describe('goals', () => {
   /**
    * A shared goal is the case the whole product turns on: the owner delivers
    * and somebody else decides. So the window does *not* close here — it waits,
-   * which is what "wird geprüft" on the screen means.
+   * which is what "wird geprüft" on the screen means — and the owner is taken
+   * to the conversation where the friends are voting on it.
    */
   test('delivering a proof on a shared goal hands it to the friends who vote', async ({ page }) => {
     await page.goto(`/goals/${seeded.sharedGoalId}`)
@@ -171,7 +172,11 @@ test.describe('goals', () => {
     await page.getByTestId('goal-deliver-proof').click()
     await deliverPhoto(page)
 
+    await expect(page).toHaveURL(/\/chats\//)
+    await expect(page.getByTestId('chat-proof').last().getByTestId('proof-status')).toContainText('Dein eigener Beweis')
+
     // Nothing to deliver again while friends are looking at the first one.
+    await page.goto(`/goals/${seeded.sharedGoalId}`)
     await expect(page.getByTestId('goal-proof-waiting')).toBeVisible()
     await expect(page.getByTestId('goal-deliver-proof')).toHaveCount(0)
   })

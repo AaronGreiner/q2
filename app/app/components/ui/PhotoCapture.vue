@@ -26,7 +26,8 @@ import { downscaleForUpload, uploadSizes } from '~/utils/images'
  *
  * What is *not* here is any decision about what the picture is for. The purpose
  * comes in as a prop and goes straight to the server, which is what decides who
- * may ever see it.
+ * may ever see it — and what happens to the stored picture next is the
+ * caller's `handIn`, which this only waits for.
  *
  * **Open it from a screen, never from inside another sheet.** Two `UDrawer`s
  * open at once deadlock: vaul drives both from one set of body styles, so the
@@ -42,8 +43,21 @@ const props = withDefaults(defineProps<{
   purpose: ImagePurpose
   /** The longest edge the upload may have. Defaults to the purpose's own size. */
   maxEdge?: number
+  /**
+   * What the stored picture is handed to while the sheet is still open.
+   * Resolving to a sentence means it was refused: the sheet stays, showing the
+   * picture and the sentence, and "Verwenden" tries the hand-in again without
+   * uploading a second time. Without it, the sheet closes once the upload is
+   * done — which is all an avatar needs.
+   *
+   * This exists because a proof's hand-in is the step that can fail, and it
+   * used to run after the sheet had closed: a refused photograph was simply
+   * gone, with nothing on screen to say so.
+   */
+  handIn?: (image: Image) => Promise<string | null>
 }>(), {
   maxEdge: undefined,
+  handIn: undefined,
 })
 
 const emit = defineEmits<{ uploaded: [image: Image] }>()
@@ -65,6 +79,13 @@ const facing = ref<'user' | 'environment'>('user')
 /** The picture taken but not yet sent, and the object URL showing it. */
 const pending = shallowRef<Blob | null>(null)
 const previewUrl = ref<string | null>(null)
+
+/**
+ * The stored copy of `pending`, once it is up. Kept while a refused hand-in is
+ * on screen, so trying again reuses it rather than uploading the same picture
+ * twice; dropped with `pending`, because it is a copy of that one picture.
+ */
+const uploaded = shallowRef<Image | null>(null)
 
 const stream = shallowRef<MediaStream | null>(null)
 const cameraReady = ref(false)
@@ -185,6 +206,7 @@ function clearPending() {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = null
   pending.value = null
+  uploaded.value = null
 }
 
 async function retake() {
@@ -202,13 +224,24 @@ async function confirm() {
   message.value = t.value.photo.uploading
 
   try {
-    const uploaded = await api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
+    const image = uploaded.value
+      ?? await api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
+
+    uploaded.value = image
+
+    const refused = props.handIn ? await props.handIn(image) : null
+
+    if (refused) {
+      stage.value = 'preview'
+      message.value = refused
+      return
+    }
 
     // Cleared before closing: the sheet stays mounted while it animates out,
     // and "Wird hochgeladen …" left standing under a finished upload reads as
     // though it were stuck.
     message.value = null
-    emit('uploaded', uploaded)
+    emit('uploaded', image)
     open.value = false
   }
   catch (caught) {

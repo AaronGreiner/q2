@@ -51,7 +51,7 @@ public sealed class ProofService(
     /// No such goal, it is not this person's, or the image is not theirs.
     /// </exception>
     /// <exception cref="DomainValidationException">The window is not taking a photograph.</exception>
-    public async Task<ProofResponse> SubmitAsync(
+    public async Task<DeliveredProofResponse> SubmitAsync(
         Guid goalId,
         SubmitProofRequest request,
         CancellationToken cancellationToken)
@@ -113,7 +113,18 @@ public sealed class ProofService(
         logger.LogInformation("A proof was delivered on goal {GoalId}", goal.Id);
         metrics.CountGoalProgress();
 
-        return await DescribeAsync(goal, proof, me.Id, now, cancellationToken);
+        // Where the photograph can be seen from now on, so the client can take
+        // the owner there rather than leave them looking at a row that has
+        // simply stopped offering the camera.
+        var conversationId = await database.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.GoalId == goal.Id)
+            .Select(conversation => (Guid?)conversation.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new DeliveredProofResponse(
+            await DescribeAsync(goal, proof, me.Id, now, cancellationToken),
+            conversationId);
     }
 
     /// <summary>

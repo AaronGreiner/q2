@@ -1153,6 +1153,11 @@ export interface components {
         DeleteAccountRequest: {
             password?: string | null;
         };
+        DeliveredProofResponse: {
+            proof: components["schemas"]["ProofResponse"];
+            /** Format: uuid */
+            conversationId: string | null;
+        };
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
             goalTitle: string;
@@ -1769,7 +1774,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProofResponse"];
+                    "application/json": components["schemas"]["DeliveredProofResponse"];
                 };
             };
             /** @description Bad Request */

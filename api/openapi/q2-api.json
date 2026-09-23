@@ -176,7 +176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProofResponse"
+                  "$ref": "#/components/schemas/DeliveredProofResponse"
                 }
               }
             }
@@ -3355,6 +3355,23 @@
         "properties": {
           "password": {
             "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveredProofResponse": {
+        "required": [
+          "proof",
+          "conversationId"
+        ],
+        "type": "object",
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/ProofResponse"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }

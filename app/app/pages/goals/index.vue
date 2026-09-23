@@ -46,11 +46,15 @@ const { isDelivering, deliver, maxEdge } = useProofDelivery()
 /** Which goal the camera is open for — one sheet per screen, never per row. */
 const deliveringFor = ref<string | null>(null)
 
-async function onDelivered(image: Image) {
+/** The same hand-in as the start screen's — see pages/index.vue. */
+async function handIn(image: Image) {
   const goalId = deliveringFor.value
-  deliveringFor.value = null
+  if (!goalId) return null
 
-  if (goalId && await deliver(goalId, image)) await refresh()
+  const result = await deliver(goalId, image)
+  if (result.status !== 'moved') await refresh()
+
+  return result.status === 'refused' ? result.message : null
 }
 
 const sheet = useTemplateRef('sheet')
@@ -213,8 +217,8 @@ useHead({ title: () => t.value.goals.heading })
       :open="deliveringFor !== null"
       purpose="Proof"
       :max-edge="maxEdge"
+      :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"
-      @uploaded="onDelivered"
     />
   </div>
 </template>

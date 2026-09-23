@@ -15,6 +15,11 @@ import { deliverPhoto } from './support/proofPhoto'
 
 const friend = { name: 'E2E Jonas', email: 'e2e.jonas@kudos.example' }
 
+// The suite runs the production build, whose service worker would carry the
+// staged refusal below past `page.route` — Playwright cannot see a request a
+// worker makes. Nothing here is about the worker, and pwa.spec.ts covers it.
+test.use({ serviceWorkers: 'block' })
+
 test('a goal is made in front of a friend, delivered in its chat and checked there', async ({ page, browser }, testInfo) => {
   const title = `E2E goal chat ${Date.now()}`
 
@@ -71,4 +76,65 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   finally {
     await theirs.close()
   }
+})
+
+/**
+ * Delivering from anywhere but the conversation ends in the conversation: the
+ * row that offered the camera stops offering it, so staying put would leave
+ * the photograph looking as though it had vanished.
+ *
+ * And a delivery the server refuses stays on the camera's sheet, photograph and
+ * all. The refusal is staged by answering the one request with what the API
+ * sends for a window that closed while the screen was open — the real thing
+ * needs a deadline to pass between two clicks.
+ */
+test('a refused photograph stays on the sheet, and a delivered one is followed to its conversation', async ({ page }) => {
+  const title = `E2E follow ${Date.now()}`
+
+  await page.goto('/goals?create=1')
+  await page.getByTestId('goal-title-input').fill(title)
+  await page.getByTestId('goal-friend-picker').getByText(friend.name).click()
+  await page.getByTestId('goal-submit').click()
+
+  const uploads: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/api/images')) uploads.push(request.url())
+  })
+
+  let refuse = true
+  await page.route('**/api/goals/*/proof', async (route) => {
+    // Only the delivery itself: the API is another origin, so a preflight
+    // goes first and has to pass untouched.
+    if (!refuse || route.request().method() !== 'POST') return route.fallback()
+
+    refuse = false
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/problem+json',
+      body: JSON.stringify({
+        type: 'https://tools.ietf.org/html/rfc9110#section-15.5.1',
+        title: 'One or more validation errors occurred.',
+        status: 400,
+        errors: { Proof: ['This window is not taking a photograph right now.'] },
+      }),
+    })
+  })
+
+  // Creating lands on the list of every goal; the camera is on today's.
+  await page.getByTestId('segment-today').click()
+  await page.getByTestId('window-row').filter({ hasText: title }).getByTestId('window-deliver').click()
+  await deliverPhoto(page)
+
+  // Refused: the sheet is still up, with the photograph and the reason.
+  await expect(page.getByTestId('photo-message')).toContainText('Dieses Fenster nimmt gerade keinen Beweis an.')
+  await expect(page.getByTestId('photo-preview')).toBeVisible()
+
+  // Trying again hands in the same upload rather than sending the bytes twice.
+  await page.getByTestId('photo-confirm').click()
+
+  await expect(page).toHaveURL(/\/chats\//)
+  await expect(page.getByRole('heading', { name: title })).toBeVisible()
+  await expect(page.getByTestId('chat-proof').last().getByTestId('proof-status')).toContainText('Dein eigener Beweis')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect(uploads).toHaveLength(1)
 })

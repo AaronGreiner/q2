@@ -455,6 +455,9 @@ export const de = {
     votedConfirm: 'Du hast bestätigt.',
     votedDoubt: 'Du hast angezweifelt.',
     ownProof: 'Dein eigener Beweis — abstimmen dürfen die anderen.',
+    refusedClosed: 'Dieses Fenster nimmt gerade keinen Beweis an.',
+    refusedOffline: 'Keine Verbindung. Dein Foto ist noch da — versuch es gleich noch einmal.',
+    refusedFailed: 'Der Beweis konnte nicht abgegeben werden. Versuch es noch einmal.',
   },
 
   vote: {
@@ -902,6 +905,8 @@ export const de = {
     inviteCopied: { icon: 'i-lucide-link', text: 'Link kopiert' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Endgültig gelöscht' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback lässt sich gerade nicht öffnen' },
+    proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
+    proofWaiting: { icon: 'i-lucide-hourglass', text: 'Beweis abgegeben — deine Freunde prüfen ihn' },
   },
 }
 
@@ -1301,6 +1306,9 @@ export const en: Messages = {
     votedConfirm: 'You confirmed it.',
     votedDoubt: 'You doubted it.',
     ownProof: 'Your own proof — the others do the voting.',
+    refusedClosed: 'This window is not taking a proof right now.',
+    refusedOffline: 'No connection. Your photo is still here — try again in a moment.',
+    refusedFailed: 'The proof could not be delivered. Please try again.',
   },
 
   vote: {
@@ -1664,6 +1672,8 @@ export const en: Messages = {
     inviteCopied: { icon: 'i-lucide-link', text: 'Link copied' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Deleted for good' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback cannot be opened right now' },
+    proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },
+    proofWaiting: { icon: 'i-lucide-hourglass', text: 'Proof delivered — your friends are checking it' },
   },
 }
 

@@ -62,6 +62,16 @@ public sealed record ProofResponse(
     VoteSummaryResponse Votes,
     IReadOnlyList<ReactionSummaryResponse> Reactions);
 
+/// <summary>What delivering a photograph answers: the photograph, and where it now is.</summary>
+/// <param name="ConversationId">
+/// The goal's own conversation, where the photograph is shown and voted on —
+/// and so where the person who just delivered it should look for it. Null only
+/// for a goal nobody else is on that was created before a friend was required:
+/// there is nowhere to show it but the goal
+/// ([0027](../../../../docs/adr/0027-goal-conversations.md)).
+/// </param>
+public sealed record DeliveredProofResponse(ProofResponse Proof, Guid? ConversationId);
+
 /// <summary>Reactions on a photograph, rolled up.</summary>
 /// <remarks>
 /// Deliberately separate from the vote. A reaction is encouragement between
