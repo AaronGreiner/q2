@@ -44,6 +44,7 @@ export type RiskReason = Schemas['RiskReason']
 
 export type Proof = Schemas['ProofResponse']
 export type FeedProof = Schemas['FeedProofResponse']
+export type DeliveredProof = Schemas['DeliveredProofResponse']
 export type ProofStatus = Schemas['ProofStatus']
 export type VoteSummary = Schemas['VoteSummaryResponse']
 export type ReactionSummary = Schemas['ReactionSummaryResponse']

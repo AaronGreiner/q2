@@ -910,29 +910,83 @@ describe('the reads that were never exercised', () => {
     await first
   })
 
+  function delivered(status: string, conversationId: string | null) {
+    return { proof: { id: 'proof-1', status }, conversationId }
+  }
+
+  function installRoute(path: string) {
+    const navigateTo = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('useRoute', () => ({ path }))
+    vi.stubGlobal('navigateTo', navigateTo)
+    return navigateTo
+  }
+
   /**
-   * A goal nobody shares is believed at once; a shared one is now waiting.
-   * Either way the delivery took, and the goal's own screen says which.
+   * The row that offered the camera stops offering it the moment a photograph
+   * is in, so a delivery that went nowhere visible reads as a photograph that
+   * vanished. A goal with a conversation takes its owner to it.
    */
-  it('takes a photograph whether it is believed at once or waits for a verdict', async () => {
+  it('takes the owner to the conversation their photograph is checked in', async () => {
     const api = {
       proofs: {
         pending: vi.fn().mockResolvedValue([]),
-        submit: vi.fn().mockResolvedValue({ status: 'Confirmed' }),
+        submit: vi.fn().mockResolvedValue(delivered('Voting', 'chat-1')),
       },
     }
 
     const { show } = installFeatureGlobals(api)
+    const navigateTo = installRoute('/')
     const delivery = useProofDelivery()
 
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toBe(true)
-
-    api.proofs.submit.mockResolvedValueOnce({ status: 'Voting' })
-    expect(await delivery.deliver('goal-1', { id: 'image-2' } as never)).toBe(true)
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'moved' })
+    expect(navigateTo).toHaveBeenCalledWith('/chats/chat-1')
     expect(show).not.toHaveBeenCalled()
   })
 
-  it('answers false rather than throwing when a window refuses the photograph', async () => {
+  it('stays in the conversation it was delivered from, where the card itself says so', async () => {
+    const api = {
+      proofs: {
+        pending: vi.fn().mockResolvedValue([]),
+        submit: vi.fn().mockResolvedValue(delivered('Voting', 'chat-1')),
+      },
+    }
+
+    const { show } = installFeatureGlobals(api)
+    const navigateTo = installRoute('/chats/chat-1')
+    const delivery = useProofDelivery()
+
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'stayed' })
+    expect(navigateTo).not.toHaveBeenCalled()
+    expect(show).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A goal from before a friend was required has no conversation and nobody
+   * to ask, so it is believed at once — and a toast is the only place left to
+   * say so.
+   */
+  it('says what became of a photograph on a goal with no conversation', async () => {
+    const api = {
+      proofs: {
+        pending: vi.fn().mockResolvedValue([]),
+        submit: vi.fn().mockResolvedValue(delivered('Confirmed', null)),
+      },
+    }
+
+    const { show } = installFeatureGlobals(api)
+    const navigateTo = installRoute('/')
+    const delivery = useProofDelivery()
+
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'stayed' })
+    expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
+
+    api.proofs.submit.mockResolvedValueOnce(delivered('Voting', null))
+    await delivery.deliver('goal-1', { id: 'image-2' } as never)
+    expect(show).toHaveBeenLastCalledWith(de.toast.proofWaiting)
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('answers with a sentence rather than throwing when a window refuses the photograph', async () => {
     const api = {
       proofs: {
         pending: vi.fn().mockResolvedValue([]),
@@ -941,10 +995,34 @@ describe('the reads that were never exercised', () => {
     }
 
     const { report } = installFeatureGlobals(api)
+    installRoute('/')
     const delivery = useProofDelivery()
 
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toBe(false)
+    // The stand-in reporter calls every failure a network one.
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+      .toEqual({ status: 'refused', message: de.proof.refusedOffline })
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
+  })
+
+  it('tells a closed window apart from a dropped connection', async () => {
+    const api = {
+      proofs: {
+        pending: vi.fn().mockResolvedValue([]),
+        submit: vi.fn().mockRejectedValue(new Error('closed')),
+      },
+    }
+
+    const { report } = installFeatureGlobals(api)
+    installRoute('/')
+    const delivery = useProofDelivery()
+
+    report.mockReturnValueOnce({ ...failure, kind: 'validation' as never })
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+      .toEqual({ status: 'refused', message: de.proof.refusedClosed })
+
+    report.mockReturnValueOnce({ ...failure, kind: 'server' as never, isExpected: false })
+    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+      .toEqual({ status: 'refused', message: de.proof.refusedFailed })
   })
 
   it('delivers one photograph at a time', async () => {
@@ -959,15 +1037,17 @@ describe('the reads that were never exercised', () => {
     }
 
     installFeatureGlobals(api)
+    installRoute('/chats/chat-1')
     const delivery = useProofDelivery()
 
     const first = delivery.deliver('goal-1', { id: 'image-1' } as never)
     await nextTick()
 
     expect(delivery.isDelivering.value).toBe(true)
-    expect(await delivery.deliver('goal-1', { id: 'image-2' } as never)).toBe(false)
+    expect((await delivery.deliver('goal-1', { id: 'image-2' } as never)).status).toBe('refused')
+    expect(api.proofs.submit).toHaveBeenCalledTimes(1)
 
-    release({ status: 'Confirmed' })
+    release(delivered('Voting', 'chat-1'))
     await first
   })
 })

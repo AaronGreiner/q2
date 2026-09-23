@@ -46,7 +46,14 @@ public static class ProofFlow
             new { imageId = await client.UploadProofImageAsync(), capturedInApp });
 
     /// <summary>Delivers one and insists it worked.</summary>
-    public static async Task<ProofDocument> DeliverAcceptedProofAsync(this HttpClient client, Guid goalId)
+    public static async Task<ProofDocument> DeliverAcceptedProofAsync(this HttpClient client, Guid goalId) =>
+        (await client.DeliverAcceptedAsync(goalId)).Proof;
+
+    /// <summary>
+    /// Delivers one, insists it worked, and returns the whole answer — the
+    /// photograph and the conversation it is now shown in.
+    /// </summary>
+    public static async Task<DeliveredProofDocument> DeliverAcceptedAsync(this HttpClient client, Guid goalId)
     {
         var response = await client.DeliverProofAsync(goalId);
 
@@ -54,11 +61,14 @@ public static class ProofFlow
             response.IsSuccessStatusCode,
             $"{(int)response.StatusCode}: {await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)}");
 
-        return await response.ReadAsync<ProofDocument>();
+        return await response.ReadAsync<DeliveredProofDocument>();
     }
 
     private sealed record UploadedImage(Guid Id);
 }
+
+/// <summary>What a delivery answers, for tests to assert on.</summary>
+public sealed record DeliveredProofDocument(ProofDocument Proof, Guid? ConversationId);
 
 /// <summary>A photograph as the API describes it, for tests to assert on.</summary>
 public sealed record ProofDocument(

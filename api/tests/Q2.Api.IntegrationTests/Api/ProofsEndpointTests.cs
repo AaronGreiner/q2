@@ -46,6 +46,33 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.False(proof.Votes.CanIVote);
     }
 
+    /// <summary>
+    /// The answer says where the photograph can be seen from now on, which is
+    /// what lets the app take its owner there rather than leave them in front
+    /// of a row that has simply stopped offering the camera.
+    /// </summary>
+    [Fact]
+    public async Task ADeliveryNamesTheConversationItIsCheckedIn()
+    {
+        var delivered = await Client.DeliverAcceptedAsync(AutomatedTestSeed.ActiveGoalId);
+
+        Assert.Equal(AutomatedTestSeed.SharedGoalConversationId, delivered.ConversationId);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, delivered.Proof.GoalId);
+    }
+
+    /// <summary>
+    /// A goal from before a friend was required has no conversation, and the
+    /// answer says so rather than inventing one.
+    /// </summary>
+    [Fact]
+    public async Task ADeliveryOnAGoalWithoutAConversationNamesNone()
+    {
+        var delivered = await Client.DeliverAcceptedAsync(AutomatedTestSeed.QuotaGoalId);
+
+        Assert.Null(delivered.ConversationId);
+        Assert.Equal(ProofStatus.Confirmed, delivered.Proof.Status);
+    }
+
     [Fact]
     public async Task AFriendOnTheGoalMayVoteAndSeesTheirOwnVoteAfterwards()
     {

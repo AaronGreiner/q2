@@ -67,11 +67,19 @@ const isCameraOpen = ref(false)
 const canDeliver = computed(() =>
   Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
 
-async function onDelivered(image: Image) {
-  isCameraOpen.value = false
-
+/**
+ * Already where the photograph is shown, so a delivery stays here and the card
+ * arriving in the thread is the confirmation; a refusal stays on the camera's
+ * sheet with the photograph (see useProofDelivery).
+ */
+async function handIn(image: Image) {
   const goalId = chat.value?.pinnedGoal?.id
-  if (goalId && await deliver(goalId, image)) await refresh()
+  if (!goalId) return null
+
+  const result = await deliver(goalId, image)
+  if (result.status !== 'moved') await refresh()
+
+  return result.status === 'refused' ? result.message : null
 }
 
 const thread = useTemplateRef<HTMLElement>('thread')
@@ -315,7 +323,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       v-model:open="isCameraOpen"
       purpose="Proof"
       :max-edge="maxEdge"
-      @uploaded="onDelivered"
+      :hand-in="handIn"
     />
 
     <AppConfirmDialog

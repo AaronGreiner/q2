@@ -616,7 +616,7 @@ describe('proof composables', () => {
       proofs: {
         pending: vi.fn().mockResolvedValue([card('proof-1'), card('proof-2')]),
         vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
-        submit: vi.fn().mockResolvedValue({ id: 'proof-9', status: 'Voting' }),
+        submit: vi.fn().mockResolvedValue({ proof: { id: 'proof-9', status: 'Voting' }, conversationId: 'chat-9' }),
       },
     }
   }
@@ -652,29 +652,36 @@ describe('proof composables', () => {
     expect(state.proofs.value).toHaveLength(2)
   })
 
-  it('hands a delivered photograph to the goal, and leaves the goal to say what became of it', async () => {
+  it('hands a delivered photograph to the goal and follows it to its conversation', async () => {
     const api = proofsApi()
     const { show } = installFeatureGlobals(api)
+    const navigateTo = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('useRoute', () => ({ path: '/goals' }))
+    vi.stubGlobal('navigateTo', navigateTo)
     const delivery = useProofDelivery()
 
-    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(true)
+    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toEqual({ status: 'moved' })
     expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', 'image-1', true)
+    expect(navigateTo).toHaveBeenCalledWith('/chats/chat-9')
 
-    // A goal nobody shares has nobody to ask, so it comes back believed — and
-    // that is still the goal's to show, not a toast's.
-    api.proofs.submit.mockResolvedValueOnce({ id: 'proof-10', status: 'Confirmed' })
-    await expect(delivery.deliver('goal-1', { id: 'image-2' })).resolves.toBe(true)
-    expect(show).not.toHaveBeenCalled()
+    // A goal nobody shares and with no conversation has nobody to ask, so it
+    // comes back believed — and a toast is the one place left to say so.
+    api.proofs.submit.mockResolvedValueOnce({ proof: { id: 'proof-10', status: 'Confirmed' }, conversationId: null })
+    await expect(delivery.deliver('goal-1', { id: 'image-2' })).resolves.toEqual({ status: 'stayed' })
+    expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
   })
 
   it('keeps a refused delivery visible as a failure', async () => {
     const api = proofsApi()
     const { report } = installFeatureGlobals(api)
+    vi.stubGlobal('useRoute', () => ({ path: '/goals' }))
+    vi.stubGlobal('navigateTo', vi.fn())
     const delivery = useProofDelivery()
 
     api.proofs.submit.mockRejectedValueOnce(new Error('window full'))
 
-    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(false)
+    const result = await delivery.deliver('goal-1', { id: 'image-1' })
+    expect(result.status).toBe('refused')
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
   })
 })
