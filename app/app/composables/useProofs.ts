@@ -1,7 +1,12 @@
 import type { ApiFailure } from '~/api/errors'
-import type { FeedProof, Image, ProofVoteValue } from '~/api/types'
+import type { FeedProof, Image, OwnProof, ProofVoteValue } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
+
+interface OwnPayload {
+  proofs: OwnProof[]
+  failure: ApiFailure | null
+}
 
 interface PendingPayload {
   proofs: FeedProof[]
@@ -182,5 +187,38 @@ export function useProofDelivery() {
     /** The longest edge a proof photograph is uploaded at. */
     maxEdge: uploadSizes.proof,
     downscale: downscaleForUpload,
+  }
+}
+
+/**
+ * Every photograph this person has delivered, newest first.
+ *
+ * One key for the profile's preview and the whole gallery, so going from one
+ * to the other reuses what is already on screen rather than asking again — the
+ * list is bounded by the person's image allowance, so the preview simply shows
+ * the head of it.
+ */
+export function useOwnProofs() {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+
+  const { data, status, refresh } = useAsyncData<OwnPayload>(
+    'proofs-mine',
+    async () => {
+      try {
+        return { proofs: await api.proofs.mine(), failure: null }
+      }
+      catch (caught) {
+        return { proofs: [], failure: report(caught, { feature: 'proofs', action: 'mine' }) }
+      }
+    },
+    { default: () => placeholder({ proofs: [], failure: null }) },
+  )
+
+  return {
+    proofs: computed(() => data.value?.proofs ?? []),
+    error: computed(() => data.value?.failure ?? null),
+    isLoading: computed(() => isFirstLoad(status.value, data.value)),
+    refresh,
   }
 }

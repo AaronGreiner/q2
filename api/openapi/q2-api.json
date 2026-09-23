@@ -1137,6 +1137,30 @@
         }
       }
     },
+    "/api/proofs/mine": {
+      "get": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Every photograph you have delivered, newest first, whatever became of it.",
+        "operationId": "ListOwnProofs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OwnProofResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/proofs/{id}": {
       "get": {
         "tags": [
@@ -4299,6 +4323,45 @@
           "Challenge",
           "Activity"
         ]
+      },
+      "OwnProofResponse": {
+        "required": [
+          "id",
+          "imageId",
+          "status",
+          "createdAt",
+          "goalId",
+          "goalTitle",
+          "goalIcon"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProofStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "goalIcon": {
+            "type": "string"
+          }
+        }
       },
       "PasswordResetResponse": {
         "required": [

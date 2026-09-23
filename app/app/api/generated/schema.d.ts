@@ -383,6 +383,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proofs/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every photograph you have delivered, newest first, whatever became of it. */
+        get: operations["ListOwnProofs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/proofs/{id}": {
         parameters: {
             query?: never;
@@ -1408,6 +1425,19 @@ export interface components {
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
+        OwnProofResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            imageId: string;
+            status: components["schemas"]["ProofStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            goalId: string;
+            goalTitle: string;
+            goalIcon: string;
+        };
         PasswordResetResponse: {
             email: string;
         };
@@ -2539,6 +2569,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedProofResponse"][];
+                };
+            };
+        };
+    };
+    ListOwnProofs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnProofResponse"][];
                 };
             };
         };

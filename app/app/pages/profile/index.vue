@@ -1,16 +1,33 @@
 <script setup lang="ts">
-import type { Image } from '~/api/types'
+import type { Image, OwnProof } from '~/api/types'
 
 /**
  * Your own profile: who you are, how you are doing, and what you have earned.
  *
  * Shares the `profile` async-data key with the layout, so the badges in the tab
  * bar and this screen come from one request.
+ *
+ * Your photographs are a read of their own rather than part of the profile,
+ * because the profile is also the start screen's header and has no business
+ * carrying a gallery there.
  */
 const t = useMessages()
 const now = useNow()
 
 const { profile, error, isLoading, isSaving, refresh, rename, chooseAvatar, removeAvatar } = useProfile()
+const { proofs, error: proofsError, isLoading: proofsLoading, refresh: refreshProofs } = useOwnProofs()
+
+/** One row and a half of the grid: enough to recognise, not enough to scroll past. */
+const previewSize = 6
+const preview = computed(() => proofs.value.slice(0, previewSize))
+
+const viewing = ref(false)
+const viewed = ref<OwnProof | null>(null)
+
+function view(proof: OwnProof) {
+  viewed.value = proof
+  viewing.value = true
+}
 
 /*
  * A sheet and a camera, and never both at once.
@@ -183,6 +200,72 @@ async function onPhoto(image: Image) {
 
         <section
           class="mt-6"
+          aria-labelledby="proofs-heading"
+        >
+          <h2
+            id="proofs-heading"
+            class="mb-3 px-0.5 text-base font-extrabold"
+          >
+            {{ t.proofGallery.heading }}
+          </h2>
+
+          <div
+            v-if="proofsLoading"
+            class="grid grid-cols-3 gap-1.5"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <span class="sr-only">{{ t.common.loading }}</span>
+            <USkeleton
+              v-for="tile in 3"
+              :key="tile"
+              class="aspect-square w-full rounded-(--q2-radius-md)"
+            />
+          </div>
+
+          <AppErrorState
+            v-else-if="proofsError"
+            :error="proofsError"
+            retryable
+            @retry="refreshProofs()"
+          />
+
+          <template v-else-if="preview.length > 0">
+            <div
+              class="grid grid-cols-3 gap-1.5"
+              data-testid="own-proofs"
+            >
+              <ProofGalleryTile
+                v-for="proof in preview"
+                :key="proof.id"
+                :proof="proof"
+                @open="view(proof)"
+              />
+            </div>
+
+            <UButton
+              to="/profile/photos"
+              class="mt-2 min-h-11 w-full justify-center"
+              size="lg"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-images"
+              :label="`${t.proofGallery.showAll} · ${t.proofGallery.count(proofs.length)}`"
+              data-testid="open-proof-gallery"
+            />
+          </template>
+
+          <AppStateMessage
+            v-else
+            icon="i-lucide-camera"
+            :title="t.proofGallery.empty"
+            :description="t.proofGallery.emptyHint"
+            data-testid="own-proofs-empty"
+          />
+        </section>
+
+        <section
+          class="mt-6"
           aria-labelledby="activity-heading"
         >
           <h2
@@ -232,5 +315,10 @@ async function onPhoto(image: Image) {
         @uploaded="onPhoto"
       />
     </template>
+
+    <ProofPhotoViewer
+      v-model:open="viewing"
+      :proof="viewed"
+    />
   </div>
 </template>

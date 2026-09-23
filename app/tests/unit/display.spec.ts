@@ -9,11 +9,13 @@ import {
   formatRelativeTime,
   goalIconName,
   goalStatusPresentation,
+  groupByMonth,
   isNotificationOnScreen,
   notificationIcon,
   notificationLink,
   notificationTag,
   notificationText,
+  proofStatusLabel,
   scheduleExplanation,
   scheduleLabel,
   windowLabel,
@@ -503,5 +505,35 @@ describe('activitySentence', () => {
     for (const kind of ['TaskCompleted', 'StreakReached', 'GoalProgress', 'GoalCreated'] as const) {
       expect(activitySentence(activity({ kind, amount: 5 }), de)).not.toBe('')
     }
+  })
+})
+
+describe('proofStatusLabel', () => {
+  it('names every outcome with the words the vote already uses', () => {
+    expect(proofStatusLabel('Confirmed', de)).toBe(de.proof.confirmed)
+    expect(proofStatusLabel('Voting', de)).toBe(de.proof.waiting)
+    expect(proofStatusLabel('Rejected', en)).toBe(en.proof.rejected)
+  })
+})
+
+describe('groupByMonth', () => {
+  it('splits a newest-first list into its months without reordering it', () => {
+    const items = [
+      { id: 'c', createdAt: '2026-09-02T08:00:00+00:00' },
+      { id: 'b', createdAt: '2026-09-01T00:30:00+00:00' },
+      { id: 'a', createdAt: '2026-08-31T23:30:00+00:00' },
+      { id: 'z', createdAt: '2025-12-24T12:00:00+00:00' },
+    ]
+
+    const groups = groupByMonth(items, de)
+
+    expect(groups.map(group => group.key)).toEqual(['2026-09', '2026-08', '2025-12'])
+    expect(groups.map(group => group.label)).toEqual(['September 2026', 'August 2026', 'Dezember 2025'])
+    expect(groups.map(group => group.items.map(item => item.id))).toEqual([['c', 'b'], ['a'], ['z']])
+  })
+
+  it('speaks the chosen language and returns nothing for nothing', () => {
+    expect(groupByMonth([{ createdAt: '2026-03-10T10:00:00+00:00' }], en)[0]?.label).toBe('March 2026')
+    expect(groupByMonth([], de)).toEqual([])
   })
 })

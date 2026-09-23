@@ -40,7 +40,7 @@ import { type CameraFacing, rememberFacing, rememberedFacing } from '~/utils/cam
  * **Open it from a screen, never from inside a sheet.** It used to be a
  * `UDrawer`, and two drawers open at once deadlock (vaul drives both from one
  * set of body styles). The callers therefore close their own sheet before
- * opening this and bring it back afterwards — see `pages/profile.vue` — and
+ * opening this and bring it back afterwards — see `pages/profile/index.vue` — and
  * that stays the rule: a camera on top of a half-hidden form is not a layout
  * anybody wants on a phone either.
  *

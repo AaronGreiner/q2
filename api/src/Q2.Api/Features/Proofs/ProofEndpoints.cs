@@ -23,6 +23,11 @@ public static class ProofEndpoints
             .WithSummary("The photographs waiting for your vote, newest first.")
             .Produces<IReadOnlyList<FeedProofResponse>>();
 
+        proofs.MapGet("/mine", ListMine)
+            .WithName("ListOwnProofs")
+            .WithSummary("Every photograph you have delivered, newest first, whatever became of it.")
+            .Produces<IReadOnlyList<OwnProofResponse>>();
+
         proofs.MapGet("/{id:guid}", GetProof)
             .WithName("GetProof")
             .WithSummary("Returns one photograph, if it is yours to see.")
@@ -59,6 +64,11 @@ public static class ProofEndpoints
         ProofService proofs,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await proofs.FeedAsync(cancellationToken));
+
+    private static async Task<Ok<IReadOnlyList<OwnProofResponse>>> ListMine(
+        ProofService proofs,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await proofs.ListOwnAsync(cancellationToken));
 
     private static async Task<Ok<ProofResponse>> GetProof(
         ProofService proofs,
