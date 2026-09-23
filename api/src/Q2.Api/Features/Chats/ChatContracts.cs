@@ -1,4 +1,5 @@
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 
@@ -16,6 +17,10 @@ namespace Q2.Api.Features.Chats;
 /// <param name="LastMessageSenderName">
 /// Who wrote the preview, when the client needs to say so — a group message
 /// from somebody else. Null for your own messages and for direct chats.
+/// </param>
+/// <param name="LastMessageHasPhoto">
+/// Whether the last message carried a photograph — the preview's only clue
+/// when there were no words with it.
 /// </param>
 /// <param name="LastMessageIsMine">
 /// Sent as a flag rather than as the word "Du", because the word is language
@@ -63,6 +68,7 @@ public sealed record ChatSummaryResponse(
     bool IsOnline,
     string? LastMessage,
     string? LastMessageSenderName,
+    bool LastMessageHasPhoto,
     bool LastMessageIsMine,
     DateTimeOffset? LastMessageAt,
     int UnreadCount,
@@ -81,11 +87,18 @@ public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsM
 /// else. Null for your own messages and for direct chats, where the header
 /// already says who is speaking.
 /// </param>
+/// <param name="Text">The words; empty when the message is only a photograph.</param>
+/// <param name="Image">
+/// The photograph sent with it, with its dimensions so the thread can reserve
+/// the space before the bytes arrive. Null for a message of words alone, and
+/// for a photograph that has since been deleted.
+/// </param>
 public sealed record ChatMessageResponse(
     Guid Id,
     Guid SenderId,
     string? SenderName,
     string Text,
+    ImageResponse? Image,
     bool IsMine,
     DateTimeOffset SentAt,
     IReadOnlyList<MessageReactionResponse> Reactions);
@@ -165,7 +178,12 @@ public sealed record ChatDetailResponse(
 
 /// <summary>Request body for sending a message.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
-public sealed record SendMessageRequest(string? Text = null);
+/// <param name="Text">The words. May be left out when a photograph is sent.</param>
+/// <param name="ImageId">
+/// A photograph uploaded beforehand to <c>/api/images?purpose=ChatPhoto</c>. It
+/// has to be the sender's own, and it can be sent once.
+/// </param>
+public sealed record SendMessageRequest(string? Text = null, Guid? ImageId = null);
 
 /// <summary>Request body for toggling a reaction.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>

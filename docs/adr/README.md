@@ -36,3 +36,4 @@ so the reasoning at the time stays readable.
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
 | [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted |
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
+| [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |

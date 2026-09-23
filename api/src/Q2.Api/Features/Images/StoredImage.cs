@@ -43,6 +43,19 @@ public enum ImagePurpose
     /// never the same thing as being allowed to look.
     /// </remarks>
     ChallengeEntry,
+
+    /// <summary>
+    /// A photograph sent in a conversation. Readable by the people in that
+    /// conversation.
+    /// </summary>
+    /// <remarks>
+    /// Like a proof, the audience is a question about what points at the
+    /// picture — the message, and the conversation it is in — so it is answered
+    /// in <see cref="ImageService.CanReadAsync"/>. Somebody who leaves a group
+    /// stops being able to open its pictures, exactly as they stop being able
+    /// to open its thread.
+    /// </remarks>
+    ChatPhoto,
 }
 
 /// <summary>

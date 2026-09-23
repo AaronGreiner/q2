@@ -9,6 +9,10 @@ import type { Image } from '~/api/types'
  * messages (docs/adr/0027-goal-conversations.md). The goal's owner gets the
  * camera in the composer while the open window takes a photograph.
  *
+ * Anybody can send a photograph into any conversation. It is uploaded as a
+ * `ChatPhoto`, which the server shows to the people in this conversation and
+ * nobody else, and it is never a proof: that is the camera above, and only it.
+ *
  * Opening it marks it read on the server, which is why the navigation badge is
  * refreshed afterwards — the count has just changed under it. A reply arriving
  * while it is open comes in over the live connection, which refreshes this
@@ -44,6 +48,7 @@ const {
   isLoading,
   refresh,
   send,
+  sendPhoto,
   cheer,
   react,
   vote,
@@ -80,6 +85,14 @@ async function handIn(image: Image) {
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
+}
+
+/** A photograph as a message, picked or taken in the same sheet as a proof. */
+const isPhotoOpen = ref(false)
+
+async function onPhotoPicked(image: Image) {
+  isPhotoOpen.value = false
+  await sendPhoto(image)
 }
 
 const thread = useTemplateRef<HTMLElement>('thread')
@@ -316,6 +329,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         :can-deliver="canDeliver"
         @send="send"
         @deliver="isCameraOpen = true"
+        @attach="isPhotoOpen = true"
       />
     </template>
 
@@ -324,6 +338,12 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       purpose="Proof"
       :max-edge="maxEdge"
       :hand-in="handIn"
+    />
+
+    <PhotoCapture
+      v-model:open="isPhotoOpen"
+      purpose="ChatPhoto"
+      @uploaded="onPhotoPicked"
     />
 
     <AppConfirmDialog

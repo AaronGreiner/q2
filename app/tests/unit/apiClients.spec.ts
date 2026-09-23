@@ -134,7 +134,8 @@ describe('the API modules', () => {
     await chats.list()
     await chats.list({ search: 'Mara' })
     await chats.get('chat/one')
-    await chats.send('chat/one', 'Hello')
+    await chats.send('chat/one', { text: 'Hello' })
+    await chats.send('chat/one', { imageId: 'image-1' })
     await chats.react('chat/one', 'message/one', 'Applause')
     await chats.startDirect('person/one')
     await chats.createGroup(group)
@@ -148,6 +149,7 @@ describe('the API modules', () => {
       ['/api/chats', { method: 'GET', query: { search: 'Mara' } }],
       ['/api/chats/chat%2Fone', { method: 'GET' }],
       ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { text: 'Hello' } }],
+      ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { imageId: 'image-1' } }],
       ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { kind: 'Applause' } }],
       ['/api/chats/direct', { method: 'POST', body: { personId: 'person/one' } }],
       ['/api/chats/groups', { method: 'POST', body: group }],

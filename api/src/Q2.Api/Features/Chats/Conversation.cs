@@ -196,7 +196,7 @@ public sealed class Conversation
     }
 
     /// <exception cref="DomainValidationException">The sender is not in this conversation.</exception>
-    public ChatMessage AddMessage(Guid id, Guid senderPersonId, string text, DateTimeOffset sentAt)
+    public ChatMessage AddMessage(Guid id, Guid senderPersonId, string text, DateTimeOffset sentAt, Guid? imageId = null)
     {
         if (_participants.Count > 0 && _participants.All(p => p.PersonId != senderPersonId))
         {
@@ -205,7 +205,7 @@ public sealed class Conversation
                 "Only a participant can write in this conversation.");
         }
 
-        var message = ChatMessage.Create(id, Id, senderPersonId, text, sentAt);
+        var message = ChatMessage.Create(id, Id, senderPersonId, text, imageId, sentAt);
         _messages.Add(message);
         return message;
     }

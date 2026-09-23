@@ -27,7 +27,7 @@ const time = computed(() => formatChatTime(props.chat.lastMessageAt, props.now, 
 const preview = computed(() => {
   if (props.chat.awaitingMyVote) return t.value.chats.awaitingVote
   if (props.chat.lastEvent) return t.value.chats.lastEvent[props.chat.lastEvent]
-  if (!props.chat.lastMessage) return t.value.chats.empty
+  if (!props.chat.lastMessage && !props.chat.lastMessageHasPhoto) return t.value.chats.empty
 
   const prefix = props.chat.lastMessageIsMine
     ? `${t.value.chats.you}: `
@@ -35,7 +35,8 @@ const preview = computed(() => {
       ? `${props.chat.lastMessageSenderName}: `
       : ''
 
-  return `${prefix}${props.chat.lastMessage}`
+  // Words win when there are any; a photograph alone is named as one.
+  return `${prefix}${props.chat.lastMessage ?? t.value.chats.photo}`
 })
 </script>
 

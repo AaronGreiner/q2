@@ -12,7 +12,7 @@ import type {
 export interface ChatsApi {
   list: (options?: { search?: string }) => Promise<ChatSummary[]>
   get: (id: string) => Promise<ChatDetail>
-  send: (id: string, text: string) => Promise<ChatDetail>
+  send: (id: string, message: { text?: string, imageId?: string }) => Promise<ChatDetail>
   react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatDetail>
   startDirect: (personId: string) => Promise<ChatDetail>
   createGroup: (request: CreateGroupChatRequest) => Promise<ChatDetail>
@@ -39,10 +39,11 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
 
     // The whole thread comes back, not just the new message: a reply may have
     // arrived while this one was being typed, and re-rendering from one answer
-    // is simpler to get right than merging two.
-    send: (id, text) => call<ChatDetail>(`/api/chats/${encodeURIComponent(id)}/messages`, {
+    // is simpler to get right than merging two. A photograph is uploaded first
+    // (`purpose=ChatPhoto`) and only its id travels here.
+    send: (id, message) => call<ChatDetail>(`/api/chats/${encodeURIComponent(id)}/messages`, {
       method: 'POST',
-      body: { text },
+      body: message,
     }),
 
     react: (id, messageId, kind) => call<ChatDetail>(
