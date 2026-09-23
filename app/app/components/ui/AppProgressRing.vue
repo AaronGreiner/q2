@@ -20,11 +20,11 @@ const inner = computed(() => Math.round(props.size * 0.76))
 
 <template>
   <div
-    class="relative flex shrink-0 items-center justify-center rounded-full"
+    class="q2-progress-ring relative flex shrink-0 items-center justify-center rounded-full"
     :style="{
-      width: `${size}px`,
-      height: `${size}px`,
-      background: `conic-gradient(var(--ui-text) ${value * 3.6}deg, var(--q2-track) 0deg)`,
+      'width': `${size}px`,
+      'height': `${size}px`,
+      '--q2-progress-angle': `${value * 3.6}deg`,
     }"
     role="progressbar"
     :aria-valuenow="value"

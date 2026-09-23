@@ -22,7 +22,7 @@ so the reasoning at the time stays readable.
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
 | [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |
-| [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Accepted |
+| [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Amended by [0028](0028-ruhe-design-system.md) |
 | [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted |
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
 | [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md) |
@@ -35,3 +35,4 @@ so the reasoning at the time stays readable.
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
 | [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted |
+| [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |

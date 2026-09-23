@@ -19,8 +19,8 @@
  * app is the first thing a person would see us get wrong.
  */
 export const themeColors = {
-  light: '#fafafa',
-  dark: '#000000',
+  light: '#eceae8',
+  dark: '#131211',
 } as const
 
 export const installedThemeColor = themeColors.dark

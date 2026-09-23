@@ -19,6 +19,7 @@ definePageMeta({ layout: 'plain' })
 
 const t = useMessages()
 const theme = useTheme()
+const accent = useAccent()
 const language = useLanguage()
 const { update } = useAppSettings()
 
@@ -85,7 +86,7 @@ useHead({ title: () => t.value.settings.heading })
       :back-label="t.common.back"
     />
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1 pb-8">
+    <AppContentPanel>
       <SettingsSection :title="t.settings.appearance">
         <div class="px-4 py-3.5">
           <p
@@ -104,6 +105,10 @@ useHead({ title: () => t.value.settings.heading })
             class="my-4 h-px bg-(--ui-border)"
             aria-hidden="true"
           />
+
+          <AccentPicker v-model="accent" />
+
+          <USeparator class="my-4" />
 
           <p class="mb-2.5 text-sm font-bold">
             {{ t.settings.language }}
@@ -140,7 +145,7 @@ useHead({ title: () => t.value.settings.heading })
         <div
           v-for="row in accountRows"
           :key="row.label"
-          class="flex items-center gap-3 border-b border-(--ui-border) px-4 py-3 opacity-55 last:border-b-0"
+          class="flex items-center gap-3 border-b border-(--ui-border) px-4 py-3 text-(--ui-text-muted) last:border-b-0"
         >
           <span
             class="flex size-9 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--q2-track) text-(--ui-text-muted)"
@@ -234,7 +239,7 @@ useHead({ title: () => t.value.settings.heading })
       <p class="mt-5 text-center text-[11px] font-semibold text-(--ui-text-dimmed)">
         {{ t.settings.version(config.public.appEnv) }}
       </p>
-    </div>
+    </AppContentPanel>
 
     <DeleteAccountSheet v-model:open="isDeleting" />
   </div>

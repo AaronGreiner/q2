@@ -83,13 +83,14 @@ styled. This includes toasts (`{ icon, text }` in the catalogue), reactions
 into their own messages is their business.
 
 **Corners come from `--q2-radius-*`, never from `rounded-xl`.** Nuxt UI
-rescales Tailwind's radius utilities off `--ui-radius`, so in this app
-`rounded-md` is 18px, `rounded-xl` is **36px**, `rounded-2xl` is 48px and
-`rounded-3xl` does not exist. Nuxt UI's own components land on 18px — a
-UButton is drawn at exactly the radius a `q2-card` is — so a `rounded-xl`
-written in the belief that it means Tailwind's 12px comes out at three times
-that, right beside them. The four named values in `main.css` are the whole
-scale; `rounded-full` for anything that is meant to be a pill.
+rescales Tailwind's radius utilities off `--ui-radius`, so their pixel values
+are not Tailwind defaults. The named values in `main.css` are the whole scale:
+10px, 14px, 18px, 22px and 26px for the shared content panel. Use `rounded-full`
+for pills and avatars. Nuxt UI control defaults live in `app/app.config.ts`.
+
+The palette and surfaces follow [ADR 0028](../docs/adr/0028-ruhe-design-system.md).
+`AppContentPanel` is the shared Nuxt UI content surface; `AccentPicker` selects
+a device-local palette. Nuxt UI control defaults live in `app/app.config.ts`.
 
 Current components, by folder:
 

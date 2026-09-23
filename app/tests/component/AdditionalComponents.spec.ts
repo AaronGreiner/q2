@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hapticTap } from '~/utils/haptics'
 import AppBottomNav from '~/components/layout/AppBottomNav.vue'
 import AppConfirmDialog from '~/components/ui/AppConfirmDialog.vue'
 import AppProgressRing from '~/components/ui/AppProgressRing.vue'
@@ -29,6 +30,9 @@ import type {
   Goal,
   Person,
 } from '~/api/types'
+
+vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
+afterEach(() => vi.mocked(hapticTap).mockClear())
 
 function person(overrides: Partial<Person> = {}): Person {
   return {
@@ -118,7 +122,7 @@ describe('interactive UI primitives', () => {
     })
     await segmented.get('[data-testid="segment-goals"]').trigger('click')
     expect(segmented.emitted('update:modelValue')?.[0]).toEqual(['goals'])
-    expect(segmented.get('[data-testid="segment-today"]').attributes('role')).toBe('radio')
+    expect(segmented.findAll('[role="radio"]')).toHaveLength(2)
 
     const toggle = await mountSuspended(AppToggle, { props: { label: 'Erinnerungen', modelValue: false } })
     await toggle.get('[role="switch"]').trigger('click')
@@ -178,6 +182,7 @@ describe('chat presentation', () => {
 
     await wrapper.get('[data-testid="chat-kudos-Fire"]').trigger('click')
     expect(wrapper.emitted('react')?.[0]).toEqual(['message-1', 'Fire'])
+    expect(hapticTap).toHaveBeenCalledOnce()
   })
 
   it('does not offer a reaction on your own message', async () => {

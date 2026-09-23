@@ -92,7 +92,7 @@ function submit() {
       <button
         type="submit"
         :disabled="busy || draft.trim().length === 0"
-        class="flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="q2-press flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :class="busy || draft.trim().length === 0
           ? 'border-(--ui-border-accented) bg-transparent text-(--ui-text-dimmed)'
           : 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'"

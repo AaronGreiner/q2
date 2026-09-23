@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import type { ChatMessage, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
 
@@ -28,6 +29,10 @@ const time = computed(() => formatClock(props.message.sentAt, zone.value))
 function reactionFor(kind: KudosKind) {
   return props.message.reactions.find(reaction => reaction.kind === kind)
 }
+function react(kind: KudosKind) {
+  hapticTap()
+  emit('react', props.message.id, kind)
+}
 </script>
 
 <template>
@@ -51,7 +56,7 @@ function reactionFor(kind: KudosKind) {
       class="px-3.5 py-2.5 text-sm leading-snug font-medium"
       :class="message.isMine
         ? 'rounded-(--q2-radius-lg) rounded-ee-[5px] bg-(--ui-bg-accented) text-(--ui-text)'
-        : 'q2-card rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)'"
+        : 'bg-(--q2-track) rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)'"
     >
       {{ message.text }}
     </p>
@@ -88,7 +93,7 @@ function reactionFor(kind: KudosKind) {
           v-for="kind in kudosKinds"
           :key="kind"
           type="button"
-          class="relative inline-flex items-center gap-1 rounded-full py-0.5 text-[11px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          class="q2-press q2-reaction relative inline-flex items-center gap-1 rounded-full py-0.5 text-[11px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
           :class="reactionFor(kind)?.isMine
             ? 'bg-(--q2-accent-solid) px-2 text-(--q2-accent-contrast)'
             : reactionFor(kind)
@@ -97,7 +102,7 @@ function reactionFor(kind: KudosKind) {
           :aria-pressed="reactionFor(kind)?.isMine ?? false"
           :aria-label="t.kudos[kind]"
           :data-testid="`chat-kudos-${kind}`"
-          @click="emit('react', message.id, kind)"
+          @click="react(kind)"
         >
           <UIcon
             :name="kudosIconName(kind)"

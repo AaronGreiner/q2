@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import type { Activity } from '~/api/types'
 
 /**
@@ -26,6 +27,10 @@ const t = useMessages()
 
 const sentence = computed(() => activitySentence(props.activity, t.value))
 const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.now, t.value))
+function giveKudos() {
+  hapticTap()
+  emit('kudos', props.activity.id)
+}
 </script>
 
 <template>
@@ -59,7 +64,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
     <button
       v-if="!readonly"
       type="button"
-      class="relative flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 transition-colors after:absolute after:-inset-y-2 after:-inset-x-1 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="q2-press q2-reaction relative flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 transition-colors after:absolute after:-inset-y-2 after:-inset-x-1 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="activity.hasMyKudos
         ? 'bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
         : 'bg-(--q2-accent-soft) text-(--q2-accent-soft-text)'"
@@ -67,7 +72,7 @@ const time = computed(() => formatRelativeTime(props.activity.occurredAt, props.
       :aria-label="activity.hasMyKudos ? t.activity.takeBackKudos : t.activity.giveKudos"
       data-testid="kudos-button"
       data-q2-block
-      @click="emit('kudos', activity.id)"
+      @click="giveKudos"
     >
       <UIcon
         name="i-lucide-hand-heart"

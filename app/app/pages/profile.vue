@@ -79,7 +79,7 @@ async function onPhoto(image: Image) {
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col items-center gap-4"
@@ -214,7 +214,7 @@ async function onPhoto(image: Image) {
           />
         </section>
       </template>
-    </div>
+    </AppContentPanel>
 
     <template v-if="profile">
       <ProfileEditSheet

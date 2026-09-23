@@ -36,6 +36,10 @@ const items = computed(() => [
 ])
 
 const route = useRoute()
+const currentSlot = computed(() => {
+  const index = items.value.findIndex(item => isCurrent(item.to))
+  return index < 2 ? index : index + 1
+})
 
 /** `/` only matches itself; everything else matches its sub-routes too. */
 function isCurrent(to: string): boolean {
@@ -51,10 +55,15 @@ function badgeFor(key: string, unreadChats?: number, pendingRequests?: number): 
 
 <template>
   <nav
-    class="flex items-stretch border-t border-(--ui-border) bg-(--ui-bg) pt-2 pb-(--q2-safe-bottom)"
+    class="relative flex items-stretch border-t border-(--ui-border) bg-(--q2-surface) pt-2 pb-(--q2-safe-bottom)"
     :aria-label="t.nav.label"
     data-testid="bottom-nav"
   >
+    <span
+      class="q2-nav-indicator"
+      :style="{ '--q2-nav-index': Math.max(0, currentSlot), '--q2-nav-visible': currentSlot < 0 ? 0 : 1 }"
+      aria-hidden="true"
+    />
     <template
       v-for="(item, index) in items"
       :key="item.key"
@@ -64,7 +73,7 @@ function badgeFor(key: string, unreadChats?: number, pendingRequests?: number): 
       <NuxtLink
         v-if="index === 2"
         to="/goals?create=1"
-        class="flex flex-1 flex-col items-center justify-start py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="q2-press flex flex-1 flex-col items-center justify-start py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :aria-label="t.create.open"
         data-testid="nav-create"
       >
@@ -80,26 +89,17 @@ function badgeFor(key: string, unreadChats?: number, pendingRequests?: number): 
 
       <NuxtLink
         :to="item.to"
-        class="relative flex flex-1 flex-col items-center gap-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        class="q2-press relative flex flex-1 flex-col items-center gap-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :class="isCurrent(item.to) ? 'text-(--ui-text)' : 'text-(--ui-text-dimmed)'"
         :aria-current="isCurrent(item.to) ? 'page' : undefined"
         :data-testid="`nav-${item.key}`"
       >
         <UIcon
           :name="item.icon"
-          class="size-[22px]"
+          class="q2-nav-icon size-[22px]"
           aria-hidden="true"
         />
         <span class="text-[10px] font-bold">{{ item.label }}</span>
-
-        <!-- The current tab is marked by a bar rather than by the accent: which
-             screen you are on is a state, and the accent is reserved for
-             something you can do. -->
-        <span
-          v-if="isCurrent(item.to)"
-          class="absolute -top-2 h-[3px] w-7 rounded-full bg-(--q2-accent-solid)"
-          aria-hidden="true"
-        />
 
         <span
           v-if="badgeFor(item.key, unreadChats, pendingRequests) > 0"

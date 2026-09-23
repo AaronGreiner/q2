@@ -29,8 +29,8 @@ withDefaults(defineProps<{
        without a rule the two run together. A main screen carries a large title
        that reads as a heading of the page rather than a bar over it. -->
   <header
-    class="flex shrink-0 items-center gap-2 px-[18px] pt-1.5 pb-3"
-    :class="backTo ? 'border-b border-(--ui-border)' : 'items-start justify-between'"
+    class="flex shrink-0 items-center gap-2 px-[22px] pt-3 pb-5"
+    :class="backTo ? 'min-h-16' : 'items-start justify-between'"
   >
     <NuxtLink
       v-if="backTo"

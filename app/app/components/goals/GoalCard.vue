@@ -36,7 +36,7 @@ const statusLine = computed(() => {
 <template>
   <NuxtLink
     :to="`/goals/${goal.id}`"
-    class="q2-card block p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+    class="q2-press q2-card block p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     data-testid="goal-card"
   >
     <div class="flex items-start gap-3">

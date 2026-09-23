@@ -10,6 +10,7 @@ import { de, languageKeys } from '~/i18n/messages'
  */
 const { settings } = useAppSettings()
 const language = useLanguage()
+const accent = useAccent()
 const t = useMessages()
 
 // Both layouts size themselves off --q2-viewport-height, so the one place that
@@ -39,7 +40,7 @@ useHead({
   // switcher and by a share sheet before anybody has chosen a language, and a
   // name is the same in both anyway.
   titleTemplate: title => (title ? `${title} · ${de.app.name}` : `${de.app.name} (q2)`),
-  htmlAttrs: { lang: computed(() => languageKeys[language.value]) },
+  htmlAttrs: { 'lang': computed(() => languageKeys[language.value]), 'data-accent': accent },
   meta: [
     { name: 'description', content: () => t.value.app.description },
 
@@ -128,8 +129,8 @@ void settings
 
 <template>
   <UApp :toaster="toaster">
-    <NuxtLayout>
-      <NuxtPage />
+    <NuxtLayout :transition="{ name: 'q2-layout', mode: 'out-in' }">
+      <NuxtPage :transition="{ name: 'q2-page', mode: 'out-in' }" />
     </NuxtLayout>
   </UApp>
 </template>

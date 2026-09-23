@@ -80,7 +80,7 @@ useHead({ title: () => t.value.nav.home })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-0.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -294,7 +294,7 @@ useHead({ title: () => t.value.nav.home })
           />
         </section>
       </template>
-    </div>
+    </AppContentPanel>
 
     <!--
       One camera for the whole screen, opened by whichever row asked for it. A

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl } from './support/e2eEnvironment'
+import { waitForMotion } from './support/waitForMotion'
 
 const sharedGoalId = 'e2e00000-0000-4000-8000-000000000001'
 
@@ -66,6 +67,7 @@ test.describe('WCAG A and AA', () => {
         await page.goto(screen.path)
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`))
 
+        await waitForMotion(page)
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa'])
           // The installed-app zoom decision is the one dated exception in
@@ -87,6 +89,7 @@ test.describe('phone geometry', () => {
   for (const path of signedInScreens) {
     test(`${path} never needs horizontal scrolling`, async ({ page }) => {
       await page.goto(path)
+      await waitForMotion(page)
 
       const geometry = await page.evaluate(() => ({
         viewport: document.documentElement.clientWidth,
@@ -102,6 +105,7 @@ test.describe('phone geometry', () => {
 
     for (const path of ['/', '/goals?tab=goals', '/goals/archive', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
       await page.goto(path)
+      await waitForMotion(page)
 
       const onScreen = await page.locator(
         'a, button, input, select, textarea, [role="button"], [role="checkbox"], [role="radio"], [role="switch"]',

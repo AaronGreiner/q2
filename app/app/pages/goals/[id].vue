@@ -95,7 +95,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1 pb-8">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -419,7 +419,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           </ul>
         </section>
       </article>
-    </div>
+    </AppContentPanel>
 
     <PhotoCapture
       v-model:open="capturing"

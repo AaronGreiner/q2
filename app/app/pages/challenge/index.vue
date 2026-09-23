@@ -92,7 +92,7 @@ useHead({ title: () => t.value.challenge.heading })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"
@@ -221,7 +221,7 @@ useHead({ title: () => t.value.challenge.heading })
         :description="t.challenge.noneHint"
         data-testid="challenge-none"
       />
-    </div>
+    </AppContentPanel>
 
     <!--
       One camera for the whole screen. Opened from the page rather than from

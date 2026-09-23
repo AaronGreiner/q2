@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import { imageUrl } from '~/api/images'
 import type { Proof, ProofVoteValue } from '~/api/types'
 
@@ -59,6 +60,10 @@ const hoursLeft = computed(() => {
 
 const confirmedNames = computed(() =>
   props.proof.votes.confirmedBy.map(person => person.displayName).join(', '))
+function vote(value: ProofVoteValue) {
+  hapticTap()
+  emit('vote', value)
+}
 </script>
 
 <template>
@@ -169,7 +174,7 @@ const confirmedNames = computed(() =>
             :label="t.vote.confirm"
             :disabled="busy"
             data-testid="proof-confirm"
-            @click="emit('vote', 'Confirm')"
+            @click="vote('Confirm')"
           />
 
           <UButton
@@ -181,7 +186,7 @@ const confirmedNames = computed(() =>
             :label="t.vote.doubt"
             :disabled="busy"
             data-testid="proof-doubt"
-            @click="emit('vote', 'Doubt')"
+            @click="vote('Doubt')"
           />
         </div>
 

@@ -1,8 +1,12 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hapticTap } from '~/utils/haptics'
 import ChallengeBanner from '~/components/home/ChallengeBanner.vue'
 import ChallengeEntryCard from '~/components/challenge/ChallengeEntryCard.vue'
 import type { ChallengeEntry, ChallengeRoom, Person } from '~/api/types'
+
+vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
+afterEach(() => vi.mocked(hapticTap).mockClear())
 
 /**
  * The daily challenge on screen.
@@ -148,6 +152,7 @@ describe('ChallengeEntryCard', () => {
       .trigger('click')
 
     expect(wrapper.emitted('react')?.[0]).toEqual(['Fire'])
+    expect(hapticTap).toHaveBeenCalledOnce()
   })
 })
 

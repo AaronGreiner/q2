@@ -1,7 +1,11 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hapticTap } from '~/utils/haptics'
 import ActivityRow from '~/components/social/ActivityRow.vue'
 import type { Activity } from '~/api/types'
+
+vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
+afterEach(() => vi.mocked(hapticTap).mockClear())
 
 /**
  * One line of the feed. The clock is injected, so "vor 12 Min" is the same
@@ -73,6 +77,7 @@ describe('ActivityRow', () => {
     await wrapper.find('[data-testid="kudos-button"]').trigger('click')
 
     expect(wrapper.emitted('kudos')).toEqual([['019faece-5a81-7c67-8fa2-00a63d9e9400']])
+    expect(hapticTap).toHaveBeenCalledOnce()
   })
 
   it('shows your own history without a button to cheer yourself on', async () => {

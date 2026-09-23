@@ -31,7 +31,7 @@ const value = computed(() => clampProgress(props.percent))
     data-q2-block
   >
     <div
-      class="h-full rounded-full bg-(--ui-text) transition-[width] duration-300"
+      class="q2-progress-fill h-full rounded-full bg-(--ui-text)"
       :style="{ width: `${value}%` }"
     />
   </div>

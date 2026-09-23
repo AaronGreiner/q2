@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import { isApiError } from '~/api/errors'
 import type { Image, ImagePurpose } from '~/api/types'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
@@ -149,6 +150,8 @@ function shoot() {
   const element = video.value
 
   if (!element || !element.videoWidth) return
+
+  hapticTap()
 
   const canvas = document.createElement('canvas')
   canvas.width = element.videoWidth

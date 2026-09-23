@@ -1,6 +1,6 @@
 # 0015 — The Qdos design language: black, one accent, no emoji
 
-**Status:** Accepted
+**Status:** Accepted; palette and surfaces amended by [0028](0028-ruhe-design-system.md)
 **Date:** 2026-09-06
 
 ## Context

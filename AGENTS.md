@@ -17,10 +17,10 @@ This repository holds the **initial version**. Read [README.md](README.md)
 sections 1 and 2 for exactly what exists and what is deliberately absent; what
 is still to be built is in [GitHub Issues](https://github.com/AaronGreiner/q2/issues).
 
-**The look is not negotiable per screen.** Black, dark by default, one accent
-used only for something the person can do right now, the flame gradient only for
-a streak, red only for something final, and no emoji anywhere in the interface —
-[docs/adr/0015-qdos-design-language.md](docs/adr/0015-qdos-design-language.md).
+**The look is not negotiable per screen.** Warm neutrals, dark by default, one
+selectable accent, the flame gradient only for a streak, red only for something
+final, and no emoji anywhere in the interface —
+[docs/adr/0028-ruhe-design-system.md](docs/adr/0028-ruhe-design-system.md).
 
 The important consequence: **do not build ahead of the requirement**. No
 permissions engine, no event sourcing, no microservices, no generic

@@ -27,7 +27,7 @@ useHead({ title: () => t.value.notify.heading })
       :back-label="t.common.back"
     />
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-2.5"
@@ -113,6 +113,6 @@ useHead({ title: () => t.value.notify.heading })
           </ul>
         </section>
       </template>
-    </div>
+    </AppContentPanel>
   </div>
 </template>

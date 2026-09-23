@@ -77,15 +77,14 @@ useHead({ title: () => t.value.goals.heading })
          and two of them would put the screen's loudest control in two places. -->
     <AppScreenHeader :title="t.goals.heading" />
 
-    <div class="shrink-0 px-[18px] pt-1 pb-3">
-      <AppSegmented
-        v-model="tab"
-        :options="tabs"
-        :label="t.goals.heading"
-      />
-    </div>
-
-    <div class="q2-scroll flex-1 px-[18px] pb-6">
+    <AppContentPanel>
+      <template #toolbar>
+        <AppSegmented
+          v-model="tab"
+          :options="tabs"
+          :label="t.goals.heading"
+        />
+      </template>
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"
@@ -198,7 +197,7 @@ useHead({ title: () => t.value.goals.heading })
           />
         </section>
       </template>
-    </div>
+    </AppContentPanel>
 
     <GoalCreateSheet
       ref="sheet"

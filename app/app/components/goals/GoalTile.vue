@@ -18,7 +18,7 @@ const window = computed(() => props.goal.current)
 <template>
   <NuxtLink
     :to="`/goals/${goal.id}`"
-    class="q2-card block w-52 shrink-0 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+    class="q2-press q2-card block w-52 shrink-0 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     data-testid="goal-tile"
   >
     <div class="flex items-center justify-between">

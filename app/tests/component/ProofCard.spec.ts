@@ -1,7 +1,11 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hapticTap } from '~/utils/haptics'
 import ProofCard from '~/components/proofs/ProofCard.vue'
 import type { Person, Proof } from '~/api/types'
+
+vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
+afterEach(() => vi.mocked(hapticTap).mockClear())
 
 /**
  * The card the product turns on.
@@ -96,12 +100,14 @@ describe('ProofCard', () => {
     expect(wrapper.text()).toContain('Wer zweifelt, bleibt anonym.')
   })
 
-  it('emits the verdict that was pressed', async () => {
+  it.each(['Confirm', 'Doubt'] as const)('acknowledges and emits the %s verdict', async (value) => {
     const wrapper = await mountSuspended(ProofCard, { props: { proof: proof() } })
 
-    await wrapper.get('[data-testid="proof-doubt"] button, [data-testid="proof-doubt"]').trigger('click')
+    expect(hapticTap).not.toHaveBeenCalled()
+    await wrapper.get(`[data-testid="proof-${value.toLowerCase()}"]`).trigger('click')
 
-    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt'])
+    expect(wrapper.emitted('vote')?.[0]).toEqual([value])
+    expect(hapticTap).toHaveBeenCalledOnce()
   })
 
   /**

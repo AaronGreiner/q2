@@ -245,7 +245,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <template v-else>
       <div
         ref="thread"
-        class="q2-scroll flex flex-1 flex-col gap-1 px-[18px] py-3.5"
+        class="q2-scroll flex flex-1 flex-col gap-2 bg-(--q2-surface) px-[18px] py-3.5"
       >
         <ChatGoalBanner
           v-if="chat.pinnedGoal"
@@ -253,8 +253,11 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           @cheer="cheer()"
         />
 
-        <ul
-          v-if="items.length > 0"
+        <!-- Always rendered, so the first message animates in rather than
+             mounting the whole list; each timeline item carries its own key. -->
+        <TransitionGroup
+          tag="ul"
+          name="q2-message"
           class="flex list-none flex-col gap-1 p-0"
           data-testid="chat-messages"
         >
@@ -289,10 +292,10 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
               />
             </li>
           </template>
-        </ul>
+        </TransitionGroup>
 
         <AppStateMessage
-          v-else
+          v-if="items.length === 0"
           class="my-auto"
           icon="i-lucide-message-circle"
           :title="t.chats.empty"
