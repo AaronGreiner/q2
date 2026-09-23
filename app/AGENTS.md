@@ -526,4 +526,6 @@ and `bun run app:icons` cover the same ground with the right environment.
 9. confirm no user content reaches Sentry, and none reaches the service worker's
    cache either (section 9a)
 
-Or `bun run validate` from the root, and report what it actually printed.
+Or `bun run validate` from the root, and report what it actually printed — here
+and on the issue the change belongs to ([../AGENTS.md](../AGENTS.md)
+section 11).

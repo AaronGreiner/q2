@@ -22,10 +22,10 @@ api/
 │   ├── appsettings.*.json           one file per environment
 │   ├── Features/
 │   │   ├── Accounts/                registration, sign-in, password reset, the Identity user
-│   │   ├── Activity/                the feed, kudos and the leaderboard
+│   │   ├── Activity/                the feed and kudos
 │   │   ├── Chats/                   conversations, messages and reactions
 │   │   ├── Diagnostics/             health check and the deliberate-failure endpoints
-│   │   ├── Goals/                   goals, the tasks under them, and their contracts
+│   │   ├── Goals/                   goals, their schedules and windows, and their contracts
 │   │   ├── Notifications/           one pipeline: the bell, the live hub, Web Push
 │   │   ├── People/                  Person, friendships, badges, CurrentPerson
 │   │   ├── Profile/                 the signed-in person's own screen
@@ -397,4 +397,5 @@ environment you set.
 7. confirm no expected failure creates a Sentry issue, and no sensitive data
    reaches one
 
-Or simply `bun run validate`, and report what it actually printed.
+Or simply `bun run validate`, and report what it actually printed — here and
+on the issue the change belongs to ([../AGENTS.md](../AGENTS.md) section 11).

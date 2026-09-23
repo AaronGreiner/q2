@@ -113,7 +113,8 @@ language the account chose in its settings, as plain text, naming nobody.
   [#6](https://github.com/AaronGreiner/q2/issues/6)). Both will use the token
   providers and the transport this adds; neither is part of getting back in.
 - **Changing the password while signed in.** A smaller change of its own, with
-  the same rule about sessions.
+  the same rule about sessions
+  ([#40](https://github.com/AaronGreiner/q2/issues/40)).
 - **HTML mail, a reply address and a durable outbox.** A reset mail is a few
   sentences and a link; nobody is there to answer a reply yet; and a mail lost
   to a restart is one somebody asks for again with a tap.
