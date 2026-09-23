@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
+import { imageUrl } from '~/api/images'
 import type { ChatMessage, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
 
@@ -24,6 +25,32 @@ const t = useMessages()
 const zone = useTimeZoneOffset()
 
 const time = computed(() => formatClock(props.message.sentAt, zone.value))
+
+const { public: config } = useRuntimeConfig()
+const photoFailed = ref(false)
+
+watch(() => props.message.image?.id, () => {
+  photoFailed.value = false
+})
+
+const photoSource = computed(() =>
+  props.message.image && !photoFailed.value ? imageUrl(config.apiBaseUrl, props.message.image.id) : null)
+
+/*
+ * The frame is reserved at the picture's own proportions before a byte of it
+ * arrives, so the thread does not jump under the reader as it loads — clamped
+ * between 3:4 and 3:2, so a panorama is not a sliver and a tall screenshot not
+ * a whole screen.
+ */
+const photoRatio = computed(() => {
+  const image = props.message.image
+  if (!image || image.height <= 0) return 1
+
+  return Math.min(1.5, Math.max(0.75, image.width / image.height))
+})
+
+/** A photograph deleted since, with no words beside it, still gets a bubble. */
+const photoGone = computed(() => !props.message.image && props.message.text.length === 0)
 
 /** How many of each kind, and whether one of them is mine. */
 function reactionFor(kind: KudosKind) {
@@ -52,13 +79,62 @@ function react(kind: KudosKind) {
       own messages, and painting all of them the accent would make the colour
       mean "mine" instead of "something you can do".
     -->
-    <p
-      class="px-3.5 py-2.5 text-sm leading-snug font-medium"
-      :class="message.isMine
-        ? 'rounded-(--q2-radius-lg) rounded-ee-[5px] bg-(--ui-bg-accented) text-(--ui-text)'
-        : 'bg-(--q2-track) rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)'"
+    <!-- A photograph sits above its words, with the bubble's own corner. -->
+    <div
+      v-if="message.image"
+      class="relative w-64 max-w-full overflow-hidden bg-(--ui-bg-elevated)"
+      :class="[
+        message.isMine ? 'rounded-(--q2-radius-lg) rounded-ee-[5px]' : 'rounded-(--q2-radius-lg) rounded-es-[5px]',
+        message.text ? 'mb-1' : '',
+      ]"
+      :style="{ aspectRatio: String(photoRatio) }"
+      data-testid="chat-photo"
     >
-      {{ message.text }}
+      <img
+        v-if="photoSource"
+        :src="photoSource"
+        :alt="t.chats.photo"
+        crossorigin="use-credentials"
+        decoding="async"
+        loading="lazy"
+        class="size-full object-cover"
+        @error="photoFailed = true"
+      >
+
+      <div
+        v-else
+        class="flex size-full items-center justify-center"
+      >
+        <UIcon
+          name="i-lucide-image-off"
+          class="size-8 text-(--ui-text-dimmed)"
+          aria-hidden="true"
+        />
+        <span class="sr-only">{{ t.chats.photoGone }}</span>
+      </div>
+    </div>
+
+    <p
+      v-if="message.text || photoGone"
+      class="px-3.5 py-2.5 text-sm leading-snug font-medium"
+      :class="[
+        message.isMine
+          ? 'rounded-(--q2-radius-lg) rounded-ee-[5px] bg-(--ui-bg-accented) text-(--ui-text)'
+          : 'bg-(--q2-track) rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)',
+        photoGone ? 'inline-flex items-center gap-1.5 text-(--ui-text-muted)' : '',
+      ]"
+    >
+      <template v-if="photoGone">
+        <UIcon
+          name="i-lucide-image-off"
+          class="size-4 shrink-0"
+          aria-hidden="true"
+        />
+        {{ t.chats.photoGone }}
+      </template>
+      <template v-else>
+        {{ message.text }}
+      </template>
     </p>
 
     <div

@@ -173,6 +173,40 @@ public sealed class ImageService(
     }
 
     /// <summary>
+    /// Marks the photographs sent in messages that are going for deletion,
+    /// whoever sent them, without saving; returns the ids that were removed.
+    /// </summary>
+    /// <remarks>
+    /// A conversation that goes — a goal deleted, the last person leaving a
+    /// group, a direct thread erased with an account — takes everybody's
+    /// messages with it, and a picture nobody can reach any more is still a
+    /// picture on disk and still counted against its sender's allowance. Only
+    /// <see cref="ImagePurpose.ChatPhoto"/> is touched, so an id that somehow
+    /// points at an avatar or a proof cannot take that with it.
+    /// </remarks>
+    public async Task<IReadOnlyList<Guid>> RemoveChatPhotosAsync(
+        IEnumerable<Guid?> ids,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var wanted = ids.OfType<Guid>().Distinct().ToList();
+
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        var images = await database.Images
+            .Where(image => wanted.Contains(image.Id) && image.Purpose == ImagePurpose.ChatPhoto)
+            .ToListAsync(cancellationToken);
+
+        database.Images.RemoveRange(images);
+
+        return [.. images.Select(image => image.Id)];
+    }
+
+    /// <summary>
     /// Deletes the bytes behind images whose rows have already gone.
     /// </summary>
     /// <remarks>
@@ -264,6 +298,23 @@ public sealed class ImageService(
         }
 
         /*
+         * A photograph in a conversation: whoever is in that conversation now.
+         *
+         * The same set the thread itself is read by (ChatService), so a picture
+         * is never visible to somebody who cannot see the message around it.
+         */
+        if (image.Purpose == ImagePurpose.ChatPhoto)
+        {
+            return await database.ChatMessages
+                .AsNoTracking()
+                .AnyAsync(
+                    message => message.ImageId == image.Id
+                        && database.ConversationParticipants.Any(participant =>
+                            participant.ConversationId == message.ConversationId && participant.PersonId == viewerId),
+                    cancellationToken);
+        }
+
+        /*
          * A challenge contribution: a friend of the author, who has contributed
          * to the same challenge themselves.
          *
@@ -303,9 +354,10 @@ public sealed class ImageService(
     /// by definition not connected to the person yet.
     ///
     /// A proof is <em>not</em> answered here, because its audience is a question
-    /// about a goal rather than about the picture — and a challenge contribution
-    /// is not, because its audience is a question about who else took part. Both
-    /// are in <see cref="CanReadAsync"/>. Anything else is its owner's alone,
+    /// about a goal rather than about the picture — a chat photograph is not,
+    /// because its audience is whoever is in its conversation — and a challenge
+    /// contribution is not, because its audience is a question about who else
+    /// took part. All three are in <see cref="CanReadAsync"/>. Anything else is its owner's alone,
     /// which is the safe default a new purpose falls into until somebody decides
     /// otherwise on purpose.
     /// </remarks>

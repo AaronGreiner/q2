@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
@@ -32,6 +33,7 @@ public sealed class ChatService(
     CurrentPerson currentPerson,
     FriendsService friends,
     BlockList blockList,
+    ImageService images,
     Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
@@ -114,13 +116,16 @@ public sealed class ChatService(
                 identity.AvatarColor,
                 identity.AvatarImageId,
                 identity.IsOnline,
-                message?.Text,
+                // A photograph without words has no preview text of its own;
+                // the flag below is what the row says instead.
+                string.IsNullOrEmpty(message?.Text) ? null : message.Text,
 
                 // Only a conversation of more than two names the sender; in a
                 // direct chat the row is already the other person.
                 message is not null && conversation.Kind != ConversationKind.Direct && message.SenderPersonId != me.Id
                     ? people.GetValueOrDefault(message.SenderPersonId)?.DisplayName
                     : null,
+                message?.ImageId is not null,
                 message?.SenderPersonId == me.Id,
                 eventIsNewest ? lastEvent!.At : last?.SentAt,
                 conversation.UnreadCountFor(me.Id),
@@ -171,10 +176,16 @@ public sealed class ChatService(
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
     }
 
-    /// <exception cref="ResourceNotFoundException">No conversation with that id exists.</exception>
-    /// <exception cref="DomainValidationException">The message is empty or too long.</exception>
+    /// <exception cref="ResourceNotFoundException">
+    /// No conversation with that id exists, or the photograph is not the sender's.
+    /// </exception>
+    /// <exception cref="DomainValidationException">
+    /// The message is empty or too long, or the photograph was already sent.
+    /// </exception>
     public async Task<ChatDetailResponse> SendAsync(Guid id, SendMessageRequest request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
@@ -182,7 +193,17 @@ public sealed class ChatService(
         EnsureParticipant(conversation, me.Id);
         await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
-        var message = conversation.AddMessage(idGenerator.NewId(), me.Id, request.Text ?? string.Empty, now);
+        if (request.ImageId is { } imageId && imageId != Guid.Empty)
+        {
+            await EnsureSendablePhotoAsync(imageId, me.Id, cancellationToken);
+        }
+
+        var message = conversation.AddMessage(
+            idGenerator.NewId(),
+            me.Id,
+            request.Text ?? string.Empty,
+            now,
+            request.ImageId);
         conversation.MarkRead(me.Id, now);
 
         // The goal's title is its conversation's name, and lives on the goal.
@@ -213,7 +234,10 @@ public sealed class ChatService(
                 NotificationTarget.Conversation,
                 conversation.Id,
                 Subject: subject,
-                Excerpt: message.Text),
+
+                // A photograph alone has no words to quote; the lock screen
+                // falls back to saying there is a new message.
+                Excerpt: message.Text.Length > 0 ? message.Text : null),
             conversation.Participants.Select(participant => participant.PersonId),
             cancellationToken);
 
@@ -504,13 +528,21 @@ public sealed class ChatService(
         conversation.RemoveParticipant(me.Id);
 
         var remaining = conversation.Participants.Select(participant => participant.PersonId).ToList();
+        IReadOnlyList<Guid> removedPhotos = [];
 
         if (remaining.Count == 0)
         {
+            removedPhotos = await images.RemoveChatPhotosAsync(
+                conversation.Messages.Select(message => message.ImageId),
+                cancellationToken);
+
             database.Conversations.Remove(conversation);
         }
 
         await database.SaveChangesAsync(cancellationToken);
+
+        // Bytes last, once the rows are safely gone.
+        await images.DeleteBytesAsync(removedPhotos, cancellationToken);
 
         // The thread is gone from this person's devices, so only their list
         // moves: asking the thread they just left to read itself again would
@@ -545,6 +577,14 @@ public sealed class ChatService(
             .Where(entry => proofPeopleIds.Contains(entry.Key))
             .ToDictionary(entry => entry.Key, entry => entry.Value);
 
+        var photoIds = conversation.Messages.Select(m => m.ImageId).OfType<Guid>().ToList();
+        var photos = photoIds.Count == 0
+            ? []
+            : await database.Images
+                .AsNoTracking()
+                .Where(image => photoIds.Contains(image.Id))
+                .ToDictionaryAsync(image => image.Id, cancellationToken);
+
         var messages = conversation.Messages
             .OrderBy(m => m.SentAt)
             .ThenBy(m => m.Id)
@@ -559,6 +599,9 @@ public sealed class ChatService(
                     ? people.GetValueOrDefault(m.SenderPersonId)?.DisplayName
                     : null,
                 m.Text,
+                m.ImageId is { } imageId && photos.TryGetValue(imageId, out var photo)
+                    ? ImageResponse.From(photo)
+                    : null,
                 m.SenderPersonId == meId,
                 m.SentAt,
                 SummariseReactions(m, meId)))
@@ -767,6 +810,27 @@ public sealed class ChatService(
             .ThenInclude(m => m.Reactions)
             .SingleOrDefaultAsync(c => c.Id == id, cancellationToken)
         ?? throw new ResourceNotFoundException("Conversation", id);
+
+    /// <summary>
+    /// Refuses a photograph that is not the sender's own chat photograph, or
+    /// that has already been sent somewhere.
+    /// </summary>
+    /// <remarks>
+    /// Once only, because a picture's audience is the conversation its message
+    /// is in. The same id in two threads would be readable from both, and
+    /// deleting either conversation would take the picture out of the other.
+    /// </remarks>
+    private async Task EnsureSendablePhotoAsync(Guid imageId, Guid meId, CancellationToken cancellationToken)
+    {
+        await images.RequireOwnedAsync(imageId, meId, ImagePurpose.ChatPhoto, cancellationToken);
+
+        if (await database.ChatMessages.AnyAsync(message => message.ImageId == imageId, cancellationToken))
+        {
+            throw new DomainValidationException(
+                nameof(SendMessageRequest.ImageId),
+                "This photograph has already been sent.");
+        }
+    }
 
     /// <exception cref="ResourceNotFoundException">
     /// Deliberately "not found" rather than "forbidden": telling somebody that

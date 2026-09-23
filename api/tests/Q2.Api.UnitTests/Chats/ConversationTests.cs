@@ -124,6 +124,27 @@ public class ConversationTests
     }
 
     [Fact]
+    public void APhotographNeedsNoWords()
+    {
+        var conversation = BuildDirect();
+        var photo = Guid.CreateVersion7();
+
+        var message = conversation.AddMessage(Guid.CreateVersion7(), _me, "   ", Start, photo);
+
+        Assert.Equal(string.Empty, message.Text);
+        Assert.Equal(photo, message.ImageId);
+    }
+
+    [Fact]
+    public void AnEmptyIdIsNotAPhotograph()
+    {
+        var conversation = BuildDirect();
+
+        Assert.Throws<DomainValidationException>(
+            () => conversation.AddMessage(Guid.CreateVersion7(), _me, string.Empty, Start, Guid.Empty));
+    }
+
+    [Fact]
     public void EverythingFromTheOtherPersonIsUnreadUntilTheThreadIsOpened()
     {
         var conversation = BuildDirect();

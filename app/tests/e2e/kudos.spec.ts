@@ -310,15 +310,28 @@ test.describe('chats', () => {
     await expect(page.getByTestId('chat-input')).toHaveValue('')
   })
 
-  test('a quick cheer is one tap', async ({ page }) => {
+  test('a photograph can be sent and appears in the thread', async ({ page }) => {
     await page.goto('/chats')
     await page.getByTestId('chat-row').filter({ hasText: seeded.groupChat }).click()
 
-    // The button carries a short label; the message it sends is the longer form
-    // from the catalogue.
-    await page.getByTestId('quick-cheer').first().click()
+    // No ready-made replies any more; the composer offers a photograph instead.
+    await expect(page.getByTestId('quick-cheer')).toHaveCount(0)
 
-    await expect(page.getByTestId('chat-messages')).toContainText('Stark gemacht!')
+    const before = await page.getByTestId('chat-photo').count()
+
+    await page.getByTestId('chat-attach').click()
+    await deliverPhoto(page)
+
+    const photo = page.getByTestId('chat-photo').last()
+    await expect(page.getByTestId('chat-photo')).toHaveCount(before + 1)
+
+    // Loaded through the session, not merely a broken frame with a src on it.
+    await expect(photo.locator('img')).toHaveJSProperty('complete', true)
+    expect(await photo.locator('img').evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+    await expect(photo).toBeInViewport()
+
+    await page.getByTestId('back-link').click()
+    await expect(page.getByTestId('chat-row').filter({ hasText: seeded.groupChat })).toContainText('Foto')
   })
 
   test('somebody else\'s conversation is not found rather than forbidden', async ({ page }) => {

@@ -271,7 +271,7 @@ public sealed class AccountService(
         await database.SaveChangesAsync(cancellationToken);
 
         // Bytes last, and outside the transaction — see the remarks.
-        await images.DeleteBytesAsync(summary.ImageIds, cancellationToken);
+        await images.DeleteBytesAsync([.. summary.ImageIds, .. summary.OthersChatPhotoIds], cancellationToken);
 
         // The session belongs to an account that no longer exists; leaving the
         // cookie in place would mean every later request fails as "the person
@@ -298,6 +298,7 @@ public sealed class AccountService(
     private sealed record ErasureSummary(
         int Goals,
         IReadOnlyList<Guid> ImageIds,
+        IReadOnlyList<Guid> OthersChatPhotoIds,
         int Conversations,
         int Messages,
         int ChallengeEntries);
@@ -399,9 +400,18 @@ public sealed class AccountService(
                     && !direct.Select(conversation => conversation.Id).Contains(message.ConversationId),
                     cancellationToken);
 
+        // The other side's photographs in the threads removed whole: their own
+        // pictures were already counted above, and the rest would otherwise be
+        // files nobody can open, still counted against a friend's allowance.
+        var chatPhotos = await images.RemoveChatPhotosAsync(
+            direct.SelectMany(conversation => conversation.Messages)
+                .Select(message => message.ImageId)
+                .Where(id => id is { } photoId && !imageIds.Contains(photoId)),
+            cancellationToken);
+
         database.Conversations.RemoveRange(direct);
 
-        return new ErasureSummary(goals, imageIds, direct.Count, messages, challengeEntries);
+        return new ErasureSummary(goals, imageIds, chatPhotos, direct.Count, messages, challengeEntries);
     }
 
     /// <summary>

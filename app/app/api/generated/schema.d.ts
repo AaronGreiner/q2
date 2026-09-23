@@ -1060,6 +1060,7 @@ export interface components {
             senderId: string;
             senderName: string | null;
             text: string;
+            image: null | components["schemas"]["ImageResponse"];
             isMine: boolean;
             /** Format: date-time */
             sentAt: string;
@@ -1089,6 +1090,7 @@ export interface components {
             isOnline: boolean;
             lastMessage: string | null;
             lastMessageSenderName: string | null;
+            lastMessageHasPhoto: boolean;
             lastMessageIsMine: boolean;
             /** Format: date-time */
             lastMessageAt: string | null;
@@ -1323,7 +1325,7 @@ export interface components {
         };
         IResult: Record<string, never>;
         /** @enum {unknown} */
-        ImagePurpose: "Avatar" | "Proof" | "ChallengeEntry";
+        ImagePurpose: "Avatar" | "Proof" | "ChallengeEntry" | "ChatPhoto";
         ImageQuotaResponse: {
             /** Format: int64 */
             bytesUsed: number;
@@ -1540,6 +1542,8 @@ export interface components {
         ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times";
         SendMessageRequest: {
             text?: string | null;
+            /** Format: uuid */
+            imageId?: string | null;
         };
         SentRequestResponse: {
             person: components["schemas"]["PersonSummary"];

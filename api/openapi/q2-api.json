@@ -2979,6 +2979,7 @@
           "senderId",
           "senderName",
           "text",
+          "image",
           "isMine",
           "sentAt",
           "reactions"
@@ -2999,6 +3000,18 @@
           },
           "text": {
             "type": "string"
+          },
+          "image": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ImageResponse"
+              }
+            ]
           },
           "isMine": {
             "type": "boolean"
@@ -3071,6 +3084,7 @@
           "isOnline",
           "lastMessage",
           "lastMessageSenderName",
+          "lastMessageHasPhoto",
           "lastMessageIsMine",
           "lastMessageAt",
           "unreadCount",
@@ -3117,6 +3131,9 @@
           "lastMessageSenderName": {
             "type": "string",
             "nullable": true
+          },
+          "lastMessageHasPhoto": {
+            "type": "boolean"
           },
           "lastMessageIsMine": {
             "type": "boolean"
@@ -3991,7 +4008,8 @@
         "enum": [
           "Avatar",
           "Proof",
-          "ChallengeEntry"
+          "ChallengeEntry",
+          "ChatPhoto"
         ]
       },
       "ImageQuotaResponse": {
@@ -4743,6 +4761,11 @@
         "properties": {
           "text": {
             "type": "string",
+            "nullable": true
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }

@@ -1,9 +1,13 @@
 <script setup lang="ts">
 /**
- * The message box, with the one-tap encouragements above it.
+ * The message box, and the button that sends a photograph.
  *
  * A real `<form>`, so the on-screen keyboard shows a send key and pressing it
  * submits — which on a phone is how most messages are actually sent.
+ *
+ * There are no ready-made replies: what somebody says to a friend is worth the
+ * few seconds it takes to type. A photograph is picked or taken by the page
+ * (`PhotoCapture`), which is why this only asks for one.
  *
  * In the owner's own goal conversation it also carries the camera, while the
  * open window takes a photograph: the proof goes where the friends who check
@@ -17,7 +21,7 @@ withDefaults(defineProps<{
   canDeliver: false,
 })
 
-const emit = defineEmits<{ send: [text: string], deliver: [] }>()
+const emit = defineEmits<{ send: [text: string], deliver: [], attach: [] }>()
 
 const t = useMessages()
 const draft = ref('')
@@ -35,21 +39,8 @@ function submit() {
   <!-- Pads its own safe area, so the surface reaches the home indicator rather
        than a strip of --ui-bg — see app/layouts/plain.vue. -->
   <div class="shrink-0 border-t border-(--ui-border) bg-(--q2-surface) pb-(--q2-safe-bottom)">
-    <div class="q2-scroll-x flex gap-2 px-[18px] pt-2.5 pb-1">
-      <button
-        v-for="cheer in t.chats.quickCheers"
-        :key="cheer.label"
-        type="button"
-        class="shrink-0 rounded-full border border-(--ui-border) bg-(--ui-bg-elevated) px-3.5 py-2 text-[13px] font-bold whitespace-nowrap text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        data-testid="quick-cheer"
-        @click="emit('send', cheer.text)"
-      >
-        {{ cheer.label }}
-      </button>
-    </div>
-
     <form
-      class="flex items-center gap-2 px-[18px] pt-1 pb-3"
+      class="flex items-center gap-2 px-[18px] pt-2.5 pb-3"
       @submit.prevent="submit"
     >
       <!-- The accent, because it is the one thing in this thread the owner can
@@ -64,6 +55,25 @@ function submit() {
       >
         <UIcon
           name="i-lucide-camera"
+          class="size-5"
+          aria-hidden="true"
+        />
+      </button>
+
+      <!-- Grey rather than the accent: anybody can always send a photograph,
+           so it is not the one thing waiting to be done here. The edge
+           padding takes the button's larger box, as in the header. -->
+      <button
+        type="button"
+        class="flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :class="{ '-ms-2': !canDeliver }"
+        :disabled="busy"
+        :aria-label="t.chats.sendPhoto"
+        data-testid="chat-attach"
+        @click="emit('attach')"
+      >
+        <UIcon
+          name="i-lucide-image-plus"
           class="size-5"
           aria-hidden="true"
         />

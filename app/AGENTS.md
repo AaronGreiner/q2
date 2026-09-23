@@ -115,7 +115,7 @@ Current components, by folder:
 | `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
-| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries the three kinds of kudos, and the composer the owner's camera in a goal's conversation |
+| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, on the vote screen and in a goal's conversation |
 | `ChatCreateSheet` | starting a direct chat, or making a group |

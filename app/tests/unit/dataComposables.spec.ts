@@ -2,6 +2,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
 import { useChatThread, useChats } from '~/composables/useChats'
+import type { Image } from '~/api/types'
 import { useFriends, usePersonProfile, usePersonSearch, useProfile } from '~/composables/useFriends'
 import { useGoalArchive, useGoalLifecycle } from '~/composables/useGoalLifecycle'
 import { useGoalDetail, useGoals } from '~/composables/useGoals'
@@ -478,8 +479,36 @@ describe('chat composables', () => {
       proofs: {
         vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
       },
+      images: {
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
     }
   }
+
+  it('sends an uploaded photograph, and deletes it again when the message fails', async () => {
+    const api = chatsApi()
+    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    const { report } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    const image = { id: 'image-1', purpose: 'ChatPhoto', width: 800, height: 600 } as Image
+
+    await expect(state.sendPhoto(image)).resolves.toBe(true)
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { imageId: 'image-1' })
+    expect(api.images.remove).not.toHaveBeenCalled()
+    expect(state.isSending.value).toBe(false)
+
+    // Nobody was sent it, so nothing should be left on the server either.
+    api.chats.send.mockRejectedValueOnce(new Error('send'))
+    await expect(state.sendPhoto(image)).resolves.toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'send-photo' })
+    expect(api.images.remove).toHaveBeenCalledWith('image-1')
+
+    // A tidy-up that fails as well is not a second problem to show anybody.
+    api.chats.send.mockRejectedValueOnce(new Error('send'))
+    api.images.remove.mockRejectedValueOnce(new Error('remove'))
+    await expect(state.sendPhoto(image)).resolves.toBe(false)
+  })
 
   it('votes from a goal\'s thread and reads it again, with the vote screen and the badges', async () => {
     const api = chatsApi()
@@ -545,11 +574,11 @@ describe('chat composables', () => {
 
     await expect(state.send('   ')).resolves.toBe(false)
     await expect(state.send(' Hello ')).resolves.toBe(true)
-    expect(api.chats.send).toHaveBeenCalledWith('chat-1', 'Hello')
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { text: 'Hello' })
     expect(state.isSending.value).toBe(false)
 
     await state.cheer()
-    expect(api.chats.send).toHaveBeenCalledWith('chat-1', de.chats.cheerText)
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { text: de.chats.cheerText })
 
     await state.react('message-1', '👏')
     expect(api.chats.react).toHaveBeenCalledWith('chat-1', 'message-1', '👏')
