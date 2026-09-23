@@ -13,12 +13,12 @@ const now = useNow()
 const { profile, error, isLoading, isSaving, refresh, rename, chooseAvatar, removeAvatar } = useProfile()
 
 /*
- * Two sheets, and never both at once.
+ * A sheet and a camera, and never both at once.
  *
- * Editing owns the name and the picture; taking the picture is its own sheet.
- * They are siblings here rather than nested because two open `UDrawer`s
- * deadlock — see `PhotoCapture` for what that looks like — and because a sheet
- * on top of a sheet does not fit on a phone.
+ * Editing owns the name and the picture; taking the picture is its own
+ * full-screen camera. They are siblings here rather than nested: overlays
+ * stacked on overlays have deadlocked in this app before — see `PhotoCapture`
+ * — and a camera over a half-hidden form does not fit on a phone.
  */
 const editing = ref(false)
 const capturing = ref(false)

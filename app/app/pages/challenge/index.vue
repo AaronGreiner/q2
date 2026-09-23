@@ -225,8 +225,7 @@ useHead({ title: () => t.value.challenge.heading })
 
     <!--
       One camera for the whole screen. Opened from the page rather than from
-      inside another sheet: two drawers open at once deadlock — see
-      PhotoCapture.
+      inside a sheet — see PhotoCapture.
     -->
     <PhotoCapture
       v-model:open="isCapturing"

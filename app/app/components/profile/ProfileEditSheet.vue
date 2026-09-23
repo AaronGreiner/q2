@@ -19,9 +19,8 @@ import type { Person } from '~/api/types'
  * just taken.
  *
  * Taking the picture is *not* done from here. This sheet only asks for it, and
- * the screen answers by closing this one and opening the camera — because two
- * `UDrawer`s open at once deadlock, and there is no room for a sheet on a sheet
- * at 390 x 844 anyway. See `PhotoCapture`.
+ * the screen answers by closing this one and opening the camera, which is a
+ * screen of its own and is never stacked on top of a sheet. See `PhotoCapture`.
  */
 const props = defineProps<{
   person: Person

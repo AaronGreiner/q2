@@ -158,8 +158,8 @@ describe('ProfileEditSheet', () => {
 /**
  * Opening the sheet, with and without a camera behind it.
  *
- * Only what can be reached by changing state: a `UDrawer` portals its body out
- * of the component's tree, and an event dispatched at an element in there does
+ * Only what can be reached by changing state: a `UModal` portals its content
+ * out of the component's tree, and an event dispatched at an element in there does
  * not reach the handler Vue attached to it under happy-dom — so the shutter,
  * the picker and the confirm button cannot be pressed from here. What they lead
  * to is asserted end to end instead, where a real browser presses them.
@@ -198,6 +198,89 @@ describe('PhotoCapture, when the sheet opens', () => {
 
     return getUserMedia
   }
+
+  it('opens a screen of its own rather than a sheet', async () => {
+    installCamera({ getTracks: () => [] })
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', open: false } })
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-screen"]')).not.toBeNull())
+    expect(document.querySelector('[data-vaul-drawer]')).toBeNull()
+    expect(document.querySelector('[data-testid="photo-close"]')).not.toBeNull()
+
+    wrapper.unmount()
+  })
+
+  /**
+   * The front camera used to be the default everywhere, which is backwards for
+   * a proof: the evidence is in front of the person, not the person.
+   */
+  it('opens with the rear camera until somebody has switched', async () => {
+    localStorage.removeItem('q2-camera-facing')
+    const getUserMedia = installCamera({ getTracks: () => [] })
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', open: false } })
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalled())
+    expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ video: { facingMode: 'environment' } }))
+
+    wrapper.unmount()
+  })
+
+  it('opens with the camera used last on this device', async () => {
+    localStorage.setItem('q2-camera-facing', 'user')
+    const getUserMedia = installCamera({ getTracks: () => [] })
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Avatar', open: false } })
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalled())
+    expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ video: { facingMode: 'user' } }))
+
+    localStorage.removeItem('q2-camera-facing')
+    wrapper.unmount()
+  })
+
+  it('offers the other camera only when there is one', async () => {
+    const getUserMedia = installCamera({ getTracks: () => [] })
+    Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia,
+        enumerateDevices: vi.fn().mockResolvedValue([{ kind: 'videoinput' }, { kind: 'audioinput' }]),
+      },
+    })
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', open: false } })
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="photo-switch"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('stops a camera that arrives after the screen was closed again', async () => {
+    const stop = vi.fn()
+    let grant: (stream: unknown) => void = () => {}
+    Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(() => new Promise((resolve) => { grant = resolve })) },
+    })
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', open: false } })
+    await wrapper.setProps({ open: true })
+    await wrapper.setProps({ open: false })
+
+    grant({ getTracks: () => [{ stop }] })
+
+    await vi.waitFor(() => expect(stop).toHaveBeenCalled())
+    expect(document.querySelector('[data-testid="photo-shutter"]')).toBeNull()
+
+    wrapper.unmount()
+  })
 
   it('starts the camera and offers the shutter when there is one', async () => {
     const stop = vi.fn()

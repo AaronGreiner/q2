@@ -43,7 +43,7 @@ const { goals, due, error, isLoading, refresh, create, isCreating, createError }
 const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 
-/** Which goal the camera is open for — one sheet per screen, never per row. */
+/** Which goal the camera is open for — one camera per screen, never per row. */
 const deliveringFor = ref<string | null>(null)
 
 /** The same hand-in as the start screen's — see pages/index.vue. */

@@ -27,14 +27,14 @@ const { room: challenge } = useChallengeRoom()
 /*
  * Which goal the camera is open for.
  *
- * Held on the screen rather than in the row: `PhotoCapture` is a sheet, and a
- * sheet per row would be one drawer per goal — with all the stacking that
- * deadlocked the profile screen when it tried exactly that.
+ * Held on the screen rather than in the row: `PhotoCapture` is a full-screen
+ * overlay, and one per row would be a camera per goal mounted at once for the
+ * single one anybody can look at.
  */
 const deliveringFor = ref<string | null>(null)
 
 /**
- * Handed to the camera, so a refusal stays on its sheet with the photograph
+ * Handed to the camera, so a refusal stays on its screen with the photograph
  * (see useProofDelivery). A shared goal moves on to its conversation; anything
  * else stays here and reads the screen again, because the row has changed.
  */
@@ -303,9 +303,8 @@ useHead({ title: () => t.value.nav.home })
     </AppContentPanel>
 
     <!--
-      One camera for the whole screen, opened by whichever row asked for it. A
-      sheet per row would be one drawer per goal, and two open drawers deadlock
-      — see PhotoCapture.
+      One camera for the whole screen, opened by whichever row asked for it,
+      rather than one per row — see PhotoCapture.
     -->
     <PhotoCapture
       :open="deliveringFor !== null"

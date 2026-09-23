@@ -75,7 +75,7 @@ const canDeliver = computed(() =>
 /**
  * Already where the photograph is shown, so a delivery stays here and the card
  * arriving in the thread is the confirmation; a refusal stays on the camera's
- * sheet with the photograph (see useProofDelivery).
+ * screen with the photograph (see useProofDelivery).
  */
 async function handIn(image: Image) {
   const goalId = chat.value?.pinnedGoal?.id

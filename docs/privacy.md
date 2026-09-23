@@ -50,6 +50,7 @@ aspirational.
 | Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title or a challenge prompt), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
 | Preferences | theme, language, one switch per kind of notification, quiet hours, and which conversations are muted | |
 | Device appearance | one of four accent palette names | Stored in the `q2-accent` cookie for one year, shared by accounts using that browser. No identity or content. Read during SSR; never logged or sent to Sentry. See [ADR 0028](adr/0028-ruhe-design-system.md). |
+| Camera choice | `user` or `environment` — which camera the photo screen opens with | Stored in the browser's local storage under `q2-camera-facing`, shared by accounts using that browser, and only written when somebody switches cameras. Never sent to the server, never logged, never sent to Sentry. |
 
 **What a notification carries.** The payload is encrypted to the browser
 (RFC 8291), so a push service — Google's, Mozilla's, Apple's — carries bytes it

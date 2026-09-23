@@ -111,7 +111,7 @@ export type DeliveryResult
  * conversation takes its owner there, to the card their friends are about to
  * vote on (docs/adr/0027-goal-conversations.md); a goal without one says in a
  * toast what became of it; and a refusal comes back as a sentence the camera
- * sheet shows over the photograph it is still holding.
+ * screen shows under the photograph it is still holding.
  */
 export function useProofDelivery() {
   const api = useQ2Api()
