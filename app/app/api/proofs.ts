@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { DeliveredProof, FeedProof, Proof, ProofVoteValue, KudosKind } from './types'
+import type { DeliveredProof, FeedProof, OwnProof, Proof, ProofVoteValue, KudosKind } from './types'
 
 /**
  * Photographs and the votes on them.
@@ -25,6 +25,9 @@ export interface ProofsApi {
   /** The photographs waiting for this person's vote. */
   pending: () => Promise<FeedProof[]>
 
+  /** Every photograph this person has delivered, newest first, whatever became of it. */
+  mine: () => Promise<OwnProof[]>
+
   /** One say per person, and it stands. */
   vote: (id: string, value: ProofVoteValue) => Promise<Proof>
 
@@ -45,6 +48,8 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
     get: id => call<Proof>(proof(id), { method: 'GET' }),
 
     pending: () => call<FeedProof[]>('/api/proofs/pending', { method: 'GET' }),
+
+    mine: () => call<OwnProof[]>('/api/proofs/mine', { method: 'GET' }),
 
     vote: (id, value) => call<Proof>(`${proof(id)}/vote`, { method: 'POST', body: { value } }),
 

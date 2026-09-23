@@ -44,11 +44,12 @@ export function keysFor(change: LiveChange): string[] {
       return ['friends']
     // A goal's photographs and windows are also what its conversation shows,
     // so the chat list reads again with them — and an open thread of that
-    // goal follows `goal:<id>` itself (useChatThread).
+    // goal follows `goal:<id>` itself (useChatThread). The profile's gallery
+    // shows each of your own photographs' outcome, so it follows too.
     case 'Proofs':
       return change.id
-        ? ['proofs-pending', 'chats', `goal:${change.id}`]
-        : ['proofs-pending', 'chats']
+        ? ['proofs-pending', 'proofs-mine', 'chats', `goal:${change.id}`]
+        : ['proofs-pending', 'proofs-mine', 'chats']
     case 'Goals':
       return change.id
         ? ['goals', 'goals-archive', 'home', 'chats', `goal:${change.id}`]

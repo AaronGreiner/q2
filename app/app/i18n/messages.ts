@@ -460,6 +460,25 @@ export const de = {
     refusedFailed: 'Der Beweis konnte nicht abgegeben werden. Versuch es noch einmal.',
   },
 
+  /**
+   * Your own photographs, on your profile. Only you see this collection, and
+   * it says so — each photograph was shown to its goal's friends, but the
+   * collection of them is nobody's but yours.
+   */
+  proofGallery: {
+    heading: 'Deine Beweisfotos',
+    subtitle: 'Nur du siehst diese Sammlung.',
+    showAll: 'Alle ansehen',
+    count: (count: number) => (count === 1 ? '1 Foto' : `${count} Fotos`),
+    empty: 'Noch keine Beweisfotos.',
+    emptyHint: 'Sobald du einen Beweis lieferst, landet das Foto hier.',
+    months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+    open: (what: string) => `${what} — groß ansehen`,
+    deliveredOn: (date: string) => `Geliefert am ${date}`,
+    openGoal: 'Zum Ziel',
+    unavailable: 'Foto nicht verfügbar',
+  },
+
   vote: {
     heading: 'Glaubst du das?',
     confirm: 'Bestätigen',
@@ -1309,6 +1328,20 @@ export const en: Messages = {
     refusedClosed: 'This window is not taking a proof right now.',
     refusedOffline: 'No connection. Your photo is still here — try again in a moment.',
     refusedFailed: 'The proof could not be delivered. Please try again.',
+  },
+
+  proofGallery: {
+    heading: 'Your proof photos',
+    subtitle: 'Only you can see this collection.',
+    showAll: 'Show all',
+    count: (count: number) => (count === 1 ? '1 photo' : `${count} photos`),
+    empty: 'No proof photos yet.',
+    emptyHint: 'As soon as you deliver a proof, the photo lands here.',
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    open: (what: string) => `${what} — view full size`,
+    deliveredOn: (date: string) => `Delivered on ${date}`,
+    openGoal: 'Go to goal',
+    unavailable: 'Photo unavailable',
   },
 
   vote: {

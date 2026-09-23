@@ -37,7 +37,7 @@ import { downscaleForUpload, uploadSizes } from '~/utils/images'
  * `nested`, does not apply here either: it needs a real `DrawerRoot` ancestor,
  * and a drawer portals its content, so a sheet rendered beside one is not
  * inside it. The caller therefore closes its own sheet before opening this and
- * brings it back afterwards — see `pages/profile.vue`.
+ * brings it back afterwards — see `pages/profile/index.vue`.
  */
 const props = withDefaults(defineProps<{
   purpose: ImagePurpose

@@ -118,6 +118,7 @@ Current components, by folder:
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, on the vote screen and in a goal's conversation |
+| `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `BadgeGrid` | the badge collection, earned and not |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
