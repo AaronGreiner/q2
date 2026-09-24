@@ -2,21 +2,22 @@
 /**
  * The bottom navigation.
  *
- * Five slots, and the middle one is the create button rather than a fifth
- * destination. That is the shape this product wants: making a commitment is the
- * thing people come here to do, and it belongs under the thumb rather than
- * behind a header button on one particular screen.
+ * Five destinations, and the one in the middle is your To-Dos: what is due
+ * today and the goals behind it. It used to be a create button that opened the
+ * goals screen with its sheet already up, which made "Neu" the only visible way
+ * to reach your own goals — people went looking for them under a plus. So the
+ * middle is a place now, and creating one is the plus on that screen, the only
+ * place a goal is made from.
  *
- * What went to make room for it is the friends tab — friends are now found
- * where you search for them, and the requests waiting for you are at the top of
- * that screen, so the badge moved with them rather than disappearing.
+ * What went to make room for the middle, back when it was the create button,
+ * is the friends tab — friends are found where you search for them, and the
+ * requests waiting for you are at the top of that screen, so the badge moved
+ * with them rather than disappearing.
  *
  * Real links rather than buttons over a tab index: each screen has its own URL,
  * so the browser's back button, a deep link and a Capacitor hardware back
  * button all behave the way people expect without any of them being
- * implemented here. The create button is a link for the same reason — it opens
- * the goals screen with its sheet already up, which means the sheet survives a
- * reload and closes with the back gesture.
+ * implemented here.
  *
  * The unread counts come from the pages that already load them. Fetching them
  * here would mean the navigation making its own requests on every screen.
@@ -31,15 +32,13 @@ const t = useMessages()
 const items = computed(() => [
   { to: '/', key: 'home', icon: 'i-lucide-house', label: t.value.nav.home },
   { to: '/search', key: 'search', icon: 'i-lucide-search', label: t.value.nav.search },
+  { to: '/goals', key: 'todos', icon: 'i-lucide-list-checks', label: t.value.nav.todos },
   { to: '/chats', key: 'chats', icon: 'i-lucide-message-circle', label: t.value.nav.chats },
   { to: '/profile', key: 'profile', icon: 'i-lucide-user', label: t.value.nav.profile },
 ])
 
 const route = useRoute()
-const currentSlot = computed(() => {
-  const index = items.value.findIndex(item => isCurrent(item.to))
-  return index < 2 ? index : index + 1
-})
+const currentSlot = computed(() => items.value.findIndex(item => isCurrent(item.to)))
 
 /** `/` only matches itself; everything else matches its sub-routes too. */
 function isCurrent(to: string): boolean {
@@ -64,51 +63,29 @@ function badgeFor(key: string, unreadChats?: number, pendingRequests?: number): 
       :style="{ '--q2-nav-index': Math.max(0, currentSlot), '--q2-nav-visible': currentSlot < 0 ? 0 : 1 }"
       aria-hidden="true"
     />
-    <template
-      v-for="(item, index) in items"
+    <NuxtLink
+      v-for="item in items"
       :key="item.key"
+      :to="item.to"
+      class="q2-press relative flex flex-1 flex-col items-center gap-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      :class="isCurrent(item.to) ? 'text-(--ui-text)' : 'text-(--ui-text-dimmed)'"
+      :aria-current="isCurrent(item.to) ? 'page' : undefined"
+      :data-testid="`nav-${item.key}`"
     >
-      <!-- The create button sits between the second and third destination, so
-           the four others stay two-and-two either side of it. -->
-      <NuxtLink
-        v-if="index === 2"
-        to="/goals?create=1"
-        class="q2-press flex flex-1 flex-col items-center justify-start py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="t.create.open"
-        data-testid="nav-create"
-      >
-        <span class="flex size-[38px] items-center justify-center rounded-full bg-(--q2-accent-solid) text-(--q2-accent-contrast)">
-          <UIcon
-            name="i-lucide-plus"
-            class="size-[22px]"
-            aria-hidden="true"
-          />
-        </span>
-        <span class="mt-0.5 text-[10px] font-bold text-(--ui-text-dimmed)">{{ t.nav.create }}</span>
-      </NuxtLink>
+      <UIcon
+        :name="item.icon"
+        class="q2-nav-icon size-[22px]"
+        aria-hidden="true"
+      />
+      <span class="text-[10px] font-bold">{{ item.label }}</span>
 
-      <NuxtLink
-        :to="item.to"
-        class="q2-press relative flex flex-1 flex-col items-center gap-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :class="isCurrent(item.to) ? 'text-(--ui-text)' : 'text-(--ui-text-dimmed)'"
-        :aria-current="isCurrent(item.to) ? 'page' : undefined"
-        :data-testid="`nav-${item.key}`"
+      <span
+        v-if="badgeFor(item.key, unreadChats, pendingRequests) > 0"
+        class="absolute top-0 start-1/2 ms-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1 text-[9px] font-extrabold text-(--q2-accent-contrast)"
+        data-q2-block
       >
-        <UIcon
-          :name="item.icon"
-          class="q2-nav-icon size-[22px]"
-          aria-hidden="true"
-        />
-        <span class="text-[10px] font-bold">{{ item.label }}</span>
-
-        <span
-          v-if="badgeFor(item.key, unreadChats, pendingRequests) > 0"
-          class="absolute top-0 start-1/2 ms-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1 text-[9px] font-extrabold text-(--q2-accent-contrast)"
-          data-q2-block
-        >
-          {{ badgeFor(item.key, unreadChats, pendingRequests) }}
-        </span>
-      </NuxtLink>
-    </template>
+        {{ badgeFor(item.key, unreadChats, pendingRequests) }}
+      </span>
+    </NuxtLink>
   </nav>
 </template>

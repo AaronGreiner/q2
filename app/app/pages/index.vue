@@ -12,7 +12,7 @@ const t = useMessages()
 const now = useNow()
 const theme = useTheme()
 
-const { profile, due, goals, feed, error, isLoading, refresh, toggleKudos } = useHome()
+const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 
 // The bell is a count, and counts have one read of their own that the live
@@ -24,7 +24,7 @@ const { counts } = useCounts()
 const { proofs: pending, isVoting, vote } = usePendingProofs()
 
 // Its own read rather than part of `useHome`: the challenge is one row and the
-// dashboard is four, and a shared key would refetch all of them whenever
+// dashboard is three, and a shared key would refetch all of them whenever
 // somebody joins in from the room and comes back.
 const { room: challenge } = useChallengeRoom()
 
@@ -55,6 +55,10 @@ async function handIn(image: Image) {
 // Only the first few: the whole list is one tap away under "Alle anzeigen",
 // and a start screen that shows everything is not a start screen.
 const nextDue = computed(() => due.value.slice(0, 3))
+
+// The same for friends: the newest three, and the rest under "Alle anzeigen".
+// Your own goals are not repeated here at all — they have the To-Dos tab.
+const recentFeed = computed(() => feed.value.slice(0, 3))
 
 const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
 
@@ -246,36 +250,6 @@ useHead({ title: () => t.value.nav.home })
         </section>
 
         <section
-          v-if="goals.length > 0"
-          class="mt-6"
-          aria-labelledby="home-goals-heading"
-        >
-          <div class="mb-3 flex items-center justify-between px-0.5">
-            <h2
-              id="home-goals-heading"
-              class="q2-eyebrow"
-            >
-              {{ t.home.goalsHeading }}
-            </h2>
-            <NuxtLink
-              to="/goals"
-              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
-            >
-              {{ t.common.more }}
-            </NuxtLink>
-          </div>
-
-          <!-- Bleeds to both edges so the strip reads as scrollable. -->
-          <div class="q2-scroll-x -mx-[18px] flex gap-3 px-[18px] pb-1">
-            <GoalTile
-              v-for="goal in goals"
-              :key="goal.id"
-              :goal="goal"
-            />
-          </div>
-        </section>
-
-        <section
           class="mt-6"
           aria-labelledby="feed-heading"
         >
@@ -296,11 +270,12 @@ useHead({ title: () => t.value.nav.home })
           </div>
 
           <div
-            v-if="feed.length > 0"
+            v-if="recentFeed.length > 0"
             class="flex flex-col gap-2.5"
+            data-testid="home-feed"
           >
             <ActivityRow
-              v-for="entry in feed"
+              v-for="entry in recentFeed"
               :key="entry.id"
               :activity="entry"
               :now="now"

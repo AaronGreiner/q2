@@ -25,6 +25,16 @@ public static class NotificationEndpoints
             .WithSummary("The bell, newest first. Reading it marks everything in it as seen.")
             .Produces<IReadOnlyList<NotificationResponse>>();
 
+        notifications.MapDelete("/", ClearNotifications)
+            .WithName("ClearNotifications")
+            .WithSummary("Deletes every line in the bell up to and including `until`. Anything newer stays.")
+            .Produces(StatusCodes.Status204NoContent);
+
+        notifications.MapDelete("/{id:guid}", DismissNotification)
+            .WithName("DismissNotification")
+            .WithSummary("Deletes one line from the bell. Succeeds whether or not there was anything to delete.")
+            .Produces(StatusCodes.Status204NoContent);
+
         notifications.MapGet("/key", GetKey)
             .WithName("GetPushKey")
             .WithSummary("Whether this deployment sends notifications, and the key to subscribe with.")
@@ -69,6 +79,24 @@ public static class NotificationEndpoints
         InboxService inbox,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await inbox.ListAsync(cancellationToken));
+
+    private static async Task<NoContent> ClearNotifications(
+        InboxService inbox,
+        DateTimeOffset until,
+        CancellationToken cancellationToken)
+    {
+        await inbox.ClearAsync(until, cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<NoContent> DismissNotification(
+        InboxService inbox,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        await inbox.DismissAsync(id, cancellationToken);
+        return TypedResults.NoContent();
+    }
 
     private static async Task<Ok<CountsResponse>> GetCounts(
         CountsService counts,

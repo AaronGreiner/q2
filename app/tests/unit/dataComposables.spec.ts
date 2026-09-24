@@ -161,7 +161,6 @@ describe('useHome', () => {
 
     await vi.waitFor(() => expect(home.profile.value).toMatchObject({ displayName: 'Mara' }))
     expect(home.due.value).toHaveLength(1)
-    expect(home.goals.value).toHaveLength(1)
     expect(home.feed.value).toHaveLength(1)
     expect(home.error.value).toBeNull()
     expect(home.isLoading.value).toBe(false)

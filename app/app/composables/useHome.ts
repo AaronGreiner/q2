@@ -5,7 +5,6 @@ import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 interface HomePayload {
   profile: Profile | null
   due: Goal[]
-  goals: Goal[]
   feed: Activity[]
   failure: ApiFailure | null
 }
@@ -13,8 +12,8 @@ interface HomePayload {
 /**
  * Everything the start screen shows, and the two things it can do.
  *
- * The four reads go out together rather than one after another: on a phone
- * connection four round trips in sequence is four chances to draw a header with
+ * The three reads go out together rather than one after another: on a phone
+ * connection three round trips in sequence is three chances to draw a header with
  * nothing under it. One failure fails the screen — a start screen missing its
  * feed but showing its streak would look finished when it is not.
  *
@@ -31,13 +30,12 @@ export function useHome() {
     'home',
     async () => {
       try {
-        const [profile, due, goals, feed] = await Promise.all([
+        const [profile, due, feed] = await Promise.all([
           api.profile.get(),
           api.goals.today(),
-          api.goals.list({ status: 'Active' }),
           api.activity.feed(),
         ])
-        return { profile, due, goals, feed, failure: null }
+        return { profile, due, feed, failure: null }
       }
       catch (caught) {
         return {
@@ -63,7 +61,6 @@ export function useHome() {
 
   const profile = computed(() => data.value?.profile ?? null)
   const due = computed(() => data.value?.due ?? [])
-  const goals = computed(() => data.value?.goals ?? [])
   const feed = computed(() => data.value?.feed ?? [])
   const error = computed(() => data.value?.failure ?? null)
   const isLoading = computed(() => isFirstLoad(status.value, data.value))
@@ -78,11 +75,11 @@ export function useHome() {
     }
   }
 
-  return { profile, due, goals, feed, error, isLoading, refresh, toggleKudos }
+  return { profile, due, feed, error, isLoading, refresh, toggleKudos }
 }
 
 function empty(): HomePayload {
-  return { profile: null, due: [], goals: [], feed: [], failure: null }
+  return { profile: null, due: [], feed: [], failure: null }
 }
 
 /**
@@ -90,7 +87,7 @@ function empty(): HomePayload {
  *
  * A separate read from `useHome` rather than a slice of it: the start screen
  * asks for a dashboard and this asks for one list, and sharing an async-data
- * key would make opening the overview refetch four endpoints.
+ * key would make opening the overview refetch three endpoints.
  */
 export function useActivityOverview() {
   const api = useQ2Api()

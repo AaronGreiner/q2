@@ -17,6 +17,18 @@ export interface NotificationsApi {
   list: () => Promise<NotificationLine[]>
 
   /**
+   * Deletes one line for good. A line of reactions goes with everybody in it;
+   * one that is already gone is not an error.
+   */
+  dismiss: (id: string) => Promise<void>
+
+  /**
+   * Deletes every line up to and including `until` — the newest one on the
+   * screen, so nothing that arrived while somebody was reading goes unseen.
+   */
+  clear: (until: string) => Promise<void>
+
+  /**
    * Every number drawn on a badge, in one read: unread conversations, pending
    * requests, the bell, proofs waiting for a vote. The live connection pushes
    * the same shape, so a badge never has two sources.
@@ -40,6 +52,14 @@ export interface NotificationsApi {
 export function createNotificationsApi(call: ApiCaller): NotificationsApi {
   return {
     list: () => call<NotificationLine[]>('/api/notifications', { method: 'GET' }),
+
+    dismiss: async (id) => {
+      await call<unknown>(`/api/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    },
+
+    clear: async (until) => {
+      await call<unknown>('/api/notifications', { method: 'DELETE', query: { until } })
+    },
 
     counts: () => call<Counts>('/api/counts', { method: 'GET' }),
 

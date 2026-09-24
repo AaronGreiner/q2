@@ -2047,6 +2047,54 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Deletes every line in the bell up to and including `until`. Anything newer stays.",
+        "operationId": "ClearNotifications",
+        "parameters": [
+          {
+            "name": "until",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Deletes one line from the bell. Succeeds whether or not there was anything to delete.",
+        "operationId": "DismissNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
       }
     },
     "/api/notifications/key": {

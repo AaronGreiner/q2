@@ -10,11 +10,17 @@
  *
  * What is new sits under its own heading above the rest of the last thirty
  * days. Opening the screen is what clears the badge.
+ *
+ * Having read it, somebody can throw it away: a line at a time by swiping it,
+ * or all of it at once from the header. "All" is what is on the screen — a
+ * line that arrives while the question is up is not deleted unseen.
  */
 const t = useMessages()
 const now = useNow()
 
-const { fresh, earlier, isEmpty, error, isLoading, refresh } = useNotifications()
+const { fresh, earlier, isEmpty, error, isLoading, refresh, dismiss, clearAll } = useNotifications()
+
+const isConfirmingClear = ref(false)
 
 useHead({ title: () => t.value.notify.heading })
 </script>
@@ -25,7 +31,23 @@ useHead({ title: () => t.value.notify.heading })
       :title="t.notify.heading"
       back-to="/"
       :back-label="t.common.back"
-    />
+    >
+      <template
+        v-if="!isLoading && !error && !isEmpty"
+        #actions
+      >
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="lg"
+          icon="i-lucide-trash-2"
+          :label="t.notify.clearAll"
+          :ui="{ base: 'min-h-11 rounded-full' }"
+          data-testid="notifications-clear"
+          @click="isConfirmingClear = true"
+        />
+      </template>
+    </AppScreenHeader>
 
     <AppContentPanel>
       <div
@@ -80,6 +102,7 @@ useHead({ title: () => t.value.notify.heading })
               <NotificationRow
                 :line="line"
                 :now="now"
+                @dismiss="dismiss"
               />
             </li>
           </ul>
@@ -108,11 +131,20 @@ useHead({ title: () => t.value.notify.heading })
               <NotificationRow
                 :line="line"
                 :now="now"
+                @dismiss="dismiss"
               />
             </li>
           </ul>
         </section>
       </template>
     </AppContentPanel>
+
+    <AppConfirmDialog
+      v-model:open="isConfirmingClear"
+      :title="t.notify.clearHeading"
+      :description="t.notify.clearBody"
+      :confirm-label="t.notify.clearConfirm"
+      @confirm="clearAll"
+    />
   </div>
 </template>

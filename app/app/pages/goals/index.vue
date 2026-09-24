@@ -2,7 +2,12 @@
 import type { CreateGoalRequest, Image } from '~/api/types'
 
 /**
- * Goals, under two tabs: what is on today, and the goals themselves.
+ * The To-Dos tab: what is on today, and the goals themselves, under two tabs.
+ *
+ * The plus in the header is the one way a goal is made. It lives here rather
+ * than in the tab bar, because a plus in the tab bar was the only visible way
+ * to reach this screen at all, and people read it as "this is where my goals
+ * are" rather than "make a new one".
  *
  * The tab lives in the URL rather than in component state, so a view can be
  * shared and survives a reload. `replace`, not `push`: switching tabs is
@@ -21,10 +26,9 @@ const tab = computed<Tab>({
 })
 
 /**
- * The create sheet is a query parameter too, because the tab bar's centre
- * button links here rather than reaching into this page's state. That also
- * makes the open sheet survive a reload and close with the back gesture, which
- * is what a person expects of something that covers the screen.
+ * The create sheet is a query parameter too, so the open sheet survives a
+ * reload and closes with the back gesture, which is what a person expects of
+ * something that covers the screen.
  */
 const isSheetOpen = computed({
   get: () => route.query.create === '1',
@@ -77,9 +81,20 @@ useHead({ title: () => t.value.goals.heading })
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <!-- No create button here: the tab bar's centre button is the one way in,
-         and two of them would put the screen's loudest control in two places. -->
-    <AppScreenHeader :title="t.goals.heading" />
+    <!-- The one way a goal is made. Not repeated in the empty state below:
+         two of them would put the screen's loudest control in two places. -->
+    <AppScreenHeader :title="t.goals.heading">
+      <template #actions>
+        <UButton
+          icon="i-lucide-plus"
+          size="lg"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
+          :aria-label="t.create.open"
+          data-testid="open-create-goal"
+          @click="isSheetOpen = true"
+        />
+      </template>
+    </AppScreenHeader>
 
     <AppContentPanel>
       <template #toolbar>
@@ -175,15 +190,7 @@ useHead({ title: () => t.value.goals.heading })
             :title="t.goals.noGoals"
             :description="t.goals.noGoalsHint"
             data-testid="goals-empty"
-          >
-            <UButton
-              icon="i-lucide-plus"
-              data-testid="open-create-goal"
-              @click="isSheetOpen = true"
-            >
-              {{ t.create.open }}
-            </UButton>
-          </AppStateMessage>
+          />
 
           <!-- The way to what has stopped. At the foot of the screen rather
                than in the header: the archive is somewhere you go looking, not

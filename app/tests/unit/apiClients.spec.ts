@@ -162,7 +162,7 @@ describe('the API modules', () => {
     ])
   })
 
-  it('maps the bell, the badges and this device\'s subscription', async () => {
+  it('maps the bell, deleting from it, the badges and this device\'s subscription', async () => {
     const api = createNotificationsApi(caller)
     const endpoint = 'https://push.example/device'
 
@@ -171,6 +171,8 @@ describe('the API modules', () => {
     await api.key()
     await api.subscribe(endpoint, 'public-key', 'auth-secret')
     await api.unsubscribe(endpoint)
+    await api.dismiss('line-1')
+    await api.clear('2026-07-31T09:00:00Z')
 
     expect(call.mock.calls).toEqual([
       ['/api/notifications', { method: 'GET' }],
@@ -181,6 +183,8 @@ describe('the API modules', () => {
         body: { endpoint, publicKey: 'public-key', authSecret: 'auth-secret' },
       }],
       ['/api/notifications/unsubscribe', { method: 'POST', body: { endpoint } }],
+      ['/api/notifications/line-1', { method: 'DELETE' }],
+      ['/api/notifications', { method: 'DELETE', query: { until: '2026-07-31T09:00:00Z' } }],
     ])
   })
 

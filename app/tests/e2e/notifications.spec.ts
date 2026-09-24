@@ -260,6 +260,58 @@ test.describe('arriving while the app is open', () => {
     // Put back, because the suite shares one database.
     await other.post(`/api/feed/${mine!.id}/kudos`)
   })
+
+  test('"Alle löschen" empties the bell, and a single line is swiped away', async ({ page }) => {
+    const feed = await (await other.get('/api/feed')).json() as Array<{
+      id: string
+      actor: { displayName: string }
+      hasMyKudos: boolean
+    }>
+    const mine = feed.find(entry => entry.actor.displayName === me)
+    expect(mine, `${friend.name}'s feed has an entry by ${me}`).toBeDefined()
+
+    const kudos = () => other.post(`/api/feed/${mine!.id}/kudos`)
+
+    // A toggle: take back any kudos already there first, so this one is new.
+    if (mine!.hasMyKudos) await kudos()
+    await kudos()
+
+    await page.goto('/notifications')
+    const rows = page.getByTestId('notification-row')
+    await expect(rows.first()).toContainText(`${friend.name} hat dir Kudos`)
+
+    await page.getByTestId('notifications-clear').click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Alle löschen' }).click()
+    await expect(page.getByTestId('notifications-empty')).toBeVisible()
+
+    // Deleted on the server, not only taken off the screen.
+    await page.reload()
+    await expect(page.getByTestId('notifications-empty')).toBeVisible()
+
+    // Taken back and given again, which is a new line.
+    await kudos()
+    await kudos()
+    await page.reload()
+    await expect(rows).toHaveCount(1)
+
+    // Dragged to the left past the threshold, the way a thumb does it.
+    const box = (await rows.first().boundingBox())!
+    const y = box.y + box.height / 2
+    await page.mouse.move(box.x + box.width - 20, y)
+    await page.mouse.down()
+    for (let step = 1; step <= 10; step++) await page.mouse.move(box.x + box.width - 20 - step * 20, y)
+    await page.mouse.up()
+
+    // Swiping is not tapping: the row went, and the screen stayed.
+    await expect(page.getByTestId('notifications-empty')).toBeVisible()
+    await expect(page).toHaveURL('/notifications')
+
+    await page.reload()
+    await expect(page.getByTestId('notifications-empty')).toBeVisible()
+
+    // The kudos itself is taken back, because the suite shares one database.
+    await kudos()
+  })
 })
 
 test.describe('notification settings', () => {

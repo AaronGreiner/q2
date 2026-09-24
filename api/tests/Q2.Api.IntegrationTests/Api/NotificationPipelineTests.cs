@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,6 +100,104 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
             .EnsureSuccessStatusCode();
 
         Assert.Single(await BellAsync(Client));
+    }
+
+    [Fact]
+    public async Task DismissingALineTakesThatLineAndNoOther()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        await PostAsync(friend, $"/api/feed/{MyOwnActivityId}/kudos");
+
+        var lines = await BellAsync(Client);
+        var dismissed = Assert.Single(lines, line => line.Target == NotificationTarget.Activity);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(Client, $"/api/notifications/{dismissed.Id}")).StatusCode);
+
+        Assert.Equal(NotificationTarget.Goal, Assert.Single(await BellAsync(Client)).Target);
+
+        // Already gone is not an error — a second tap, or another device.
+        Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(Client, $"/api/notifications/{dismissed.Id}")).StatusCode);
+    }
+
+    /// <summary>
+    /// A line of reactions goes as a whole: leaving the older rows behind would
+    /// draw the same line again with one name fewer.
+    /// </summary>
+    [Fact]
+    public async Task DismissingALineOfReactionsTakesEveryoneInIt()
+    {
+        await PostAsync(Client, $"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request");
+        var fourth = await ClientForAsync(UnconnectedEmail);
+        await PostAsync(fourth, $"/api/friends/{AutomatedTestSeed.CurrentPersonId}/accept");
+
+        await PostAsync(await ClientForAsync(AutomatedTestSeed.FriendEmail), $"/api/feed/{MyOwnActivityId}/kudos");
+        SetClock(Q2ApiFactory.Now.AddMinutes(1));
+        await PostAsync(fourth, $"/api/feed/{MyOwnActivityId}/kudos");
+
+        var grouped = Assert.Single(await BellAsync(Client), line => line.Target == NotificationTarget.Activity);
+        Assert.Equal(2, grouped.Amount);
+
+        (await DeleteAsync(Client, $"/api/notifications/{grouped.Id}")).EnsureSuccessStatusCode();
+
+        Assert.DoesNotContain(await BellAsync(Client), line => line.Target == NotificationTarget.Activity);
+    }
+
+    [Fact]
+    public async Task NobodyCanDismissALineInSomebodyElsesBell()
+    {
+        var line = Assert.Single(await BellAsync(Client));
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(friend, $"/api/notifications/{line.Id}")).StatusCode);
+
+        Assert.Single(await BellAsync(Client));
+    }
+
+    /// <summary>
+    /// "Alle löschen" means everything that was on the screen, not everything
+    /// there is: a line that arrived while somebody was reading stays.
+    /// </summary>
+    [Fact]
+    public async Task ClearingStopsAtTheNewestLineThatWasShown()
+    {
+        var shown = Assert.Single(await BellAsync(Client));
+
+        SetClock(Q2ApiFactory.Now.AddMinutes(5));
+        await PostAsync(Client, $"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request");
+        var fourth = await ClientForAsync(UnconnectedEmail);
+        await PostAsync(fourth, $"/api/friends/{AutomatedTestSeed.CurrentPersonId}/accept");
+
+        var until = Uri.EscapeDataString(shown.OccurredAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(HttpStatusCode.NoContent, (await DeleteAsync(Client, $"/api/notifications?until={until}")).StatusCode);
+
+        var left = Assert.Single(await BellAsync(Client));
+        Assert.Equal(NotificationKind.FriendshipStarted, left.Kind);
+    }
+
+    /// <summary>What a block hides was not on the screen, so it is not cleared with it.</summary>
+    [Fact]
+    public async Task ClearingLeavesWhatABlockHides()
+    {
+        var hiddenLine = Assert.Single(await BellAsync(Client));
+
+        await PostAsync(Client, $"/api/blocks/{AutomatedTestSeed.FriendPersonId}");
+
+        var until = Uri.EscapeDataString(hiddenLine.OccurredAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        (await DeleteAsync(Client, $"/api/notifications?until={until}")).EnsureSuccessStatusCode();
+
+        (await Client.DeleteAsync($"/api/blocks/{AutomatedTestSeed.FriendPersonId}", TestContext.Current.CancellationToken))
+            .EnsureSuccessStatusCode();
+
+        Assert.Single(await BellAsync(Client));
+    }
+
+    [Fact]
+    public async Task DeletingFromTheBellNeedsASession()
+    {
+        var line = Assert.Single(await BellAsync(Client));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await DeleteAsync(AnonymousClient, $"/api/notifications/{line.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await DeleteAsync(AnonymousClient, "/api/notifications?until=2030-01-01T00:00:00Z")).StatusCode);
     }
 
     // -- messages -----------------------------------------------------------
@@ -447,6 +546,9 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
 
     private static async Task SendAsync(HttpClient client, Guid conversationId, string text) =>
         (await client.PostJsonAsync($"/api/chats/{conversationId}/messages", new { text })).EnsureSuccessStatusCode();
+
+    private static Task<HttpResponseMessage> DeleteAsync(HttpClient client, string url) =>
+        client.DeleteAsync(url, TestContext.Current.CancellationToken);
 
     private static async Task PostAsync(HttpClient client, string url) =>
         (await client.PostAsync(url, content: null, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();

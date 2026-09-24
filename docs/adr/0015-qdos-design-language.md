@@ -1,6 +1,6 @@
 # 0015 — The Qdos design language: black, one accent, no emoji
 
-**Status:** Accepted; palette and surfaces amended by [0028](0028-ruhe-design-system.md)
+**Status:** Accepted; palette and surfaces amended by [0028](0028-ruhe-design-system.md), the tab bar by [0031](0031-todos-tab-and-a-bell-you-can-empty.md)
 **Date:** 2026-09-06
 
 ## Context
@@ -119,6 +119,9 @@ anyway would spend the app's one loud surface on the absence of the thing it
 celebrates.
 
 ### The tab bar creates
+
+> Superseded by [0031](0031-todos-tab-and-a-bell-you-can-empty.md): the middle
+> slot is the To-Dos tab, and a goal is created from the plus on that screen.
 
 Home · Suche · **+** · Chats · Profil. Making a commitment is what people come
 here to do, so it belongs under the thumb rather than behind a header button on

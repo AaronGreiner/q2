@@ -102,11 +102,11 @@ Current components, by folder:
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
-| `AppBottomNav` `AppScreenHeader` | the shell around every screen; the bar's middle slot creates rather than navigating |
+| `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the To-Dos ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
-| `GoalCard` `GoalTile` | one goal in the list, and in the horizontal strip |
+| `GoalCard` | one goal in the list |
 | `GoalWindowRow` | one goal that is due, with the control that delivers into its window |
 | `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
 | `HistoryGrid` | the windows a goal has been through, deliberately without the accent |

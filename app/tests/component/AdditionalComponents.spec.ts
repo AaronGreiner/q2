@@ -14,7 +14,6 @@ import ChatGoalBanner from '~/components/chats/ChatGoalBanner.vue'
 import ChatListRow from '~/components/chats/ChatListRow.vue'
 import FriendRequestRow from '~/components/friends/FriendRequestRow.vue'
 import FriendSuggestionRow from '~/components/friends/FriendSuggestionRow.vue'
-import GoalTile from '~/components/goals/GoalTile.vue'
 import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
@@ -337,7 +336,7 @@ describe('chat presentation', () => {
 })
 
 describe('feature cards and rows', () => {
-  it('renders the week, day progress and a compact private goal', async () => {
+  it('renders the week and the day progress', async () => {
     const streak = await mountSuspended(StreakHero, {
       props: { streak: 5, week: [true, true, false, true, false, true, true] },
     })
@@ -348,12 +347,6 @@ describe('feature cards and rows', () => {
       props: { today: { done: 2, total: 4, percent: 50 }, streak: 5 },
     })
     expect(today.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
-
-    const tile = await mountSuspended(GoalTile, { props: { goal: goal() } })
-    expect(tile.get('a').attributes('href')).toBe('/goals/goal-1')
-    expect(tile.findAll('[data-testid="avatar"]')).toHaveLength(1)
-    expect(tile.text()).toContain('3× pro Woche')
-    expect(tile.text()).toContain('Noch 2 von 3')
   })
 
   it('emits both answers to a friend request and a suggestion', async () => {
@@ -426,11 +419,13 @@ describe('feature cards and rows', () => {
       route: '/',
     })
 
-    // Four destinations and the create button, which is a link too so that the
-    // sheet it opens survives a reload and closes with the back gesture.
+    // Five destinations, and the middle one is the To-Dos — not a create
+    // button, which is the plus on that screen now.
     expect(wrapper.findAll('a')).toHaveLength(5)
     expect(wrapper.get('[data-testid="nav-home"]').attributes('href')).toBe('/')
-    expect(wrapper.get('[data-testid="nav-create"]').attributes('href')).toBe('/goals?create=1')
+    expect(wrapper.get('[data-testid="nav-todos"]').attributes('href')).toBe('/goals')
+    expect(wrapper.get('[data-testid="nav-todos"]').text()).toContain('To-Dos')
+    expect(wrapper.find('[data-testid="nav-create"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="nav-chats"]').text()).toContain('3')
 
     // Friend requests followed the friends screen into search.

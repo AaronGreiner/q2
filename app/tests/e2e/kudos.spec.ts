@@ -506,6 +506,7 @@ test.describe('the shell', () => {
 
     for (const [testId, url] of [
       ['nav-search', '/search'],
+      ['nav-todos', '/goals'],
       ['nav-chats', '/chats'],
       ['nav-profile', '/profile'],
       ['nav-home', '/'],
@@ -515,10 +516,14 @@ test.describe('the shell', () => {
     }
   })
 
-  test('the middle of the bar creates, rather than going somewhere', async ({ page }) => {
+  test('the middle of the bar is the To-Dos, and a goal is made from its plus', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByTestId('nav-create').click()
+    await page.getByTestId('nav-todos').click()
+    await expect(page).toHaveURL('/goals')
+    await expect(page.getByTestId('nav-todos')).toHaveAttribute('aria-current', 'page')
+
+    await page.getByTestId('open-create-goal').click()
 
     // A URL rather than component state, so the sheet survives a reload and
     // closes with the back gesture.

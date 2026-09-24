@@ -165,4 +165,59 @@ describe('useNotifications', () => {
     await vi.waitFor(() => expect(bell.isLoading.value).toBe(false))
     expect(bell.isEmpty.value).toBe(true)
   })
+
+  it('takes a dismissed line off the screen before the server has answered', async () => {
+    const dismiss = vi.fn(() => new Promise<void>(() => {}))
+    install({ list: vi.fn().mockResolvedValue([line(), line({ id: 'line-2', isNew: false })]), dismiss })
+    const bell = useNotifications()
+    await vi.waitFor(() => expect(bell.isLoading.value).toBe(false))
+
+    void bell.dismiss(line())
+
+    expect(dismiss).toHaveBeenCalledWith('line-1')
+    expect(bell.fresh.value).toHaveLength(0)
+    expect(bell.earlier.value.map(entry => entry.id)).toEqual(['line-2'])
+  })
+
+  it('reads the bell again when a dismissal is refused, so the line comes back', async () => {
+    const list = vi.fn().mockResolvedValue([line()])
+    const { report } = install({ list, dismiss: vi.fn().mockRejectedValue(new Error('offline')) })
+    const bell = useNotifications()
+    await vi.waitFor(() => expect(bell.isLoading.value).toBe(false))
+
+    await bell.dismiss(line())
+
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'notifications', action: 'dismiss' })
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(bell.fresh.value).toHaveLength(1)
+  })
+
+  it('clears up to the newest line shown rather than up to now', async () => {
+    const clear = vi.fn().mockResolvedValue(undefined)
+    install({
+      list: vi.fn().mockResolvedValue([
+        line({ occurredAt: '2026-07-31T10:00:00Z' }),
+        line({ id: 'line-2', isNew: false, occurredAt: '2026-07-30T09:00:00Z' }),
+      ]),
+      clear,
+    })
+    const bell = useNotifications()
+    await vi.waitFor(() => expect(bell.isLoading.value).toBe(false))
+
+    await bell.clearAll()
+
+    expect(clear).toHaveBeenCalledWith('2026-07-31T10:00:00Z')
+    expect(bell.isEmpty.value).toBe(true)
+  })
+
+  it('asks nothing of the server when there is nothing to clear', async () => {
+    const clear = vi.fn()
+    install({ list: vi.fn().mockResolvedValue([]), clear })
+    const bell = useNotifications()
+    await vi.waitFor(() => expect(bell.isLoading.value).toBe(false))
+
+    await bell.clearAll()
+
+    expect(clear).not.toHaveBeenCalled()
+  })
 })

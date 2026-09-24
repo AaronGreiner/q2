@@ -45,7 +45,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       return Math.abs(markerX - selected.getBoundingClientRect().x)
     })).toBeLessThan(1)
 
-    await page.getByTestId('nav-create').click()
+    await page.getByTestId('open-create-goal').click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)

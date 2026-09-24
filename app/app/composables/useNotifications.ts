@@ -68,7 +68,54 @@ export function useNotifications() {
 
   const isNew = (line: NotificationLine) => line.isNew || (line.id !== null && shownAsNew.has(line.id))
 
+  function without(gone: (line: NotificationLine) => boolean) {
+    if (data.value) data.value = { ...data.value, lines: data.value.lines.filter(line => !gone(line)) }
+  }
+
+  /*
+   * Deleting takes the line off the screen first and asks the server after.
+   * A swipe that waits for a round trip feels broken; if the server refuses,
+   * reading the bell again puts back whatever is still there.
+   */
+  async function dismiss(line: NotificationLine) {
+    if (!line.id) return
+    const id = line.id
+
+    without(candidate => candidate.id === id)
+
+    try {
+      await api.notifications.dismiss(id)
+    }
+    catch (caught) {
+      report(caught, { feature: 'notifications', action: 'dismiss' })
+      await refresh()
+    }
+  }
+
+  /**
+   * Everything on the screen, and nothing that arrived after it was drawn:
+   * the bound is the newest line shown, not the server's "now".
+   */
+  async function clearAll() {
+    const newest = lines.value[0]
+    if (!newest) return
+
+    const until = newest.occurredAt
+    const bound = Date.parse(until)
+    without(line => Date.parse(line.occurredAt) <= bound)
+
+    try {
+      await api.notifications.clear(until)
+    }
+    catch (caught) {
+      report(caught, { feature: 'notifications', action: 'clear' })
+      await refresh()
+    }
+  }
+
   return {
+    dismiss,
+    clearAll,
     fresh: computed(() => lines.value.filter(isNew)),
     earlier: computed(() => lines.value.filter(line => !isNew(line))),
     isEmpty: computed(() => lines.value.length === 0),

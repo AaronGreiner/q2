@@ -3,6 +3,8 @@
 **Status:** Accepted — amended by [0025](0025-banners-in-the-open-app.md): the
 live connection also carries the notification itself to somebody who is
 looking, and the open app shows it as a banner instead of their phone ringing.
+Amended by [0031](0031-todos-tab-and-a-bell-you-can-empty.md): a line in the
+bell can be deleted, one at a time or everything that was on the screen.
 Everything else stands as written.
 **Date:** 2026-09-14
 

@@ -74,6 +74,62 @@ public sealed class InboxService(
     }
 
     /// <summary>
+    /// Takes one line out of the bell for good.
+    /// </summary>
+    /// <remarks>
+    /// A line of reactions is every reaction to the same thing, so removing it
+    /// removes all of them up to the one it was drawn from — leaving the older
+    /// ones would bring the line straight back with "und 3 weitere" shrunk by
+    /// one. A line that is already gone, or was never this person's, is not an
+    /// error: the answer is the same either way, and it says nothing about
+    /// anybody else's bell.
+    /// </remarks>
+    public async Task DismissAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        var line = await database.Notifications
+            .AsNoTracking()
+            .SingleOrDefaultAsync(row => row.Id == id && row.RecipientPersonId == me.Id, cancellationToken);
+
+        if (line is null)
+        {
+            return;
+        }
+
+        var rows = database.Notifications.Where(row => row.RecipientPersonId == me.Id);
+
+        await (line.Kind == NotificationKind.ReactionReceived
+                ? rows.Where(row => row.Kind == NotificationKind.ReactionReceived
+                    && row.Target == line.Target
+                    && row.TargetId == line.TargetId
+                    && row.OccurredAt <= line.OccurredAt)
+                : rows.Where(row => row.Id == line.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Empties the bell of everything up to <paramref name="until"/>.
+    /// </summary>
+    /// <remarks>
+    /// Bounded by the newest line the person was looking at rather than by
+    /// "now", so something that arrived while they were reading is not thrown
+    /// away unseen. Somebody hidden by a block is left alone: those lines were
+    /// not on the screen, and lifting the block is meant to bring them back.
+    /// </remarks>
+    public async Task ClearAsync(DateTimeOffset until, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var hidden = (await blockList.HiddenFromMeAsync(cancellationToken)).ToList();
+
+        await database.Notifications
+            .Where(row => row.RecipientPersonId == me.Id
+                && row.OccurredAt <= until
+                && (row.ActorPersonId == null || !hidden.Contains(row.ActorPersonId.Value)))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// The rows still inside the bell's thirty days, newest first.
     /// </summary>
     /// <remarks>
