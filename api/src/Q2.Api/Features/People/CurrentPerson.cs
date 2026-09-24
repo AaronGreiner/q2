@@ -88,4 +88,14 @@ public sealed class CurrentPerson(Q2DbContext database, IHttpContextAccessor htt
     /// <summary>The id alone, for the many callers that only need to compare.</summary>
     public async Task<Guid> GetIdAsync(CancellationToken cancellationToken) =>
         (await GetAsync(cancellationToken)).Id;
+
+    /// <summary>
+    /// Whether this request carries a session at all.
+    /// </summary>
+    /// <remarks>
+    /// Only for the few endpoints that answer with and without one — the page
+    /// an invite link lands on is the example. Everywhere else the group's
+    /// <c>RequireAuthorization</c> has already answered the question.
+    /// </remarks>
+    public bool IsSignedIn => httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated == true;
 }

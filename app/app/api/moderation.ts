@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { Person, ReportReason, ReportReceipt, ReportTargetKind } from './types'
+import type { InvitePreview, Person, ReportReason, ReportReceipt, ReportTargetKind } from './types'
 
 /**
  * Blocking somebody, and asking for something to be looked at.
@@ -53,20 +53,33 @@ export function createModerationApi(call: ApiCaller): ModerationApi {
 }
 
 /**
- * Your invite link, and replacing it.
+ * Your invite link, replacing it, and the other end: seeing whose link you
+ * were sent and accepting it.
  *
  * The server hands back the code alone — it does not know which host the app is
  * served from, and a link with the wrong origin in it is worse than none. The
  * link is built in the browser from `window.location.origin`.
+ *
+ * Somebody else's code goes in a body, never into a URL here: paths reach
+ * Sentry's fetch breadcrumbs and the API's request logs intact, and the code is
+ * a credential in everything but name.
  */
 export interface InviteApi {
   get: () => Promise<{ code: string }>
   regenerate: () => Promise<{ code: string }>
+
+  /** Whose link this is; with a session, also where you stand with them. */
+  preview: (code: string) => Promise<InvitePreview>
+
+  /** Friends with whoever sent it. Answers with who that is. */
+  accept: (code: string) => Promise<Person>
 }
 
 export function createInviteApi(call: ApiCaller): InviteApi {
   return {
     get: () => call<{ code: string }>('/api/invite', { method: 'GET' }),
     regenerate: () => call<{ code: string }>('/api/invite/regenerate', { method: 'POST', body: {} }),
+    preview: code => call<InvitePreview>('/api/invite/preview', { method: 'POST', body: { code } }),
+    accept: code => call<Person>('/api/invite/accept', { method: 'POST', body: { code } }),
   }
 }

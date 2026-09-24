@@ -212,7 +212,12 @@ same viewport remains necessary.
   the list it is about, a switch that survives a reload, and muting.
 - **Invite links** — a code made on first use, a link producing an accepted
   friendship at registration, a stale code being ignored rather than refused,
-  and a replaced code no longer working.
+  and a replaced code no longer working; the lookup naming the sender and
+  nothing more, where a signed-in visitor already stands, accepting with an
+  existing account, a pending request either way round becoming the
+  friendship, a block making the code mean nothing, and no route that takes a
+  code in its path. `invite.spec.ts` follows a link through a real browser for
+  a new and an existing account.
 - **The daily challenge** — one contribution per person and a second replacing
   the first, the reciprocity rule from both ends (a friend's picture and its
   bytes are both refused until the viewer has contributed, and covered again

@@ -43,6 +43,9 @@ function view(proof: OwnProof) {
  * — and a camera over a half-hidden form does not fit on a phone.
  */
 const editing = ref(false)
+
+/* The invite link, which has no other home once somebody has a friend. */
+const inviting = ref(false)
 const capturing = ref(false)
 
 useHead({ title: () => t.value.profile.heading })
@@ -176,6 +179,19 @@ async function onPhoto(image: Image) {
           </div>
         </dl>
 
+        <!--
+          A row rather than a card: bringing somebody in is something to do
+          from here, not something the profile is about.
+        -->
+        <div class="q2-card mt-3 overflow-hidden">
+          <SettingsActionRow
+            icon="i-lucide-user-plus"
+            :label="t.invite.open"
+            data-testid="profile-invite"
+            @activate="inviting = true"
+          />
+        </div>
+
         <BalanceCard
           class="mt-3"
           :balance="profile.balance"
@@ -283,6 +299,8 @@ async function onPhoto(image: Image) {
     </AppContentPanel>
 
     <template v-if="profile">
+      <InviteSheet v-model:open="inviting" />
+
       <ProfileEditSheet
         v-model:open="editing"
         :person="profile.person"

@@ -45,17 +45,20 @@ export function useInvite() {
 
   const isReplacing = ref(false)
 
-  async function replace() {
-    if (isReplacing.value) return
+  /** Resolves to whether a new code arrived. */
+  async function replace(): Promise<boolean> {
+    if (isReplacing.value) return false
 
     isReplacing.value = true
 
     try {
       data.value = { code: (await api.invite.regenerate()).code, failure: null }
+      return true
     }
     catch (caught) {
       report(caught, { feature: 'invite', action: 'regenerate' })
       await refresh()
+      return false
     }
     finally {
       isReplacing.value = false
@@ -94,6 +97,34 @@ export function useInvite() {
     }
   }
 
+  /**
+   * Puts the link on the clipboard, for a phone whose share sheet does not
+   * offer the app somebody wants to paste it into.
+   */
+  async function copy() {
+    const link = url.value
+
+    if (!link) return
+
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.show(t.value.toast.inviteCopied)
+    }
+    catch {
+      // Refused by the browser: the link is on screen and can be selected.
+    }
+  }
+
+  /**
+   * Replaces the code and says so. The confirmation is the caller's; this is
+   * for the settings row, where nothing else on screen shows that it worked.
+   */
+  async function replaceAndConfirm() {
+    if (await replace()) {
+      toast.show(t.value.toast.inviteReplaced)
+    }
+  }
+
   return {
     code: computed(() => data.value?.code ?? ''),
     url,
@@ -102,6 +133,8 @@ export function useInvite() {
     isReplacing: computed(() => isReplacing.value),
     refresh,
     replace,
+    replaceAndConfirm,
     share,
+    copy,
   }
 }

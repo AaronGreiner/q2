@@ -31,6 +31,15 @@ const feedback = useFeedback()
 
 const isSigningOut = ref(false)
 
+/*
+ * Replacing the invite link. Here rather than on the sheet that shares it:
+ * it is what somebody reaches for once, after a link ended up in the wrong
+ * group chat — and before this row existed, it was only reachable while
+ * somebody had no friends at all.
+ */
+const invite = useInvite()
+const isConfirmingReplace = ref(false)
+
 async function onSignOut() {
   if (isSigningOut.value) return
 
@@ -196,6 +205,24 @@ useHead({ title: () => t.value.settings.heading })
           @activate="navigateTo('/settings/blocked')"
         />
       </SettingsSection>
+
+      <SettingsSection :title="t.invite.settingsHeading">
+        <SettingsActionRow
+          icon="i-lucide-link"
+          :label="t.invite.replace"
+          :busy="invite.isReplacing.value"
+          data-testid="invite-replace-setting"
+          @activate="isConfirmingReplace = true"
+        />
+      </SettingsSection>
+
+      <AppConfirmDialog
+        v-model:open="isConfirmingReplace"
+        :title="t.invite.replaceHeading"
+        :description="t.invite.replaceBody"
+        :confirm-label="t.invite.replaceConfirm"
+        @confirm="invite.replaceAndConfirm()"
+      />
 
       <div class="mt-5">
         <p

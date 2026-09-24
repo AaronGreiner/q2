@@ -13,9 +13,10 @@ namespace Q2.Api.IntegrationTests.Api;
 /// The gap this closes is the one both projects had: a new account has no
 /// friends, and almost everything in q2 is something you do where friends can
 /// see. What is worth a pipeline is that a link actually produces the
-/// friendship — and that the code is a secret rather than a handle, because a
-/// link built from something public would let anybody force a friendship on
-/// anybody.
+/// friendship — for somebody who registers through it and for somebody who
+/// already had an account — and that the code is a secret rather than a handle,
+/// because a link built from something public would let anybody force a
+/// friendship on anybody.
 /// </remarks>
 [Trait("Category", "Integration")]
 public class InviteEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
@@ -31,6 +32,31 @@ public class InviteEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     private sealed record FriendRow(FriendPerson Person);
 
     private sealed record FriendPerson(Guid Id, string DisplayName);
+
+    private sealed record PreviewDocument(string DisplayName, string Initials, string AvatarColor, string? Relation);
+
+    private sealed record AcceptedDocument(Guid Id, string DisplayName);
+
+    private const string UnconnectedEmail = "test.four@" + SeedAccounts.EmailDomain;
+
+    private static Task<HttpResponseMessage> PreviewAsync(HttpClient client, string code) =>
+        client.PostJsonAsync("/api/invite/preview", new { code });
+
+    private static Task<HttpResponseMessage> AcceptAsync(HttpClient client, string code) =>
+        client.PostJsonAsync("/api/invite/accept", new { code });
+
+    private async Task<List<Friendship>> RowsBetweenAsync(Guid one, Guid other)
+    {
+        var rows = new List<Friendship>();
+
+        await Factory.WithDatabaseAsync(async database => rows = await database.Friendships
+            .AsNoTracking()
+            .Where(friendship => (friendship.RequesterId == one && friendship.AddresseeId == other)
+                || (friendship.RequesterId == other && friendship.AddresseeId == one))
+            .ToListAsync(TestContext.Current.CancellationToken));
+
+        return rows;
+    }
 
     private static async Task<InviteDocument> CodeAsync(HttpClient client) =>
         await (await client.GetAsync("/api/invite", TestContext.Current.CancellationToken))
@@ -137,18 +163,174 @@ public class InviteEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
                 TestContext.Current.CancellationToken)));
     }
 
+    /// <summary>
+    /// The page a link lands on says whose it is, to somebody with no account
+    /// yet — and nothing more than it takes to say that.
+    /// </summary>
     [Fact]
-    public async Task ThereIsNoWayToLookACodeUp()
+    public async Task WithoutASessionALinkNamesItsSenderAndNothingElse()
     {
         var invite = await CodeAsync(Client);
 
-        // An endpoint that answered "whose code is this?" would turn an
-        // unguessable string into something worth guessing at.
-        var probe = await Client.GetAsync(
+        var response = await PreviewAsync(AnonymousClient, invite.Code);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var preview = await response.ReadAsync<PreviewDocument>();
+
+        Assert.Equal("Test Person One", preview.DisplayName);
+        Assert.Equal("T1", preview.Initials);
+        Assert.Null(preview.Relation);
+
+        // Whoever holds the link may never sign up; the id and the handle are
+        // not theirs to have.
+        Assert.DoesNotContain(AutomatedTestSeed.CurrentPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("test.one", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(AutomatedTestSeed.CurrentPersonEmail, "Self")]
+    [InlineData(AutomatedTestSeed.FriendEmail, "Friends")]
+    [InlineData(AutomatedTestSeed.RequesterEmail, "RequestSent")]
+    [InlineData(UnconnectedEmail, "None")]
+    public async Task WithASessionALinkSaysWhereYouAlreadyStand(string visitorEmail, string relation)
+    {
+        var invite = await CodeAsync(Client);
+        var visitor = await ClientForAsync(visitorEmail);
+
+        var preview = await (await PreviewAsync(visitor, invite.Code)).ReadAsync<PreviewDocument>();
+
+        Assert.Equal(relation, preview.Relation);
+    }
+
+    [Theory]
+    [InlineData("nichts-das-je-galt")]
+    [InlineData("")]
+    public async Task ACodeThatMeansNothingIsNotFound(string code)
+    {
+        var response = await PreviewAsync(AnonymousClient, code);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A code in the path would end up in request logs and in Sentry's fetch
+    /// breadcrumbs, which keep paths. There is no route that takes one.
+    /// </summary>
+    [Fact]
+    public async Task ACodeIsNeverPartOfAPath()
+    {
+        var invite = await CodeAsync(Client);
+
+        var probe = await AnonymousClient.GetAsync(
             $"/api/invite/{invite.Code}",
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, probe.StatusCode);
+    }
+
+    [Fact]
+    public async Task SomebodyWithAnAccountAcceptsALinkAndIsFriends()
+    {
+        var invite = await CodeAsync(Client);
+        var visitor = await ClientForAsync(UnconnectedEmail);
+
+        var response = await AcceptAsync(visitor, invite.Code);
+        var sender = await response.ReadAsync<AcceptedDocument>();
+
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, sender.Id);
+
+        var rows = await RowsBetweenAsync(AutomatedTestSeed.CurrentPersonId, AutomatedTestSeed.UnconnectedPersonId);
+        Assert.Equal(FriendshipStatus.Accepted, Assert.Single(rows).Status);
+
+        var friends = await (await Client.GetAsync("/api/friends", TestContext.Current.CancellationToken))
+            .ReadAsync<FriendsDocument>();
+
+        Assert.Contains(friends.Friends, friend => friend.Person.Id == AutomatedTestSeed.UnconnectedPersonId);
+    }
+
+    /// <summary>
+    /// A request already waiting between the two, either way round, becomes
+    /// the friendship — not a second row next to it.
+    /// </summary>
+    [Fact]
+    public async Task ARequestTheVisitorHadSentIsAnsweredByTheLink()
+    {
+        var invite = await CodeAsync(Client);
+        var requester = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+
+        (await AcceptAsync(requester, invite.Code)).EnsureSuccessStatusCode();
+
+        var rows = await RowsBetweenAsync(AutomatedTestSeed.CurrentPersonId, AutomatedTestSeed.RequestingPersonId);
+        Assert.Equal(FriendshipStatus.Accepted, Assert.Single(rows).Status);
+    }
+
+    [Fact]
+    public async Task ARequestTheSenderHadSentIsAnsweredByTheLink()
+    {
+        (await Client.PostJsonAsync($"/api/friends/{AutomatedTestSeed.UnconnectedPersonId}/request", new { }))
+            .EnsureSuccessStatusCode();
+
+        var invite = await CodeAsync(Client);
+        var visitor = await ClientForAsync(UnconnectedEmail);
+
+        (await AcceptAsync(visitor, invite.Code)).EnsureSuccessStatusCode();
+
+        var rows = await RowsBetweenAsync(AutomatedTestSeed.CurrentPersonId, AutomatedTestSeed.UnconnectedPersonId);
+        Assert.Equal(FriendshipStatus.Accepted, Assert.Single(rows).Status);
+    }
+
+    /// <summary>
+    /// Tapped twice, or forwarded to somebody who was already in: what they
+    /// wanted is true either way, so it is not an error.
+    /// </summary>
+    [Fact]
+    public async Task AcceptingAsAnExistingFriendChangesNothing()
+    {
+        var invite = await CodeAsync(Client);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        var response = await AcceptAsync(friend, invite.Code);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(await RowsBetweenAsync(AutomatedTestSeed.CurrentPersonId, AutomatedTestSeed.FriendPersonId));
+    }
+
+    [Fact]
+    public async Task YourOwnLinkCannotBeAccepted()
+    {
+        var invite = await CodeAsync(Client);
+
+        var response = await AcceptAsync(Client, invite.Code);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A blocked pair sees the same answer as a code that means nothing: a page
+    /// that read differently for them would be announcing the block.
+    /// </summary>
+    [Fact]
+    public async Task ABlockMakesTheLinkMeanNothingToTheOtherSide()
+    {
+        var invite = await CodeAsync(Client);
+
+        (await Client.PostJsonAsync($"/api/blocks/{AutomatedTestSeed.UnconnectedPersonId}", new { }))
+            .EnsureSuccessStatusCode();
+
+        var blocked = await ClientForAsync(UnconnectedEmail);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await PreviewAsync(blocked, invite.Code)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await AcceptAsync(blocked, invite.Code)).StatusCode);
+        Assert.Empty(await RowsBetweenAsync(AutomatedTestSeed.CurrentPersonId, AutomatedTestSeed.UnconnectedPersonId));
+    }
+
+    [Fact]
+    public async Task AcceptingNeedsASession()
+    {
+        var invite = await CodeAsync(Client);
+
+        var response = await AcceptAsync(AnonymousClient, invite.Code);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

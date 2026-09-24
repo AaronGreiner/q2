@@ -17,15 +17,27 @@ const minimumPasswordLength = 10
 const t = useMessages()
 const { register } = useSession()
 
+const route = useRoute()
+const toast = useToastMessage()
+
 /*
- * The code somebody arrived with, if they followed a link.
+ * The code somebody arrived with, if they came from an invite link's page.
  *
- * Read here rather than from the route: `/join/<code>` puts it into state and
- * redirects, so by the time this form is on screen the code is no longer in the
- * address bar — which is also where it should not be, since it is a credential
- * in everything but name.
+ * In the address rather than in state: `/join/<code>` is server-rendered, and
+ * state set there did not survive the redirect to this form — which is why no
+ * link ever made a friendship. An address survives a reload as well. Sentry
+ * drops query strings, and the code was in the address on the page before
+ * anyway.
  */
-const pendingInvite = usePendingInvite()
+const inviteCode = typeof route.query.invite === 'string' && route.query.invite ? route.query.invite : null
+
+/*
+ * Whose link it is, so the form can say who they will be friends with. Only
+ * read when there is a code; a stale one simply shows nothing, and the server
+ * ignores it at registration rather than refusing the account.
+ */
+const invite = inviteCode ? useInviteLink(inviteCode) : null
+const inviter = computed(() => invite?.preview.value ?? null)
 
 const name = ref('')
 const email = ref('')
@@ -47,6 +59,10 @@ async function onSubmit() {
   isSubmitting.value = true
   failure.value = null
 
+  // Read before registering: signing up clears every cached read, the preview
+  // of whose link this is included.
+  const befriends = inviter.value !== null
+
   try {
     await register({
       name: name.value.trim(),
@@ -56,12 +72,14 @@ async function onSubmit() {
       // A code that no longer means anything is ignored by the server rather
       // than refused: registration is the worst moment to fail over a stale
       // link somebody was forwarded.
-      inviteCode: pendingInvite.value ?? undefined,
+      inviteCode: inviteCode ?? undefined,
     })
 
-    // Spent, and cleared: a code left in state would be sent again by the next
-    // person who signs up on this device.
-    pendingInvite.value = null
+    // The start screen does not show a new friendship, so this is the one
+    // place that says the link did what it promised.
+    if (befriends) {
+      toast.show(t.value.toast.befriended)
+    }
 
     // Registering signs you in, so there is no second form to fill in.
     await navigateTo('/', { replace: true })
@@ -78,6 +96,12 @@ async function onSubmit() {
   }
 }
 
+/*
+ * Somebody who arrived through a link and turns out to have an account goes
+ * back to the link's page after signing in, where they can accept it.
+ */
+const signInTo = inviteCode ? `/login?next=${encodeURIComponent(`/join/${encodeURIComponent(inviteCode)}`)}` : '/login'
+
 useHead({ title: () => t.value.auth.signUpHeading })
 </script>
 
@@ -86,6 +110,29 @@ useHead({ title: () => t.value.auth.signUpHeading })
     :heading="t.auth.signUpHeading"
     :intro="t.auth.signUpIntro"
   >
+    <div
+      v-if="inviter"
+      class="mb-5 flex items-center gap-3 rounded-(--q2-radius-lg) bg-(--ui-bg-muted) p-3"
+      data-testid="register-invite"
+    >
+      <AppAvatar
+        :initials="inviter.initials"
+        :color="inviter.avatarColor"
+        :size="40"
+      />
+      <div class="min-w-0 flex-1">
+        <p
+          class="truncate text-sm font-extrabold"
+          data-q2-private
+        >
+          {{ inviter.displayName }}
+        </p>
+        <p class="text-xs text-(--ui-text-muted)">
+          {{ t.join.registerHint }}
+        </p>
+      </div>
+    </div>
+
     <form
       class="flex flex-col gap-3.5"
       novalidate
@@ -167,7 +214,7 @@ useHead({ title: () => t.value.auth.signUpHeading })
     <p class="mt-4 text-center text-sm text-(--ui-text-muted)">
       {{ t.auth.haveAccount }}
       <NuxtLink
-        to="/login"
+        :to="signInTo"
         class="ms-1 font-extrabold text-(--ui-primary) underline-offset-2 hover:underline"
         data-testid="to-login"
       >

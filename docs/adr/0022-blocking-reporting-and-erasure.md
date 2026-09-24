@@ -118,6 +118,10 @@ phone.
 
 ### An invite link is a secret, and redeeming one makes a friendship
 
+> Amended by [0033](0033-invite-links-for-new-and-existing-accounts.md): the
+> link now opens a page that names its sender, can be accepted by somebody who
+> already has an account, and can be looked up — in a body, never a path.
+
 `Person.InviteCode` is 96 random bits, not the handle. A handle is public and
 searchable, so a link built from one would let anybody force a friendship on
 anybody by guessing it. The code is created on first use — a link nobody has

@@ -61,6 +61,12 @@ const {
 /** Whether the typed-in box is showing results instead of the usual sections. */
 const isSearchMode = computed(() => search.value.trim().length > 0)
 
+/*
+ * The invite link, for somebody who already has friends. With none, the
+ * `InviteCard` further down says the same thing more loudly.
+ */
+const inviting = ref(false)
+
 async function onMessage(personId: string) {
   try {
     const chat = await api.chats.startDirect(personId)
@@ -82,7 +88,20 @@ useHead({ title: () => t.value.friends.pageHeading })
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <AppScreenHeader :title="t.friends.pageHeading" />
+    <AppScreenHeader :title="t.friends.pageHeading">
+      <template #actions>
+        <UButton
+          icon="i-lucide-share-2"
+          color="neutral"
+          variant="outline"
+          size="lg"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
+          :aria-label="t.invite.open"
+          data-testid="open-invite"
+          @click="inviting = true"
+        />
+      </template>
+    </AppScreenHeader>
 
     <AppContentPanel>
       <template #toolbar>
@@ -154,7 +173,27 @@ useHead({ title: () => t.value.friends.pageHeading })
           :title="isSearchActive ? t.friends.noMatches : t.friends.searchHeading"
           :description="isSearchActive ? t.friends.noMatchesHint : t.friends.searchHint(minimumLength)"
           data-testid="search-empty"
-        />
+        >
+          <!--
+            Nobody by that name is the moment the link is needed most: the
+            person being looked for is probably not here yet.
+          -->
+          <div
+            v-if="isSearchActive"
+            class="flex flex-col items-center gap-2"
+          >
+            <p class="text-[13px] font-semibold text-(--ui-text-muted)">
+              {{ t.invite.notFoundHint }}
+            </p>
+            <UButton
+              icon="i-lucide-share-2"
+              size="lg"
+              :label="t.invite.sendLink"
+              data-testid="search-invite"
+              @click="inviting = true"
+            />
+          </div>
+        </AppStateMessage>
       </section>
 
       <template v-else>
@@ -308,5 +347,7 @@ useHead({ title: () => t.value.friends.pageHeading })
         </template>
       </template>
     </AppContentPanel>
+
+    <InviteSheet v-model:open="inviting" />
   </div>
 </template>

@@ -91,6 +91,7 @@ export type SentRequest = Schemas['SentRequestResponse']
 export type FriendSuggestion = Schemas['FriendSuggestionResponse']
 export type PersonSearchResult = Schemas['PersonSearchResultResponse']
 export type FriendshipState = Schemas['FriendshipState']
+export type InvitePreview = Schemas['InvitePreviewResponse']
 
 export type ChatSummary = Schemas['ChatSummaryResponse']
 export type ChatDetail = Schemas['ChatDetailResponse']

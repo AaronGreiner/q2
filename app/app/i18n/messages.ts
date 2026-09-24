@@ -653,6 +653,33 @@ export const de = {
     replaceBody: 'Der alte Link funktioniert danach nicht mehr. Wer ihn schon benutzt hat, bleibt dein Freund.',
     replaceConfirm: 'Ersetzen',
     meanwhile: 'Bis dahin: Bei der Challenge des Tages kannst du auch allein mitmachen.',
+    open: 'Freunde einladen',
+    sheetBody: 'Wer über deinen Link kommt, ist sofort mit dir befreundet — auch ohne Konto.',
+    sheetHint: 'Ist der Link irgendwo gelandet, wo er nicht hin soll? In den Einstellungen kannst du ihn ersetzen.',
+    settingsHeading: 'Einladungslink',
+    notFoundHint: 'Nicht dabei? Schick deinen Link.',
+    sendLink: 'Link schicken',
+  },
+
+  /**
+   * Die Seite, auf der ein Einladungslink landet. Der Name steht in der Karte,
+   * nicht in der Überschrift — dort kann er aus Session Replay herausgehalten
+   * werden. Die Seite bietet genau einen nächsten Schritt an.
+   */
+  join: {
+    title: 'Einladung',
+    heading: 'Du bist eingeladen',
+    intro: 'Wer über einen Link zu q2 kommt, ist sofort mit der Person befreundet, die ihn geschickt hat.',
+    invites: 'lädt dich zu q2 ein',
+    createAccount: 'Konto erstellen',
+    haveAccount: 'Ich habe schon ein Konto',
+    accept: 'Freundschaft annehmen',
+    alreadyFriends: 'Ihr seid schon befreundet.',
+    ownLink: 'Das ist dein eigener Link. Schick ihn jemandem, der noch fehlt.',
+    invalidHeading: 'Dieser Link gilt nicht mehr',
+    invalidIntro: 'Vielleicht wurde er inzwischen ersetzt. Frag nach einem neuen — oder leg einfach so los.',
+    registerHint: 'Nach der Registrierung seid ihr befreundet.',
+    previewTitle: 'Du bist zu q2 eingeladen',
   },
 
   /** Das Konto löschen — der einzige Weg, der nicht zurückführt. */
@@ -977,6 +1004,8 @@ export const de = {
     reported: { icon: 'i-lucide-flag', text: 'Danke — wir sehen es uns an' },
     blocked: { icon: 'i-lucide-shield', text: 'Person blockiert' },
     inviteCopied: { icon: 'i-lucide-link', text: 'Link kopiert' },
+    befriended: { icon: 'i-lucide-user-check', text: 'Ihr seid jetzt befreundet' },
+    inviteReplaced: { icon: 'i-lucide-link', text: 'Neuer Link — der alte gilt nicht mehr' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Endgültig gelöscht' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback lässt sich gerade nicht öffnen' },
     proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
@@ -1543,6 +1572,28 @@ export const en: Messages = {
     replaceBody: 'The old link stops working. Whoever already used it stays your friend.',
     replaceConfirm: 'Replace',
     meanwhile: 'Until then: the challenge of the day is something you can do on your own.',
+    open: 'Invite friends',
+    sheetBody: 'Whoever comes through your link is your friend straight away — even without an account yet.',
+    sheetHint: 'Has the link ended up somewhere it should not be? You can replace it in the settings.',
+    settingsHeading: 'Invite link',
+    notFoundHint: 'Not here? Send them your link.',
+    sendLink: 'Send link',
+  },
+
+  join: {
+    title: 'Invitation',
+    heading: 'You are invited',
+    intro: 'Whoever comes to q2 through a link is friends straight away with the person who sent it.',
+    invites: 'invites you to q2',
+    createAccount: 'Create an account',
+    haveAccount: 'I already have an account',
+    accept: 'Accept friendship',
+    alreadyFriends: 'You are already friends.',
+    ownLink: 'This is your own link. Send it to somebody who is still missing.',
+    invalidHeading: 'This link no longer works',
+    invalidIntro: 'It may have been replaced since. Ask for a new one — or just get started.',
+    registerHint: 'Once you have signed up, you are friends.',
+    previewTitle: 'You are invited to q2',
   },
 
   deleteAccount: {
@@ -1813,6 +1864,8 @@ export const en: Messages = {
     reported: { icon: 'i-lucide-flag', text: 'Thank you — we will look at it' },
     blocked: { icon: 'i-lucide-shield', text: 'Person blocked' },
     inviteCopied: { icon: 'i-lucide-link', text: 'Link copied' },
+    befriended: { icon: 'i-lucide-user-check', text: 'You are friends now' },
+    inviteReplaced: { icon: 'i-lucide-link', text: 'New link — the old one no longer works' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Deleted for good' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback cannot be opened right now' },
     proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },

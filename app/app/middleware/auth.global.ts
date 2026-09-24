@@ -24,18 +24,19 @@ const publicRoutes = new Set(['/login', '/register', '/forgot-password'])
 const openRoutes = new Set(['/diagnostics', '/reset-password'])
 
 /**
- * An invite link, which by definition is followed by somebody with no session.
+ * An invite link, which is usually followed by somebody with no session — and
+ * sometimes by somebody who has one and wants to accept it.
  *
- * A prefix rather than a member of the set above, because the code is part of
- * the path. The page behind it holds the code and redirects; it renders nothing
- * and reads nothing.
+ * A prefix rather than a member of the sets above, because the code is part of
+ * the path. Never redirected away from in either case: the page says whose link
+ * it is and offers the step that fits whether there is a session.
  */
 const publicPrefixes = ['/join/']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (publicPrefixes.some(prefix => to.path.startsWith(prefix))) {
-    // Resolved first, because the page behind an invite link decides where to
-    // send somebody by whether there is a session.
+    // Resolved first, because the page behind an invite link offers a
+    // different step depending on whether there is a session.
     await useSession().resolve()
     return
   }

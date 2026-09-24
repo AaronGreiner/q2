@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
 import { useChallengeArchive, useChallengeRoom } from '~/composables/useChallenge'
 import { useInvite } from '~/composables/useInvite'
-import { usePendingInvite } from '~/composables/usePendingInvite'
+import { useInviteLink } from '~/composables/useInviteLink'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { usePersonProfile, useProfile } from '~/composables/useFriends'
 import { useActivityOverview } from '~/composables/useHome'
@@ -510,6 +510,45 @@ describe('useInvite', () => {
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'invite', action: 'get' })
   })
 
+  /**
+   * Beside the share sheet, because a phone's share sheet does not always
+   * offer the app somebody wants to paste the link into.
+   */
+  it('copies the link and says so', async () => {
+    installBrowser({ share: vi.fn() })
+    const { show } = installFeatureGlobals(inviteApi())
+
+    const invite = useInvite()
+    await vi.waitFor(() => expect(invite.url.value).not.toBe(''))
+
+    await invite.copy()
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://q2.example/join/abc123')
+    expect(show).toHaveBeenCalledWith(de.toast.inviteCopied)
+  })
+
+  /**
+   * The settings row has nothing on screen that would show the new link, so
+   * it is the one place replacing says so — and only when it actually worked.
+   */
+  it('confirms a replacement from the settings only when there is a new code', async () => {
+    installBrowser()
+    const api = inviteApi()
+    const { show } = installFeatureGlobals(api)
+
+    const invite = useInvite()
+    await vi.waitFor(() => expect(invite.code.value).toBe('abc123'))
+
+    await invite.replaceAndConfirm()
+    expect(invite.code.value).toBe('def456')
+    expect(show).toHaveBeenCalledWith(de.toast.inviteReplaced)
+
+    show.mockClear()
+    api.invite.regenerate.mockRejectedValueOnce(new Error('offline'))
+    await invite.replaceAndConfirm()
+    expect(show).not.toHaveBeenCalled()
+  })
+
   it('reloads when replacing fails, and replaces one at a time', async () => {
     installBrowser()
     const api = inviteApi()
@@ -537,21 +576,88 @@ describe('useInvite', () => {
   })
 })
 
-describe('usePendingInvite', () => {
-  it('is one piece of state, shared by the link and the form', () => {
-    const store = new Map<string, unknown>()
+describe('useInviteLink', () => {
+  const notFound = { ...failure, kind: 'notFound' as const, status: 404 }
 
-    vi.stubGlobal('useState', (key: string, init: () => unknown) => {
-      if (!store.has(key)) store.set(key, ref(init()))
-      return store.get(key)
+  function linkApi(overrides: Record<string, unknown> = {}) {
+    return {
+      invite: {
+        preview: vi.fn().mockResolvedValue({ displayName: 'Jonas', initials: 'JO', avatarColor: 'indigo', relation: null }),
+        accept: vi.fn().mockResolvedValue(person()),
+        ...overrides,
+      },
+    }
+  }
+
+  it('says whose link it is', async () => {
+    const api = linkApi()
+    installFeatureGlobals(api)
+
+    const link = useInviteLink('abc123')
+    await vi.waitFor(() => expect(link.isLoading.value).toBe(false))
+
+    expect(api.invite.preview).toHaveBeenCalledWith('abc123')
+    expect(link.preview.value?.displayName).toBe('Jonas')
+    expect(link.error.value).toBeNull()
+  })
+
+  /**
+   * A link that was replaced is an answer, not an incident: it arrives as a
+   * state the page can word, and `report` is what keeps it out of Sentry.
+   */
+  it('turns a code that means nothing into a state rather than an exception', async () => {
+    const api = linkApi({ preview: vi.fn().mockRejectedValue(new Error('404')) })
+    const { report } = installFeatureGlobals(api)
+    report.mockReturnValue(notFound)
+
+    const link = useInviteLink('stale')
+    await vi.waitFor(() => expect(link.error.value).toEqual(notFound))
+
+    expect(link.preview.value).toBeNull()
+  })
+
+  it('accepts, says so, and hands back who sent it', async () => {
+    const api = linkApi()
+    const { show } = installFeatureGlobals(api)
+
+    const link = useInviteLink('abc123')
+    const sender = await link.accept()
+
+    expect(api.invite.accept).toHaveBeenCalledWith('abc123')
+    expect(sender?.id).toBe('person-1')
+
+    // Without the name: a toast is out of reach of what keeps names out of
+    // Session Replay.
+    expect(show).toHaveBeenCalledWith(de.toast.befriended)
+  })
+
+  it('keeps a failed accept on screen and accepts one at a time', async () => {
+    let release: (value: unknown) => void = () => {}
+    const api = linkApi({
+      accept: vi.fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockImplementation(() => new Promise((resolve) => {
+          release = resolve
+        })),
     })
+    const { show } = installFeatureGlobals(api)
 
-    const fromLink = usePendingInvite()
-    fromLink.value = 'abc123'
+    const link = useInviteLink('abc123')
 
-    // Not a cookie and not local storage: a code that outlived the visit would
-    // sit in the browser of somebody who decided not to sign up.
-    expect(usePendingInvite().value).toBe('abc123')
+    expect(await link.accept()).toBeNull()
+    expect(link.acceptFailure.value).toEqual(failure)
+    expect(show).not.toHaveBeenCalled()
+
+    const first = link.accept()
+    await nextTick()
+    expect(link.isAccepting.value).toBe(true)
+    expect(link.acceptFailure.value).toBeNull()
+
+    expect(await link.accept()).toBeNull()
+    expect(api.invite.accept).toHaveBeenCalledTimes(2)
+
+    release(person())
+    await first
   })
 })
 
