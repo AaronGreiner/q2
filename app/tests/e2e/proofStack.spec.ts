@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
+import { createGoal } from './support/createGoal'
 
 /**
  * A friend's photograph, decided on the start screen with a swipe.
@@ -15,10 +16,7 @@ const friend = { name: 'E2E Jonas', email: 'e2e.jonas@kudos.example' }
 test('a friend\'s photograph waits on the start screen, opens full screen and is believed with a swipe', async ({ page, browser }, testInfo) => {
   const title = `E2E swipe ${Date.now()}`
 
-  await page.goto('/goals?create=1')
-  await page.getByTestId('goal-title-input').fill(title)
-  await page.getByTestId('goal-friend-picker').getByText(friend.name).click()
-  await page.getByTestId('goal-submit').click()
+  await createGoal(page, { title, friend: friend.name })
 
   await page.getByTestId('goal-card').filter({ hasText: title }).click()
   await page.getByTestId('goal-open-chat').click()

@@ -23,9 +23,24 @@ const zone = useTimeZoneOffset()
 
 const time = computed(() => formatChatTime(props.chat.lastMessageAt, props.now, t.value, zone.value))
 
+/**
+ * What comes next on your own goal, when the row would otherwise only repeat
+ * something that happened to it: "Heute fällig · noch 9 Std.". Null when there
+ * is nothing to deliver right now, or when somebody wrote something newer.
+ */
+const nextStep = computed(() => {
+  const window = props.chat.goalCurrent
+  const quiet = !props.chat.lastMessage && !props.chat.lastMessageHasPhoto
+  if (!window?.acceptsProof || !quiet) return null
+
+  const left = deadlineLeft(window.dueAt, props.now, t.value)
+  return left ? t.value.chats.nextStep(windowLabel(window, t.value), left) : windowLabel(window, t.value)
+})
+
 /** "Du: ", "Lena: ", or nothing at all in a direct chat. */
 const preview = computed(() => {
   if (props.chat.awaitingMyVote) return t.value.chats.awaitingVote
+  if (nextStep.value) return nextStep.value
   if (props.chat.lastEvent) return t.value.chats.lastEvent[props.chat.lastEvent]
   if (!props.chat.lastMessage && !props.chat.lastMessageHasPhoto) return t.value.chats.empty
 

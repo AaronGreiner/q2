@@ -500,6 +500,37 @@ public sealed class GoalService(
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
 
+    /// <summary>Moves or removes the daily reminder of one of your own running goals.</summary>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">It has stopped.</exception>
+    public async Task<GoalResponse> SetReminderAsync(
+        Guid id,
+        SetReminderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        if (!goal.SetReminder(request.ReminderAt))
+        {
+            throw new DomainValidationException("Goal", "This goal has already stopped.");
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+
+        // Only the owner's own devices: nobody else is shown the reminder.
+        notifier.Touch([me.Id], LiveArea.Goals, goal.Id);
+        await notifier.FlushAsync(cancellationToken);
+
+        logger.LogInformation("The reminder of goal {GoalId} was changed", goal.Id);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
     /// <summary>
     /// Deletes a stopped goal outright — history, photographs and chat, for
     /// everybody on it.

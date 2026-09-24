@@ -13,9 +13,17 @@ import type { Goal } from '~/api/types'
  * closed by other people believing a photograph. So the row has three states
  * rather than two, and the middle one is the new one — *wird geprüft*, which is
  * neither done nor still to do.
+ *
+ * **How long is left is said, not implied.** "Heute fällig" alone left people
+ * guessing at four in the afternoon whether it was already too late, and the
+ * reminder's clock beside it read as a deadline. So an open window counts
+ * down to its end once the end is less than a day away, and the reminder
+ * carries a bell rather than a clock.
  */
 const props = withDefaults(defineProps<{
   goal: Goal
+  /** The shared clock (`useNow`), for the countdown. */
+  now: number
   busy?: boolean
 }>(), {
   busy: false,
@@ -31,6 +39,14 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
 const isDelivered = computed(() => !currentWindow.value || currentWindow.value.remainingProofs === 0)
 const isWaiting = computed(() => Boolean(currentWindow.value?.pendingProofId))
 const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && !props.busy)
+
+/** Only within the last day, and only while something is still owed. */
+const left = computed(() => {
+  const window = currentWindow.value
+  if (!window || isDelivered.value || isWaiting.value) return null
+  if (Date.parse(window.dueAt) - props.now > 86_400_000) return null
+  return deadlineLeft(window.dueAt, props.now, t.value)
+})
 </script>
 
 <template>
@@ -127,22 +143,39 @@ const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && 
           {{ scheduleLabel(goal.schedule, t) }}
         </span>
 
+        <!-- "Heute fällig" says nothing the countdown beside it does not, so
+             it gives way to it; "Noch 2 von 3" says something else and stays. -->
         <span
-          v-if="currentWindow"
+          v-if="currentWindow && !(left && currentWindow.requiredProofs === 1)"
           class="text-[11px] font-bold text-(--ui-text-muted)"
           data-testid="window-remaining"
         >{{ windowLabel(currentWindow, t) }}</span>
 
         <span
-          v-if="reminder && !isWaiting"
-          class="flex items-center gap-1 text-[11px] font-semibold text-(--ui-text-dimmed)"
+          v-if="left"
+          class="flex items-center gap-1 text-[11px] font-bold text-(--ui-text-toned)"
+          data-testid="window-left"
         >
           <UIcon
-            name="i-lucide-clock"
+            name="i-lucide-hourglass"
             class="size-3"
             aria-hidden="true"
           />
-          {{ reminder }}
+          {{ left }}
+        </span>
+
+        <span
+          v-if="reminder && !isWaiting && !isDelivered"
+          class="flex items-center gap-1 text-[11px] font-semibold text-(--ui-text-dimmed)"
+          data-testid="window-reminder"
+        >
+          <UIcon
+            name="i-lucide-bell"
+            class="size-3"
+            aria-hidden="true"
+          />
+          <span aria-hidden="true">{{ reminder }}</span>
+          <span class="sr-only">{{ t.window.reminderAt(reminder) }}</span>
         </span>
       </div>
     </NuxtLink>

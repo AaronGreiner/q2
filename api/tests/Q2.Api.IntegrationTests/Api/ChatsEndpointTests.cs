@@ -30,7 +30,8 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         GoalEventKind? LastEvent,
         Guid? GoalId,
         bool IsMyGoal,
-        bool AwaitingMyVote);
+        bool AwaitingMyVote,
+        WindowDocument? GoalCurrent);
 
     private sealed record ReactionDocument(KudosKind Kind, int Count, bool IsMine);
 
@@ -65,7 +66,8 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int? ConfirmedProofs,
         int? RequiredProofs,
         DateOnly? Until,
-        ProofDocument? Proof);
+        ProofDocument? Proof,
+        DateOnly? Day);
 
     private sealed record ThreadDocument(
         Guid Id,
@@ -74,7 +76,10 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int MemberCount,
         PinnedGoalDocument? PinnedGoal,
         IReadOnlyList<MessageDocument> Messages,
-        IReadOnlyList<EventDocument> Events);
+        IReadOnlyList<EventDocument> Events,
+        IReadOnlyList<MemberDocument> Members);
+
+    private sealed record MemberDocument(Guid Id, string DisplayName);
 
     private async Task<IReadOnlyList<SummaryDocument>> ListAsync(string query = "") =>
         await (await Client.GetAsync($"/api/chats{query}", TestContext.Current.CancellationToken))
@@ -203,6 +208,71 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task AWindowLineCarriesTheDayItWasDueOn()
+    {
+        var thread = await ThreadAsync(AutomatedTestSeed.SharedGoalConversationId);
+
+        // The day, not the moment it was settled: a run of missed windows is
+        // often settled in one go, and the thread has to say which days they were.
+        var windows = thread.Events.Where(entry => entry.Kind == GoalEventKind.WindowDone).ToList();
+
+        Assert.All(windows, entry => Assert.NotNull(entry.Day));
+        Assert.Equal(windows.Select(entry => entry.Day).Order(), windows.Select(entry => entry.Day));
+        Assert.Null(thread.Events[0].Day);
+    }
+
+    [Fact]
+    public async Task AThreadListsItsMembersWithTheReaderFirst()
+    {
+        var thread = await ThreadAsync(AutomatedTestSeed.SharedGoalConversationId);
+
+        Assert.Equal(thread.MemberCount, thread.Members.Count);
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, thread.Members[0].Id);
+        Assert.Contains(thread.Members, member => member.Id == AutomatedTestSeed.FriendPersonId);
+    }
+
+    [Fact]
+    public async Task AMissedWindowIsInTheThreadButNeverTheRowsPreview()
+    {
+        // Two days on, the daily window that was open has been missed, and so
+        // has yesterday's.
+        var clock = (FixedTimeProvider)Factory.Services.GetRequiredService<TimeProvider>();
+        clock.Set(Q2ApiFactory.Now + TimeSpan.FromDays(2));
+
+        // Reading what is due is what catches the goal up (GoalMaintenance).
+        (await Client.GetAsync("/api/today", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+
+        var thread = await ThreadAsync(AutomatedTestSeed.SharedGoalConversationId);
+        var missed = thread.Events.Where(entry => entry.Kind == GoalEventKind.WindowMissed).ToList();
+
+        Assert.NotEmpty(missed);
+        Assert.All(missed, entry => Assert.NotNull(entry.Day));
+
+        var row = (await ListAsync()).Single(chat => chat.Id == AutomatedTestSeed.SharedGoalConversationId);
+
+        Assert.NotEqual(GoalEventKind.WindowMissed, row.LastEvent);
+        Assert.True(row.LastMessageAt < missed[0].At);
+
+        // What the owner's row offers instead: the window that is open now.
+        Assert.NotNull(row.GoalCurrent);
+    }
+
+    [Fact]
+    public async Task OnlyTheOwnersRowCarriesTheOpenWindow()
+    {
+        var mine = (await ListAsync()).Single(chat => chat.Id == AutomatedTestSeed.SharedGoalConversationId);
+
+        Assert.True(mine.IsMyGoal);
+        Assert.NotNull(mine.GoalCurrent);
+        Assert.Null((await DirectRowAsync()).GoalCurrent);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirs = (await ListAsync(friend)).Single(chat => chat.Id == AutomatedTestSeed.SharedGoalConversationId);
+
+        Assert.Null(theirs.GoalCurrent);
+    }
+
+    [Fact]
     public async Task APhotographArrivesInTheGoalsConversationAndIsVotedOnThere()
     {
         var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
@@ -264,9 +334,13 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(1, shown.Votes.DoubtCount);
         Assert.Empty(shown.Votes.ConfirmedBy);
 
-        // The doubter is in the thread as a member, and still not attached to
-        // the photograph anywhere in it.
-        Assert.DoesNotContain(AutomatedTestSeed.FriendPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+        // The doubter is in the thread as a member — listed as one under
+        // `members` — and still not attached to the photograph anywhere: not in
+        // the events, which is where every photograph and its vote live.
+        var events = System.Text.Json.Nodes.JsonNode.Parse(body)!["events"]!.ToJsonString();
+
+        Assert.DoesNotContain(AutomatedTestSeed.FriendPersonId.ToString(), events, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(AutomatedTestSeed.FriendPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

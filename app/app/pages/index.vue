@@ -10,7 +10,7 @@ import type { Image } from '~/api/types'
  */
 const t = useMessages()
 const now = useNow()
-const theme = useTheme()
+const zone = useTimeZoneOffset()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
@@ -52,9 +52,20 @@ async function handIn(image: Image) {
   return result.status === 'refused' ? result.message : null
 }
 
-// Only the first few: the whole list is one tap away under "Alle anzeigen",
-// and a start screen that shows everything is not a start screen.
-const nextDue = computed(() => due.value.slice(0, 3))
+/*
+ * The one thing to do next, at the top — unless the evening warning is up,
+ * whose cards already are the next thing to do, with their own camera.
+ */
+const upNext = computed(() => (profile.value?.atRisk.length ? null : nextUp(due.value)))
+
+// Only the first few, most urgent first and without the one already at the
+// top: the whole list is one tap away under "Alle anzeigen", and a start screen
+// that shows everything is not a start screen.
+const nextDue = computed(() => byDeadline(due.value)
+  .filter(goal => goal.id !== upNext.value?.id)
+  .slice(0, 3))
+
+const todayIndex = computed(() => weekdayIndex(now.value, zone.value))
 
 // The same for friends: the newest three, and the rest under "Alle anzeigen".
 // Your own goals are not repeated here at all — they have the To-Dos tab.
@@ -81,16 +92,24 @@ useHead({ title: () => t.value.nav.home })
         -->
         <NotificationBell :count="counts.unseenNotifications" />
 
-        <UButton
-          :icon="theme.isDark.value ? 'i-lucide-sun' : 'i-lucide-moon'"
-          color="neutral"
-          variant="outline"
-          size="lg"
-          :ui="{ base: 'size-11 justify-center rounded-full' }"
-          :aria-label="theme.isDark.value ? t.settings.themeLight : t.settings.themeDark"
-          data-testid="theme-toggle"
-          @click="theme.toggle()"
-        />
+        <!--
+          You, one tap from your profile. Light and dark used to sit here, which
+          is a setting people choose once; it lives under the settings now.
+        -->
+        <NuxtLink
+          v-if="profile"
+          to="/profile"
+          class="flex size-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          :aria-label="t.home.openProfile"
+          data-testid="home-profile"
+        >
+          <AppAvatar
+            :initials="profile.person.initials"
+            :color="profile.person.avatarColor"
+            :image-id="profile.person.avatarImageId"
+            :size="44"
+          />
+        </NuxtLink>
       </template>
     </AppScreenHeader>
 
@@ -115,32 +134,6 @@ useHead({ title: () => t.value.nav.home })
       />
 
       <template v-else-if="profile">
-        <StreakHero
-          :streak="profile.streak"
-          :week="profile.weekActivity"
-        />
-
-        <TodayProgressCard
-          class="mt-3"
-          :today="profile.today"
-          :streak="profile.streak"
-        />
-
-        <!--
-          The offer with nothing at stake, and it sits below the streak and
-          above everything with a deadline. It is not urgent and must not look
-          it; it is also the one thing on this screen that is simply nice, so
-          it comes before the list of what is owed.
-
-          Absent entirely on a day with no challenge running — a banner reading
-          "nothing today" is furniture.
-        -->
-        <ChallengeBanner
-          v-if="challenge"
-          class="mt-3"
-          :room="challenge"
-        />
-
         <!--
           Your own windows that are about to go, above everything else on the
           screen. They are the only thing here with a deadline tonight.
@@ -151,7 +144,7 @@ useHead({ title: () => t.value.nav.home })
         -->
         <section
           v-if="profile.atRisk.length > 0"
-          class="mt-3"
+          class="mb-3"
           aria-labelledby="risk-heading"
         >
           <h2
@@ -171,6 +164,38 @@ useHead({ title: () => t.value.nav.home })
             />
           </div>
         </section>
+
+        <!-- Otherwise the open window that closes first, with the camera. -->
+        <NextUpCard
+          v-else-if="upNext"
+          class="mb-3"
+          :goal="upNext"
+          :now="now"
+          :busy="isDelivering"
+          @deliver="deliveringFor = $event"
+        />
+
+        <StreakHero
+          :streak="profile.streak"
+          :week="profile.weekActivity"
+          :today="profile.today"
+          :today-index="todayIndex"
+        />
+
+        <!--
+          The offer with nothing at stake, and it sits below the streak and
+          above everything with a deadline. It is not urgent and must not look
+          it; it is also the one thing on this screen that is simply nice, so
+          it comes before the list of what is owed.
+
+          Absent entirely on a day with no challenge running — a banner reading
+          "nothing today" is furniture.
+        -->
+        <ChallengeBanner
+          v-if="challenge"
+          class="mt-3"
+          :room="challenge"
+        />
 
         <!--
           The one thing on this screen that is somebody else's business, and
@@ -208,7 +233,10 @@ useHead({ title: () => t.value.nav.home })
           />
         </section>
 
+        <!-- Not drawn when the only thing due is already at the top: saying
+             "nothing on today" under it would be wrong. -->
         <section
+          v-if="nextDue.length > 0 || due.length === 0"
           class="mt-6"
           aria-labelledby="today-heading"
         >
@@ -235,6 +263,7 @@ useHead({ title: () => t.value.nav.home })
               v-for="goal in nextDue"
               :key="goal.id"
               :goal="goal"
+              :now="now"
               :busy="isDelivering"
               @deliver="deliveringFor = $event"
             />

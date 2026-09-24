@@ -945,6 +945,68 @@
         }
       }
     },
+    "/api/goals/{id}/reminder": {
+      "put": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Moves the daily reminder of one of your own running goals, or removes it with null.",
+        "operationId": "SetGoalReminder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/images": {
       "post": {
         "tags": [
@@ -2975,7 +3037,8 @@
           "pinnedGoal",
           "messages",
           "isMuted",
-          "events"
+          "events",
+          "members"
         ],
         "type": "object",
         "properties": {
@@ -3041,6 +3104,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GoalEventResponse"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonSummary"
             }
           }
         }
@@ -3164,7 +3233,8 @@
           "lastEvent",
           "goalId",
           "isMyGoal",
-          "awaitingMyVote"
+          "awaitingMyVote",
+          "goalCurrent"
         ],
         "type": "object",
         "properties": {
@@ -3244,6 +3314,18 @@
           },
           "awaitingMyVote": {
             "type": "boolean"
+          },
+          "goalCurrent": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalInstanceResponse"
+              }
+            ]
           }
         }
       },
@@ -3635,7 +3717,8 @@
           "confirmedProofs",
           "requiredProofs",
           "until",
-          "proof"
+          "proof",
+          "day"
         ],
         "type": "object",
         "properties": {
@@ -3687,6 +3770,11 @@
                 "$ref": "#/components/schemas/ProofResponse"
               }
             ]
+          },
+          "day": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
           }
         }
       },
@@ -4926,6 +5014,16 @@
           },
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "SetReminderRequest": {
+        "type": "object",
+        "properties": {
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
           }
         }
       },

@@ -51,6 +51,8 @@ function goal(overrides: Partial<Goal> = {}): Goal {
 }
 
 describe('StreakHero', () => {
+  const today = { done: 2, total: 4, percent: 50 }
+
   /**
    * The flame is lit only for something that has been earned.
    * Lighting it at zero would leave nothing to show somebody on the day they
@@ -58,7 +60,7 @@ describe('StreakHero', () => {
    */
   it('lights only the flame once there is an earned streak', async () => {
     const started = await mountSuspended(StreakHero, {
-      props: { streak: 5, week: [true, true, false, false, false, false, false] },
+      props: { streak: 5, week: [true, true, false, false, false, false, false], today, todayIndex: 2 },
     })
 
     expect(started.get('[data-testid="streak-hero"]').attributes()).toHaveProperty('data-lit')
@@ -66,7 +68,7 @@ describe('StreakHero', () => {
     expect(started.text()).toContain('5')
 
     const empty = await mountSuspended(StreakHero, {
-      props: { streak: 0, week: [false, false, false, false, false, false, false] },
+      props: { streak: 0, week: [false, false, false, false, false, false, false], today, todayIndex: 2 },
     })
 
     expect(empty.get('[data-testid="streak-hero"]').attributes()).not.toHaveProperty('data-lit')
@@ -76,14 +78,38 @@ describe('StreakHero', () => {
   /** Seven letters read out one at a time tell a screen reader nothing. */
   it('draws the week decoratively, and keeps it out of Session Replay', async () => {
     const wrapper = await mountSuspended(StreakHero, {
-      props: { streak: 2, week: [true, false, true, false, false, false, false] },
+      props: { streak: 2, week: [true, false, true, false, false, false, false], today, todayIndex: 3 },
     })
 
-    const week = wrapper.get('ul')
+    const week = wrapper.get('[data-testid="streak-week"]')
 
     expect(week.attributes('aria-hidden')).toBe('true')
     expect(week.attributes()).toHaveProperty('data-q2-block')
     expect(week.findAll('li')).toHaveLength(7)
+
+    // Said once, as a sentence, instead.
+    expect(wrapper.text()).toContain('Diese Woche an 2 Tagen dabei')
+  })
+
+  /** Each pill answers something: kept, today, or still to come. */
+  it('marks what was kept, where today is, and what is still to come', async () => {
+    const wrapper = await mountSuspended(StreakHero, {
+      props: { streak: 2, week: [true, false, true, true, false, false, false], today, todayIndex: 3 },
+    })
+
+    const states = wrapper.findAll('[data-testid="streak-week"] li').map(pill => pill.attributes('data-state'))
+    expect(states).toEqual(['done', 'past', 'done', 'todayDone', 'future', 'future', 'future'])
+  })
+
+  /** The streak is said once; today sits beside it as a ring, not as a second card. */
+  it('says the streak once and today as a ring', async () => {
+    const wrapper = await mountSuspended(StreakHero, {
+      props: { streak: 5, week: [false, false, false, false, false, false, false], today, todayIndex: 0 },
+    })
+
+    expect(wrapper.text()).not.toContain('5-Tage-Streak')
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
+    expect(wrapper.get('[data-testid="today-progress"]').text()).toContain('2/4')
   })
 })
 

@@ -2,11 +2,11 @@
 import type { Friend } from '~/api/types'
 
 /**
- * A friend, with the two things you can do about them: write to them, or stop
- * being friends.
+ * A friend, and the thing you do with them most: write to them.
  *
- * Removing is destructive and ends the friendship for both people, so the page
- * asks before it happens — this component only says that it was asked for.
+ * Ending the friendship is not here. It sat beside the message button, one
+ * slip of the thumb from the action people press every day; it is on their
+ * profile now, behind the ellipsis and a question (pages/people/[id].vue).
  */
 const props = defineProps<{
   friend: Friend
@@ -15,7 +15,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   message: [id: string]
-  remove: [id: string]
 }>()
 
 const t = useMessages()
@@ -64,27 +63,13 @@ const subtitle = computed(() => {
 
     <button
       type="button"
-      class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="-me-1 flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) bg-(--q2-accent-soft) text-(--q2-accent-soft-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.friends.message}: ${friend.person.displayName}`"
       data-testid="friend-message"
       @click="emit('message', friend.person.id)"
     >
       <UIcon
         name="i-lucide-message-circle"
-        class="size-[17px]"
-        aria-hidden="true"
-      />
-    </button>
-
-    <button
-      type="button"
-      class="flex size-11 shrink-0 items-center justify-center rounded-(--q2-radius-md) text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-      :aria-label="`${t.friends.remove}: ${friend.person.displayName}`"
-      data-testid="friend-remove"
-      @click="emit('remove', friend.person.id)"
-    >
-      <UIcon
-        name="i-lucide-user-minus"
         class="size-[17px]"
         aria-hidden="true"
       />

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
+import { createGoal } from './support/createGoal'
 
 /**
  * A goal and its conversation, as one thing: made in front of a friend, the
@@ -24,10 +25,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   const title = `E2E goal chat ${Date.now()}`
 
   // Made with a friend, which is the only way a goal is made now.
-  await page.goto('/goals?create=1')
-  await page.getByTestId('goal-title-input').fill(title)
-  await page.getByTestId('goal-friend-picker').getByText(friend.name).click()
-  await page.getByTestId('goal-submit').click()
+  await createGoal(page, { title, friend: friend.name })
 
   // Its conversation exists the moment it does, one tap from the goal.
   await page.getByTestId('goal-card').filter({ hasText: title }).click()
@@ -91,10 +89,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
 test('a refused photograph stays on the sheet, and a delivered one is followed to its conversation', async ({ page }) => {
   const title = `E2E follow ${Date.now()}`
 
-  await page.goto('/goals?create=1')
-  await page.getByTestId('goal-title-input').fill(title)
-  await page.getByTestId('goal-friend-picker').getByText(friend.name).click()
-  await page.getByTestId('goal-submit').click()
+  await createGoal(page, { title, friend: friend.name })
 
   const uploads: string[] = []
   page.on('request', (request) => {

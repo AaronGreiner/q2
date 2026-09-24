@@ -19,6 +19,7 @@ type Tab = 'today' | 'goals'
 const route = useRoute()
 const router = useRouter()
 const t = useMessages()
+const now = useNow()
 
 const tab = computed<Tab>({
   get: () => (route.query.tab === 'goals' ? 'goals' : 'today'),
@@ -41,6 +42,9 @@ const isSheetOpen = computed({
 })
 
 const { goals, due, error, isLoading, refresh, create, isCreating, createError } = useGoals()
+
+/** What still wants a photograph first, each group by the deadline closest to now. */
+const dueSorted = computed(() => byDeadline(due.value))
 
 // Who can be asked to check a new goal. The sheet only offers friends, which
 // is the server's rule too.
@@ -138,14 +142,15 @@ useHead({ title: () => t.value.goals.heading })
           </h2>
 
           <div
-            v-if="due.length > 0"
+            v-if="dueSorted.length > 0"
             class="flex flex-col gap-2.5"
             data-testid="due-list"
           >
             <GoalWindowRow
-              v-for="goal in due"
+              v-for="goal in dueSorted"
               :key="goal.id"
               :goal="goal"
+              :now="now"
               :busy="isDelivering"
               @deliver="deliveringFor = $event"
             />

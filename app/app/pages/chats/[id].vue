@@ -39,6 +39,8 @@ useHead({ bodyAttrs: { class: 'q2-body-surface' } })
 const route = useRoute()
 const t = useMessages()
 const now = useNow()
+const zone = useTimeZoneOffset()
+const { person: me } = useSession()
 
 const id = computed(() => String(route.params.id))
 const {
@@ -60,6 +62,9 @@ const {
 
 /** Messages and what happened to the goal, as one thread by time. */
 const items = computed(() => (chat.value ? threadItems(chat.value.messages, chat.value.events) : []))
+
+/** The same, with a separator per day and a run of misses folded into one line. */
+const rows = computed(() => threadRows(items.value, now.value, t.value, zone.value))
 
 /**
  * The camera, for the owner, while the open window takes a photograph —
@@ -137,6 +142,14 @@ const status = computed(() => {
  */
 const isLeaveOpen = ref(false)
 
+/** Who is in it, and the way to its goal — behind a tap on the header. */
+const isInfoOpen = ref(false)
+
+function askToLeave() {
+  isInfoOpen.value = false
+  isLeaveOpen.value = true
+}
+
 onMounted(async () => {
   // The badge in the tab bar counts unread conversations, and this one is not
   // one any more.
@@ -168,34 +181,42 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         />
       </NuxtLink>
 
-      <AppAvatar
-        :initials="chat.initials"
-        :color="chat.avatarColor"
-        :image-id="chat.avatarImageId"
-        :icon="chat.icon"
-        :size="38"
-        :online="chat.isOnline"
-        :expand-title="chat.name"
-      />
+      <!-- The name is the way in to who is here and what it is about. The
+           avatar does not open full screen from here: a second target inside
+           this one would be two things under one thumb. -->
+      <h1 class="min-w-0 flex-1">
+        <button
+          type="button"
+          class="flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-(--q2-radius-md) text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          aria-haspopup="dialog"
+          data-testid="chat-header-info"
+          @click="isInfoOpen = true"
+        >
+          <AppAvatar
+            :initials="chat.initials"
+            :color="chat.avatarColor"
+            :image-id="chat.avatarImageId"
+            :icon="chat.icon"
+            :size="38"
+            :online="chat.isOnline"
+          />
 
-      <div
-        class="min-w-0 flex-1"
-        data-q2-private
-      >
-        <h1 class="truncate text-[15px] font-extrabold">
-          {{ chat.name }}
-        </h1>
-        <p class="truncate text-[11px] font-bold text-(--ui-text-muted)">
-          {{ status }}
-        </p>
-      </div>
+          <span
+            class="min-w-0 flex-1"
+            data-q2-private
+          >
+            <span class="block truncate text-[15px] font-extrabold">{{ chat.name }}</span>
+            <span class="block truncate text-[11px] font-bold text-(--ui-text-muted)">{{ status }}</span>
+            <span class="sr-only">{{ t.chats.openInfo }}</span>
+          </span>
+        </button>
+      </h1>
 
       <!-- Grey in both states: muting is a state, not something waiting to be
            done. The last button in the row pulls into the edge padding. -->
       <button
         type="button"
-        class="flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :class="{ '-me-2': chat.kind !== 'Group' }"
+        class="-me-2 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
         :aria-label="chat.isMuted ? t.chats.unmute : t.chats.mute"
         :aria-pressed="chat.isMuted"
         data-testid="mute-chat"
@@ -203,23 +224,6 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       >
         <UIcon
           :name="chat.isMuted ? 'i-lucide-bell-off' : 'i-lucide-bell'"
-          class="size-5"
-          aria-hidden="true"
-        />
-      </button>
-
-      <!-- Only a group can be left; a direct conversation is between the two
-           of you and there would be nothing left of it. -->
-      <button
-        v-if="chat.kind === 'Group'"
-        type="button"
-        class="-me-2 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text-muted) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="t.chats.leaveGroup"
-        data-testid="leave-group"
-        @click="isLeaveOpen = true"
-      >
-        <UIcon
-          name="i-lucide-log-out"
           class="size-5"
           aria-hidden="true"
         />
@@ -284,11 +288,26 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           data-testid="chat-messages"
         >
           <template
-            v-for="item in items"
+            v-for="item in rows"
             :key="item.key"
           >
+            <li
+              v-if="item.kind === 'day'"
+              class="my-2 flex list-none justify-center"
+              data-testid="chat-day"
+            >
+              <span class="text-[11px] font-bold tracking-wide text-(--ui-text-dimmed) uppercase">{{ item.label }}</span>
+            </li>
+
+            <ChatMissedRun
+              v-else-if="item.kind === 'missedRun'"
+              :from="item.from"
+              :to="item.to"
+              :count="item.count"
+            />
+
             <ChatBubble
-              v-if="item.kind === 'message'"
+              v-else-if="item.kind === 'message'"
               :message="item.message"
               :now="now"
               @react="react"
@@ -346,6 +365,14 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       v-model:open="isPhotoOpen"
       purpose="ChatPhoto"
       @uploaded="onPhotoPicked"
+    />
+
+    <ChatInfoSheet
+      v-if="chat"
+      v-model:open="isInfoOpen"
+      :chat="chat"
+      :me-id="me?.id ?? null"
+      @leave="askToLeave"
     />
 
     <AppConfirmDialog

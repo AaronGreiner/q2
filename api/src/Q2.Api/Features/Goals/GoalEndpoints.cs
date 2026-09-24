@@ -74,6 +74,13 @@ public static class GoalEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        goals.MapPut("/{id:guid}/reminder", SetReminder)
+            .WithName("SetGoalReminder")
+            .WithSummary("Moves the daily reminder of one of your own running goals, or removes it with null.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         goals.MapDelete("/{id:guid}", DeleteGoal)
             .WithName("DeleteGoal")
             .WithSummary("Deletes a stopped goal outright, for everybody on it.")
@@ -166,6 +173,13 @@ public static class GoalEndpoints
         CloseGoalRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await goals.CloseAsync(id, request, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> SetReminder(
+        GoalService goals,
+        Guid id,
+        SetReminderRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.SetReminderAsync(id, request, cancellationToken));
 
     private static async Task<NoContent> DeleteGoal(
         GoalService goals,

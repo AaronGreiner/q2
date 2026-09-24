@@ -386,6 +386,26 @@ public sealed class Goal
         return true;
     }
 
+    /// <summary>
+    /// Moves the daily reminder, or takes it away with null.
+    /// </summary>
+    /// <remarks>
+    /// The one thing about a running goal its owner may change on their own:
+    /// it nudges only them, so nobody who agreed to check the goal agreed to
+    /// anything it touches. A stopped goal keeps whatever it had, because
+    /// there is nothing left to be reminded of. Returns false then.
+    /// </remarks>
+    public bool SetReminder(TimeOnly? reminderAt)
+    {
+        if (IsClosed)
+        {
+            return false;
+        }
+
+        ReminderAt = reminderAt;
+        return true;
+    }
+
     /// <summary>True once this goal has stopped and belongs in the archive.</summary>
     public bool IsClosed => Status != GoalStatus.Active;
 

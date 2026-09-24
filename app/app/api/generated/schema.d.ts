@@ -314,6 +314,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/{id}/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Moves the daily reminder of one of your own running goals, or removes it with null. */
+        put: operations["SetGoalReminder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/images": {
         parameters: {
             query?: never;
@@ -1087,6 +1104,7 @@ export interface components {
             messages: components["schemas"]["ChatMessageResponse"][];
             isMuted: boolean;
             events: components["schemas"]["GoalEventResponse"][];
+            members: components["schemas"]["PersonSummary"][];
         };
         ChatMessageResponse: {
             /** Format: uuid */
@@ -1137,6 +1155,7 @@ export interface components {
             goalId: string | null;
             isMyGoal: boolean;
             awaitingMyVote: boolean;
+            goalCurrent: null | components["schemas"]["GoalInstanceResponse"];
         };
         CloseGoalRequest: {
             completed?: boolean | null;
@@ -1253,6 +1272,8 @@ export interface components {
             /** Format: date */
             until: string | null;
             proof: null | components["schemas"]["ProofResponse"];
+            /** Format: date */
+            day: string | null;
         };
         GoalInstanceResponse: {
             /** Format: uuid */
@@ -1606,6 +1627,10 @@ export interface components {
         SessionResponse: {
             person: components["schemas"]["PersonSummary"];
             email: string;
+        };
+        SetReminderRequest: {
+            /** Format: time */
+            reminderAt?: string | null;
         };
         SettingsResponse: {
             theme: components["schemas"]["ThemePreference"];
@@ -2413,6 +2438,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CloseGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    SetGoalReminder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetReminderRequest"];
             };
         };
         responses: {

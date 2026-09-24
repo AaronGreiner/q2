@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { deliverPhoto } from './support/proofPhoto'
+import { createGoal } from './support/createGoal'
 
 /**
  * The flows q2 exists for, through a real browser at phone width.
@@ -33,7 +34,10 @@ test.describe('the start screen', () => {
     await page.goto('/')
 
     await expect(page.getByTestId('streak-hero')).toContainText('5')
-    await expect(page.getByTestId('today-progress')).toContainText('von')
+
+    // The streak is said once, with today beside it as a ring.
+    await expect(page.getByTestId('streak-hero')).not.toContainText('5-Tage-Streak')
+    await expect(page.getByTestId('today-progress').getByRole('progressbar', { name: /heute geliefert/ })).toBeVisible()
 
     await expect(page.getByText(seeded.sharedGoal).first()).toBeVisible()
     await expect(page.getByTestId('activity-row').first()).toContainText(seeded.friend)
@@ -52,16 +56,19 @@ test.describe('the start screen', () => {
   test('delivering a proof closes the window and moves the day', async ({ page }) => {
     await page.goto('/')
 
-    const row = page.getByTestId('window-row').filter({ hasText: seeded.zeroProgressGoal })
+    // Wherever it is on the screen: the card at the top if it closes first,
+    // otherwise a row under "Heute".
+    const due = page.locator('[data-testid="window-row"], [data-testid="next-up"]')
+    const row = due.filter({ hasText: seeded.zeroProgressGoal })
 
     // The camera opens from the row, and the file fallback stands in for it —
     // the same way somebody without a working camera delivers.
-    await row.getByTestId('window-deliver').click()
+    await row.locator('[data-testid="window-deliver"], [data-testid="next-up-deliver"]').click()
     await deliverPhoto(page)
 
     // This goal has nobody on it, so there is nobody to convince: the
     // photograph is believed at once and the window closes.
-    await expect(page.getByTestId('window-row').filter({ hasText: seeded.zeroProgressGoal })).toHaveCount(0)
+    await expect(due.filter({ hasText: seeded.zeroProgressGoal })).toHaveCount(0)
 
     // The ring is derived from the same windows, so it has to have moved. Read
     // off its value rather than its text: "40%" contains "0%", and what else is
@@ -86,15 +93,14 @@ test.describe('the start screen', () => {
     await expect(button).toContainText(String(before))
   })
 
-  test('the theme can be switched from the header', async ({ page }) => {
+  test('the header leads to your own profile', async ({ page }) => {
     await page.goto('/')
 
-    const html = page.locator('html')
-    const wasDark = (await html.getAttribute('class'))?.includes('dark') ?? false
+    // Light and dark used to sit here; that is a setting, and it lives there.
+    await expect(page.getByTestId('theme-toggle')).toHaveCount(0)
 
-    await page.getByTestId('theme-toggle').click()
-
-    await expect(html).toHaveClass(wasDark ? /light/ : /dark/)
+    await page.getByTestId('home-profile').click()
+    await expect(page).toHaveURL('/profile')
   })
 })
 
@@ -155,6 +161,7 @@ test.describe('goals', () => {
     await expect(page.getByRole('heading', { name: seeded.sharedGoal })).toBeVisible()
     await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '0')
     await expect(page.getByTestId('goal-team-member')).toContainText([seeded.friend, 'E2E Lena'])
+    await expect(page.getByRole('heading', { name: 'Wer dich prüft' })).toBeVisible()
     await expect(page.getByTestId('history-grid')).toBeVisible()
   })
 
@@ -193,17 +200,26 @@ test.describe('goals', () => {
 
     const title = `E2E created goal ${Date.now()}`
     await page.getByTestId('goal-title-input').fill(title)
+    await page.getByTestId('icon-flame').click()
+    await page.getByTestId('goal-next').click()
+
     await page.getByTestId('schedule-kind-Times').click()
     await page.getByTestId('schedule-times-3').click()
-    await page.getByTestId('icon-flame').click()
 
     // The preview says, in the words the card will use, what is about to be
     // created.
     await expect(page.getByTestId('schedule-preview')).toContainText('3× pro Woche')
+    await page.getByTestId('goal-next').click()
 
-    // Nobody to check it, nothing to create.
-    await expect(page.getByTestId('goal-submit')).toBeDisabled()
+    // Nobody to check it, no way on.
+    await expect(page.getByTestId('goal-next')).toBeDisabled()
     await page.getByTestId('goal-friend-picker').getByText(seeded.friend).click()
+    await page.getByTestId('goal-next').click()
+
+    // The summary says when the first window ends — a quota's is the end of
+    // the week — before anything is committed.
+    await expect(page.getByTestId('goal-create-review')).toContainText(title)
+    await expect(page.getByTestId('goal-first-window')).toContainText('Dein erstes Fenster endet')
 
     await page.getByTestId('goal-submit').click()
 
@@ -216,21 +232,32 @@ test.describe('goals', () => {
     await page.goto('/goals?create=1')
 
     const title = `E2E weekdays goal ${Date.now()}`
-    await page.getByTestId('goal-title-input').fill(title)
-    await page.getByTestId('schedule-kind-Weekdays').click()
-    await page.getByTestId('schedule-weekday-Thursday').click()
-    await page.getByTestId('goal-friend-picker').getByText(seeded.friend).click()
-    await page.getByTestId('goal-submit').click()
+    await createGoal(page, {
+      title,
+      friend: seeded.friend,
+      rhythm: async (sheet) => {
+        await sheet.getByTestId('schedule-kind-Weekdays').click()
+        await sheet.getByTestId('schedule-weekday-Thursday').click()
+      },
+    })
 
     await expect(page.getByTestId('goal-list').filter({ hasText: title })).toBeVisible()
   })
 
-  test('creating a goal without a title is refused with a field message', async ({ page }) => {
+  test('creating a goal without a title goes no further than the first step', async ({ page }) => {
     await page.goto('/goals?create=1')
 
     // The button stays out of reach rather than sending something the server
     // would only reject.
-    await expect(page.getByTestId('goal-submit')).toBeDisabled()
+    await expect(page.getByTestId('goal-next')).toBeDisabled()
+  })
+
+  test('an idea fills the first step in one tap', async ({ page }) => {
+    await page.goto('/goals?create=1')
+
+    await page.getByTestId('goal-template-read').click()
+    await expect(page.getByTestId('goal-title-input')).toHaveValue('Jeden Tag lesen')
+    await expect(page.getByTestId('goal-next')).toBeEnabled()
   })
 })
 
@@ -262,8 +289,15 @@ test.describe('chats', () => {
     await expect(page.getByTestId('chat-goal-banner')).toContainText(seeded.sharedGoal)
     await expect(page.getByTestId('chat-event').first()).toContainText('Du hast das Ziel erstellt.')
 
-    // Everybody on the goal is in it, and nobody can walk out of it.
+    // Everybody on the goal is in it, and nobody can walk out of it. The
+    // header opens who they are, and the way to the goal itself.
+    await page.getByTestId('chat-header-info').click()
+    const members = page.getByTestId('chat-info-member')
+    await expect(members.first()).toContainText('Du')
+    await expect(members.filter({ hasText: seeded.friend })).toHaveCount(1)
     await expect(page.getByTestId('leave-group')).toHaveCount(0)
+    await page.getByTestId('chat-info-goal').click()
+    await expect(page).toHaveURL(`/goals/${seeded.sharedGoalId}`)
   })
 
   test('opening a thread marks it read', async ({ page }) => {
@@ -362,6 +396,9 @@ test.describe('chats', () => {
     await expect(page).toHaveURL(/\/chats\//)
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
 
+    // Leaving is behind the header, with the members, not beside the mute switch.
+    await page.getByTestId('chat-header-info').click()
+    await expect(page.getByTestId('chat-info-member').first()).toContainText('Du')
     await page.getByTestId('leave-group').click()
     await page.getByTestId('confirm-accept').click()
 
@@ -465,11 +502,14 @@ test.describe('friends', () => {
 })
 
 test.describe('profile and settings', () => {
-  test('the profile shows the streak, the badges and your own history', async ({ page }) => {
+  test('the profile shows the streak once, what was completed, and your own history', async ({ page }) => {
     await page.goto('/profile')
 
     await expect(page.getByRole('heading', { name: seeded.me })).toBeVisible()
-    await expect(page.getByTestId('badge-grid')).toContainText('Streak-Held')
+    await expect(page.getByText('Abgeschlossen', { exact: true })).toBeVisible()
+
+    // Badges are gone until something awards them.
+    await expect(page.getByTestId('badge-grid')).toHaveCount(0)
     await expect(page.getByTestId('own-activity')).toBeVisible()
   })
 

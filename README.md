@@ -33,11 +33,11 @@ Fifteen screens, and everything behind them:
 | Screen | What it does |
 | --- | --- |
 | **Anmeldung** | Sign in, or create an account with a name, an email address and a password — or ask for a link that sets a new one |
-| **Start** | Streak with the current week, how much of today is delivered, the photographs waiting for your verdict, the windows that are open, the next three due, the three newest things friends did, and a bell that counts what concerns you |
-| **To-Dos** | The middle of the tab bar: what is due today under one tab, the goals themselves under the other; the plus in its header opens a bottom sheet, the only place that creates a goal with one of four schedules and at least one friend to check it — or offers the invite link to somebody who has none yet |
+| **Start** | The one window to deliver next, with how long it has left and the camera; the streak with today as a ring and a week that shows what was kept; the photographs waiting for your verdict, the next three due by deadline, the three newest things friends did, a bell that counts what concerns you, and your picture as the way to your profile — see [docs/adr/0032](docs/adr/0032-the-next-step-first.md) |
+| **To-Dos** | The middle of the tab bar: what is due today under one tab, the goals themselves under the other; every open window counts down to its end once it is less than a day away; the plus in its header opens a bottom sheet, the only place that creates a goal — in four steps: what (or one of six ideas), how often and when to be reminded, which friends check it, and a summary of when the first window ends — or offers the invite link to somebody who has none yet |
 | **Archiv** | The goals that have stopped, kept with their history and photographs — and the only place one can be deleted for good |
-| **Chats** | Three sections: your goals, friends' goals, and free conversations. Every goal has its own conversation with everybody on it, where its photographs arrive and are voted on and where each window is seen to be kept or missed; direct and group conversations are about no goal. Messages and photographs, kudos in three registers and no ready-made replies ([docs/adr/0029](docs/adr/0029-photographs-in-conversations.md)); a reply arrives while the list or the thread is open, and any conversation can be muted — see [docs/adr/0027](docs/adr/0027-goal-conversations.md) |
-| **Suche** | Find anybody by name or handle; below that your incoming requests, the ones you sent, suggestions, and your friends |
+| **Chats** | Three sections: your goals, friends' goals, and free conversations. Every goal has its own conversation with everybody on it, where its photographs arrive and are voted on and where each window is seen to be kept or missed, a run of misses folded into one dated line; its header opens who is in it and the way to the goal, and your own goal's row says what is due next rather than what was missed; direct and group conversations are about no goal. Messages and photographs, kudos in three registers and no ready-made replies ([docs/adr/0029](docs/adr/0029-photographs-in-conversations.md)); a reply arrives while the list or the thread is open, and any conversation can be muted — see [docs/adr/0027](docs/adr/0027-goal-conversations.md) |
+| **Freunde** | Find anybody by name or handle; below that your incoming requests, the ones you sent, suggestions, and your friends. The route is still `/search` |
 | **Abstimmen** | A friend's photograph, what they promised, and the two buttons that decide whether it counted — one card at a time |
 | **Blockierte** | Who you have blocked, and the one button that undoes it. Never who blocked you |
 | **Challenge** | The prompt of the day and the room of friends who answered it — covered until you have contributed one yourself |
@@ -45,8 +45,8 @@ Fifteen screens, and everything behind them:
 | **Aktivität** | Everything friends have been up to |
 | **Mitteilungen** | What happened to you — a new friendship, a verdict on your photograph, kudos and reactions, an invitation or a pause, a friend about to miss — newest first with what is new on top. Opening it clears the bell; a line is swiped away, and "Alle löschen" deletes everything that was on the screen |
 | **Benachrichtigungen** | One switch per kind of notification, this device's permission, and the quiet hours — under the settings |
-| **Personen** | Somebody else's profile, and their record over the to-dos they let you in on |
-| **Profil** | Streak, kudos, completed goals, the badge collection, your own history — plus editing your name and profile picture, and the settings behind it |
+| **Personen** | Somebody else's profile, and their record over the to-dos they let you in on; behind "…" ending the friendship, and reporting or blocking |
+| **Profil** | Streak, kudos, completed goals, your own history — plus editing your name and profile picture, and the settings behind it. Badges are hidden until something awards them |
 | **Beweisfotos** | Every photograph you have delivered, by month, whatever the vote made of it — the newest on your profile, all of them one tap further, each full size with a way back to its goal. Only yours, and only you see them |
 
 | Area | What exists |

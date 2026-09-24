@@ -1,6 +1,6 @@
 import type { Messages } from '~/i18n/messages'
 import type { ChatMessage, GoalEvent, Proof } from '~/api/types'
-import { formatDay } from './display'
+import { addDays, formatDay, formatWeekdayDay, localDay } from './display'
 
 /**
  * One row of a thread: something somebody wrote, a photograph with its vote,
@@ -45,6 +45,97 @@ export function threadItems(messages: readonly ChatMessage[], events: readonly G
 }
 
 /**
+ * What the thread actually draws: the items, a separator wherever the day
+ * changes, and a run of missed windows folded into one line.
+ */
+export type ThreadRow
+  = | ThreadItem
+    | { kind: 'day', key: string, label: string }
+    | { kind: 'missedRun', key: string, from: string, to: string, count: number }
+
+/**
+ * The items as rows, with day separators and missed windows folded together.
+ *
+ * Two or more missed windows in a row, with nothing said in between, become
+ * one line — "7.–23.9. · 15 Fenster verpasst". Fifteen identical lines tell
+ * nobody anything more than the one does, and they bury what people wrote.
+ * The days come from the windows (`day`), not from when the misses were
+ * settled, because a run is usually settled in one go the next time anybody
+ * looks.
+ *
+ * A separator goes before what people said and sent — messages and
+ * photographs — when the day has changed. A line about a window carries its
+ * own day instead ("Geschafft · Streak 3 · 3.9."): a daily goal has one on
+ * every day, and a separator above each would double the thread.
+ *
+ * `offsetMinutes` is the reader's zone, zero until hydration — see
+ * `useTimeZoneOffset`.
+ */
+export function threadRows(items: readonly ThreadItem[], now: number, t: Messages, offsetMinutes = 0): ThreadRow[] {
+  const folded: ThreadRow[] = []
+
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index]!
+    let end = index
+
+    if (isMissed(item)) {
+      while (isMissed(items[end + 1])) end++
+    }
+
+    if (end > index) {
+      const run = items.slice(index, end + 1)
+      const days = run.map(entry => windowDay(entry, offsetMinutes)).sort()
+
+      folded.push({
+        kind: 'missedRun',
+        key: `missed:${item.key}`,
+        from: formatDay(days[0]!),
+        to: formatDay(days.at(-1)!),
+        count: run.length,
+      })
+      index = end
+      continue
+    }
+
+    folded.push(item)
+  }
+
+  const today = localDay(now, offsetMinutes)
+  const rows: ThreadRow[] = []
+  let current: string | null = null
+
+  for (const row of folded) {
+    if (row.kind === 'message' || row.kind === 'proof') {
+      const day = localDay(Date.parse(row.at), offsetMinutes)
+
+      if (day !== current) {
+        rows.push({ kind: 'day', key: `day:${day}`, label: dayLabel(day, today, t) })
+        current = day
+      }
+    }
+
+    rows.push(row)
+  }
+
+  return rows
+}
+
+function isMissed(item: ThreadItem | undefined): boolean {
+  return item?.kind === 'event' && item.event.kind === 'WindowMissed'
+}
+
+function windowDay(item: ThreadItem, offsetMinutes: number): string {
+  if (item.kind !== 'message' && item.event.day) return item.event.day
+  return localDay(Date.parse(item.at), offsetMinutes)
+}
+
+function dayLabel(day: string, today: string, t: Messages): string {
+  if (day === today) return t.chats.dayToday
+  if (day === addDays(today, -1)) return t.chats.dayYesterday
+  return formatWeekdayDay(day, t)
+}
+
+/**
  * The sentence for a line in the thread.
  *
  * `actorName` is null for the reader's own doing, which the catalogue words as
@@ -56,10 +147,17 @@ export function goalEventText(event: GoalEvent, t: Messages): string {
   switch (event.kind) {
     case 'Created':
       return t.chats.event.created(name)
-    case 'WindowDone':
-      return t.chats.event.windowDone(event.streak ?? 0)
-    case 'WindowMissed':
-      return t.chats.event.windowMissed(event.confirmedProofs ?? 0, event.requiredProofs ?? 1)
+    // A window's line says which day it was: the thread puts no separator
+    // above it (see threadRows), and a miss is settled whenever somebody next
+    // looks, so where it sits does not say so either.
+    case 'WindowDone': {
+      const text = t.chats.event.windowDone(event.streak ?? 0)
+      return event.day ? t.chats.onDay(text, formatDay(event.day)) : text
+    }
+    case 'WindowMissed': {
+      const text = t.chats.event.windowMissed(event.confirmedProofs ?? 0, event.requiredProofs ?? 1)
+      return event.day ? t.chats.onDay(text, formatDay(event.day)) : text
+    }
     case 'PauseStarted':
       return t.chats.event.pauseStarted(name, event.until ? formatDay(event.until) : '')
     case 'PauseEnded':

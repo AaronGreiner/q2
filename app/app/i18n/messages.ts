@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { BadgeKey, GoalEventKind, GoalStatus, KudosKind, QuotaPeriod } from '../api/types'
+import type { GoalEventKind, GoalStatus, KudosKind, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -32,7 +32,7 @@ export const de = {
   nav: {
     label: 'Hauptnavigation',
     home: 'Start',
-    search: 'Suche',
+    friends: 'Freunde',
     todos: 'To-Dos',
     chats: 'Chats',
     profile: 'Profil',
@@ -103,10 +103,11 @@ export const de = {
     streakEncouragement: 'Stark dran! Heute dranbleiben hält die Serie am Leben.',
     streakStart: 'Noch keine Serie — der erste Haken von heute startet sie.',
     todayHeading: 'Heute',
-    todayDone: 'Heute geschafft',
     todaySummary: (done: number, total: number) => `${done} von ${total} heute geliefert`,
     todayShort: 'heute',
-    goalsHeading: 'Deine Ziele',
+    weekSummary: (days: number) => (days === 1 ? 'Diese Woche an 1 Tag dabei' : `Diese Woche an ${days} Tagen dabei`),
+    nextUpHeading: 'Als Nächstes',
+    openProfile: 'Profil öffnen',
     feedHeading: 'Aktivität deiner Freunde',
     noTasks: 'Für heute steht nichts an.',
     noTasksHint: 'Leg unter To-Dos ein Ziel an, dann taucht es hier auf.',
@@ -128,7 +129,6 @@ export const de = {
     streakDays: (days: number) => (days === 1 ? '1 Fenster' : `${days} Fenster`),
     reminder: 'Erinnerung',
     noReminder: 'Keine',
-    sharedWith: 'Gemeinsam mit',
     cheer: 'Anfeuern',
     balance: 'Bilanz',
     balanceValue: (done: number, missed: number) => `${done} · ${missed}`,
@@ -145,6 +145,15 @@ export const de = {
     overdue: 'Überfällig',
     archive: 'Archiv',
     openChat: 'Zum Chat',
+    moreActions: 'Weitere Aktionen',
+    teamMine: 'Wer dich prüft',
+    teamTheirs: 'Dabei',
+    owner: 'Ziel von',
+    reminderEdit: 'Erinnerung ändern',
+    reminderSubtitle: 'Wann möchtest du an dieses Ziel erinnert werden?',
+    reminderTime: 'Uhrzeit',
+    reminderSave: 'Speichern',
+    reminderRemove: 'Keine Erinnerung',
   },
 
   /**
@@ -221,6 +230,29 @@ export const de = {
     noFriendsHint: 'Ein Ziel braucht jemanden, der es prüft. Lade zuerst einen Freund ein.',
     submit: 'Ziel erstellen',
     open: 'Neues Ziel anlegen',
+    next: 'Weiter',
+    stepOf: (step: number, total: number) => `Schritt ${step} von ${total}`,
+    steps: ['Ziel', 'Rhythmus', 'Prüfer', 'Übersicht'],
+    templatesLabel: 'Oder nimm eine Vorlage',
+    templates: {
+      run: '3× pro Woche laufen',
+      read: 'Jeden Tag lesen',
+      water: '2 L Wasser am Tag',
+      early: 'Vor 7 Uhr aufstehen',
+      gym: '2× pro Woche ins Gym',
+      tidy: 'Jeden Sonntag aufräumen',
+    },
+    friendsSearch: 'Freunde durchsuchen',
+    friendsNoMatch: 'Niemand mit diesem Namen.',
+    reminderTimeLabel: 'Uhrzeit der Erinnerung',
+    reviewTitle: 'Ziel',
+    reviewSchedule: 'Rhythmus',
+    reviewFriends: 'Prüfer',
+    reviewReminder: 'Erinnerung',
+    reviewNoReminder: 'Keine',
+    firstWindowToday: 'Dein erstes Fenster endet heute um Mitternacht.',
+    firstWindowTomorrow: 'Dein erstes Fenster endet morgen um Mitternacht.',
+    firstWindowOn: (day: string) => `Dein erstes Fenster endet am ${day} um Mitternacht.`,
   },
 
   /**
@@ -263,6 +295,11 @@ export const de = {
     missed: 'Verpasst',
     open: 'Offen',
     paused: 'Ausgesetzt',
+    leftMinutes: (minutes: number) => `noch ${minutes} Min.`,
+    leftHours: (hours: number) => `noch ${hours} Std.`,
+    leftDays: (days: number) => (days === 1 ? 'noch 1 Tag' : `noch ${days} Tage`),
+    endsNow: 'läuft gerade ab',
+    reminderAt: (time: string) => `Erinnerung um ${time}`,
   },
 
   status: {
@@ -356,15 +393,24 @@ export const de = {
       Completed: 'Abgeschlossen',
       Stopped: 'Beendet',
     } satisfies Record<GoalEventKind, string>,
+
+    openInfo: 'Info zur Unterhaltung',
+    infoMembers: 'Mitglieder',
+    toGoal: 'Zum Ziel',
+    dayToday: 'Heute',
+    dayYesterday: 'Gestern',
+    onDay: (text: string, day: string) => `${text} · ${day}`,
+    dayRange: (from: string, to: string) => `${from}–${to}`,
+    missedRun: (count: number, range: string) => `${range} · ${count} Fenster verpasst`,
+    nextStep: (label: string, left: string) => `${label} · ${left}`,
   },
 
   friends: {
     heading: 'Freunde',
 
-    // The screen is called "Suche" — you get to it by looking for somebody —
-    // while `heading` stays the word for the section of people you already
-    // know, which is further down the same screen.
-    pageHeading: 'Suche',
+    // The screen and its tab are "Freunde": requests, suggestions and the
+    // people you know are most of it, and finding somebody is the box on top.
+    pageHeading: 'Freunde',
     searchPlaceholder: 'Nach Name oder @handle suchen …',
     searchHeading: 'Suchergebnisse',
     searchHint: (minimum: number) => `Gib mindestens ${minimum} Zeichen ein.`,
@@ -394,10 +440,7 @@ export const de = {
     heading: 'Profil',
     streak: 'Streak',
     kudos: 'Kudos',
-    goals: 'Ziele',
-    streakBadge: (days: number) => `${days}-Tage-Streak`,
-    badges: 'Abzeichen',
-    badgeLocked: 'noch nicht erreicht',
+    goals: 'Abgeschlossen',
     activity: 'Letzte Aktivität',
     noActivity: 'Noch nichts passiert.',
     noActivityHint: 'Hak eine Aufgabe ab — sie steht dann hier.',
@@ -772,6 +815,9 @@ export const de = {
     addFriend: 'Hinzufügen',
     requestSent: 'Angefragt',
     requestReceived: 'Möchte dich hinzufügen',
+    moreActions: 'Weitere Aktionen',
+    removeFriend: 'Als Freund entfernen',
+    reportOrBlock: 'Melden oder blockieren',
     notFound: 'Diese Person gibt es nicht.',
     notFoundHint: 'Vielleicht wurde das Konto gelöscht.',
   },
@@ -794,15 +840,6 @@ export const de = {
     save: 'Speichern',
     handleFixed: 'Dein Kürzel bleibt, wie es ist — deine Freunde haben es aufgeschrieben.',
   },
-
-  badges: {
-    StreakHero: 'Streak-Held',
-    EarlyBird: 'Frühaufsteher',
-    Bookworm: 'Bücherwurm',
-    KudosGiver: 'Kudos-Geber',
-    Marathon: 'Marathon',
-    WeeklyWinner: 'Wochensieger',
-  } satisfies Record<BadgeKey, string>,
 
   settings: {
     notificationsOn: 'Auf diesem Gerät einschalten',
@@ -959,7 +996,7 @@ export const en: Messages = {
   nav: {
     label: 'Main navigation',
     home: 'Home',
-    search: 'Search',
+    friends: 'Friends',
     todos: 'To-dos',
     chats: 'Chats',
     profile: 'Profile',
@@ -1030,10 +1067,11 @@ export const en: Messages = {
     streakEncouragement: 'Going strong. One more today keeps it alive.',
     streakStart: 'No streak yet — the first tick today starts one.',
     todayHeading: 'Today',
-    todayDone: 'Done today',
     todaySummary: (done: number, total: number) => `${done} of ${total} delivered today`,
     todayShort: 'today',
-    goalsHeading: 'Your goals',
+    weekSummary: (days: number) => (days === 1 ? 'Active on 1 day this week' : `Active on ${days} days this week`),
+    nextUpHeading: 'Up next',
+    openProfile: 'Open profile',
     feedHeading: 'What your friends did',
     noTasks: 'Nothing on today.',
     noTasksHint: 'Add a goal under To-dos and it will show up here.',
@@ -1055,7 +1093,6 @@ export const en: Messages = {
     streakDays: (days: number) => (days === 1 ? '1 window' : `${days} windows`),
     reminder: 'Reminder',
     noReminder: 'None',
-    sharedWith: 'Together with',
     cheer: 'Cheer on',
     balance: 'Balance',
     balanceValue: (done: number, missed: number) => `${done} · ${missed}`,
@@ -1072,6 +1109,15 @@ export const en: Messages = {
     overdue: 'Overdue',
     archive: 'Archive',
     openChat: 'Open chat',
+    moreActions: 'More actions',
+    teamMine: 'Who checks you',
+    teamTheirs: 'On it',
+    owner: 'Goal of',
+    reminderEdit: 'Change reminder',
+    reminderSubtitle: 'When would you like to be reminded of this goal?',
+    reminderTime: 'Time',
+    reminderSave: 'Save',
+    reminderRemove: 'No reminder',
   },
 
   pause: {
@@ -1141,6 +1187,29 @@ export const en: Messages = {
     noFriendsHint: 'A goal needs somebody to check it. Invite a friend first.',
     submit: 'Create goal',
     open: 'Add a goal',
+    next: 'Next',
+    stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
+    steps: ['Goal', 'Rhythm', 'Checkers', 'Summary'],
+    templatesLabel: 'Or start from an idea',
+    templates: {
+      run: 'Run 3× a week',
+      read: 'Read every day',
+      water: 'Drink 2 L of water a day',
+      early: 'Get up before 7',
+      gym: 'Gym 2× a week',
+      tidy: 'Tidy up every Sunday',
+    },
+    friendsSearch: 'Search friends',
+    friendsNoMatch: 'Nobody by that name.',
+    reminderTimeLabel: 'Reminder time',
+    reviewTitle: 'Goal',
+    reviewSchedule: 'Rhythm',
+    reviewFriends: 'Checkers',
+    reviewReminder: 'Reminder',
+    reviewNoReminder: 'None',
+    firstWindowToday: 'Your first window ends tonight at midnight.',
+    firstWindowTomorrow: 'Your first window ends tomorrow at midnight.',
+    firstWindowOn: (day: string) => `Your first window ends on ${day} at midnight.`,
   },
 
   schedule: {
@@ -1175,6 +1244,11 @@ export const en: Messages = {
     missed: 'Missed',
     open: 'Open',
     paused: 'Set aside',
+    leftMinutes: (minutes: number) => `${minutes} min left`,
+    leftHours: (hours: number) => `${hours} h left`,
+    leftDays: (days: number) => (days === 1 ? '1 day left' : `${days} days left`),
+    endsNow: 'ending now',
+    reminderAt: (time: string) => `Reminder at ${time}`,
   },
 
   status: {
@@ -1259,11 +1333,21 @@ export const en: Messages = {
       Completed: 'Completed',
       Stopped: 'Stopped',
     } satisfies Record<GoalEventKind, string>,
+
+    openInfo: 'Conversation info',
+    infoMembers: 'Members',
+    toGoal: 'Open goal',
+    dayToday: 'Today',
+    dayYesterday: 'Yesterday',
+    onDay: (text: string, day: string) => `${text} · ${day}`,
+    dayRange: (from: string, to: string) => `${from}–${to}`,
+    missedRun: (count: number, range: string) => `${range} · ${count} windows missed`,
+    nextStep: (label: string, left: string) => `${label} · ${left}`,
   },
 
   friends: {
     heading: 'Friends',
-    pageHeading: 'Search',
+    pageHeading: 'Friends',
     searchPlaceholder: 'Search by name or @handle …',
     searchHeading: 'Search results',
     searchHint: (minimum: number) => `Type at least ${minimum} characters.`,
@@ -1293,10 +1377,7 @@ export const en: Messages = {
     heading: 'Profile',
     streak: 'Streak',
     kudos: 'Kudos',
-    goals: 'Goals',
-    streakBadge: (days: number) => `${days}-day streak`,
-    badges: 'Badges',
-    badgeLocked: 'not earned yet',
+    goals: 'Completed',
     activity: 'Recent activity',
     noActivity: 'Nothing has happened yet.',
     noActivityHint: 'Tick a task off and it will show up here.',
@@ -1594,6 +1675,9 @@ export const en: Messages = {
     addFriend: 'Add',
     requestSent: 'Requested',
     requestReceived: 'Wants to add you',
+    moreActions: 'More actions',
+    removeFriend: 'Remove friend',
+    reportOrBlock: 'Report or block',
     notFound: 'There is no such person.',
     notFoundHint: 'The account may have been deleted.',
   },
@@ -1615,15 +1699,6 @@ export const en: Messages = {
     remove: 'Delete',
     save: 'Save',
     handleFixed: 'Your handle stays as it is — your friends have written it down.',
-  },
-
-  badges: {
-    StreakHero: 'Streak hero',
-    EarlyBird: 'Early bird',
-    Bookworm: 'Bookworm',
-    KudosGiver: 'Kudos giver',
-    Marathon: 'Marathon',
-    WeeklyWinner: 'Weekly winner',
   },
 
   settings: {

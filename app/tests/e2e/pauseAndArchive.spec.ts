@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createGoal as createGoalInSheet } from './support/createGoal'
 
 /**
  * The exits, end to end: setting a goal aside, coming back, stopping it, and
@@ -17,10 +18,7 @@ const reason = 'Grippe, seit Freitag im Bett.'
 async function createGoal(page: import('@playwright/test').Page, name: string): Promise<string> {
   const title = `${name} ${Date.now()}`
 
-  await page.goto('/goals?create=1')
-  await page.getByTestId('goal-title-input').fill(title)
-  await page.getByTestId('goal-friend-picker').getByText('E2E Jonas').click()
-  await page.getByTestId('goal-submit').click()
+  await createGoalInSheet(page, { title, friend: 'E2E Jonas' })
 
   await expect(page.getByTestId('goal-card').filter({ hasText: title })).toBeVisible()
 
@@ -38,7 +36,8 @@ test.describe('setting a goal aside', () => {
     const title = await createGoal(page, 'E2E pause goal')
     await openGoal(page, title)
 
-    await page.getByTestId('goal-pause-open').click()
+    await page.getByTestId('goal-exits').click()
+    await page.getByRole('menuitem', { name: 'Aussetzen' }).click()
 
     // The allowance is on the sheet rather than behind it: it is the thing that
     // makes somebody spend a pause on the week they are actually ill.
@@ -59,7 +58,9 @@ test.describe('setting a goal aside', () => {
     // No window while it is set aside, so nothing to deliver into and nothing
     // to fail.
     await expect(page.getByTestId('goal-deliver-proof')).toBeHidden()
-    await expect(page.getByTestId('goal-pause-open')).toBeHidden()
+    await page.getByTestId('goal-exits').click()
+    await expect(page.getByRole('menuitem', { name: 'Aussetzen' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
 
     // And it says so in the list as well, in grey rather than as a failure.
     await page.goto('/goals?tab=goals')
@@ -85,12 +86,13 @@ test.describe('the archive', () => {
 
     const balance = (await page.getByTestId('goal-balance').innerText()).trim()
 
-    await page.getByTestId('goal-close-open').click()
+    await page.getByTestId('goal-exits').click()
+    await page.getByRole('menuitem', { name: 'Beenden' }).click()
     await page.getByTestId('close-completed').click()
 
     // The exits disappear once it has stopped, which is how we know the write
     // landed before the record is compared.
-    await expect(page.getByTestId('goal-close-open')).toBeHidden()
+    await expect(page.getByTestId('goal-exits')).toBeHidden()
 
     // Stopping is not failing: the record is exactly what it was.
     expect((await page.getByTestId('goal-balance').innerText()).trim()).toBe(balance)
@@ -109,7 +111,8 @@ test.describe('the archive', () => {
     const title = await createGoal(page, 'E2E delete goal')
     await openGoal(page, title)
 
-    await page.getByTestId('goal-close-open').click()
+    await page.getByTestId('goal-exits').click()
+    await page.getByRole('menuitem', { name: 'Beenden' }).click()
     await page.getByTestId('close-archived').click()
 
     await page.goto('/goals/archive')

@@ -2,9 +2,14 @@
 import type { Image, OwnProof } from '~/api/types'
 
 /**
- * Your own profile: who you are, how you are doing, and what you have earned.
+ * Your own profile: who you are, how you are doing, and what you have delivered.
  *
- * Shares the `profile` async-data key with the layout, so the badges in the tab
+ * The streak is said once, as the first of the three numbers. It used to be a
+ * flame pill under the name as well, directly above the same number. The badge
+ * collection is gone from here until badges are actually awarded — until then
+ * it was a shelf of seeded trophies nothing in the product could earn.
+ *
+ * Shares the `profile` async-data key with the layout, so the counts in the tab
  * bar and this screen come from one request.
  *
  * Your photographs are a read of their own rather than part of the profile,
@@ -139,15 +144,6 @@ async function onPhoto(image: Image) {
           <p class="text-[13px] font-semibold text-(--ui-text-muted)">
             {{ profile.person.handle }}
           </p>
-
-          <p class="mt-2.5 flex items-center gap-1.5 rounded-full bg-(--q2-flame-soft) px-3 py-1.5 text-xs font-extrabold text-(--q2-flame-text)">
-            <UIcon
-              name="i-lucide-flame"
-              class="size-3.5"
-              aria-hidden="true"
-            />
-            {{ t.profile.streakBadge(profile.streak) }}
-          </p>
         </section>
 
         <dl
@@ -184,20 +180,6 @@ async function onPhoto(image: Image) {
           class="mt-3"
           :balance="profile.balance"
         />
-
-        <section
-          class="mt-6"
-          aria-labelledby="badges-heading"
-        >
-          <h2
-            id="badges-heading"
-            class="mb-3 px-0.5 text-base font-extrabold"
-          >
-            {{ t.profile.badges }}
-          </h2>
-
-          <BadgeGrid :badges="profile.badges" />
-        </section>
 
         <section
           class="mt-6"

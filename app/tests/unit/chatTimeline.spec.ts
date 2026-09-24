@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { de, en } from '~/i18n/messages'
-import { goalEventIcon, goalEventText, threadItems } from '~/utils/chatTimeline'
+import { goalEventIcon, goalEventText, threadItems, threadRows } from '~/utils/chatTimeline'
 import type { ChatMessage, GoalEvent, Proof } from '~/api/types'
 
 function message(id: string, sentAt: string): ChatMessage {
@@ -19,6 +19,7 @@ function event(key: string, at: string, overrides: Partial<GoalEvent> = {}): Goa
     requiredProofs: 1,
     until: null,
     proof: null,
+    day: null,
     ...overrides,
   }
 }
@@ -92,5 +93,72 @@ describe('goalEventText', () => {
     const mine = event('e', '2026-07-31T09:00:00+00:00', { kind: 'Stopped', isMine: true, actorName: 'Mara' })
 
     expect(goalEventText(mine, de)).toBe('Du hast das Ziel beendet.')
+  })
+})
+
+describe('threadRows', () => {
+  const now = Date.parse('2026-09-24T12:00:00Z')
+
+  function missed(key: string, at: string, day: string) {
+    return event(key, at, { kind: 'WindowMissed', streak: null, confirmedProofs: 0, day })
+  }
+
+  it('folds a run of missed windows into one line with the days they were due', () => {
+    const items = threadItems([], [
+      missed('a', '2026-09-24T08:00:00Z', '2026-09-21'),
+      missed('b', '2026-09-24T08:00:00Z', '2026-09-22'),
+      missed('c', '2026-09-24T08:00:00Z', '2026-09-23'),
+    ])
+
+    const rows = threadRows(items, now, de)
+
+    expect(rows.map(row => row.kind)).toEqual(['missedRun'])
+    expect(rows[0]).toMatchObject({ from: '21.9.', to: '23.9.', count: 3 })
+    expect(de.chats.missedRun(3, de.chats.dayRange('21.9.', '23.9.'))).toBe('21.9.–23.9. · 3 Fenster verpasst')
+  })
+
+  it('leaves a single miss alone, and a message breaks a run', () => {
+    const items = threadItems(
+      [message('m1', '2026-09-24T09:00:00Z')],
+      [
+        missed('a', '2026-09-24T08:00:00Z', '2026-09-21'),
+        missed('b', '2026-09-24T10:00:00Z', '2026-09-22'),
+        missed('c', '2026-09-24T10:00:00Z', '2026-09-23'),
+      ],
+    )
+
+    expect(threadRows(items, now, de).map(row => row.kind)).toEqual(['event', 'day', 'message', 'missedRun'])
+  })
+
+  it('puts a separator wherever the day changes, and names today and yesterday', () => {
+    const items = threadItems(
+      [
+        message('m1', '2026-09-20T09:00:00Z'),
+        message('m2', '2026-09-23T09:00:00Z'),
+        message('m3', '2026-09-24T09:00:00Z'),
+        message('m4', '2026-09-24T10:00:00Z'),
+      ],
+      [],
+    )
+
+    const labels = threadRows(items, now, de)
+      .filter(row => row.kind === 'day')
+      .map(row => (row.kind === 'day' ? row.label : ''))
+
+    expect(labels).toEqual(['So, 20.9.', 'Gestern', 'Heute'])
+  })
+
+  it('says which day a window was, since no separator stands above it', () => {
+    expect(goalEventText(missed('a', '2026-09-24T08:00:00Z', '2026-09-21'), de)).toBe('Verpasst · 21.9.')
+    expect(goalEventText(event('k', '2026-09-24T08:00:00Z', { day: '2026-09-23', streak: 3 }), de)).toBe('Geschafft · Streak 3 · 23.9.')
+  })
+
+  it('puts no separator between lines about the goal', () => {
+    const items = threadItems([], [
+      event('a', '2026-09-22T21:00:00Z', { day: '2026-09-22' }),
+      event('b', '2026-09-23T21:00:00Z', { day: '2026-09-23' }),
+    ])
+
+    expect(threadRows(items, now, de).map(row => row.kind)).toEqual(['event', 'event'])
   })
 })

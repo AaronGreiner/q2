@@ -377,7 +377,6 @@ describe('friend and profile composables', () => {
     await state.decline('request-1')
     await state.request('friend-2')
     await state.withdraw('friend-2')
-    await state.remove('friend-1')
 
     // Every one of them moves a row on the screen, which says it well enough.
     expect(show).not.toHaveBeenCalled()
@@ -386,13 +385,13 @@ describe('friend and profile composables', () => {
 
   it('reports a failed relationship action', async () => {
     const api = socialApi()
-    api.friends.remove.mockRejectedValueOnce(new Error('remove'))
+    api.friends.withdraw.mockRejectedValueOnce(new Error('withdraw'))
     const { report } = installFeatureGlobals(api)
     const state = useFriends()
     await settle()
 
-    await state.remove('friend-1')
-    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'friends', action: 'remove' })
+    await state.withdraw('friend-1')
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'friends', action: 'withdraw' })
   })
 
   it('searches only meaningful terms and clears a failed search', async () => {
@@ -738,6 +737,37 @@ describe('somebody else\'s profile', () => {
     // screen that could filter is a screen that could stop filtering.
     expect(state.person.value).toMatchObject({ sharedGoals: 2, balance: { done: 3, missed: 1 } })
     expect(state.isMissing.value).toBe(false)
+  })
+
+  it('ends a friendship from the profile and reads the lists again', async () => {
+    const api = {
+      profile: { person: vi.fn().mockResolvedValue({ person: { id: 'person-2' }, state: 'Friends' }) },
+      friends: { remove: vi.fn().mockResolvedValue(undefined) },
+    }
+
+    const { refreshNuxtData } = installFeatureGlobals(api)
+    const state = usePersonProfile(ref('person-2'))
+    await vi.waitFor(() => expect(state.person.value).not.toBeNull())
+
+    await expect(state.removeFriend()).resolves.toBe(true)
+    expect(api.friends.remove).toHaveBeenCalledWith('person-2')
+    expect(refreshNuxtData).toHaveBeenCalledWith(['friends', 'counts'])
+    expect(api.profile.person).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports a friendship that could not be ended', async () => {
+    const api = {
+      profile: { person: vi.fn().mockResolvedValue({ person: { id: 'person-2' }, state: 'Friends' }) },
+      friends: { remove: vi.fn().mockRejectedValue(new Error('remove')) },
+    }
+
+    const { report } = installFeatureGlobals(api)
+    const state = usePersonProfile(ref('person-2'))
+    await vi.waitFor(() => expect(state.person.value).not.toBeNull())
+
+    await expect(state.removeFriend()).resolves.toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'friends', action: 'remove' })
+    expect(state.isRemoving.value).toBe(false)
   })
 
   it('treats a person who is gone as a calm state rather than an error', async () => {

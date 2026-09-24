@@ -9,10 +9,11 @@
  * middle is a place now, and creating one is the plus on that screen, the only
  * place a goal is made from.
  *
- * What went to make room for the middle, back when it was the create button,
- * is the friends tab — friends are found where you search for them, and the
- * requests waiting for you are at the top of that screen, so the badge moved
- * with them rather than disappearing.
+ * The second tab is "Freunde". It is the screen with your requests,
+ * suggestions and friends, with the search box on top — it was labelled
+ * "Suche" once, which explained neither its badge (the requests waiting for
+ * you) nor where your friends were. The route is still `/search`, so links and
+ * notifications that point at it keep working.
  *
  * Real links rather than buttons over a tab index: each screen has its own URL,
  * so the browser's back button, a deep link and a Capacitor hardware back
@@ -31,7 +32,7 @@ const t = useMessages()
 
 const items = computed(() => [
   { to: '/', key: 'home', icon: 'i-lucide-house', label: t.value.nav.home },
-  { to: '/search', key: 'search', icon: 'i-lucide-search', label: t.value.nav.search },
+  { to: '/search', key: 'search', icon: 'i-lucide-users', label: t.value.nav.friends },
   { to: '/goals', key: 'todos', icon: 'i-lucide-list-checks', label: t.value.nav.todos },
   { to: '/chats', key: 'chats', icon: 'i-lucide-message-circle', label: t.value.nav.chats },
   { to: '/profile', key: 'profile', icon: 'i-lucide-user', label: t.value.nav.profile },

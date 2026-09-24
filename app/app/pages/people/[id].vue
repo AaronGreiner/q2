@@ -17,12 +17,37 @@ const route = useRoute()
 const t = useMessages()
 
 const id = computed(() => String(route.params.id))
-const { person, error, isMissing, isLoading, refresh } = usePersonProfile(id)
+const { person, error, isMissing, isLoading, refresh, removeFriend } = usePersonProfile(id)
 
 const { isBusy, report, block } = useSafety()
 
 const isReporting = ref(false)
 const isConfirmingBlock = ref(false)
+const isConfirmingRemove = ref(false)
+
+/**
+ * What the ellipsis offers. Ending a friendship is here rather than as an icon
+ * beside "Nachricht schreiben" in the friends list, where it was one slip of
+ * the thumb from the button people press every day.
+ */
+const actions = computed(() => [
+  ...(person.value?.state === 'Friends'
+    ? [{
+        label: t.value.person.removeFriend,
+        icon: 'i-lucide-user-minus',
+        onSelect: () => { isConfirmingRemove.value = true },
+      }]
+    : []),
+  {
+    label: t.value.person.reportOrBlock,
+    icon: 'i-lucide-flag',
+    onSelect: () => { isReporting.value = true },
+  },
+])
+
+async function onRemove() {
+  await removeFriend()
+}
 
 async function onReport(reason: ReportReason, note: string) {
   if (await report('Person', id.value, reason, note)) isReporting.value = false
@@ -64,16 +89,20 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
         v-if="person"
         #actions
       >
-        <UButton
-          icon="i-lucide-ellipsis"
-          color="neutral"
-          variant="outline"
-          size="lg"
-          :ui="{ base: 'size-11 justify-center rounded-full' }"
-          :aria-label="t.safety.report"
-          data-testid="person-actions"
-          @click="isReporting = true"
-        />
+        <UDropdownMenu
+          :items="actions"
+          :content="{ align: 'end' }"
+        >
+          <UButton
+            icon="i-lucide-ellipsis"
+            color="neutral"
+            variant="outline"
+            size="lg"
+            :ui="{ base: 'size-11 justify-center rounded-full' }"
+            :aria-label="t.person.moreActions"
+            data-testid="person-actions"
+          />
+        </UDropdownMenu>
       </template>
     </AppScreenHeader>
 
@@ -128,18 +157,6 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
           <p class="text-[13px] font-semibold text-(--ui-text-muted)">
             {{ person.person.handle }}
           </p>
-
-          <p
-            v-if="person.streak > 0"
-            class="mt-2.5 flex items-center gap-1.5 rounded-full bg-(--q2-flame-soft) px-3 py-1.5 text-xs font-extrabold text-(--q2-flame-text)"
-          >
-            <UIcon
-              name="i-lucide-flame"
-              class="size-3.5"
-              aria-hidden="true"
-            />
-            {{ t.profile.streakBadge(person.streak) }}
-          </p>
         </section>
 
         <dl
@@ -193,6 +210,15 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
       :busy="isBusy"
       @report="onReport"
       @block="askToBlock"
+    />
+
+    <AppConfirmDialog
+      v-model:open="isConfirmingRemove"
+      :title="t.person.removeFriend"
+      :description="t.friends.removeConfirm(person?.person.displayName ?? '')"
+      :confirm-label="t.friends.remove"
+      private-description
+      @confirm="onRemove"
     />
 
     <AppConfirmDialog

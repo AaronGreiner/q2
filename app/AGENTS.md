@@ -105,24 +105,27 @@ Current components, by folder:
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the To-Dos ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
-| `StreakHero` `TodayProgressCard` | the two cards the start screen opens on |
+| `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |
+| `StreakHero` | the streak once, today as a ring beside it, and a week that says what was kept |
 | `GoalCard` | one goal in the list |
-| `GoalWindowRow` | one goal that is due, with the control that delivers into its window |
+| `GoalWindowRow` | one goal that is due, with the control that delivers into its window, the countdown to its end and the reminder under a bell |
 | `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
-| `HistoryGrid` | the windows a goal has been through, deliberately without the accent |
-| `GoalCreateSheet` | the bottom sheet that creates a goal |
+| `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |
+| `GoalReminderSheet` | moving or removing a goal's daily reminder |
+| `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary |
 | `ActivityRow` | one line of the friends' feed, with its kudos button |
 | `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
+| `ChatInfoSheet` | behind a conversation's header: its members, the way to its goal, and leaving a group |
+| `ChatMissedRun` | a run of missed windows as one dated line |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
 | `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
-| `BadgeGrid` | the badge collection, earned and not |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
 
 ## 3. The API layer

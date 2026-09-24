@@ -47,7 +47,6 @@ const {
   decline,
   request,
   withdraw,
-  remove,
 } = useFriends()
 
 const {
@@ -70,29 +69,6 @@ async function onMessage(personId: string) {
   catch (caught) {
     report(caught, { feature: 'friends', action: 'startChat' })
   }
-}
-
-/**
- * Removing ends the friendship for both people, so it asks first. The person
- * being removed is held while the dialog is open rather than passed through it,
- * so the dialog stays a dumb yes/no.
- */
-const pendingRemoval = ref<{ id: string, name: string } | null>(null)
-const isRemoveOpen = ref(false)
-
-function onRemove(personId: string) {
-  const friend = friends.value.find(entry => entry.person.id === personId)
-  if (!friend) return
-
-  pendingRemoval.value = { id: personId, name: friend.person.displayName }
-  isRemoveOpen.value = true
-}
-
-async function confirmRemove() {
-  const target = pendingRemoval.value
-  pendingRemoval.value = null
-
-  if (target) await remove(target.id)
 }
 
 /** A search result changes state on every action, so the list is re-fetched. */
@@ -317,7 +293,6 @@ useHead({ title: () => t.value.friends.pageHeading })
                   :friend="friend"
                   :now="now"
                   @message="onMessage"
-                  @remove="onRemove"
                 />
               </li>
             </ul>
@@ -333,15 +308,5 @@ useHead({ title: () => t.value.friends.pageHeading })
         </template>
       </template>
     </AppContentPanel>
-
-    <AppConfirmDialog
-      v-if="pendingRemoval"
-      v-model:open="isRemoveOpen"
-      :title="t.friends.remove"
-      :description="t.friends.removeConfirm(pendingRemoval.name)"
-      :confirm-label="t.friends.remove"
-      private-description
-      @confirm="confirmRemove"
-    />
   </div>
 </template>

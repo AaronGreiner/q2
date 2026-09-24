@@ -53,7 +53,8 @@ public sealed record GoalEvent(
     int? ConfirmedProofs = null,
     int? RequiredProofs = null,
     DateOnly? Until = null,
-    ProofPhoto? Proof = null)
+    ProofPhoto? Proof = null,
+    DateOnly? Day = null)
 {
     /// <summary>
     /// Unique within one goal. A pause starts and ends, and a goal is created and
@@ -117,7 +118,8 @@ public static class GoalTimeline
                         null,
                         Streak: streak,
                         ConfirmedProofs: instance.ConfirmedProofs,
-                        RequiredProofs: instance.RequiredProofs));
+                        RequiredProofs: instance.RequiredProofs,
+                        Day: instance.DueOn));
                     break;
 
                 case GoalInstanceStatus.Missed:
@@ -128,7 +130,8 @@ public static class GoalTimeline
                         instance.Id,
                         null,
                         ConfirmedProofs: instance.ConfirmedProofs,
-                        RequiredProofs: instance.RequiredProofs));
+                        RequiredProofs: instance.RequiredProofs,
+                        Day: instance.DueOn));
                     break;
 
                 default:

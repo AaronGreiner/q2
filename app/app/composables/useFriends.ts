@@ -68,9 +68,6 @@ export function useFriends() {
   const withdraw = (personId: string) =>
     run('withdraw', () => api.friends.withdraw(personId))
 
-  const remove = (personId: string) =>
-    run('remove', () => api.friends.remove(personId))
-
   return {
     friends,
     requests,
@@ -83,7 +80,6 @@ export function useFriends() {
     decline,
     request,
     withdraw,
-    remove,
   }
 }
 
@@ -267,6 +263,31 @@ export function usePersonProfile(id: Ref<string>) {
   )
 
   const failure = computed(() => data.value?.failure ?? null)
+  const isRemoving = ref(false)
+
+  /**
+   * Ends the friendship from their profile — the place it is decided, rather
+   * than a button beside "Nachricht schreiben" in the friends list. The list
+   * and its counts are read again, and this profile too, because what it may
+   * show has just changed.
+   */
+  async function removeFriend(): Promise<boolean> {
+    if (isRemoving.value) return false
+    isRemoving.value = true
+
+    try {
+      await api.friends.remove(id.value)
+      await Promise.all([refresh(), refreshNuxtData(['friends', 'counts'])])
+      return true
+    }
+    catch (caught) {
+      report(caught, { feature: 'friends', action: 'remove' })
+      return false
+    }
+    finally {
+      isRemoving.value = false
+    }
+  }
 
   return {
     person: computed(() => data.value?.person ?? null),
@@ -277,5 +298,7 @@ export function usePersonProfile(id: Ref<string>) {
     error: computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null)),
     isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
+    removeFriend,
+    isRemoving: computed(() => isRemoving.value),
   }
 }

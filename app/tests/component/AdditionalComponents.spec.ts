@@ -7,7 +7,6 @@ import AppProgressRing from '~/components/ui/AppProgressRing.vue'
 import AppSearchField from '~/components/ui/AppSearchField.vue'
 import AppSegmented from '~/components/ui/AppSegmented.vue'
 import AppToggle from '~/components/ui/AppToggle.vue'
-import BadgeGrid from '~/components/profile/BadgeGrid.vue'
 import ChatBubble from '~/components/chats/ChatBubble.vue'
 import ChatComposer from '~/components/chats/ChatComposer.vue'
 import ChatGoalBanner from '~/components/chats/ChatGoalBanner.vue'
@@ -18,9 +17,7 @@ import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
 import StreakHero from '~/components/home/StreakHero.vue'
-import TodayProgressCard from '~/components/home/TodayProgressCard.vue'
 import type {
-  Badge,
   ChatMessage,
   ChatPinnedGoal,
   ChatSummary,
@@ -338,15 +335,11 @@ describe('chat presentation', () => {
 describe('feature cards and rows', () => {
   it('renders the week and the day progress', async () => {
     const streak = await mountSuspended(StreakHero, {
-      props: { streak: 5, week: [true, true, false, true, false, true, true] },
+      props: { streak: 5, week: [true, true, false, true, false, true, true], today: { done: 2, total: 4, percent: 50 }, todayIndex: 6 },
     })
-    expect(streak.findAll('li')).toHaveLength(7)
+    expect(streak.findAll('[data-testid="streak-week"] li')).toHaveLength(7)
     expect(streak.text()).toContain('5')
-
-    const today = await mountSuspended(TodayProgressCard, {
-      props: { today: { done: 2, total: 4, percent: 50 }, streak: 5 },
-    })
-    expect(today.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
+    expect(streak.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
   })
 
   it('emits both answers to a friend request and a suggestion', async () => {
@@ -365,17 +358,6 @@ describe('feature cards and rows', () => {
     const suggestionRow = await mountSuspended(FriendSuggestionRow, { props: { suggestion } })
     await suggestionRow.get('[data-testid="suggestion-request"]').trigger('click')
     expect(suggestionRow.emitted('request')?.[0]).toEqual(['suggestion-1'])
-  })
-
-  it('names earned and locked badges in words', async () => {
-    const badges = [
-      { key: 'StreakHero', isEarned: true, earnedAt: '2026-07-31T09:00:00Z' },
-      { key: 'EarlyBird', isEarned: false, earnedAt: null },
-    ] as Badge[]
-    const wrapper = await mountSuspended(BadgeGrid, { props: { badges } })
-
-    expect(wrapper.findAll('li')).toHaveLength(2)
-    expect(wrapper.text()).toContain('noch nicht erreicht')
   })
 
   it('renders settings semantics and forwards switch changes', async () => {

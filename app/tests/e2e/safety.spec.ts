@@ -26,6 +26,12 @@ test.describe('blocking somebody', () => {
     await openFriendProfile(page)
 
     await page.getByTestId('person-actions').click()
+
+    // Ending the friendship is offered here, rather than beside "Nachricht"
+    // in the friends list — asked while they still are one, because this test
+    // ends it by blocking.
+    await expect(page.getByRole('menuitem', { name: 'Als Freund entfernen' })).toBeVisible()
+    await page.getByRole('menuitem', { name: 'Melden oder blockieren' }).click()
     await page.getByTestId('report-block').click()
     await page.getByTestId('confirm-accept').click()
 
@@ -65,6 +71,7 @@ test.describe('reporting something', () => {
     await openFriendProfile(page)
 
     await page.getByTestId('person-actions').click()
+    await page.getByRole('menuitem', { name: 'Melden oder blockieren' }).click()
 
     // Said where the buttons are: people do not report a friend if they think
     // the friend will find out.

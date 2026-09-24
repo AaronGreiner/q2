@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
+import type { Activity, Goal, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
 
 /**
  * Presentation logic.
@@ -397,6 +397,106 @@ export function windowOutcome(window: GoalWindow, t: Messages): StatusPresentati
     default:
       return { label: t.window.open, color: 'primary', icon: 'i-lucide-circle-dot' }
   }
+}
+
+/**
+ * How long an open window has left, from the reader's clock: "noch 25 Min.",
+ * "noch 7 Std.", "noch 3 Tage".
+ *
+ * Counted to `dueAt`, the instant the server sends precisely so a client can
+ * count down without knowing the owner's time zone. Minutes are rounded up —
+ * "noch 0 Min." with a minute left would be a lie in the wrong direction.
+ */
+export function deadlineLeft(dueAt: string, now: number, t: Messages): string | null {
+  const due = Date.parse(dueAt)
+  if (Number.isNaN(due)) return null
+
+  const minutes = Math.ceil((due - now) / 60_000)
+  if (minutes <= 0) return t.window.endsNow
+  if (minutes < 60) return t.window.leftMinutes(minutes)
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return t.window.leftHours(hours)
+
+  return t.window.leftDays(Math.floor(hours / 24))
+}
+
+/**
+ * Whether a goal's open window still wants something from its owner: not
+ * delivered in full, and not waiting on a vote.
+ */
+export function isStillOpen(goal: Goal): boolean {
+  const window = goal.current
+  return Boolean(window && window.remainingProofs > 0 && !window.pendingProofId)
+}
+
+/**
+ * The windows that are due, the most urgent first.
+ *
+ * What still wants a photograph comes before what is waiting for a vote, and
+ * both before what is already delivered — each group by its deadline. The
+ * sort is stable, so goals with the same deadline keep the server's order.
+ */
+export function byDeadline(goals: readonly Goal[]): Goal[] {
+  const rank = (goal: Goal) => (isStillOpen(goal) ? 0 : goal.current?.pendingProofId ? 1 : 2)
+  const due = (goal: Goal) => (goal.current ? Date.parse(goal.current.dueAt) : Number.POSITIVE_INFINITY)
+
+  return [...goals].sort((a, b) => rank(a) - rank(b) || due(a) - due(b))
+}
+
+/**
+ * The one thing on the start screen to do next: the open window that closes
+ * first and takes a photograph right now. Null when there is nothing to do.
+ */
+export function nextUp(goals: readonly Goal[]): Goal | null {
+  return byDeadline(goals).find(goal => goal.current?.acceptsProof && isStillOpen(goal)) ?? null
+}
+
+/**
+ * Today's position in a Monday-first week, from the reader's clock.
+ *
+ * `offsetMinutes` is zero on the server and during hydration and corrected
+ * afterwards — see `useTimeZoneOffset`.
+ */
+export function weekdayIndex(now: number, offsetMinutes = 0): number {
+  const day = new Date(now + offsetMinutes * 60_000).getUTCDay()
+  return (day + 6) % 7
+}
+
+export type WeekDayState = 'done' | 'today' | 'todayDone' | 'past' | 'future'
+
+/**
+ * The seven pills under the streak: what was kept, where today is, and what
+ * has not happened yet — so the row answers a question rather than spelling
+ * out the days of the week.
+ */
+export function weekStates(week: readonly boolean[], todayIndex: number): WeekDayState[] {
+  return Array.from({ length: 7 }, (_, index) => {
+    const active = Boolean(week[index])
+    if (index === todayIndex) return active ? 'todayDone' : 'today'
+    if (index > todayIndex) return 'future'
+    return active ? 'done' : 'past'
+  })
+}
+
+/** "Fr, 26.9." — a local day with its weekday, for a separator or a preview. */
+export function formatWeekdayDay(day: string, t: Messages): string {
+  const [year, month, date] = day.split('-').map(Number)
+  if (!year || !month || !date) return day
+
+  const weekday = new Date(Date.UTC(year, month - 1, date)).getUTCDay()
+  return `${t.time.weekdays[weekday] ?? ''}, ${date}.${month}.`
+}
+
+/** The local day an instant falls on, as `YYYY-MM-DD`, in the reader's zone. */
+export function localDay(instant: number, offsetMinutes = 0): string {
+  return new Date(instant + offsetMinutes * 60_000).toISOString().slice(0, 10)
+}
+
+/** `YYYY-MM-DD` moved by whole days. */
+export function addDays(day: string, days: number): string {
+  const [year, month, date] = day.split('-').map(Number)
+  return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (date ?? 1) + days)).toISOString().slice(0, 10)
 }
 
 /**

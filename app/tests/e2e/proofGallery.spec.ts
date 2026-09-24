@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { deliverPhoto } from './support/proofPhoto'
+import { createGoal } from './support/createGoal'
 
 /**
  * Your own photographs, found again on your profile (issue #42).
@@ -16,10 +17,7 @@ const friend = { name: 'E2E Jonas' }
 test('a delivered photograph is on your profile, in your gallery and full size', async ({ page }) => {
   const title = `E2E gallery ${Date.now()}`
 
-  await page.goto('/goals?create=1')
-  await page.getByTestId('goal-title-input').fill(title)
-  await page.getByTestId('goal-friend-picker').getByText(friend.name).click()
-  await page.getByTestId('goal-submit').click()
+  await createGoal(page, { title, friend: friend.name })
 
   await page.getByTestId('goal-card').filter({ hasText: title }).click()
   await expect(page).toHaveURL(/\/goals\/[^/?]+$/)

@@ -32,6 +32,7 @@ export type Weekday = Schemas['Weekday']
 export type GoalPause = Schemas['GoalPauseResponse']
 export type RequestPauseRequest = Schemas['RequestPauseRequest']
 export type CloseGoalRequest = Schemas['CloseGoalRequest']
+export type SetReminderRequest = Schemas['SetReminderRequest']
 
 export type GoalWindow = Schemas['GoalInstanceResponse']
 export type GoalWindowStatus = Schemas['GoalInstanceStatus']

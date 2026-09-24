@@ -100,10 +100,19 @@ public sealed class ChatService(
             }
 
             // In a goal's conversation the newest thing may be something that
-            // happened to the goal — a photograph, a missed window — and that
-            // is what the row shows and is sorted by, not a quieter message
-            // from before it.
-            var lastEvent = goal is null ? null : GoalTimeline.For(goal, now)[^1];
+            // happened to the goal — a photograph, a kept window — and that is
+            // what the row shows and is sorted by, not a quieter message from
+            // before it.
+            //
+            // Except a missed window. It is counted on the goal and stated in
+            // the thread, but it is not news: a row reading "Verpasst" is the
+            // first thing its owner would see of their own goal, and a miss
+            // must not lift a conversation to the top of the list either
+            // ("kein Nachtreten", see ActivityKind). The row falls back to what
+            // came before it; the owner's row says what is due next instead.
+            var lastEvent = goal is null
+                ? null
+                : GoalTimeline.For(goal, now).LastOrDefault(entry => entry.Kind != GoalEventKind.WindowMissed);
             var eventIsNewest = lastEvent is not null && (last is null || lastEvent.At > last.SentAt);
             var message = eventIsNewest ? null : last;
 
@@ -133,7 +142,10 @@ public sealed class ChatService(
                 eventIsNewest ? lastEvent!.Kind : null,
                 goal?.Id,
                 goal?.OwnerPersonId == me.Id,
-                goal is not null && goal.Instances.Any(instance => waitingInWindows.Contains(instance.Id))));
+                goal is not null && goal.Instances.Any(instance => waitingInWindows.Contains(instance.Id)),
+                goal?.OwnerPersonId == me.Id && goal.CurrentInstance is { } open
+                    ? GoalInstanceResponse.From(open)
+                    : null));
         }
 
         // Newest conversation first, and a brand-new empty one before an old
@@ -646,8 +658,20 @@ public sealed class ChatService(
                         entry.ConfirmedProofs,
                         entry.RequiredProofs,
                         entry.Until,
-                        entry.Proof is { } proof ? ProofService.Describe(goal, proof, meId, proofPeople, now) : null)),
-                ]);
+                        entry.Proof is { } proof ? ProofService.Describe(goal, proof, meId, proofPeople, now) : null,
+                        entry.Day)),
+                ],
+
+            // The reader first, then everybody else by name — the order a
+            // list of people is read in everywhere else.
+            [
+                .. conversation.Participants
+                    .Select(participant => people.GetValueOrDefault(participant.PersonId))
+                    .OfType<Person>()
+                    .OrderBy(person => person.Id != meId)
+                    .ThenBy(person => person.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .Select(person => PersonSummary.From(person, now)),
+            ]);
     }
 
     private static IReadOnlyList<MessageReactionResponse> SummariseReactions(ChatMessage message, Guid meId) =>

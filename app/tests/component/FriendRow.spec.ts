@@ -46,22 +46,20 @@ describe('FriendRow', () => {
     expect(wrapper.text()).toContain('Online')
   })
 
-  it('offers both actions, each labelled with the person', async () => {
+  it('offers a message, labelled with the person, and no way to end the friendship', async () => {
     const wrapper = await mountSuspended(FriendRow, { props: { friend: friend(), now } })
 
     const message = wrapper.find('[data-testid="friend-message"]')
-    const remove = wrapper.find('[data-testid="friend-remove"]')
     const identity = wrapper.find('[data-q2-private]')
 
     expect(identity.text()).toContain('Jonas Weber')
     expect(message.attributes('aria-label')).toContain('Jonas Weber')
-    expect(remove.attributes('aria-label')).toContain('Jonas Weber')
+
+    // Ending it lives on their profile, not one slip away from "Nachricht".
+    expect(wrapper.find('[data-testid="friend-remove"]').exists()).toBe(false)
 
     await message.trigger('click')
-    await remove.trigger('click')
-
     expect(wrapper.emitted('message')?.[0]).toEqual([person().id])
-    expect(wrapper.emitted('remove')?.[0]).toEqual([person().id])
   })
 })
 

@@ -61,6 +61,10 @@ export function useGoalLifecycle() {
   const close = (id: string, completed: boolean) =>
     run('close', () => api.goals.close(id, { completed }))
 
+  /** Moves the daily reminder — `HH:MM:SS` — or takes it away with null. */
+  const setReminder = (id: string, reminderAt: string | null) =>
+    run('reminder', () => api.goals.setReminder(id, { reminderAt }))
+
   return {
     isBusy: computed(() => isBusy.value),
     error: computed(() => failure.value),
@@ -68,6 +72,7 @@ export function useGoalLifecycle() {
     endPause,
     toggleVeto,
     close,
+    setReminder,
   }
 }
 

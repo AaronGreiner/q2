@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalStatus, RequestPauseRequest } from './types'
+import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalStatus, RequestPauseRequest, SetReminderRequest } from './types'
 
 /**
  * The only place the frontend talks HTTP about goals.
@@ -31,6 +31,9 @@ export interface GoalsApi {
 
   /** Stops a goal for good and moves it to the archive. */
   close: (id: string, request: CloseGoalRequest) => Promise<Goal>
+
+  /** Moves the daily reminder of one of your own running goals, or removes it with null. */
+  setReminder: (id: string, request: SetReminderRequest) => Promise<Goal>
 
   /** Deletes a stopped goal outright, for everybody on it. */
   remove: (id: string) => Promise<void>
@@ -65,6 +68,8 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     vetoPause: id => call<Goal>(`${goal(id)}/pause/veto`, { method: 'POST' }),
 
     close: (id, request) => call<Goal>(`${goal(id)}/close`, { method: 'POST', body: request }),
+
+    setReminder: (id, request) => call<Goal>(`${goal(id)}/reminder`, { method: 'PUT', body: request }),
 
     // 204 and no body: there is nothing left to describe.
     remove: async (id) => {

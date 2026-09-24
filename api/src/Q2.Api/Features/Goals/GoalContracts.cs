@@ -345,6 +345,15 @@ public sealed record RequestPauseRequest(string? Reason = null, int? Days = null
 public sealed record CloseGoalRequest(bool? Completed = null);
 
 /// <summary>
+/// Request body for moving a goal's daily reminder.
+/// </summary>
+/// <param name="ReminderAt">
+/// The local time to be nudged at, or null for no reminder. Null is an answer
+/// here rather than a missing field, so an empty body takes the reminder away.
+/// </param>
+public sealed record SetReminderRequest(TimeOnly? ReminderAt = null);
+
+/// <summary>
 /// Request body for creating a goal.
 /// </summary>
 /// <remarks>

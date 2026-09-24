@@ -21,6 +21,7 @@ const lifecycle = useGoalLifecycle()
 const capturing = ref(false)
 const pausing = ref(false)
 const closing = ref(false)
+const reminding = ref(false)
 
 /** Moves on to the goal's conversation when it has one — see useProofDelivery. */
 async function handIn(image: Image) {
@@ -47,6 +48,22 @@ const canPause = computed(() =>
 
 const canClose = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
 
+/** Only the owner is reminded, so only the owner moves it — and only while it runs. */
+const canEditReminder = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
+
+/**
+ * The exits, behind the ellipsis in the header. They were two buttons as large
+ * as the camera, for things done once in a goal's life; stopping is final.
+ */
+const exits = computed(() => [
+  ...(canPause.value
+    ? [{ label: t.value.pause.open, icon: 'i-lucide-pause', onSelect: () => { pausing.value = true } }]
+    : []),
+  ...(canClose.value
+    ? [{ label: t.value.close.open, icon: 'i-lucide-archive', onSelect: () => { closing.value = true } }]
+    : []),
+])
+
 async function onPause(value: { reason: string, days: number }) {
   if (!await lifecycle.pause(id.value, value.reason, value.days)) return
 
@@ -60,6 +77,13 @@ async function onEndPause() {
 
 async function onVeto() {
   if (await lifecycle.toggleVeto(id.value)) await refresh()
+}
+
+async function onReminder(reminderAt: string | null) {
+  if (!await lifecycle.setReminder(id.value, reminderAt)) return
+
+  reminding.value = false
+  await refresh()
 }
 
 async function onClose(completed: boolean) {
@@ -94,6 +118,23 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
         >
           {{ t.goals.openChat }}
         </UButton>
+
+        <UDropdownMenu
+          v-if="exits.length > 0"
+          :items="exits"
+          :content="{ align: 'end' }"
+          :disabled="lifecycle.isBusy.value"
+        >
+          <UButton
+            icon="i-lucide-ellipsis"
+            color="neutral"
+            variant="outline"
+            size="lg"
+            :ui="{ base: 'size-11 justify-center rounded-full' }"
+            :aria-label="t.goals.moreActions"
+            data-testid="goal-exits"
+          />
+        </UDropdownMenu>
       </template>
     </AppScreenHeader>
 
@@ -258,6 +299,59 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           </p>
         </section>
 
+        <!--
+          Who checks it, straight after what is due: being seen by these people
+          is the point of the goal, so they are not left under the history.
+          Each goes to their profile.
+        -->
+        <section
+          v-if="detail.team.length > 0"
+          class="mt-3.5"
+          aria-labelledby="goal-team-heading"
+        >
+          <h2
+            id="goal-team-heading"
+            class="q2-eyebrow mb-2 px-0.5"
+          >
+            {{ goal.isMine ? t.goals.teamMine : t.goals.teamTheirs }}
+          </h2>
+
+          <ul class="flex list-none flex-col gap-2 p-0">
+            <li
+              v-for="member in detail.team"
+              :key="member.person.id"
+              data-testid="goal-team-member"
+            >
+              <NuxtLink
+                :to="`/people/${member.person.id}`"
+                class="q2-card q2-press flex items-center gap-3 px-3 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+              >
+                <AppAvatar
+                  :initials="member.person.initials"
+                  :color="member.person.avatarColor"
+                  :image-id="member.person.avatarImageId"
+                  :size="36"
+                  :online="member.person.isOnline"
+                />
+
+                <span
+                  class="min-w-0 flex-1"
+                  data-q2-private
+                >
+                  <span class="block truncate text-sm font-bold">{{ member.person.displayName }}</span>
+                  <span class="block text-[11px] font-semibold text-(--ui-text-muted)">{{ t.friends.streak(member.streak) }}</span>
+                </span>
+
+                <UIcon
+                  name="i-lucide-chevron-right"
+                  class="size-4 shrink-0 text-(--ui-text-dimmed)"
+                  aria-hidden="true"
+                />
+              </NuxtLink>
+            </li>
+          </ul>
+        </section>
+
         <div class="mt-3.5 flex gap-2.5">
           <div class="q2-card flex-1 p-3.5">
             <p class="flex items-center gap-1.5 text-xs font-extrabold text-(--q2-flame-text)">
@@ -303,56 +397,34 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           </div>
         </div>
 
-        <div class="mt-2.5 flex gap-2.5">
-          <div class="q2-card flex-1 p-3.5">
-            <p class="flex items-center gap-1.5 text-xs font-extrabold text-(--ui-text-muted)">
-              <UIcon
-                name="i-lucide-bell"
-                class="size-4"
-                aria-hidden="true"
-              />
-              {{ t.goals.reminder }}
-            </p>
-            <p
-              class="mt-1 text-lg font-extrabold"
-              data-q2-private
-            >
-              {{ reminder ?? t.goals.noReminder }}
-            </p>
-          </div>
-        </div>
-
-        <div
-          v-if="canPause || canClose"
-          class="mt-2.5 flex gap-2.5"
-          data-testid="goal-exits"
+        <!-- A row you can change, and it looks like one: the pencil and the
+             whole card as the target. For anybody else it is only a line. -->
+        <button
+          v-if="canEditReminder"
+          type="button"
+          class="q2-card q2-press mt-2.5 flex w-full items-center gap-3 p-3.5 text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          data-testid="goal-reminder"
+          @click="reminding = true"
         >
-          <UButton
-            v-if="canPause"
-            class="min-h-11 flex-1 justify-center"
-            size="lg"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-pause"
-            :label="t.pause.open"
-            :disabled="lifecycle.isBusy.value"
-            data-testid="goal-pause-open"
-            @click="pausing = true"
+          <UIcon
+            name="i-lucide-bell"
+            class="size-5 shrink-0 text-(--ui-text-muted)"
+            aria-hidden="true"
           />
-
-          <UButton
-            v-if="canClose"
-            class="min-h-11 flex-1 justify-center"
-            size="lg"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-archive"
-            :label="t.close.open"
-            :disabled="lifecycle.isBusy.value"
-            data-testid="goal-close-open"
-            @click="closing = true"
+          <span class="min-w-0 flex-1">
+            <span class="block text-xs font-extrabold text-(--ui-text-muted)">{{ t.goals.reminder }}</span>
+            <span
+              class="block text-base font-extrabold"
+              data-q2-private
+            >{{ reminder ?? t.goals.noReminder }}</span>
+          </span>
+          <span class="sr-only">{{ t.goals.reminderEdit }}</span>
+          <UIcon
+            name="i-lucide-pencil"
+            class="size-4 shrink-0 text-(--ui-text-muted)"
+            aria-hidden="true"
           />
-        </div>
+        </button>
 
         <section
           class="mt-6"
@@ -378,49 +450,6 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             data-testid="goal-history-empty"
           />
         </section>
-
-        <section
-          v-if="detail.team.length > 0"
-          class="mt-6"
-          aria-labelledby="goal-team-heading"
-        >
-          <h2
-            id="goal-team-heading"
-            class="q2-eyebrow mb-3 px-0.5"
-          >
-            {{ t.goals.sharedWith }}
-          </h2>
-
-          <ul class="flex list-none flex-col gap-2.5 p-0">
-            <li
-              v-for="member in detail.team"
-              :key="member.person.id"
-              class="q2-card flex items-center gap-3 px-3 py-3"
-              data-testid="goal-team-member"
-            >
-              <AppAvatar
-                :initials="member.person.initials"
-                :color="member.person.avatarColor"
-                :image-id="member.person.avatarImageId"
-                :size="40"
-                :online="member.person.isOnline"
-                :expand-title="member.person.displayName"
-              />
-
-              <div
-                class="min-w-0 flex-1"
-                data-q2-private
-              >
-                <p class="truncate text-sm font-bold">
-                  {{ member.person.displayName }}
-                </p>
-                <p class="text-[11px] font-semibold text-(--ui-text-muted)">
-                  {{ t.friends.streak(member.streak) }}
-                </p>
-              </div>
-            </li>
-          </ul>
-        </section>
       </article>
     </AppContentPanel>
 
@@ -439,6 +468,14 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       :submitting="lifecycle.isBusy.value"
       :failure="lifecycle.error.value"
       @submit="onPause"
+    />
+
+    <GoalReminderSheet
+      v-model:open="reminding"
+      :current="goal?.reminderAt ?? null"
+      :submitting="lifecycle.isBusy.value"
+      :failure="lifecycle.error.value"
+      @save="onReminder"
     />
 
     <GoalCloseSheet

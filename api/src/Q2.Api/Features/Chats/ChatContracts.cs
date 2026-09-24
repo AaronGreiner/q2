@@ -44,13 +44,19 @@ namespace Q2.Api.Features.Chats;
 /// <param name="LastEvent">
 /// Set when the last thing in a goal's conversation was something that happened
 /// to the goal rather than a message; <paramref name="LastMessage"/> is null
-/// then. Sent as a kind rather than as a sentence, because the sentence is
+/// then. Never a missed window, which is not news — the row shows what came
+/// before it. Sent as a kind rather than as a sentence, because the sentence is
 /// language.
 /// </param>
 /// <param name="GoalId">The goal this is the conversation of, for <see cref="ConversationKind.Goal"/>.</param>
 /// <param name="IsMyGoal">
 /// Whether that goal is the reader's own — the one thing that decides which
 /// section of the list it belongs in: yours to deliver, or a friend's to check.
+/// </param>
+/// <param name="GoalCurrent">
+/// The open window of the reader's own goal, so the row can say what comes next
+/// ("heute fällig · noch 9 Std.") instead of repeating the last thing that went
+/// wrong. Null for anybody else's goal and for every other conversation.
 /// </param>
 /// <param name="AwaitingMyVote">
 /// Whether a photograph in it is waiting for the reader's verdict. Apart from
@@ -76,7 +82,8 @@ public sealed record ChatSummaryResponse(
     GoalEventKind? LastEvent,
     Guid? GoalId,
     bool IsMyGoal,
-    bool AwaitingMyVote);
+    bool AwaitingMyVote,
+    GoalInstanceResponse? GoalCurrent);
 
 /// <summary>A reaction, rolled up: which kind, how many, and whether it is yours.</summary>
 public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsMine);
@@ -139,6 +146,11 @@ public sealed record ChatPinnedGoalResponse(
 /// <param name="ConfirmedProofs">For a window: how many photographs were believed in it.</param>
 /// <param name="RequiredProofs">For a window: how many it took.</param>
 /// <param name="Until">For a pause: the last local day it covers. Never the reason.</param>
+/// <param name="Day">
+/// For a window: the local day it was due on. Separate from <paramref name="At"/>,
+/// which is when the outcome was settled — a run of missed windows is often
+/// settled in one go, the next time anybody looks.
+/// </param>
 /// <param name="Proof">
 /// For a delivered photograph: the photograph itself, with the reader's vote and
 /// whether they may still cast one — exactly what the vote screen shows.
@@ -153,9 +165,13 @@ public sealed record GoalEventResponse(
     int? ConfirmedProofs,
     int? RequiredProofs,
     DateOnly? Until,
-    ProofResponse? Proof);
+    ProofResponse? Proof,
+    DateOnly? Day);
 
 /// <summary>Everything the thread screen shows.</summary>
+/// <param name="Members">
+/// Everybody in it, the reader included, for the sheet behind the header.
+/// </param>
 /// <param name="Events">
 /// In a goal's conversation, what happened to the goal, oldest first — to be
 /// shown between the messages by time. Empty for every other conversation.
@@ -174,7 +190,8 @@ public sealed record ChatDetailResponse(
     ChatPinnedGoalResponse? PinnedGoal,
     IReadOnlyList<ChatMessageResponse> Messages,
     bool IsMuted,
-    IReadOnlyList<GoalEventResponse> Events);
+    IReadOnlyList<GoalEventResponse> Events,
+    IReadOnlyList<PersonSummary> Members);
 
 /// <summary>Request body for sending a message.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>

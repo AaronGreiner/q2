@@ -51,9 +51,12 @@ function goal(overrides: Partial<Goal> = {}): Goal {
   }
 }
 
+/** Noon on the last day of the window in the fixture above. */
+const now = Date.parse('2026-06-21T12:00:00Z')
+
 describe('GoalWindowRow', () => {
   it('shows the title, the schedule and what the window still wants', async () => {
-    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal() } })
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now } })
 
     expect(wrapper.text()).toContain('Dreimal die Woche laufen')
     expect(wrapper.text()).toContain('3× pro Woche')
@@ -62,7 +65,7 @@ describe('GoalWindowRow', () => {
   })
 
   it('offers a camera a keyboard can reach, named after what it delivers into', async () => {
-    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal() } })
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now } })
     const deliver = wrapper.get('[data-testid="window-deliver"]')
 
     expect(deliver.attributes('aria-label')).toBe('Beweis liefern: Dreimal die Woche laufen')
@@ -79,6 +82,7 @@ describe('GoalWindowRow', () => {
   it('shows a photograph that is being looked at, and offers no camera for it', async () => {
     const wrapper = await mountSuspended(GoalWindowRow, {
       props: {
+        now,
         goal: goal({
           current: window({ pendingProofId: 'proof-1', acceptsProof: false }),
         }),
@@ -97,6 +101,7 @@ describe('GoalWindowRow', () => {
   it('offers nothing once the window is full', async () => {
     const wrapper = await mountSuspended(GoalWindowRow, {
       props: {
+        now,
         goal: goal({
           current: window({ confirmedProofs: 3, remainingProofs: 0, status: 'Done', acceptsProof: false }),
         }),
@@ -108,11 +113,12 @@ describe('GoalWindowRow', () => {
   })
 
   it('draws a ring only when the window wants more than one proof', async () => {
-    const many = await mountSuspended(GoalWindowRow, { props: { goal: goal() } })
+    const many = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now } })
     expect(many.find('[data-testid="progress-ring"]').exists()).toBe(true)
 
     const one = await mountSuspended(GoalWindowRow, {
       props: {
+        now,
         goal: goal({
           schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
           current: window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1, startsOn: '2026-06-21' }),
@@ -121,7 +127,42 @@ describe('GoalWindowRow', () => {
     })
 
     expect(one.find('[data-testid="progress-ring"]').exists()).toBe(false)
-    expect(one.text()).toContain('Heute fällig')
+
+    // On its last day the countdown says it; "Heute fällig" beside it would
+    // only repeat it.
+    expect(one.text()).toContain('noch 10 Std.')
+    expect(one.text()).not.toContain('Heute fällig')
+  })
+})
+
+describe('GoalWindowRow — how long is left', () => {
+  it('counts down once the end is less than a day away', async () => {
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now } })
+
+    expect(wrapper.get('[data-testid="window-left"]').text()).toBe('noch 10 Std.')
+  })
+
+  it('does not count down a window that ends days from now', async () => {
+    const early = Date.parse('2026-06-17T12:00:00Z')
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now: early } })
+
+    expect(wrapper.find('[data-testid="window-left"]').exists()).toBe(false)
+  })
+
+  it('stops counting once nothing more is owed', async () => {
+    const waiting = goal({ current: window({ pendingProofId: 'proof-1', acceptsProof: false }) })
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: waiting, now } })
+
+    expect(wrapper.find('[data-testid="window-left"]').exists()).toBe(false)
+  })
+
+  /** The reminder's clock read as a deadline; it carries a bell, and says so. */
+  it('shows the reminder as a reminder, not as a deadline', async () => {
+    const wrapper = await mountSuspended(GoalWindowRow, { props: { goal: goal(), now } })
+    const reminder = wrapper.get('[data-testid="window-reminder"]')
+
+    expect(reminder.text()).toContain('18:00')
+    expect(reminder.text()).toContain('Erinnerung um 18:00')
   })
 })
 
@@ -152,6 +193,24 @@ describe('HistoryGrid', () => {
 
     expect(wrapper.text()).toContain('Verpasst')
     expect(wrapper.get('[data-testid="history-grid"]').attributes()).toHaveProperty('data-q2-block')
+  })
+
+  it('heads each month and writes the day on every square', async () => {
+    const wrapper = await mountSuspended(HistoryGrid, {
+      props: {
+        history: [
+          window({ id: 'b', dueOn: '2026-07-02', status: 'Done' }),
+          window({ id: 'a', dueOn: '2026-06-30', status: 'Missed' }),
+        ],
+      },
+    })
+
+    const months = wrapper.findAll('section')
+    expect(months.map(month => month.attributes('aria-label'))).toEqual(['Juni', 'Juli'])
+    expect(wrapper.findAll('[data-testid="history-cell"]').map(cell => cell.text())).toEqual([
+      expect.stringContaining('30'),
+      expect.stringContaining('2'),
+    ])
   })
 
   it('stops at the limit rather than drawing a year of squares', async () => {

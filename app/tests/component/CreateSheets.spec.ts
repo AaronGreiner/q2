@@ -38,43 +38,108 @@ afterEach(() => {
 })
 
 describe('GoalCreateSheet', () => {
-  it('starts disabled and emits the complete trimmed default request', async () => {
+  function friends(count: number): Friend[] {
+    return Array.from({ length: count }, (_, index) => ({
+      person: person({ id: `person-${index + 1}`, displayName: index === 0 ? 'Mara Beispiel' : `Freund ${index + 1}`, handle: `@f${index + 1}` }),
+      streak: 0,
+      lastSeenAt: null,
+    }))
+  }
+
+  async function next(wrapper: { vm: { $nextTick: () => Promise<void> } }) {
+    element<HTMLButtonElement>('[data-testid="goal-next"]').click()
+    await wrapper.vm.$nextTick()
+  }
+
+  it('walks through four steps and emits the complete trimmed request', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
       props: { open: true, friends: [friend()] },
       attachTo: document.body,
     })
 
-    const submit = element<HTMLButtonElement>('[data-testid="goal-submit"]')
-    expect(submit.disabled).toBe(true)
+    expect(element('[data-testid="goal-create-step"]').textContent).toContain('Schritt 1 von 4')
+
+    // Nothing to go on with before there is a title.
+    expect(element<HTMLButtonElement>('[data-testid="goal-next"]').disabled).toBe(true)
 
     type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), '  Neues Ziel  ')
+    element<HTMLButtonElement>('[data-testid="icon-flame"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
     element<HTMLButtonElement>('[data-testid="schedule-kind-Times"]').click()
     await wrapper.vm.$nextTick()
     element<HTMLButtonElement>('[data-testid="schedule-times-3"]').click()
-    element<HTMLButtonElement>('[data-testid="icon-flame"]').click()
     await wrapper.vm.$nextTick()
-
-    // A title is not enough: somebody has to check it.
-    expect(submit.disabled).toBe(true)
-
-    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
-    await wrapper.vm.$nextTick()
-    expect(submit.disabled).toBe(false)
 
     // The preview says what the choice means, in the words the goal will use.
     expect(element('[data-testid="schedule-preview"]').textContent).toContain('3× pro Woche')
 
-    element<HTMLFormElement>('[data-testid="goal-create-form"]')
-      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    type(element<HTMLInputElement>('[data-testid="goal-reminder-input"]'), '07:15')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    // A title is not enough: somebody has to check it.
+    expect(element<HTMLButtonElement>('[data-testid="goal-next"]').disabled).toBe(true)
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    // The summary says what is about to happen before anything is committed.
+    const review = element('[data-testid="goal-create-review"]')
+    expect(review.textContent).toContain('Neues Ziel')
+    expect(review.textContent).toContain('3× pro Woche')
+    expect(review.textContent).toContain('Mara Beispiel')
+    expect(review.textContent).toContain('07:15')
+    expect(element('[data-testid="goal-first-window"]').textContent).toMatch(/Dein erstes Fenster endet/)
+
+    element<HTMLButtonElement>('[data-testid="goal-submit"]').click()
     await wrapper.vm.$nextTick()
 
     expect(wrapper.emitted('submit')?.[0]).toEqual([{
       title: 'Neues Ziel',
       schedule: { kind: 'Times', times: 3, period: 'Week' },
       icon: 'flame',
-      reminderAt: '09:00:00',
+      reminderAt: '07:15:00',
       participantIds: ['person-1'],
     }])
+    wrapper.unmount()
+  })
+
+  it('goes back a step without losing what was entered', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    element<HTMLButtonElement>('[data-testid="goal-back"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(element<HTMLInputElement>('[data-testid="goal-title-input"]').value).toBe('Laufen')
+    wrapper.unmount()
+  })
+
+  it('fills the title, the icon and the rhythm from an idea', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    element<HTMLButtonElement>('[data-testid="goal-template-tidy"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(element<HTMLInputElement>('[data-testid="goal-title-input"]').value).toBe('Jeden Sonntag aufräumen')
+    expect(element('[data-testid="icon-sparkles"]').getAttribute('aria-checked')).toBe('true')
+
+    // Once there is a title, the ideas get out of the way.
+    expect(document.querySelector('[data-testid="goal-template-run"]')).toBeNull()
+
+    await next(wrapper)
+    expect(element('[data-testid="schedule-weekday-Sunday"]').getAttribute('aria-checked')).toBe('true')
     wrapper.unmount()
   })
 
@@ -84,9 +149,41 @@ describe('GoalCreateSheet', () => {
       attachTo: document.body,
     })
 
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+    await next(wrapper)
+
     const row = element('[data-testid="goal-friend-person-1"]')
     expect(row.textContent).toContain('Mara Beispiel')
     expect(row.querySelector('[data-q2-private]')).not.toBeNull()
+
+    // One friend is not a list worth searching.
+    expect(document.querySelector('[data-testid="goal-friend-search"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('searches a long list of friends by name or handle', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: friends(8) },
+      attachTo: document.body,
+    })
+
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+    await next(wrapper)
+
+    type(element<HTMLInputElement>('[data-testid="goal-friend-search"] input, input[data-testid="goal-friend-search"]'), 'mara')
+    await wrapper.vm.$nextTick()
+
+    const picker = element('[data-testid="goal-friend-picker"]')
+    expect(picker.textContent).toContain('Mara Beispiel')
+    expect(picker.textContent).not.toContain('Freund 2')
+
+    type(element<HTMLInputElement>('[data-testid="goal-friend-search"] input, input[data-testid="goal-friend-search"]'), 'niemand')
+    await wrapper.vm.$nextTick()
+    expect(picker.textContent).toContain('Niemand mit diesem Namen.')
     wrapper.unmount()
   })
 
@@ -108,6 +205,10 @@ describe('GoalCreateSheet', () => {
       attachTo: document.body,
     })
 
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
     element<HTMLButtonElement>('[data-testid="schedule-kind-Weekdays"]').click()
     await wrapper.vm.$nextTick()
 
@@ -123,12 +224,12 @@ describe('GoalCreateSheet', () => {
     wrapper.unmount()
   })
 
-  it('matches field errors case-insensitively and separates request failures', async () => {
+  it('matches field errors case-insensitively and takes a refusal back to its step', async () => {
     const fieldFailure: ApiFailure = {
       kind: 'validation',
       isExpected: true,
       status: 400,
-      fieldErrors: { Title: ['Titel fehlt'], ICON: ['Icon ungültig'], participantIds: ['Freund fehlt'] },
+      fieldErrors: { Title: ['Titel fehlt'], ICON: ['Icon ungültig'] },
       traceId: null,
       errorId: null,
       reason: null,
@@ -140,9 +241,27 @@ describe('GoalCreateSheet', () => {
 
     expect(document.body.textContent).toContain('Titel fehlt')
     expect(document.body.textContent).toContain('Icon ungültig')
-    expect(document.body.textContent).toContain('Freund fehlt')
     expect(document.querySelector('[data-testid="goal-create-error"]')).toBeNull()
     fieldWrapper.unmount()
+    document.body.replaceChildren()
+
+    // Refused on the summary for want of a friend: back to the friends.
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+    await next(wrapper)
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    await wrapper.setProps({ error: { ...fieldFailure, fieldErrors: { participantIds: ['Freund fehlt'] } } })
+    expect(element('[data-testid="goal-create-step"]').textContent).toContain('Schritt 3 von 4')
+    expect(document.body.textContent).toContain('Freund fehlt')
+    wrapper.unmount()
     document.body.replaceChildren()
 
     const requestFailure = { ...fieldFailure, kind: 'network' as const, fieldErrors: {} }
