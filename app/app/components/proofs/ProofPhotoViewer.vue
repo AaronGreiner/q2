@@ -84,9 +84,9 @@ const description = computed(() => (props.proof
       >
         <img
           v-if="source"
+          crossorigin="use-credentials"
           :src="source"
           :alt="proof?.goalTitle ?? ''"
-          crossorigin="use-credentials"
           decoding="async"
           class="size-full object-contain"
           @error="failed = true"

@@ -252,9 +252,9 @@ function onKeydown(event: KeyboardEvent) {
       >
         <img
           v-if="source"
+          crossorigin="use-credentials"
           :src="source"
           :alt="current.title ?? t.viewer.label"
-          crossorigin="use-credentials"
           decoding="async"
           draggable="false"
           class="size-full object-contain will-change-transform"

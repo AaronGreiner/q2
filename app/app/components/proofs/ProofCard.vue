@@ -156,9 +156,9 @@ function vote(value: ProofVoteValue) {
         @click="enlarge()"
       >
         <img
+          crossorigin="use-credentials"
           :src="source"
           alt=""
-          crossorigin="use-credentials"
           decoding="async"
           draggable="false"
           class="size-full object-cover"

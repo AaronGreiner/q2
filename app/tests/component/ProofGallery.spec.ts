@@ -31,6 +31,16 @@ describe('ProofGalleryTile', () => {
     expect(wrapper.get('[data-testid="proof-gallery-tile"]').attributes()).toHaveProperty('data-q2-block')
   })
 
+  it('asks for the photograph with credentials from the start', async () => {
+    const wrapper = await mountSuspended(ProofGalleryTile, { props: { proof: proof() } })
+    const names = (wrapper.get('img').element as HTMLImageElement).getAttributeNames()
+
+    // Attributes are set in this order. A source set before `crossorigin`
+    // starts a request that is thrown away and restarted (issue #45).
+    expect(names.indexOf('crossorigin')).toBeGreaterThanOrEqual(0)
+    expect(names.indexOf('crossorigin')).toBeLessThan(names.indexOf('src'))
+  })
+
   it('shows a believed photograph with its date and no label', async () => {
     const wrapper = await mountSuspended(ProofGalleryTile, { props: { proof: proof() } })
 

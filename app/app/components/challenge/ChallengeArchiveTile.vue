@@ -52,9 +52,9 @@ function enlarge() {
     >
       <img
         v-if="source"
+        crossorigin="use-credentials"
         :src="source"
         :alt="item.challenge.prompt"
-        crossorigin="use-credentials"
         decoding="async"
         loading="lazy"
         class="size-full object-cover"

@@ -105,9 +105,9 @@ const style = computed(() => ({
       -->
       <img
         v-if="source"
+        crossorigin="use-credentials"
         :src="source"
         alt=""
-        crossorigin="use-credentials"
         decoding="async"
         loading="lazy"
         class="absolute inset-0 size-full object-cover"

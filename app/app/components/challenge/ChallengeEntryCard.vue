@@ -127,9 +127,9 @@ function react(kind: KudosKind) {
         @click="enlarge()"
       >
         <img
+          crossorigin="use-credentials"
           :src="source"
           :alt="t.challenge.entryAlt(entry.author.displayName)"
-          crossorigin="use-credentials"
           decoding="async"
           class="size-full object-cover"
           data-testid="challenge-image"

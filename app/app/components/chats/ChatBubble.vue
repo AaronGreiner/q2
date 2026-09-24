@@ -113,9 +113,9 @@ function react(kind: KudosKind) {
         @click="enlarge()"
       >
         <img
+          crossorigin="use-credentials"
           :src="photoSource"
           :alt="t.chats.photo"
-          crossorigin="use-credentials"
           decoding="async"
           loading="lazy"
           class="size-full object-cover"

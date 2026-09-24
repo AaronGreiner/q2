@@ -65,6 +65,13 @@ export function createImagesApi(call: ApiCaller): ImagesApi {
  * The element needs `crossorigin="use-credentials"` for the session cookie to
  * travel with it; `AppAvatar` and `AppPhoto` set it, which is the reason to
  * reach for one of those rather than writing an `<img>` by hand.
+ *
+ * In a template, `crossorigin` has to come *before* `:src`. Vue sets
+ * attributes in template order, and an `<img>` starts loading the moment it has
+ * a source: with the source first, the browser begins a plain request, then
+ * aborts and restarts it once `crossorigin` arrives. That is what left a
+ * photograph painted only halfway down when a screen was reached through the
+ * app rather than loaded directly (issue #45).
  */
 export function imageUrl(baseUrl: string, id: string): string {
   return `${baseUrl.replace(/\/$/, '')}/api/images/${encodeURIComponent(id)}`

@@ -44,9 +44,9 @@ const status = computed(() => proofStatusLabel(props.proof.status, t.value))
   >
     <img
       v-if="source"
+      crossorigin="use-credentials"
       :src="source"
       alt=""
-      crossorigin="use-credentials"
       decoding="async"
       loading="lazy"
       class="size-full object-cover"
