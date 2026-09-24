@@ -38,10 +38,11 @@ export function usePendingProofs() {
   /**
    * Records a verdict and drops the card.
    *
-   * The card is removed rather than the list refreshed: a vote is final, so the
-   * only thing the server could tell us is what we already know — and a
-   * round trip between "confirm" and the next photograph is a round trip
-   * somebody spends looking at a card they have finished with.
+   * The card is removed rather than the list refreshed: this queue is "not
+   * voted on yet", so the only thing the server could tell us is what we
+   * already know — and a round trip between "confirm" and the next photograph
+   * is a round trip somebody spends looking at a card they have finished with.
+   * Changing a vote afterwards happens in the goal's conversation.
    */
   async function vote(id: string, value: ProofVoteValue) {
     if (isVoting.value) return

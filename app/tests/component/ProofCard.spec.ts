@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import ProofCard from '~/components/proofs/ProofCard.vue'
+import { usePhotoViewer } from '~/composables/usePhotoViewer'
 import type { Person, Proof } from '~/api/types'
 
 /**
@@ -128,6 +129,60 @@ describe('ProofCard', () => {
     expect(tally).toContain('Lena Schulz')
     expect(tally).toContain('2 Zweifel')
     expect(wrapper.get('[data-testid="proof-my-vote"]').text()).toBe('Du hast bestätigt.')
+  })
+
+  /**
+   * A vote may be changed while the photograph is undecided. The card says
+   * what you chose and offers the other answer — one quiet button rather than
+   * the two big ones again.
+   */
+  it('lets a vote already cast be changed while the vote runs', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: {
+        proof: proof({
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: true },
+        }),
+      },
+    })
+
+    expect(wrapper.find('[data-testid="proof-confirm"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="proof-my-vote"]').text()).toBe('Du hast bestätigt.')
+
+    const change = wrapper.get('[data-testid="proof-change"]')
+    expect(change.text()).toContain('Doch anzweifeln')
+
+    await change.trigger('click')
+
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt'])
+  })
+
+  it('offers no change once the vote has closed', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: {
+        proof: proof({
+          status: 'Confirmed',
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false },
+        }),
+      },
+    })
+
+    expect(wrapper.find('[data-testid="proof-change"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="proof-status"]').text()).toBe('Bestätigt')
+  })
+
+  it('opens the photograph full screen with what it proves', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: { proof: proof(), context: 'Jeden Tag lesen' },
+    })
+
+    await wrapper.get('[data-testid="proof-enlarge"]').trigger('click')
+
+    const opened = usePhotoViewer().current.value
+    expect(opened?.imageId).toBe('image-1')
+    expect(opened?.title).toBe('Jeden Tag lesen')
+    expect(opened?.subtitle).toBe('Jonas Weber')
+
+    usePhotoViewer().close()
   })
 
   it('offers no verdict on your own photograph', async () => {

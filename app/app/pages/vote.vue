@@ -11,12 +11,13 @@
  * There is no "skip". A photograph you passed over would either come back
  * (and the queue never empties) or would not (and you silently abstained on a
  * friend). Leaving the screen is the way to not decide, and it needs no button.
+ *
+ * The start screen shows the same stack; this screen is where a notification
+ * about a waiting photograph lands, and it has the whole height for it.
  */
 const t = useMessages()
 
 const { proofs, error, isLoading, isVoting, refresh, vote } = usePendingProofs()
-
-const current = computed(() => proofs.value[0] ?? null)
 
 useHead({ title: () => t.value.vote.heading })
 </script>
@@ -33,7 +34,7 @@ useHead({ title: () => t.value.vote.heading })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <div class="q2-scroll flex-1 overflow-x-hidden px-[18px] pt-1.5 pb-6">
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"
@@ -52,22 +53,15 @@ useHead({ title: () => t.value.vote.heading })
         @retry="refresh()"
       />
 
-      <template v-else-if="current">
+      <template v-else-if="proofs.length > 0">
         <h2 class="mb-3 px-0.5 text-base font-extrabold">
           {{ t.vote.heading }}
         </h2>
 
-        <!--
-          Keyed on the proof, so Vue replaces the card rather than repainting
-          the one that is there. Without it the next photograph would fade in
-          behind the buttons somebody's thumb is still on.
-        -->
-        <ProofCard
-          :key="current.proof.id"
-          :proof="current.proof"
-          :goal-title="current.goalTitle"
+        <ProofSwipeStack
+          :cards="proofs"
           :busy="isVoting"
-          @vote="vote(current.proof.id, $event)"
+          @vote="vote"
         />
       </template>
 

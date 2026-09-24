@@ -116,6 +116,7 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
             :color="person.person.avatarColor"
             :image-id="person.person.avatarImageId"
             :size="88"
+            :expand-title="person.person.displayName"
           />
 
           <h2

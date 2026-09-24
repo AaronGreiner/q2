@@ -154,6 +154,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         :icon="chat.icon"
         :size="38"
         :online="chat.isOnline"
+        :expand-title="chat.name"
       />
 
       <div
@@ -284,6 +285,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
             >
               <ProofCard
                 :proof="item.proof"
+                :context="chat.pinnedGoal?.title ?? chat.name"
                 :busy="isVoting"
                 @vote="vote(item.proof.id, $event)"
               />

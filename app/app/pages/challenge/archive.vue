@@ -57,7 +57,7 @@ useHead({ title: () => t.value.challenge.archive })
         </p>
 
         <div
-          class="grid grid-cols-3 gap-1.5"
+          class="grid grid-cols-3 gap-x-1.5 gap-y-3"
           data-testid="challenge-archive"
         >
           <ChallengeArchiveTile

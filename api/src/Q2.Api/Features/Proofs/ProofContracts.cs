@@ -18,8 +18,10 @@ namespace Q2.Api.Features.Proofs;
 /// never has to work out whether the "confirm" button is still theirs to press.
 /// </param>
 /// <param name="CanIVote">
-/// Whether this is theirs to vote on at all. False for the person who
-/// delivered it, for anybody not on the goal, and once they have voted.
+/// Whether this is theirs to vote on — to cast a vote, or, with
+/// <paramref name="MyVote"/> set, to change it. False for the person who
+/// delivered it, for anybody not on the goal, and once the vote has closed or
+/// its deadline has passed.
 /// </param>
 /// <remarks>
 /// **Doubt is anonymous, and that is a product rule rather than a display

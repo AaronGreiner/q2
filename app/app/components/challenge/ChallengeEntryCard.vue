@@ -19,11 +19,16 @@ import { kudosKinds } from '~/api/types'
  *   an image id until you have contributed, so this draws a placeholder rather
  *   than blurring a photograph it was given anyway — a blur is a curtain with a
  *   gap in it.
+ *
+ * An uncovered picture opens full screen with the day's prompt under it: the
+ * card is shown below the prompt, the full-screen view is not.
  */
 const props = defineProps<{
   entry: ChallengeEntry
   /** Covered while the viewer has not contributed. */
   covered: boolean
+  /** The day's challenge, for the full-screen view. */
+  prompt?: string | null
 }>()
 
 const emit = defineEmits<{ react: [kind: KudosKind] }>()
@@ -54,6 +59,19 @@ const age = computed(() => formatRelativeTime(props.entry.createdAt, now.value, 
  */
 const fromLibrary = computed(() => !props.covered && !props.entry.capturedInApp)
 
+const viewer = usePhotoViewer()
+
+function enlarge() {
+  if (!props.entry.imageId) return
+
+  viewer.open({
+    imageId: props.entry.imageId,
+    title: props.prompt,
+    subtitle: props.entry.author.displayName,
+    meta: age.value,
+  })
+}
+
 function countOf(kind: KudosKind): number {
   return props.entry.reactions.find(reaction => reaction.kind === kind)?.count ?? 0
 }
@@ -75,6 +93,7 @@ function isMine(kind: KudosKind): boolean {
         :color="entry.author.avatarColor"
         :image-id="entry.author.avatarImageId"
         :size="32"
+        :expand-title="entry.author.displayName"
       />
 
       <!-- The name, even on your own: the section above already says whose it
@@ -94,16 +113,24 @@ function isMine(kind: KudosKind): boolean {
       pictures arrive and nothing shifts under a thumb.
     -->
     <div class="relative aspect-4/5 w-full bg-(--ui-bg-elevated)">
-      <img
+      <button
         v-if="source"
-        :src="source"
-        :alt="t.challenge.entryAlt(entry.author.displayName)"
-        crossorigin="use-credentials"
-        decoding="async"
-        class="size-full object-cover"
-        data-testid="challenge-image"
-        @error="failed = true"
+        type="button"
+        class="block size-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :aria-label="prompt ? t.challenge.enlarge(prompt) : t.proof.enlarge"
+        data-testid="challenge-enlarge"
+        @click="enlarge()"
       >
+        <img
+          :src="source"
+          :alt="t.challenge.entryAlt(entry.author.displayName)"
+          crossorigin="use-credentials"
+          decoding="async"
+          class="size-full object-cover"
+          data-testid="challenge-image"
+          @error="failed = true"
+        >
+      </button>
 
       <div
         v-else-if="covered"

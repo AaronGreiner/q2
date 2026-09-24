@@ -131,5 +131,12 @@ void settings
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <!--
+      One full-screen photograph for every screen, outside both layouts: the
+      challenge room and a goal's conversation use the plain one, and those
+      are where most pictures are. See usePhotoViewer.
+    -->
+    <AppPhotoViewer />
   </UApp>
 </template>

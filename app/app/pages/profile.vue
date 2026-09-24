@@ -110,6 +110,7 @@ async function onPhoto(image: Image) {
             :color="profile.person.avatarColor"
             :image-id="profile.person.avatarImageId"
             :size="88"
+            :expand-title="profile.person.displayName"
           />
 
           <h2

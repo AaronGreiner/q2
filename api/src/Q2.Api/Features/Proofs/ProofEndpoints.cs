@@ -31,7 +31,7 @@ public static class ProofEndpoints
 
         proofs.MapPost("/{id:guid}/vote", Vote)
             .WithName("VoteOnProof")
-            .WithSummary("Confirms or doubts a photograph. One say per person, and it stands.")
+            .WithSummary("Confirms or doubts a photograph. One say per person, which may be changed until the vote closes.")
             .Produces<ProofResponse>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);

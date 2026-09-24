@@ -409,7 +409,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirms or doubts a photograph. One say per person, and it stands. */
+        /** Confirms or doubts a photograph. One say per person, which may be changed until the vote closes. */
         post: operations["VoteOnProof"];
         delete?: never;
         options?: never;

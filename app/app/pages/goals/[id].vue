@@ -402,6 +402,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
                 :image-id="member.person.avatarImageId"
                 :size="40"
                 :online="member.person.isOnline"
+                :expand-title="member.person.displayName"
               />
 
               <div

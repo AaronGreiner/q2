@@ -23,14 +23,28 @@ import type { Proof, ProofVoteValue } from '~/api/types'
  *   any age, and the person voting is entitled to know which they are looking
  *   at. It is a label, never a refusal — a phone whose camera permission was
  *   denied still has to be able to deliver.
+ *
+ * A vote already cast can be changed from here until the photograph is
+ * decided — the server says when with `canIVote`. It is one quiet button under
+ * the verdict rather than the two big ones again: changing your mind is the
+ * exception, and the card should not look undecided once you have decided.
+ *
+ * The picture opens full screen on a tap, because a proof is judged on detail
+ * and a square in a feed is not enough to see it.
  */
 const props = withDefaults(defineProps<{
   proof: Proof
   /** What was promised, so the picture can be judged against something. */
   goalTitle?: string | null
+  /**
+   * What the picture is of, for the full-screen view only — in a goal's
+   * conversation the card does not name the goal, because the thread does.
+   */
+  context?: string | null
   busy?: boolean
 }>(), {
   goalTitle: null,
+  context: null,
   busy: false,
 })
 
@@ -59,6 +73,20 @@ const hoursLeft = computed(() => {
 
 const confirmedNames = computed(() =>
   props.proof.votes.confirmedBy.map(person => person.displayName).join(', '))
+
+/** The other answer, for somebody who has voted and may still change it. */
+const otherVote = computed<ProofVoteValue>(() => (props.proof.votes.myVote === 'Confirm' ? 'Doubt' : 'Confirm'))
+
+const viewer = usePhotoViewer()
+
+function enlarge() {
+  viewer.open({
+    imageId: props.proof.imageId,
+    title: props.goalTitle ?? props.context,
+    subtitle: props.proof.uploader.displayName,
+    meta: formatRelativeTime(props.proof.createdAt, now.value, t.value),
+  })
+}
 </script>
 
 <template>
@@ -73,6 +101,7 @@ const confirmedNames = computed(() =>
         :color="proof.uploader.avatarColor"
         :image-id="proof.uploader.avatarImageId"
         :size="36"
+        :expand-title="proof.uploader.displayName"
       />
 
       <div class="min-w-0 flex-1">
@@ -112,16 +141,25 @@ const confirmedNames = computed(() =>
       a feed somebody votes on by accident.
     -->
     <div class="relative aspect-square w-full bg-(--ui-bg-elevated)">
-      <img
+      <button
         v-if="source"
-        :src="source"
-        alt=""
-        crossorigin="use-credentials"
-        decoding="async"
-        class="size-full object-cover"
-        data-testid="proof-image"
-        @error="failed = true"
+        type="button"
+        class="block size-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
+        :aria-label="t.proof.enlarge"
+        data-testid="proof-enlarge"
+        @click="enlarge()"
       >
+        <img
+          :src="source"
+          alt=""
+          crossorigin="use-credentials"
+          decoding="async"
+          draggable="false"
+          class="size-full object-cover"
+          data-testid="proof-image"
+          @error="failed = true"
+        >
+      </button>
 
       <div
         v-else
@@ -160,7 +198,7 @@ const confirmedNames = computed(() =>
         </template>
       </p>
 
-      <template v-if="proof.votes.canIVote">
+      <template v-if="proof.votes.canIVote && !proof.votes.myVote">
         <div class="flex flex-col gap-2">
           <UButton
             block
@@ -189,6 +227,38 @@ const confirmedNames = computed(() =>
           {{ t.proof.doubtAnonymous }}
         </p>
       </template>
+
+      <div
+        v-else-if="proof.votes.canIVote && proof.votes.myVote"
+        class="flex flex-col gap-2"
+        data-testid="proof-change-vote"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <p
+            class="min-w-0 text-[12px] font-bold text-(--ui-text-muted)"
+            role="status"
+            data-testid="proof-my-vote"
+          >
+            {{ proof.votes.myVote === 'Confirm' ? t.proof.votedConfirm : t.proof.votedDoubt }}
+          </p>
+
+          <UButton
+            class="shrink-0"
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :icon="otherVote === 'Confirm' ? 'i-lucide-check' : 'i-lucide-circle-help'"
+            :label="otherVote === 'Confirm' ? t.proof.changeToConfirm : t.proof.changeToDoubt"
+            :disabled="busy"
+            data-testid="proof-change"
+            @click="emit('vote', otherVote)"
+          />
+        </div>
+
+        <p class="text-[11px] font-semibold text-(--ui-text-dimmed)">
+          {{ otherVote === 'Doubt' ? `${t.proof.changeHint} ${t.proof.doubtAnonymous}` : t.proof.changeHint }}
+        </p>
+      </div>
 
       <p
         v-else-if="proof.votes.myVote && proof.status === 'Voting'"

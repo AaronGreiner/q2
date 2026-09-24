@@ -150,31 +150,39 @@ public sealed class ProofPhoto
     }
 
     /// <summary>
-    /// Records one person's vote. Returns false when it was not theirs to cast
-    /// or they have already had their say.
+    /// Records one person's vote, or changes the one they cast. Returns false
+    /// when it is not theirs to cast or the vote has closed.
     /// </summary>
     /// <remarks>
-    /// One vote per person, and no changing it. A vote you can revise once you
-    /// have seen the tally is not an opinion, it is a negotiation — and the
-    /// counts are visible while the vote runs, so revision would be the obvious
-    /// way to game it. The uploader is refused here rather than in the service
-    /// because "you cannot vouch for yourself" is what the type is *for*.
+    /// One vote per person, which they may change while the vote runs. It was
+    /// once final, on the argument that a vote revised after seeing the tally is
+    /// a negotiation. What that missed is the far commoner case: a swipe in the
+    /// wrong direction, or a second look at the picture in its conversation. A
+    /// changed vote is still one vote, it still counts once, and the moment the
+    /// photograph is decided it is fixed — so the verdict, the streak and the
+    /// balance never move after the fact (ADR 0028).
+    ///
+    /// The uploader is refused here rather than in the service because "you
+    /// cannot vouch for yourself" is what the type is *for*.
     /// </remarks>
     public bool CastVote(Guid id, Guid voterPersonId, VoteValue value, DateTimeOffset now)
     {
-        if (Status != ProofStatus.Voting
-            || voterPersonId == UploaderPersonId
-            || _votes.Any(vote => vote.VoterPersonId == voterPersonId))
+        if (Status != ProofStatus.Voting || voterPersonId == UploaderPersonId)
         {
             return false;
+        }
+
+        var existing = _votes.FirstOrDefault(vote => vote.VoterPersonId == voterPersonId);
+
+        if (existing is not null)
+        {
+            existing.Change(value, now);
+            return true;
         }
 
         _votes.Add(new ProofVote(id, Id, voterPersonId, value, now));
         return true;
     }
-
-    /// <summary>True when this person has already voted.</summary>
-    public bool HasVoted(Guid personId) => _votes.Any(vote => vote.VoterPersonId == personId);
 
     /// <summary>What this person voted, if they did.</summary>
     public VoteValue? VoteOf(Guid personId) =>
@@ -275,7 +283,15 @@ public sealed class ProofVote
 
     public VoteValue Value { get; private set; }
 
+    /// <summary>When it was last cast — changing a vote moves this too.</summary>
     public DateTimeOffset CastAt { get; private set; }
+
+    /// <summary>Replaces the verdict. Only <see cref="ProofPhoto.CastVote"/> decides whether that is allowed.</summary>
+    internal void Change(VoteValue value, DateTimeOffset now)
+    {
+        Value = value;
+        CastAt = now;
+    }
 }
 
 /// <summary>

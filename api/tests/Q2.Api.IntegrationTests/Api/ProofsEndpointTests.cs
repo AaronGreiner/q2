@@ -62,23 +62,80 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var after = await (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).ReadAsync<ProofDocument>();
 
         Assert.Equal(VoteValue.Confirm, after.Votes.MyVote);
-        Assert.False(after.Votes.CanIVote);
         Assert.Equal(1, after.Votes.ConfirmCount);
+
+        // The only friend on it has spoken, so it is decided and fixed.
+        Assert.False(after.Votes.CanIVote);
     }
 
     [Fact]
-    public async Task OneSayPerPerson()
+    public async Task AVoteMayBeChangedWhileTheVoteRuns()
     {
+        // Two voters, so the first vote does not already decide it.
+        await ShareActiveGoalWithAsync(AutomatedTestSeed.RequestingPersonId);
+
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        var first = await (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).ReadAsync<ProofDocument>();
+
+        Assert.Equal(ProofStatus.Voting, first.Status);
+        Assert.True(first.Votes.CanIVote);
+
+        var changed = await (await VoteAsync(friend, proof.Id, VoteValue.Doubt)).ReadAsync<ProofDocument>();
+
+        // Still one say: the confirmation is replaced, not joined by a doubt.
+        Assert.Equal(VoteValue.Doubt, changed.Votes.MyVote);
+        Assert.Equal(0, changed.Votes.ConfirmCount);
+        Assert.Equal(1, changed.Votes.DoubtCount);
+        Assert.Equal(ProofStatus.Voting, changed.Status);
+
+        // Having been a confirmer must not leave a name behind on a doubt.
+        var body = await (await Client.GetAsync(
+            $"/api/proofs/{proof.Id}",
+            TestContext.Current.CancellationToken)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain(AutomatedTestSeed.FriendPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AVoteIsFixedOnceThePhotographIsDecided()
+    {
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        // The only friend on it has spoken, which decides it on the spot.
+        var decided = await (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).ReadAsync<ProofDocument>();
+        Assert.Equal(ProofStatus.Confirmed, decided.Status);
+        Assert.False(decided.Votes.CanIVote);
+
+        // A verdict that could still move would move the streak with it.
+        var second = await VoteAsync(friend, proof.Id, VoteValue.Doubt);
+
+        Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task NoVoteIsTakenPastTheDeadline()
+    {
+        await ShareActiveGoalWithAsync(AutomatedTestSeed.RequestingPersonId);
+
         var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
 
         (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).EnsureSuccessStatusCode();
 
-        // A vote you can revise once you have seen the tally is a negotiation,
-        // not an opinion.
-        var second = await VoteAsync(friend, proof.Id, VoteValue.Doubt);
+        // Past the deadline but before the maintenance pass has settled it:
+        // the votes already cast decide it, not one cast at hour thirteen.
+        await MoveVotingDeadlinesIntoThePastAsync();
 
-        Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+        var late = await friend.GetAsync($"/api/proofs/{proof.Id}", TestContext.Current.CancellationToken);
+        Assert.False((await late.ReadAsync<ProofDocument>()).Votes.CanIVote);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await VoteAsync(friend, proof.Id, VoteValue.Doubt)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await VoteAsync(await ClientForAsync(AutomatedTestSeed.RequesterEmail), proof.Id, VoteValue.Doubt)).StatusCode);
     }
 
     [Fact]
@@ -324,6 +381,16 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     /// </remarks>
     private async Task AdvanceBeyondTheVotingDeadlineAsync()
     {
+        await MoveVotingDeadlinesIntoThePastAsync();
+
+        using var scope = Factory.Services.CreateScope();
+        var worker = ActivatorUtilities.CreateInstance<GoalMaintenanceWorker>(scope.ServiceProvider);
+
+        await worker.RunOnceAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Every open vote past its deadline, with nothing run yet to settle it.</summary>
+    private async Task MoveVotingDeadlinesIntoThePastAsync() =>
         await Factory.WithDatabaseAsync(async database =>
         {
             await database.ProofPhotos
@@ -334,10 +401,4 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
                         Q2ApiFactory.Now.AddHours(-1)),
                     TestContext.Current.CancellationToken);
         });
-
-        using var scope = Factory.Services.CreateScope();
-        var worker = ActivatorUtilities.CreateInstance<GoalMaintenanceWorker>(scope.ServiceProvider);
-
-        await worker.RunOnceAsync(TestContext.Current.CancellationToken);
-    }
 }

@@ -178,6 +178,7 @@ useHead({ title: () => t.value.challenge.heading })
           <ChallengeEntryCard
             :entry="ownEntry"
             :covered="false"
+            :prompt="room.challenge.prompt"
             @react="reactToOwn"
           />
         </section>
@@ -200,6 +201,7 @@ useHead({ title: () => t.value.challenge.heading })
               :key="entry.id"
               :entry="entry"
               :covered="covered"
+              :prompt="room.challenge.prompt"
               @react="kind => react(entry.id, kind)"
             />
           </div>

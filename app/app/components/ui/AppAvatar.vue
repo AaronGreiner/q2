@@ -14,6 +14,11 @@ import { imageUrl } from '~/api/images'
  * A group has an icon instead. It is drawn on a neutral raised tile rather than
  * a person colour: a group is not somebody, and giving it one would make the
  * chat list read as though it were.
+ *
+ * With `expandTitle` set, a photograph opens full screen on a tap. It is
+ * opt-in rather than everywhere because most avatars sit inside a row that is
+ * already a link, and a button inside a link is two targets under one thumb.
+ * Initials never expand — there is nothing bigger to show.
  */
 const props = withDefaults(defineProps<{
   initials: string
@@ -30,6 +35,8 @@ const props = withDefaults(defineProps<{
   stacked?: boolean
   /** Set only when no adjacent text already names this person. */
   label?: string
+  /** Whose picture it is; setting it lets the photograph open full screen. */
+  expandTitle?: string | null
 }>(), {
   imageId: null,
   icon: null,
@@ -37,8 +44,10 @@ const props = withDefaults(defineProps<{
   online: false,
   stacked: false,
   label: undefined,
+  expandTitle: null,
 })
 
+const t = useMessages()
 const { public: config } = useRuntimeConfig()
 
 /*
@@ -58,6 +67,16 @@ const source = computed(() =>
     ? imageUrl(config.apiBaseUrl, props.imageId)
     : null)
 
+const viewer = usePhotoViewer()
+
+const isExpandable = computed(() => Boolean(props.expandTitle && source.value))
+
+function expand() {
+  if (!props.imageId || !props.expandTitle) return
+
+  viewer.open({ imageId: props.imageId, title: props.expandTitle })
+}
+
 const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
@@ -73,13 +92,16 @@ const style = computed(() => ({
     :class="stacked ? '-ms-2 rounded-full ring-2 ring-(--q2-surface) first:ms-0' : ''"
     data-q2-block
   >
-    <span
-      class="relative flex items-center justify-center overflow-hidden rounded-full font-extrabold leading-none select-none"
+    <component
+      :is="isExpandable ? 'button' : 'span'"
+      :type="isExpandable ? 'button' : undefined"
+      class="relative flex items-center justify-center overflow-hidden rounded-full font-extrabold leading-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :style="style"
-      :aria-hidden="label ? undefined : 'true'"
-      :aria-label="label"
-      :role="label ? 'img' : undefined"
+      :aria-hidden="label || isExpandable ? undefined : 'true'"
+      :aria-label="isExpandable ? t.viewer.avatar(expandTitle ?? '') : label"
+      :role="label && !isExpandable ? 'img' : undefined"
       data-testid="avatar"
+      @click="isExpandable ? expand() : undefined"
     >
       <!--
         `use-credentials`, because the session is a cookie and an `<img>` on
@@ -111,7 +133,7 @@ const style = computed(() => ({
         aria-hidden="true"
       />
       <template v-else>{{ initials }}</template>
-    </span>
+    </component>
 
     <!--
       Presence is decorative here: every place it appears, the row also says

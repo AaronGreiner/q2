@@ -1184,7 +1184,7 @@
         "tags": [
           "Proofs"
         ],
-        "summary": "Confirms or doubts a photograph. One say per person, and it stands.",
+        "summary": "Confirms or doubts a photograph. One say per person, which may be changed until the vote closes.",
         "operationId": "VoteOnProof",
         "parameters": [
           {

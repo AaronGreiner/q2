@@ -458,6 +458,10 @@ export const de = {
     votedConfirm: 'Du hast bestätigt.',
     votedDoubt: 'Du hast angezweifelt.',
     ownProof: 'Dein eigener Beweis — abstimmen dürfen die anderen.',
+    changeToConfirm: 'Doch bestätigen',
+    changeToDoubt: 'Doch anzweifeln',
+    changeHint: 'Änderbar, bis abgestimmt ist.',
+    enlarge: 'Foto vergrößern',
   },
 
   vote: {
@@ -474,6 +478,7 @@ export const de = {
       ? 'Ein Beweis wartet auf dein Urteil'
       : `${count} Beweise warten auf dein Urteil`),
     open: 'Ansehen',
+    swipeHint: 'Rechts wischen bestätigt, links zweifelt an.',
   },
 
   /**
@@ -523,6 +528,14 @@ export const de = {
     archiveCount: (count: number) => (count === 1 ? '1 Mal mitgemacht' : `${count} Mal mitgemacht`),
     archiveEmpty: 'Noch nichts hier.',
     archiveEmptyHint: 'Sobald du bei einer Challenge mitmachst, bleibt dein Bild in diesem Archiv.',
+    enlarge: (prompt: string) => `Beitrag zu „${prompt}“ vergrößern`,
+  },
+
+  /** The full-screen view any photograph opens into. */
+  viewer: {
+    label: 'Foto',
+    close: 'Foto schließen',
+    avatar: (name: string) => `Profilbild von ${name} vergrößern`,
   },
 
   /**
@@ -1304,6 +1317,10 @@ export const en: Messages = {
     votedConfirm: 'You confirmed it.',
     votedDoubt: 'You doubted it.',
     ownProof: 'Your own proof — the others do the voting.',
+    changeToConfirm: 'Confirm instead',
+    changeToDoubt: 'Doubt instead',
+    changeHint: 'You can change it until the vote closes.',
+    enlarge: 'Enlarge photo',
   },
 
   vote: {
@@ -1320,6 +1337,7 @@ export const en: Messages = {
       ? 'One proof is waiting for your verdict'
       : `${count} proofs are waiting for your verdict`),
     open: 'Look',
+    swipeHint: 'Swipe right to confirm, left to doubt.',
   },
 
   challenge: {
@@ -1353,6 +1371,13 @@ export const en: Messages = {
     archiveCount: (count: number) => (count === 1 ? 'Joined in once' : `Joined in ${count} times`),
     archiveEmpty: 'Nothing here yet.',
     archiveEmptyHint: 'As soon as you join a challenge, your picture stays in this archive.',
+    enlarge: (prompt: string) => `Enlarge contribution to “${prompt}”`,
+  },
+
+  viewer: {
+    label: 'Photo',
+    close: 'Close photo',
+    avatar: (name: string) => `Enlarge ${name}'s profile picture`,
   },
 
   safety: {

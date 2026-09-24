@@ -117,12 +117,13 @@ public sealed class ProofService(
     }
 
     /// <summary>
-    /// Records one person's verdict, and closes the vote when that settles it.
+    /// Records or changes one person's verdict, and closes the vote when that
+    /// settles it.
     /// </summary>
     /// <exception cref="ResourceNotFoundException">
     /// No such photograph, or it is not this person's to look at.
     /// </exception>
-    /// <exception cref="DomainValidationException">They have already voted, or it is closed.</exception>
+    /// <exception cref="DomainValidationException">The vote is closed, or its deadline has passed.</exception>
     public async Task<ProofResponse> VoteAsync(
         Guid proofId,
         CastVoteRequest request,
@@ -147,9 +148,15 @@ public sealed class ProofService(
 
         var now = timeProvider.GetUtcNow();
 
-        if (!proof.CastVote(idGenerator.NewId(), me.Id, value, now))
+        /*
+         * Past its deadline a vote is decided by the votes already cast, even if
+         * the maintenance pass has not got to it yet. Accepting one here would
+         * let a vote cast — or changed — at hour thirteen decide it, which is
+         * exactly what the deadline is for.
+         */
+        if (proof.IsExpiredAt(now) || !proof.CastVote(idGenerator.NewId(), me.Id, value, now))
         {
-            throw new DomainValidationException("Vote", "You have already had your say on this one.");
+            throw new DomainValidationException("Vote", "This vote has closed.");
         }
 
         /*
@@ -500,7 +507,7 @@ public sealed class ProofService(
             proof.DoubtCount,
             confirmedBy,
             proof.VoteOf(viewerId),
-            proof.Status == ProofStatus.Voting && goal.CanVote(viewerId) && !proof.HasVoted(viewerId));
+            proof.Status == ProofStatus.Voting && !proof.IsExpiredAt(now) && goal.CanVote(viewerId));
 
         var reactions = proof.Reactions
             .GroupBy(reaction => reaction.Kind)

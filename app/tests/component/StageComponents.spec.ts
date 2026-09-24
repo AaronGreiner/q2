@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import ChallengeArchiveTile from '~/components/challenge/ChallengeArchiveTile.vue'
 import DeleteAccountSheet from '~/components/settings/DeleteAccountSheet.vue'
 import InviteCard from '~/components/friends/InviteCard.vue'
+import { usePhotoViewer } from '~/composables/usePhotoViewer'
 import type { ChallengeArchiveEntry } from '~/api/types'
 
 /**
@@ -51,15 +52,28 @@ describe('ChallengeArchiveTile', () => {
   })
 
   /**
-   * Only the date is on the tile; in a three-column grid the prompt would be
-   * too long. Without it somewhere the picture is unplaceable in six months, so
-   * it is in the label instead.
+   * The date is on the picture and the prompt under it. Without the prompt the
+   * picture is unplaceable in six months.
    */
-  it('shows the date and keeps the prompt available to a screen reader', async () => {
+  it('shows the day\'s prompt with the picture', async () => {
     const wrapper = await mountSuspended(ChallengeArchiveTile, { props: { item: archiveEntry() } })
 
     expect(wrapper.get('figcaption').text()).toContain('Zeig deinen Arbeitsplatz.')
     expect(wrapper.get('img').attributes('alt')).toBe('Zeig deinen Arbeitsplatz.')
+  })
+
+  it('opens full screen with the prompt and the day under it', async () => {
+    const wrapper = await mountSuspended(ChallengeArchiveTile, { props: { item: archiveEntry() } })
+
+    await wrapper.get('[data-testid="challenge-archive-enlarge"]').trigger('click')
+
+    expect(usePhotoViewer().current.value).toEqual({
+      imageId: 'image-1',
+      title: 'Zeig deinen Arbeitsplatz.',
+      meta: '8.9.2026',
+    })
+
+    usePhotoViewer().close()
   })
 
   it('falls back to a placeholder when the picture will not load', async () => {

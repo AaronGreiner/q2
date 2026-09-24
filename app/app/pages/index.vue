@@ -15,9 +15,13 @@ const theme = useTheme()
 const { profile, due, goals, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 
-// The bell and the vote banner are counts, and counts have one read of their
-// own that the live connection keeps current — see useCounts.
+// The bell is a count, and counts have one read of their own that the live
+// connection keeps current — see useCounts.
 const { counts } = useCounts()
+
+// The same queue as the vote screen, under the same key, so a verdict given
+// in either place — or on another device — takes the card out of both.
+const { proofs: pending, isVoting, vote } = usePendingProofs()
 
 // Its own read rather than part of `useHome`: the challenge is one row and the
 // dashboard is four, and a shared key would refetch all of them whenever
@@ -80,7 +84,7 @@ useHead({ title: () => t.value.nav.home })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-0.5 pb-6">
+    <div class="q2-scroll flex-1 overflow-x-hidden px-[18px] pt-0.5 pb-6">
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -159,28 +163,40 @@ useHead({ title: () => t.value.nav.home })
         </section>
 
         <!--
-          The one thing on this screen that is somebody else's business.
-          It sits above your own goals on purpose: a friend's photograph has a
-          deadline on it, and yours does not expire in twelve hours.
+          The one thing on this screen that is somebody else's business, and
+          it is decided right here: the photographs waiting for your verdict,
+          as a stack you swipe through. It sits above your own goals on
+          purpose — a friend's photograph has a deadline on it, and yours does
+          not expire in twelve hours.
 
-          The accent is spent here because it is a thing to do right now, and it
-          disappears entirely when there is nothing waiting — a permanent banner
-          reading "0" is furniture.
+          It disappears entirely when there is nothing waiting; a permanent
+          "nothing to check" would be furniture.
         -->
-        <NuxtLink
-          v-if="counts.proofsAwaitingVote > 0"
-          to="/vote"
-          class="mt-3 flex items-center gap-3 rounded-(--q2-radius-lg) bg-(--q2-accent-solid) px-3.5 py-3 text-(--q2-accent-contrast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-          data-testid="vote-banner"
+        <section
+          v-if="pending.length > 0"
+          class="mt-6"
+          aria-labelledby="vote-heading"
+          data-testid="home-vote"
         >
-          <UIcon
-            name="i-lucide-gavel"
-            class="size-5 shrink-0"
-            aria-hidden="true"
+          <div class="mb-3 flex items-center justify-between px-0.5">
+            <h2
+              id="vote-heading"
+              class="q2-eyebrow"
+            >
+              {{ t.vote.waitingHeading }}
+            </h2>
+            <span
+              class="rounded-full bg-(--ui-bg-accented) px-2.5 py-1 text-[11px] font-extrabold text-(--ui-text-toned)"
+              data-testid="vote-remaining"
+            >{{ t.vote.remaining(pending.length) }}</span>
+          </div>
+
+          <ProofSwipeStack
+            :cards="pending"
+            :busy="isVoting"
+            @vote="vote"
           />
-          <span class="min-w-0 flex-1 text-[13px] font-extrabold">{{ t.vote.banner(counts.proofsAwaitingVote) }}</span>
-          <span class="shrink-0 text-[12px] font-bold underline">{{ t.vote.open }}</span>
-        </NuxtLink>
+        </section>
 
         <section
           class="mt-6"
