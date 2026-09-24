@@ -19,11 +19,11 @@ const t = useMessages()
 </script>
 
 <template>
-  <div class="q2-scroll flex min-h-0 flex-1 flex-col justify-center px-[22px] py-8">
-    <div class="mx-auto w-full max-w-[360px]">
-      <div class="mb-8 flex flex-col items-center text-center">
+  <div class="q2-scroll flex min-h-0 flex-1 flex-col pt-8">
+    <div class="flex min-h-full w-full flex-col">
+      <div class="px-[26px] pb-7">
         <div
-          class="mb-4 flex size-14 items-center justify-center rounded-(--q2-radius-lg) bg-(--q2-accent-solid) text-[22px] leading-none font-extrabold tracking-[-0.05em] text-(--q2-accent-contrast)"
+          class="mb-4 flex size-14 items-center justify-center rounded-full bg-(--q2-accent-solid) text-[22px] leading-none font-extrabold tracking-[-0.05em] text-(--q2-accent-contrast)"
           aria-hidden="true"
         >
           Q2
@@ -42,7 +42,12 @@ const t = useMessages()
         </p>
       </div>
 
-      <slot />
+      <UCard
+        class="flex-1 rounded-t-(--q2-radius-panel) rounded-b-none bg-(--q2-surface) shadow-none ring-0"
+        :ui="{ body: 'px-6 py-6 sm:p-6' }"
+      >
+        <slot />
+      </UCard>
     </div>
   </div>
 </template>

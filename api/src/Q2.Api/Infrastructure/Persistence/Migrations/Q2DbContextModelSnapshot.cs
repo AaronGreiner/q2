@@ -305,6 +305,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ImageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("SenderPersonId")
                         .HasColumnType("TEXT");
 
@@ -317,6 +320,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ImageId");
 
                     b.HasIndex("SenderPersonId");
 

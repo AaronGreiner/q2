@@ -34,7 +34,7 @@ useHead({ title: () => t.value.vote.heading })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 overflow-x-hidden px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"
@@ -72,6 +72,6 @@ useHead({ title: () => t.value.vote.heading })
         :description="t.vote.emptyHint"
         data-testid="vote-empty"
       />
-    </div>
+    </AppContentPanel>
   </div>
 </template>

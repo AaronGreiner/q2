@@ -112,17 +112,22 @@ useHead({ title: () => t.value.chats.heading })
       </template>
     </AppScreenHeader>
 
-    <div class="shrink-0 px-[18px] pt-1 pb-2.5">
-      <AppSearchField
-        id="chat-search"
-        v-model="input"
-        :label="t.common.search"
-        :placeholder="t.chats.searchPlaceholder"
-        test-id="chat-search"
-      />
-    </div>
+    <ChatContactStrip
+      :people="friends.map(friend => friend.person)"
+      :busy="isCreating"
+      @open="onDirect"
+    />
 
-    <div class="q2-scroll flex-1 px-[18px] pb-6">
+    <AppContentPanel>
+      <template #toolbar>
+        <AppSearchField
+          id="chat-search"
+          v-model="input"
+          :label="t.common.search"
+          :placeholder="t.chats.searchPlaceholder"
+          test-id="chat-search"
+        />
+      </template>
       <div
         v-if="isLoading"
         class="flex flex-col gap-2"
@@ -187,7 +192,7 @@ useHead({ title: () => t.value.chats.heading })
         :description="search ? t.friends.noMatchesHint : t.chats.noChatsHint"
         data-testid="chats-empty"
       />
-    </div>
+    </AppContentPanel>
 
     <ChatCreateSheet
       ref="sheet"

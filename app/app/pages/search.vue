@@ -108,19 +108,17 @@ useHead({ title: () => t.value.friends.pageHeading })
   <div class="flex min-h-0 flex-1 flex-col">
     <AppScreenHeader :title="t.friends.pageHeading" />
 
-    <div class="shrink-0 px-[18px] pt-1 pb-2.5">
-      <AppSearchField
-        id="friend-search"
-        v-model="input"
-        :label="t.friends.searchPlaceholder"
-        :placeholder="t.friends.searchPlaceholder"
-        icon="i-lucide-user-plus"
-        accent
-        test-id="friend-search"
-      />
-    </div>
-
-    <div class="q2-scroll flex-1 px-[18px] pb-6">
+    <AppContentPanel>
+      <template #toolbar>
+        <AppSearchField
+          id="friend-search"
+          v-model="input"
+          :label="t.friends.searchPlaceholder"
+          :placeholder="t.friends.searchPlaceholder"
+          icon="i-lucide-user-plus"
+          test-id="friend-search"
+        />
+      </template>
       <!-- Searching: the sections make way for what was asked for. -->
       <section
         v-if="isSearchMode"
@@ -334,7 +332,7 @@ useHead({ title: () => t.value.friends.pageHeading })
           </section>
         </template>
       </template>
-    </div>
+    </AppContentPanel>
 
     <AppConfirmDialog
       v-if="pendingRemoval"

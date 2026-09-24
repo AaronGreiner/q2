@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, Risk, Weekday } from '~/api/types'
+import type { Activity, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
 
 /**
  * Presentation logic.
@@ -324,6 +324,55 @@ export function formatInstantDate(iso: string): string {
   if (!year || !month || !day) return iso
 
   return `${Number(day)}.${Number(month)}.${year}`
+}
+
+/** What became of a photograph, as the word its owner reads under it. */
+export function proofStatusLabel(status: ProofStatus, t: Messages): string {
+  switch (status) {
+    case 'Confirmed':
+      return t.proof.confirmed
+    case 'Rejected':
+      return t.proof.rejected
+    case 'Voting':
+    default:
+      return t.proof.waiting
+  }
+}
+
+export interface MonthGroup<T> {
+  /** `2026-09` — stable, and what the list is keyed by. */
+  key: string
+  /** `September 2026`. */
+  label: string
+  items: T[]
+}
+
+/**
+ * Splits a newest-first list into the months it spans, keeping its order.
+ *
+ * Read straight off the ISO string, like {@link formatInstantDate}, so the
+ * server and the browser put a photograph taken near midnight into the same
+ * month — and so the heading always agrees with the date on the photograph.
+ */
+export function groupByMonth<T extends { createdAt: string }>(items: readonly T[], t: Messages): MonthGroup<T>[] {
+  const groups: MonthGroup<T>[] = []
+
+  for (const item of items) {
+    const key = item.createdAt.slice(0, 7)
+    const last = groups.at(-1)
+
+    if (last?.key === key) {
+      last.items.push(item)
+      continue
+    }
+
+    const [year = '', month = ''] = key.split('-')
+    const name = t.proofGallery.months[Number(month) - 1] ?? ''
+
+    groups.push({ key, label: `${name} ${year}`.trim(), items: [item] })
+  }
+
+  return groups
 }
 
 /** How full the open window is, as a percentage for a ring or a bar. */

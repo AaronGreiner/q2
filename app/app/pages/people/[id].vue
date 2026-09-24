@@ -77,7 +77,7 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col items-center gap-4"
@@ -183,7 +183,7 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
           :shared-goals="person.sharedGoals"
         />
       </template>
-    </div>
+    </AppContentPanel>
 
     <ReportSheet
       v-model:open="isReporting"

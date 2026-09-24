@@ -29,7 +29,7 @@ useHead({ title: () => t.value.challenge.archive })
       :back-label="t.common.back"
     />
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="grid grid-cols-3 gap-1.5"
@@ -75,6 +75,6 @@ useHead({ title: () => t.value.challenge.archive })
         :description="t.challenge.archiveEmptyHint"
         data-testid="challenge-archive-empty"
       />
-    </div>
+    </AppContentPanel>
   </div>
 </template>

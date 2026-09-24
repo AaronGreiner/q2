@@ -3,12 +3,19 @@ using Q2.Api.Infrastructure.Errors;
 namespace Q2.Api.Features.Chats;
 
 /// <summary>
-/// One message in a conversation.
+/// One message in a conversation: words, a photograph, or both.
 /// </summary>
 /// <remarks>
 /// The text is the most personal thing q2 stores. It is never logged, never
 /// attached to a Sentry event and never included in an error message
 /// (docs/privacy.md).
+///
+/// A photograph is referenced by <see cref="ImageId"/> without a foreign key,
+/// the same way a proof references its picture: the image row records that a
+/// file exists and who may read it (docs/adr/0017-image-storage.md), and adding
+/// a key to this table would make SQLite rebuild it. Whoever removes messages
+/// with photographs removes the pictures as well
+/// (<see cref="Images.ImageService.RemoveChatPhotosAsync"/>).
 /// </remarks>
 public sealed class ChatMessage
 {
@@ -22,12 +29,13 @@ public sealed class ChatMessage
         Text = string.Empty;
     }
 
-    private ChatMessage(Guid id, Guid conversationId, Guid senderPersonId, string text, DateTimeOffset sentAt)
+    private ChatMessage(Guid id, Guid conversationId, Guid senderPersonId, string text, Guid? imageId, DateTimeOffset sentAt)
     {
         Id = id;
         ConversationId = conversationId;
         SenderPersonId = senderPersonId;
         Text = text;
+        ImageId = imageId;
         SentAt = sentAt;
     }
 
@@ -37,18 +45,38 @@ public sealed class ChatMessage
 
     public Guid SenderPersonId { get; private set; }
 
+    /// <summary>The words. Empty when the message is only a photograph.</summary>
     public string Text { get; private set; }
+
+    /// <summary>
+    /// The photograph sent with it, uploaded beforehand as
+    /// <see cref="Images.ImagePurpose.ChatPhoto"/>.
+    /// </summary>
+    public Guid? ImageId { get; private set; }
 
     public DateTimeOffset SentAt { get; private set; }
 
     public IReadOnlyList<MessageReaction> Reactions => _reactions;
 
-    /// <exception cref="DomainValidationException">The text is empty or too long.</exception>
-    internal static ChatMessage Create(Guid id, Guid conversationId, Guid senderPersonId, string text, DateTimeOffset sentAt)
+    /// <exception cref="DomainValidationException">
+    /// There is neither text nor a photograph, or the text is too long.
+    /// </exception>
+    internal static ChatMessage Create(
+        Guid id,
+        Guid conversationId,
+        Guid senderPersonId,
+        string text,
+        Guid? imageId,
+        DateTimeOffset sentAt)
     {
         var normalised = text?.Trim() ?? string.Empty;
 
-        if (normalised.Length == 0)
+        if (imageId == Guid.Empty)
+        {
+            imageId = null;
+        }
+
+        if (normalised.Length == 0 && imageId is null)
         {
             throw new DomainValidationException(nameof(Text), "A message cannot be empty.");
         }
@@ -60,7 +88,7 @@ public sealed class ChatMessage
                 $"A message may be at most {MaxTextLength} characters long.");
         }
 
-        return new ChatMessage(id, conversationId, senderPersonId, normalised, sentAt);
+        return new ChatMessage(id, conversationId, senderPersonId, normalised, imageId, sentAt);
     }
 
     /// <summary>

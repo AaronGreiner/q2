@@ -9,6 +9,10 @@ import type { Image } from '~/api/types'
  * messages (docs/adr/0027-goal-conversations.md). The goal's owner gets the
  * camera in the composer while the open window takes a photograph.
  *
+ * Anybody can send a photograph into any conversation. It is uploaded as a
+ * `ChatPhoto`, which the server shows to the people in this conversation and
+ * nobody else, and it is never a proof: that is the camera above, and only it.
+ *
  * Opening it marks it read on the server, which is why the navigation badge is
  * refreshed afterwards — the count has just changed under it. A reply arriving
  * while it is open comes in over the live connection, which refreshes this
@@ -44,6 +48,7 @@ const {
   isLoading,
   refresh,
   send,
+  sendPhoto,
   cheer,
   react,
   vote,
@@ -67,11 +72,27 @@ const isCameraOpen = ref(false)
 const canDeliver = computed(() =>
   Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
 
-async function onDelivered(image: Image) {
-  isCameraOpen.value = false
-
+/**
+ * Already where the photograph is shown, so a delivery stays here and the card
+ * arriving in the thread is the confirmation; a refusal stays on the camera's
+ * screen with the photograph (see useProofDelivery).
+ */
+async function handIn(image: Image) {
   const goalId = chat.value?.pinnedGoal?.id
-  if (goalId && await deliver(goalId, image)) await refresh()
+  if (!goalId) return null
+
+  const result = await deliver(goalId, image)
+  if (result.status !== 'moved') await refresh()
+
+  return result.status === 'refused' ? result.message : null
+}
+
+/** A photograph as a message, picked or taken in the same sheet as a proof. */
+const isPhotoOpen = ref(false)
+
+async function onPhotoPicked(image: Image) {
+  isPhotoOpen.value = false
+  await sendPhoto(image)
 }
 
 const thread = useTemplateRef<HTMLElement>('thread')
@@ -246,7 +267,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <template v-else>
       <div
         ref="thread"
-        class="q2-scroll flex flex-1 flex-col gap-1 px-[18px] py-3.5"
+        class="q2-scroll flex flex-1 flex-col gap-2 bg-(--q2-surface) px-[18px] py-3.5"
       >
         <ChatGoalBanner
           v-if="chat.pinnedGoal"
@@ -254,8 +275,11 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           @cheer="cheer()"
         />
 
-        <ul
-          v-if="items.length > 0"
+        <!-- Always rendered, so the first message animates in rather than
+             mounting the whole list; each timeline item carries its own key. -->
+        <TransitionGroup
+          tag="ul"
+          name="q2-message"
           class="flex list-none flex-col gap-1 p-0"
           data-testid="chat-messages"
         >
@@ -291,10 +315,10 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
               />
             </li>
           </template>
-        </ul>
+        </TransitionGroup>
 
         <AppStateMessage
-          v-else
+          v-if="items.length === 0"
           class="my-auto"
           icon="i-lucide-message-circle"
           :title="t.chats.empty"
@@ -307,6 +331,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         :can-deliver="canDeliver"
         @send="send"
         @deliver="isCameraOpen = true"
+        @attach="isPhotoOpen = true"
       />
     </template>
 
@@ -314,7 +339,13 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       v-model:open="isCameraOpen"
       purpose="Proof"
       :max-edge="maxEdge"
-      @uploaded="onDelivered"
+      :hand-in="handIn"
+    />
+
+    <PhotoCapture
+      v-model:open="isPhotoOpen"
+      purpose="ChatPhoto"
+      @uploaded="onPhotoPicked"
     />
 
     <AppConfirmDialog

@@ -1,6 +1,6 @@
 # 0018 — A window is closed by other people
 
-**Status:** Accepted, amended by [0028](0028-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided
+**Status:** Accepted, amended by [0030](0030-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided
 **Date:** 2026-09-07
 
 ## Context

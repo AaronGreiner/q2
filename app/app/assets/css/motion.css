@@ -1,0 +1,147 @@
+/* Ruhe motion: brief responses to navigation and intent, never idle loops.
+ * Keep durations here; main.css also suppresses third-party overlay motion
+ * and delays when the operating system requests reduced motion.
+ */
+:root {
+  --q2-motion-fast: 140ms;
+  --q2-motion-normal: 240ms;
+  --q2-motion-slow: 380ms;
+  --q2-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Typed angles interpolate; an unregistered custom property would just jump. */
+@property --q2-progress-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.q2-progress-ring {
+  background: conic-gradient(var(--ui-text) var(--q2-progress-angle), var(--q2-track) 0deg);
+}
+
+.q2-segmented [data-slot="fieldset"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-start: 4px;
+  width: calc((100% - 8px - (var(--q2-segment-count) - 1) * 4px) / var(--q2-segment-count));
+  border-radius: 999px;
+  background: var(--q2-surface);
+  transform: translateX(calc(var(--q2-segment-index) * (100% + 4px)));
+  pointer-events: none;
+}
+
+.q2-nav-indicator {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 20%;
+  height: 3px;
+  transform: translateX(calc(var(--q2-nav-index) * 100%));
+  opacity: var(--q2-nav-visible);
+  pointer-events: none;
+}
+
+.q2-nav-indicator::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 100%;
+  margin-inline: auto;
+  border-radius: 999px;
+  background: var(--q2-accent-solid);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .q2-page-enter-active,
+  .q2-layout-enter-active {
+    transition: opacity var(--q2-motion-normal) ease, transform var(--q2-motion-normal) var(--q2-ease-out);
+  }
+
+  .q2-page-leave-active,
+  .q2-layout-leave-active {
+    transition: opacity 90ms ease;
+    pointer-events: none;
+  }
+
+  .q2-page-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .q2-layout-enter-from,
+  .q2-page-leave-to,
+  .q2-layout-leave-to {
+    opacity: 0;
+  }
+
+  /* Only direct sections stagger, with a capped delay. Live refreshes reuse
+   * these elements, so drafts and existing content stay still and mounted. */
+  .q2-content-arrival > :not([aria-busy="true"]) {
+    animation: q2-arrive var(--q2-motion-slow) var(--q2-ease-out) backwards;
+  }
+  .q2-content-arrival > :nth-child(2) { animation-delay: 35ms; }
+  .q2-content-arrival > :nth-child(3) { animation-delay: 70ms; }
+  .q2-content-arrival > :nth-child(n + 4) { animation-delay: 105ms; }
+
+  .q2-press {
+    transition: scale var(--q2-motion-fast) var(--q2-ease-out),
+      background-color var(--q2-motion-fast) ease,
+      color var(--q2-motion-fast) ease,
+      border-color var(--q2-motion-fast) ease;
+  }
+
+  .q2-press:active:not(:disabled):not([aria-disabled="true"]) {
+    scale: 0.97;
+  }
+
+  .q2-segmented [data-slot="fieldset"]::before,
+  .q2-nav-indicator {
+    transition: transform var(--q2-motion-normal) var(--q2-ease-out), opacity var(--q2-motion-fast) ease;
+  }
+
+  .q2-nav-icon {
+    transition: transform var(--q2-motion-normal) var(--q2-ease-out);
+  }
+  [aria-current="page"] .q2-nav-icon { transform: translateY(-2px); }
+
+  .q2-progress-fill {
+    transform-origin: left;
+    animation: q2-fill var(--q2-motion-slow) var(--q2-ease-out);
+    transition: width var(--q2-motion-slow) var(--q2-ease-out);
+  }
+  .q2-progress-ring {
+    animation: q2-ring var(--q2-motion-slow) var(--q2-ease-out);
+    transition: --q2-progress-angle var(--q2-motion-slow) var(--q2-ease-out);
+  }
+
+  .q2-reaction[aria-pressed="true"] > :first-child {
+    animation: q2-acknowledge var(--q2-motion-normal) var(--q2-ease-out);
+  }
+
+  .q2-message-enter-active {
+    transition: opacity var(--q2-motion-normal) ease, transform var(--q2-motion-normal) var(--q2-ease-out);
+  }
+  .q2-message-enter-from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  @keyframes q2-arrive {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes q2-fill {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  @keyframes q2-ring {
+    from { --q2-progress-angle: 0deg; }
+  }
+  @keyframes q2-acknowledge {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.2) rotate(-8deg); }
+    100% { transform: scale(1); }
+  }
+}

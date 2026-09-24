@@ -1,5 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hapticTap } from '~/utils/haptics'
 import AppBottomNav from '~/components/layout/AppBottomNav.vue'
 import AppConfirmDialog from '~/components/ui/AppConfirmDialog.vue'
 import AppProgressRing from '~/components/ui/AppProgressRing.vue'
@@ -29,6 +30,9 @@ import type {
   Goal,
   Person,
 } from '~/api/types'
+
+vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
+afterEach(() => vi.mocked(hapticTap).mockClear())
 
 function person(overrides: Partial<Person> = {}): Person {
   return {
@@ -118,7 +122,7 @@ describe('interactive UI primitives', () => {
     })
     await segmented.get('[data-testid="segment-goals"]').trigger('click')
     expect(segmented.emitted('update:modelValue')?.[0]).toEqual(['goals'])
-    expect(segmented.get('[data-testid="segment-today"]').attributes('role')).toBe('radio')
+    expect(segmented.findAll('[role="radio"]')).toHaveLength(2)
 
     const toggle = await mountSuspended(AppToggle, { props: { label: 'Erinnerungen', modelValue: false } })
     await toggle.get('[role="switch"]').trigger('click')
@@ -154,6 +158,7 @@ describe('chat presentation', () => {
       senderId: 'person-1',
       senderName: 'Mara',
       text: 'Du schaffst das!',
+      image: null,
       sentAt: '2026-07-31T09:00:00Z',
       isMine: false,
       reactions: [{ kind: 'Applause' as const, count: 2, isMine: true }],
@@ -178,6 +183,7 @@ describe('chat presentation', () => {
 
     await wrapper.get('[data-testid="chat-kudos-Fire"]').trigger('click')
     expect(wrapper.emitted('react')?.[0]).toEqual(['message-1', 'Fire'])
+    expect(hapticTap).toHaveBeenCalledOnce()
   })
 
   it('does not offer a reaction on your own message', async () => {
@@ -187,7 +193,7 @@ describe('chat presentation', () => {
     expect(wrapper.find('[data-testid="chat-kudos-Fire"]').exists()).toBe(false)
   })
 
-  it('trims a composed message, clears the field and offers quick cheers', async () => {
+  it('trims a composed message, clears the field and asks for a photograph', async () => {
     const wrapper = await mountSuspended(ChatComposer)
     const input = wrapper.get('[data-testid="chat-input"]')
 
@@ -196,8 +202,89 @@ describe('chat presentation', () => {
     expect(wrapper.emitted('send')?.[0]).toEqual(['Hallo'])
     expect((input.element as HTMLInputElement).value).toBe('')
 
-    await wrapper.get('[data-testid="quick-cheer"]').trigger('click')
-    expect(wrapper.emitted('send')).toHaveLength(2)
+    // No ready-made replies: what gets sent is what was typed.
+    expect(wrapper.find('[data-testid="quick-cheer"]').exists()).toBe(false)
+
+    const attach = wrapper.get('[data-testid="chat-attach"]')
+    expect(attach.attributes('aria-label')).toBe('Foto senden')
+    await attach.trigger('click')
+    expect(wrapper.emitted('attach')).toHaveLength(1)
+    expect(wrapper.emitted('send')).toHaveLength(1)
+  })
+
+  it('holds the photograph button back while a message is on its way', async () => {
+    const wrapper = await mountSuspended(ChatComposer, { props: { busy: true } })
+
+    expect(wrapper.get('[data-testid="chat-attach"]').attributes()).toHaveProperty('disabled')
+  })
+
+  it('draws a photograph at its own proportions, with or without words', async () => {
+    const image = {
+      id: 'image-1',
+      purpose: 'ChatPhoto' as const,
+      width: 1200,
+      height: 900,
+      byteSize: 1000,
+      createdAt: '2026-07-31T09:00:00Z',
+    }
+
+    const alone = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: '', image }), now: Date.now() },
+    })
+    const frame = alone.get('[data-testid="chat-photo"]')
+    const img = frame.get('img')
+
+    expect(img.attributes('src')).toContain('/api/images/image-1')
+    expect(img.attributes('crossorigin')).toBe('use-credentials')
+    expect(img.attributes('alt')).toBe('Foto')
+    expect(frame.attributes('style')).toContain('aspect-ratio: 1.3333')
+
+    // Nothing but the picture: an empty bubble under it would be noise.
+    expect(alone.find('p').exists()).toBe(false)
+
+    // Somebody's photograph is blocked from Session Replay with the rest of
+    // the message.
+    expect(alone.attributes()).toHaveProperty('data-q2-block')
+
+    const captioned = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: 'Gipfel!', image }), now: Date.now() },
+    })
+    expect(captioned.find('[data-testid="chat-photo"]').exists()).toBe(true)
+    expect(captioned.get('p').text()).toBe('Gipfel!')
+
+    // A panorama is not drawn as a sliver.
+    const wide = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: '', image: { ...image, width: 2000, height: 400 } }), now: Date.now() },
+    })
+    expect(wide.get('[data-testid="chat-photo"]').attributes('style')).toContain('aspect-ratio: 1.5')
+  })
+
+  it('says a photograph is gone rather than drawing an empty bubble', async () => {
+    const wrapper = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: '', image: null }), now: Date.now() },
+    })
+
+    expect(wrapper.find('[data-testid="chat-photo"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Foto nicht mehr verfügbar')
+  })
+
+  it('falls back to a placeholder when a photograph cannot be loaded', async () => {
+    const image = {
+      id: 'image-1',
+      purpose: 'ChatPhoto' as const,
+      width: 400,
+      height: 400,
+      byteSize: 1000,
+      createdAt: '2026-07-31T09:00:00Z',
+    }
+    const wrapper = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: '', image }), now: Date.now() },
+    })
+
+    await wrapper.get('[data-testid="chat-photo"] img').trigger('error')
+
+    expect(wrapper.find('[data-testid="chat-photo"] img').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="chat-photo"]').text()).toContain('Foto nicht mehr verfügbar')
   })
 
   it('links a pinned goal and emits encouragement', async () => {
@@ -240,6 +327,12 @@ describe('chat presentation', () => {
       props: { chat: { ...summary, lastMessage: null, lastMessageAt: null, unreadCount: 0 }, now: Date.now() },
     })
     expect(empty.text()).toContain('Noch keine Nachrichten')
+
+    // A photograph without words is named as one, with who sent it.
+    const photo = await mountSuspended(ChatListRow, {
+      props: { chat: { ...summary, lastMessage: null, lastMessageHasPhoto: true }, now: Date.now() },
+    })
+    expect(photo.text()).toContain('Jonas: Foto')
   })
 })
 

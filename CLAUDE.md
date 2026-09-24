@@ -13,11 +13,18 @@ to working in Claude Code.
 | work on the frontend | [app/AGENTS.md](app/AGENTS.md) |
 | work on the backend | [api/AGENTS.md](api/AGENTS.md) |
 | understand why something is the way it is | [docs/adr/](docs/adr/) |
-| know what to build next | [GitHub Issues](https://github.com/AaronGreiner/q2/issues) — the only backlog |
+| know what to build next, or record what you did | [GitHub Issues](https://github.com/AaronGreiner/q2/issues) — the only backlog, and where work is reported ([AGENTS.md](AGENTS.md) section 11) |
 | release or debug a deployment | [docs/deployment.md](docs/deployment.md) |
 
 ## Things that are easy to get wrong here
 
+- **Work starts from an issue and ends in one.** Before touching code, search
+  the issues (`gh issue list --state all --search "…"`) and read the one that
+  fits, comments included; if none fits, open it. Correct an issue that has gone
+  stale before building on it. Anything found out of scope becomes an issue of
+  its own, not a note in a document or a TODO without a number. Opening,
+  editing and commenting on issues needs no extra permission — it is part of
+  the task. See [AGENTS.md](AGENTS.md) section 11.
 - **`app/app/` is not a typo.** Nuxt 4 puts application source in `app/`
   inside the project, so the frontend's pages live at `app/app/pages/`.
 - **Component names come from the file name, not the folder.**
@@ -99,8 +106,10 @@ Leave your work in the working tree. No `git commit`, no `git push`, no tag, no
 new branch — unless the user asks for it in that conversation, in those words.
 "Do it properly", "finish it" and "make it production-ready" are not that ask.
 
-Finishing a task means the change is on disk, verified, and described. See
-[AGENTS.md](AGENTS.md) section 11 for why.
+Finishing a task means the change is on disk, verified, and described — here
+and on its issue. See [AGENTS.md](AGENTS.md) section 11 for why. Commenting on
+an issue is not committing; it is expected. Closing one is not, unless it is
+demonstrably done on `main`, obsolete or a duplicate.
 
 ## Reporting
 
@@ -110,4 +119,5 @@ reproduce it. Never present unrun checks as passing — see
 [AGENTS.md](AGENTS.md) section 15.
 
 When you finish, say what is uncommitted and what it touches, so the author can
-review and commit it themselves.
+review and commit it themselves. Put the same report on the issue as a comment,
+with what remains and the issues you opened along the way.

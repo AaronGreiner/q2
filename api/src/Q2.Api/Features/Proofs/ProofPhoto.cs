@@ -160,7 +160,7 @@ public sealed class ProofPhoto
     /// wrong direction, or a second look at the picture in its conversation. A
     /// changed vote is still one vote, it still counts once, and the moment the
     /// photograph is decided it is fixed — so the verdict, the streak and the
-    /// balance never move after the fact (ADR 0028).
+    /// balance never move after the fact (ADR 0030).
     ///
     /// The uploader is refused here rather than in the service because "you
     /// cannot vouch for yourself" is what the type is *for*.

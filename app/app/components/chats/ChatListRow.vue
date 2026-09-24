@@ -27,7 +27,7 @@ const time = computed(() => formatChatTime(props.chat.lastMessageAt, props.now, 
 const preview = computed(() => {
   if (props.chat.awaitingMyVote) return t.value.chats.awaitingVote
   if (props.chat.lastEvent) return t.value.chats.lastEvent[props.chat.lastEvent]
-  if (!props.chat.lastMessage) return t.value.chats.empty
+  if (!props.chat.lastMessage && !props.chat.lastMessageHasPhoto) return t.value.chats.empty
 
   const prefix = props.chat.lastMessageIsMine
     ? `${t.value.chats.you}: `
@@ -35,14 +35,15 @@ const preview = computed(() => {
       ? `${props.chat.lastMessageSenderName}: `
       : ''
 
-  return `${prefix}${props.chat.lastMessage}`
+  // Words win when there are any; a photograph alone is named as one.
+  return `${prefix}${props.chat.lastMessage ?? t.value.chats.photo}`
 })
 </script>
 
 <template>
   <NuxtLink
     :to="`/chats/${chat.id}`"
-    class="-mx-2.5 flex items-center gap-3 rounded-(--q2-radius-lg) px-2.5 py-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+    class="q2-press flex items-center gap-3 border-b border-(--ui-border-muted) py-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
     data-testid="chat-row"
   >
     <AppAvatar
@@ -50,12 +51,12 @@ const preview = computed(() => {
       :color="chat.avatarColor"
       :image-id="chat.avatarImageId"
       :icon="chat.icon"
-      :size="52"
+      :size="48"
       :online="chat.isOnline"
     />
 
     <div
-      class="min-w-0 flex-1 border-b border-(--ui-border) pb-2.5"
+      class="min-w-0 flex-1"
       data-q2-private
     >
       <div class="flex items-center justify-between gap-2">

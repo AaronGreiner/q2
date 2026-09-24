@@ -36,14 +36,14 @@ const subtitle = computed(() => {
 
 <template>
   <div
-    class="flex items-center gap-3 py-2.5"
+    class="flex items-center gap-3 border-b border-(--ui-border-muted) py-[13px]"
     data-testid="friend-row"
   >
     <AppAvatar
       :initials="friend.person.initials"
       :color="friend.person.avatarColor"
       :image-id="friend.person.avatarImageId"
-      :size="42"
+      :size="48"
       :online="friend.person.isOnline"
     />
 

@@ -51,7 +51,7 @@ public sealed class ProofService(
     /// No such goal, it is not this person's, or the image is not theirs.
     /// </exception>
     /// <exception cref="DomainValidationException">The window is not taking a photograph.</exception>
-    public async Task<ProofResponse> SubmitAsync(
+    public async Task<DeliveredProofResponse> SubmitAsync(
         Guid goalId,
         SubmitProofRequest request,
         CancellationToken cancellationToken)
@@ -113,7 +113,18 @@ public sealed class ProofService(
         logger.LogInformation("A proof was delivered on goal {GoalId}", goal.Id);
         metrics.CountGoalProgress();
 
-        return await DescribeAsync(goal, proof, me.Id, now, cancellationToken);
+        // Where the photograph can be seen from now on, so the client can take
+        // the owner there rather than leave them looking at a row that has
+        // simply stopped offering the camera.
+        var conversationId = await database.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.GoalId == goal.Id)
+            .Select(conversation => (Guid?)conversation.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new DeliveredProofResponse(
+            await DescribeAsync(goal, proof, me.Id, now, cancellationToken),
+            conversationId);
     }
 
     /// <summary>
@@ -328,6 +339,53 @@ public sealed class ProofService(
             && database.Goals.Any(goal =>
                 goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
                 && goal.Participants.Any(participant => participant.PersonId == personId)));
+    }
+
+    /// <summary>
+    /// Every photograph this person has delivered, newest first.
+    /// </summary>
+    /// <remarks>
+    /// The query starts from the uploader, so there is no filter a later change
+    /// could forget: somebody else's photograph cannot reach this list, even
+    /// one on a goal the caller is on.
+    ///
+    /// A proof whose picture has been deleted is left out rather than shown as
+    /// a broken tile — the window it delivered keeps its outcome either way.
+    /// That same join is what bounds the list: nobody holds more than
+    /// <see cref="StoredImage.MaxImagesPerPerson"/> pictures, so there is no
+    /// page size to choose and no second request to make.
+    /// </remarks>
+    public async Task<IReadOnlyList<OwnProofResponse>> ListOwnAsync(CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        return await database.ProofPhotos
+            .AsNoTracking()
+            .Where(proof => proof.UploaderPersonId == me.Id
+                && database.Images.Any(image => image.Id == proof.ImageId))
+            .Join(
+                database.GoalInstances,
+                proof => proof.GoalInstanceId,
+                instance => instance.Id,
+                (proof, instance) => new { Proof = proof, instance.GoalId })
+            .Join(
+                database.Goals,
+                row => row.GoalId,
+                goal => goal.Id,
+                (row, goal) => new { row.Proof, Goal = goal })
+            .OrderByDescending(row => row.Proof.CreatedAt)
+            // Ids are handed out in order, so a tie on the instant still reads
+            // newest first rather than falling back to whatever SQLite returns.
+            .ThenByDescending(row => row.Proof.Id)
+            .Select(row => new OwnProofResponse(
+                row.Proof.Id,
+                row.Proof.ImageId,
+                row.Proof.Status,
+                row.Proof.CreatedAt,
+                row.Goal.Id,
+                row.Goal.Title,
+                row.Goal.Icon))
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>One photograph, for somebody allowed to see it.</summary>

@@ -2,18 +2,7 @@
 import { imageUrl } from '~/api/images'
 
 /**
- * Somebody's avatar: their photograph, or their initials on their own colour.
- *
- * The initials are not a placeholder that goes away. They are what is drawn
- * while the picture loads, when somebody has never uploaded one, when they
- * delete it, and when the request for it fails — so there is always something
- * to see, and a screen of empty grey circles is not a state this app has. The
- * colours are the one place identity is allowed to bring hue onto a black
- * screen, because telling two people apart is meaning rather than decoration.
- *
- * A group has an icon instead. It is drawn on a neutral raised tile rather than
- * a person colour: a group is not somebody, and giving it one would make the
- * chat list read as though it were.
+ * Photographs or neutral initials keep identity readable without competing accents.
  *
  * With `expandTitle` set, a photograph opens full screen on a tap. It is
  * opt-in rather than everywhere because most avatars sit inside a row that is
@@ -81,8 +70,8 @@ const style = computed(() => ({
   width: `${props.size}px`,
   height: `${props.size}px`,
   fontSize: `${Math.round(props.size * 0.38)}px`,
-  background: props.icon ? 'var(--ui-bg-elevated)' : props.color,
-  color: props.icon ? 'var(--ui-text)' : '#ffffff',
+  background: 'var(--q2-avatar)',
+  color: 'var(--ui-text-toned)',
 }))
 </script>
 

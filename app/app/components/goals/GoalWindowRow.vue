@@ -55,7 +55,7 @@ const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && 
     <button
       v-if="canDeliver"
       type="button"
-      class="relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) text-(--q2-accent-contrast) transition-colors after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="q2-press relative flex size-[26px] shrink-0 items-center justify-center rounded-full bg-(--q2-accent-solid) text-(--q2-accent-contrast) transition-colors after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :aria-label="`${t.proof.deliver}: ${goal.title}`"
       data-testid="window-deliver"
       @click="emit('deliver', goal.id)"

@@ -129,5 +129,17 @@ public sealed class StoredImageTests
         Assert.True(ImageService.CanRead(proof, Owner));
     }
 
+    [Fact]
+    public void LeavesAChatPhotographToItsConversation()
+    {
+        var stranger = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var photo = StoredImage.Create(Id, Owner, ImagePurpose.ChatPhoto, Valid(), Now);
+
+        // Who else is in the conversation is a query, answered by CanReadAsync;
+        // on the picture alone it is nobody's but the sender's.
+        Assert.False(ImageService.CanRead(photo, stranger));
+        Assert.True(ImageService.CanRead(photo, Owner));
+    }
+
     private static ImageContent Valid() => new(ImageFormatReader.Jpeg, 512, 512, 10_000);
 }

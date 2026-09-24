@@ -1,252 +1,125 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./motion.css";
 
-/*
- * Design tokens for q2.
- *
- * Two layers, and the distinction matters. `--ui-*` are Nuxt UI's own aliases,
- * so every UButton, UInput and UModal picks up the palette without a single
- * per-component colour prop. `--q2-*` are the few things the design uses that
- * Nuxt UI has no concept of — the card shadow, the progress track, the warm
- * accent behind streaks.
- *
- * Nothing outside this file names a hex value.
- */
-
+/* 2B Ruhe: shared Nuxt UI aliases keep controls, overlays and pages in sync. */
 @theme static {
-  /*
-   * The accent, and the only hue q2 owns.
-   *
-   * 500 is the design's #cbee4a exactly — a lime held back from the neon it
-   * started as, because a fully saturated #d7ff3e reads as a toy on pure black
-   * and this one still reads as itself. The surrounding steps were built around
-   * it rather than borrowed from a scale that happens to pass nearby, and the
-   * dark end goes olive rather than grey so a disabled or pressed state stays
-   * in the same family.
-   *
-   * Colour appears in exactly three places in this app, and each has one
-   * meaning (see the block comment under :root). Everything else is black,
-   * white, a grey between them, or a photograph.
-   */
-  --color-primary-50: #f7fce9;
-  --color-primary-100: #edf9cd;
-  --color-primary-200: #dcf4a1;
-  --color-primary-300: #cbee4a;
-  --color-primary-400: #b4dc32;
-  --color-primary-500: #cbee4a;
-  --color-primary-600: #7d9c14;
-  --color-primary-700: #5e770a;
-  --color-primary-800: #4a6600;
-  --color-primary-900: #3f5a00;
-  --color-primary-950: #22300a;
-
-  /*
-   * Public Sans, self-hosted by @nuxt/fonts at build time. The design links it
-   * from Google Fonts; that would make every page load tell a third party who
-   * is reading it, which docs/privacy.md rules out — and it is the same reason
-   * icons are bundled rather than fetched.
-   *
-   * It stays rather than moving to the system stack because it is the cheapest
-   * difference between "an app" and "a website", and because it goes tight and
-   * heavy, which is what the headings below ask of it.
-   */
   --font-sans: "Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-/*
- * The palette, and the rule that keeps it small.
- *
- * q2 is dark by default and black rather than charcoal, because photographs are
- * the material this product is made of: a proof photo on a white card is a
- * postage stamp, and on black it is a picture. Everything around it therefore
- * gets out of the way.
- *
- * Three colours carry meaning, and nothing else carries any:
- *
- *   --ui-primary / --q2-accent-*   an action the person can take *right now*
- *   --q2-flame-*                   a streak, and only a streak
- *   --q2-error-action / -danger    something final: delete, block, leave
- *
- * The test before reaching for the accent is one question — *is this something
- * they can do now?* A state is not. A switch that reports how something stands,
- * a history grid, a completed badge: no accent. This rule was worth 67 places
- * in 29 files in the design it comes from, and losing it again is the most
- * likely way to ruin this palette.
- *
- * `:root` is the light theme and `.dark` overrides it — the order Nuxt UI's
- * colour mode expects — but *dark is what q2 opens in*
- * (ProfileDefaults.Theme on the server, and the manifest's colours below).
- * Light is kept working rather than kept equal: it is what somebody reads in
- * sunlight, and what somebody with astigmatism reads at all.
- */
 :root {
-  --ui-radius: 0.75rem;
-
-  /*
-   * How much room the bottom edge of the screen needs.
-   *
-   * Installed, `env(safe-area-inset-bottom)` is 34px on an iPhone and can be a
-   * whole navigation bar on Android. Padding a compact tab bar by all of it
-   * leaves the icons stranded near its top edge with a wide empty band under
-   * them — the bar stops looking like it sits on the edge of the screen and
-   * starts looking like it hovers above one.
-   *
-   * The inset is therefore a *ceiling to clear*, not a target: cap it at the
-   * point where the content is comfortably above the iOS home indicator and
-   * outside the system's swipe-up area, and take the smaller of the two. The
-   * 0.75rem floor is what the bar has on a device with no inset at all.
-   */
+  --ui-radius: 0.625rem;
   --q2-safe-bottom: max(0.75rem, min(env(safe-area-inset-bottom), 1.25rem));
+  --q2-radius-sm: 0.625rem;
+  --q2-radius-md: 0.875rem;
+  --q2-radius-lg: 1.125rem;
+  --q2-radius-xl: 1.375rem;
+  --q2-radius-panel: 1.625rem;
 
-  /*
-   * --ui-bg has one copy elsewhere, in app/utils/themeColors.ts. Installed,
-   * this value is the splash screen and the status bar, and both are painted
-   * before a stylesheet exists to read a custom property from. Change them
-   * together.
-   */
-  --ui-bg: #fafafa;
-  --ui-bg-muted: #f3f3f3;
+  /* Keep the platform's pre-CSS colours in utils/themeColors.ts in sync. */
+  --ui-bg: #eceae8;
+  --ui-bg-muted: #f2f1ef;
   --ui-bg-elevated: #ffffff;
-  --ui-bg-accented: #ededed;
-
-  --ui-border: #e7e7e7;
-  --ui-border-muted: #f0f0f0;
-  --ui-border-accented: #dcdcdc;
-
-  /* Completed copy remains subdued by its strike-through, but still passes AA. */
-  --ui-text-dimmed: #737373;
-  --ui-text-muted: #737373;
-  --ui-text-toned: #525252;
-  --ui-text: #0a0a0a;
-  --ui-text-highlighted: #000000;
-
-  /*
-   * The accent, dark enough to be *written with* on a light background:
-   * 6.30:1 on --ui-bg, 6.58:1 on a card, and 6.58:1 for white text on a solid
-   * fill of it.
-   *
-   * This is the light theme's whole answer to the trap the dark theme has in
-   * the other direction — a bright lime with white on it is 1.3:1, which is how
-   * a primary button stays invisible for months. Whichever theme is showing,
-   * text on an accent fill comes from --q2-accent-contrast and never from
-   * `text-white`.
-   */
-  --ui-primary: #4a6600;
-
+  --ui-bg-accented: #dedbd7;
+  --ui-border: #e5e2de;
+  --ui-border-muted: #efedea;
+  --ui-border-accented: #cdc9c4;
+  --ui-text-dimmed: #6b6866;
+  --ui-text-muted: #6b6866;
+  --ui-text-toned: #57534f;
+  --ui-text: #1f1e1d;
+  --ui-text-highlighted: #1f1e1d;
   --q2-surface: #ffffff;
-  --q2-track: #ededed;
-  --q2-accent-solid: #4a6600;
-  --q2-accent-contrast: #ffffff;
-  --q2-accent-soft: #f2f8de;
-  --q2-accent-soft-text: #3f5a00; /* 7.20:1 on --q2-accent-soft */
+  --q2-track: #efedea;
+  --q2-avatar: #efedea;
+  --q2-card-shadow: none;
 
-  /*
-   * The streak, and nothing but the streak.
-   *
-   * `from`/`to` are the flame itself and are the same two values in both
-   * themes — the hero they fill is its own lit surface, not a tint of the page,
-   * so it does not follow the theme. `--q2-flame-text` is the separate value
-   * for a flame *word* or icon sitting on the page, which does: 5.44:1 here.
-   */
+  --q2-accent-solid: #5a67ab;
+  --q2-accent-contrast: #ffffff;
+  --q2-accent-soft: #e9eaf5;
+  --q2-accent-soft-text: #4a5390;
+  --ui-primary: var(--q2-accent-solid);
+  --q2-online: var(--ui-text-muted);
+
   --q2-flame-from: #ffcc33;
   --q2-flame-to: #ff4d2d;
   --q2-flame-text: #a44f00;
   --q2-flame-soft: #fff4e0;
-
   --q2-error-action: #991b1b;
   --q2-warning-action: #854d0e;
-  --q2-online: #15803d;
-
-  /*
-   * A card lifts off a light page with a shadow. On black there is nothing to
-   * cast one onto, so the dark theme replaces this with a hairline of light
-   * along the top edge instead — see .dark below.
-   */
-  --q2-card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 20px -10px rgba(16, 24, 40, 0.13);
-
-  /*
-   * Corner radii, written out rather than reached for through `rounded-xl` and
-   * friends.
-   *
-   * Nuxt UI rescales Tailwind's radius utilities off --ui-radius, so in this
-   * app `rounded-sm` is 12px, `rounded-md` 18px, `rounded-xl` 36px and
-   * `rounded-3xl` nothing at all. Its own components land on 18px — a UButton
-   * and a UInput are drawn at exactly the radius a q2 card is — while a
-   * `rounded-xl` written in a q2 template in the belief that it means
-   * Tailwind's 12px comes out at 36px right next to them. That is how a 44px
-   * icon tile turned into a circle and a goal banner ended up rounder than the
-   * card it sits on.
-   *
-   * These four are the whole scale. They do not shadow a Nuxt UI utility, so
-   * `rounded-(--q2-radius-lg)` means the same thing wherever it is read.
-   */
-  --q2-radius-sm: 0.625rem; /* 10px — a 36px icon tile, a small square control */
-  --q2-radius-md: 0.8125rem; /* 13px — a 44px icon tile, a row inside a card */
-  --q2-radius-lg: 1.125rem; /* 18px — a card, a banner, a message: the house radius */
-  --q2-radius-xl: 1.375rem; /* 22px — the streak hero, the one loud card */
 }
 
 .dark {
-  /*
-   * Black, not charcoal. The dark half of app/utils/themeColors.ts; see the
-   * note on :root above.
-   *
-   * The greys above it are a ladder rather than a pair, because on black an
-   * eight-point step is clearly visible and a card, a sheet and a pressed row
-   * all have to be told apart without a border on each.
-   */
-  --ui-bg: #000000;
-  --ui-bg-muted: #0a0a0a;
-  --ui-bg-elevated: #141414;
-  --ui-bg-accented: #1f1f1f;
+  --ui-bg: #131211;
+  --ui-bg-muted: #262422;
+  --ui-bg-elevated: #211f1d;
+  --ui-bg-accented: #34322e;
+  --ui-border: #34322e;
+  --ui-border-muted: #262422;
+  --ui-border-accented: #4a4742;
+  --ui-text-dimmed: #a3a09c;
+  --ui-text-muted: #a3a09c;
+  --ui-text-toned: #ccc9c5;
+  --ui-text: #edecea;
+  --ui-text-highlighted: #edecea;
+  --q2-surface: #1c1b19;
+  --q2-track: #262422;
+  --q2-avatar: #2b2926;
 
-  --ui-border: #242424;
-  --ui-border-muted: #191919;
-  --ui-border-accented: #383838;
-
-  /*
-   * Every step still passes AA on the page *and* on a card, which is the
-   * measurement that matters — the dimmest one is what a caption is set in, and
-   * the design this comes from had it at 34% white until a phone in sunlight
-   * proved it unreadable.
-   *
-   *   dimmed  5.69:1 on --ui-bg, 5.74:1 on --q2-surface
-   *   muted  10.59:1 / 9.73:1
-   *   toned  15.17:1
-   */
-  --ui-text-dimmed: #8c8c8c;
-  --ui-text-muted: #b8b8b8;
-  --ui-text-toned: #dbdbdb;
-  --ui-text: #ffffff;
-  --ui-text-highlighted: #ffffff;
-
-  /* 15.87:1 on --ui-bg and 14.59:1 on --q2-surface; black on it is the same. */
-  --ui-primary: #cbee4a;
-
-  --q2-surface: #0e0e0e;
-  --q2-track: #242424;
-  --q2-accent-solid: #cbee4a;
-  --q2-accent-contrast: #000000;
-  --q2-accent-soft: #2c3218;
-  --q2-accent-soft-text: #cbee4a; /* 10.07:1 on --q2-accent-soft */
-
-  --q2-flame-from: #ffcc33;
-  --q2-flame-to: #ff4d2d;
-  --q2-flame-text: #ff8a3d; /* 8.23:1 on --q2-surface */
+  --q2-accent-solid: #8b95dd;
+  --q2-accent-contrast: #131211;
+  --q2-accent-soft: #2c3048;
+  --q2-accent-soft-text: #b9c0ee;
+  --q2-flame-text: #ff8a3d;
   --q2-flame-soft: #241505;
-
   --q2-error-action: #ff9d9d;
   --q2-warning-action: #ffd97a;
-  --q2-online: #cbee4a;
+}
 
-  /*
-   * No shadow: on #000 a drop shadow is invisible, and faking one by darkening
-   * the page under a card is not available when the page is already black.
-   * What separates a card here is a single lit pixel along its top edge — the
-   * way light falls on a raised surface — which is also what stops a column of
-   * cards from reading as one undifferentiated field.
-   */
-  --q2-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+/* Presets are paired for readable text in both modes, never arbitrary hex input. */
+:root[data-accent="sage"] {
+  --q2-accent-solid: #416952;
+  --q2-accent-soft: #e6efe8;
+  --q2-accent-soft-text: #365943;
+}
+:root[data-accent="rose"] {
+  --q2-accent-solid: #96536f;
+  --q2-accent-soft: #f5e8ee;
+  --q2-accent-soft-text: #83445e;
+}
+:root[data-accent="ochre"] {
+  --q2-accent-solid: #826023;
+  --q2-accent-soft: #f5eddd;
+  --q2-accent-soft-text: #72521b;
+}
+:root.dark[data-accent="sage"] {
+  --q2-accent-solid: #9fc6ac;
+  --q2-accent-soft: #263a2e;
+  --q2-accent-soft-text: #b5d7bf;
+}
+:root.dark[data-accent="rose"] {
+  --q2-accent-solid: #dca5bc;
+  --q2-accent-soft: #422c36;
+  --q2-accent-soft-text: #ebbdcf;
+}
+:root.dark[data-accent="ochre"] {
+  --q2-accent-solid: #d6b679;
+  --q2-accent-soft: #3b3222;
+  --q2-accent-soft-text: #e5cb98;
+}
+
+/* The palette picker previews choices without changing the active theme. */
+:root {
+  --q2-swatch-iris: #5a67ab;
+  --q2-swatch-sage: #416952;
+  --q2-swatch-rose: #96536f;
+  --q2-swatch-ochre: #826023;
+}
+.dark {
+  --q2-swatch-iris: #8b95dd;
+  --q2-swatch-sage: #9fc6ac;
+  --q2-swatch-rose: #dca5bc;
+  --q2-swatch-ochre: #d6b679;
 }
 
 /*
@@ -411,8 +284,8 @@ select,
  * component class rather than eight utilities copied into forty templates.
  */
 @utility q2-card {
-  background: var(--q2-surface);
-  border: 1px solid var(--ui-border);
+  background: var(--ui-bg-muted);
+  border: 1px solid transparent;
   border-radius: var(--q2-radius-lg);
   box-shadow: var(--q2-card-shadow);
 }
@@ -439,10 +312,9 @@ select,
  * what the next block *is*, which is a state, not something to do.
  */
 @utility q2-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--ui-text-dimmed);
 }
 
@@ -482,8 +354,10 @@ select,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

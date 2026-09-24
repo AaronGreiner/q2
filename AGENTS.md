@@ -17,20 +17,22 @@ This repository holds the **initial version**. Read [README.md](README.md)
 sections 1 and 2 for exactly what exists and what is deliberately absent; what
 is still to be built is in [GitHub Issues](https://github.com/AaronGreiner/q2/issues).
 
-**The look is not negotiable per screen.** Black, dark by default, one accent
-used only for something the person can do right now, the flame gradient only for
-a streak, red only for something final, and no emoji anywhere in the interface —
-[docs/adr/0015-qdos-design-language.md](docs/adr/0015-qdos-design-language.md).
+**The look is not negotiable per screen.** Warm neutrals, dark by default, one
+selectable accent, the flame gradient only for a streak, red only for something
+final, and no emoji anywhere in the interface —
+[docs/adr/0028-ruhe-design-system.md](docs/adr/0028-ruhe-design-system.md).
 
 The important consequence: **do not build ahead of the requirement**. No
 permissions engine, no event sourcing, no microservices, no generic
 abstractions waiting for a second use case. When something genuinely needs to
 exist, it gets built then, with the real requirement in hand.
 
-Planned work and known gaps are
-[GitHub Issues](https://github.com/AaronGreiner/q2/issues), and nowhere else.
-Read the issue before starting something substantial — it may already say why
-the obvious approach is the wrong one.
+**All work goes through
+[GitHub Issues](https://github.com/AaronGreiner/q2/issues)**: planned work,
+known gaps, bugs, and the record of what was done and why. Work starts from an
+issue and ends with the issue saying what happened — section 11 has the rules.
+Read the issue before starting — it may already say why the obvious approach is
+the wrong one.
 
 ## 2. Repository structure
 
@@ -108,13 +110,12 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
   ([docs/adr/0026-mail-and-password-reset.md](docs/adr/0026-mail-and-password-reset.md)).
 - **Comments** explain *why*, not *what*. A comment that restates the code is
   noise; a comment that records a decision, a constraint or a trap is valuable.
-- **Backlog.** Remaining work is a GitHub issue, never a list in a document. A
-  document says what exists and why; where it has to mention a gap, it links
-  the issue rather than describing its status. Unfinished work in code is
-  marked `TODO(#123): what is missing`, always with its issue, and the TODO goes
-  when the issue is closed. `launch-blocker` marks what must be done before q2
-  processes real users' data; `deferred` marks work that waits for the trigger
-  its issue names.
+- **Backlog.** Remaining work is a GitHub issue, never a list in a document, a
+  planning paper or a comment. A document says what exists and why; where it
+  has to mention a gap, it links the issue rather than describing its status.
+  Unfinished work in code is marked `TODO(#123): what is missing`, always with
+  its issue, and the TODO goes when the issue is closed. How an issue is
+  opened, kept current and closed is section 11.
 - **Naming.** Say what a thing is for. `DatabaseResetGuard`, not `Helper`.
 - **Formatting** is not a discussion: `dotnet format` for the backend, ESLint
   (with stylistic rules) for the frontend. Both run in `bun run validate`.
@@ -228,7 +229,66 @@ the regression it risks.
 Tests must be independent, repeatable, order-independent, free of production
 secrets, and deterministic. See [docs/testing.md](docs/testing.md).
 
-## 11. Branches and commits
+## 11. Issues, branches and commits
+
+### Issues
+
+GitHub Issues is where q2's work is planned, argued, recorded and closed. A
+document explains what exists; an issue says what is being done about what does
+not. Nothing else is a backlog — not a Markdown file, not a checklist in a pull
+request, not a note in a commit message, not the memory of an agent.
+
+**Before starting.** Every change belongs to an issue. Search first, open and
+closed alike — a closed issue may already record why something was left out:
+
+```bash
+gh issue list --state all --search "<words from the task>"
+```
+
+- **One fits:** read it with its comments, and work against it. If what it says
+  is out of date — files moved, part of it already built, the scope no longer
+  right — correct it *before* building on it: edit the description, retitle it
+  if the remaining work is different, and add a comment saying what changed.
+- **None fits:** open one before the work starts, in the shape the existing ones
+  use — **Why** (the problem, from the person's side), **Scope** (what is in,
+  with the files and seams it touches), **Done when** (checkable, at
+  390 × 844 where it is visible), **Context** (current state, permalinks,
+  related issues and ADRs).
+- **Labels.** One kind — `enhancement`, `bug` or `documentation` — plus, where
+  it applies, `launch-blocker` (must be done before q2 processes real users'
+  data) or `deferred` (waits for the trigger the issue names; say the trigger).
+
+A typo or a broken link noticed along the way may ride with the issue it was
+noticed in. Anything bigger gets its own.
+
+**While working.** The issue is where the state lives:
+
+- A decision made along the way that an ADR does not record goes on the issue
+  as a comment.
+- Something found that is out of scope — a bug, stale documentation, a missing
+  test — becomes a new issue linked to this one. It is neither fixed silently
+  nor written into a document as a to-do.
+- If the scope changes, the description changes with it; the comments say why.
+- A change that also advances another issue says so there, and if it finishes
+  part of it, that issue is narrowed to what remains.
+
+**When finishing.** Comment on the issue: what changed and where, which
+commands were run and what they printed, what was deliberately left out, and
+what remains. That comment is the report of section 15, in the place the next
+person will look for it. Work that is left uncommitted says so there, too.
+
+**Closing.** An issue is closed by the commit that finishes it, through
+`Closes #123` in the commit message, when that commit reaches `main`. A commit
+that advances an issue without finishing it says `Refs #123`. An issue that
+turns out to be already done, obsolete or a duplicate is closed with a comment
+that gives the evidence — the commit, the file, or the other issue — never
+without one.
+
+Opening, editing, labelling and commenting on issues in this repository is part
+of the work, and an agent does it without asking. Closing one is not, unless
+the issue is demonstrably done on `main`, obsolete or a duplicate, as above.
+
+### Branches and commits
 
 **An agent does not commit.** Leave the work in the working tree and say what
 changed. Committing is the author's decision — it is where the change is
@@ -246,7 +306,8 @@ The rest of this section is for whoever does commit:
 
 - Work on a branch; `main` stays green.
 - One logical change per commit. Subject in the imperative, under ~72
-  characters. The body explains *why*.
+  characters. The body explains *why*, and ends with its issue: `Closes #123`
+  or `Refs #123`.
 - A commit that changes the API surface also contains the regenerated
   `api/openapi/q2-api.json` and `app/app/api/generated/schema.d.ts`.
 - A commit that changes the EF model also contains the migration.
@@ -271,25 +332,32 @@ bun run validate           # the full gate
 An agent must actually do these, not describe them:
 
 1. Read the relevant `AGENTS.md` — root, and `app/` or `api/`.
-2. Install/restore dependencies.
-3. Check formatting (`dotnet format --verify-no-changes`, `eslint .`).
-4. Run linting and static analysis.
-5. Run the relevant unit tests.
-6. Run the relevant component/integration tests.
-7. Build both projects.
-8. Run E2E if a user-visible flow changed, and look at the change yourself at
+2. Find the issue the work belongs to, or open it, and bring it up to date
+   (section 11).
+3. Install/restore dependencies.
+4. Check formatting (`dotnet format --verify-no-changes`, `eslint .`).
+5. Run linting and static analysis.
+6. Run the relevant unit tests.
+7. Run the relevant component/integration tests.
+8. Build both projects.
+9. Run E2E if a user-visible flow changed, and look at the change yourself at
    phone width — E2E runs there, but it asserts behaviour, not layout.
-9. Check migrations if the EF model changed, and add one if needed.
-10. Check error handling and Sentry capture for the paths you touched.
-11. Confirm no sensitive data is logged or sent to Sentry.
-12. Update the documentation for any changed architecture or behaviour.
-13. **Report the commands you actually ran and their real results.**
+10. Check migrations if the EF model changed, and add one if needed.
+11. Check error handling and Sentry capture for the paths you touched.
+12. Confirm no sensitive data is logged or sent to Sentry.
+13. Update the documentation for any changed architecture or behaviour.
+14. Open an issue for everything found out of scope.
+15. **Report the commands you actually ran and their real results** — to the
+    person who asked, and as a comment on the issue.
 
-`bun run validate` covers 3-10 in one command.
+`bun run validate` covers 4-11 in one command.
 
 ## 14. Definition of done
 
-- [ ] the change does what was asked, and nothing beyond it
+- [ ] the change belongs to an issue, and does what was asked, and nothing
+      beyond it
+- [ ] the issue says what was done, what was verified and what remains;
+      anything found out of scope is an issue of its own
 - [ ] `bun run validate` passes
 - [ ] new behaviour has tests; changed behaviour has updated tests
 - [ ] anything user-visible was checked at phone width, not only in a wide window

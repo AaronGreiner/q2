@@ -64,6 +64,16 @@ public sealed record ProofResponse(
     VoteSummaryResponse Votes,
     IReadOnlyList<ReactionSummaryResponse> Reactions);
 
+/// <summary>What delivering a photograph answers: the photograph, and where it now is.</summary>
+/// <param name="ConversationId">
+/// The goal's own conversation, where the photograph is shown and voted on —
+/// and so where the person who just delivered it should look for it. Null only
+/// for a goal nobody else is on that was created before a friend was required:
+/// there is nowhere to show it but the goal
+/// ([0027](../../../../docs/adr/0027-goal-conversations.md)).
+/// </param>
+public sealed record DeliveredProofResponse(ProofResponse Proof, Guid? ConversationId);
+
 /// <summary>Reactions on a photograph, rolled up.</summary>
 /// <remarks>
 /// Deliberately separate from the vote. A reaction is encouragement between
@@ -80,6 +90,31 @@ public sealed record ReactionSummaryResponse(KudosKind Kind, int Count, bool IsM
 /// What was promised, so the picture can be judged against something.
 /// </param>
 public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, string GoalIcon);
+
+/// <summary>One of your own photographs, as your profile's gallery shows it.</summary>
+/// <param name="ImageId">Fetched from <c>/api/images/{id}</c>, like every other picture.</param>
+/// <param name="Status">
+/// Every outcome, rejected included. Nobody but the person who delivered it
+/// reads this list, so it is their whole record rather than a highlight reel —
+/// and "kein Nachtreten" is about other people, not about looking back at
+/// your own week.
+/// </param>
+/// <param name="GoalTitle">
+/// What it was delivered against. A photograph of a desk says nothing in six
+/// months; "Schreibtisch aufräumen" does.
+/// </param>
+/// <remarks>
+/// Deliberately thin: no votes, no reactions, no deadline. The gallery is a
+/// look back, and the vote itself is one tap away on the goal.
+/// </remarks>
+public sealed record OwnProofResponse(
+    Guid Id,
+    Guid ImageId,
+    ProofStatus Status,
+    DateTimeOffset CreatedAt,
+    Guid GoalId,
+    string GoalTitle,
+    string GoalIcon);
 
 /// <summary>Request body for delivering a photograph.</summary>
 /// <remarks>

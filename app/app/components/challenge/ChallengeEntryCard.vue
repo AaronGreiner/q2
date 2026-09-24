@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import { imageUrl } from '~/api/images'
 import type { ChallengeEntry, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
@@ -78,6 +79,10 @@ function countOf(kind: KudosKind): number {
 
 function isMine(kind: KudosKind): boolean {
   return props.entry.reactions.find(reaction => reaction.kind === kind)?.isMine ?? false
+}
+function react(kind: KudosKind) {
+  hapticTap()
+  emit('react', kind)
 }
 </script>
 
@@ -187,7 +192,7 @@ function isMine(kind: KudosKind): boolean {
           :aria-label="t.kudos[kind]"
           :aria-pressed="isMine(kind)"
           :data-testid="`challenge-react-${kind}`"
-          @click="emit('react', kind)"
+          @click="react(kind)"
         />
       </div>
     </div>

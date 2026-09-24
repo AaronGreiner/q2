@@ -46,6 +46,33 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.False(proof.Votes.CanIVote);
     }
 
+    /// <summary>
+    /// The answer says where the photograph can be seen from now on, which is
+    /// what lets the app take its owner there rather than leave them in front
+    /// of a row that has simply stopped offering the camera.
+    /// </summary>
+    [Fact]
+    public async Task ADeliveryNamesTheConversationItIsCheckedIn()
+    {
+        var delivered = await Client.DeliverAcceptedAsync(AutomatedTestSeed.ActiveGoalId);
+
+        Assert.Equal(AutomatedTestSeed.SharedGoalConversationId, delivered.ConversationId);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, delivered.Proof.GoalId);
+    }
+
+    /// <summary>
+    /// A goal from before a friend was required has no conversation, and the
+    /// answer says so rather than inventing one.
+    /// </summary>
+    [Fact]
+    public async Task ADeliveryOnAGoalWithoutAConversationNamesNone()
+    {
+        var delivered = await Client.DeliverAcceptedAsync(AutomatedTestSeed.QuotaGoalId);
+
+        Assert.Null(delivered.ConversationId);
+        Assert.Equal(ProofStatus.Confirmed, delivered.Proof.Status);
+    }
+
     [Fact]
     public async Task AFriendOnTheGoalMayVoteAndSeesTheirOwnVoteAfterwards()
     {
@@ -336,6 +363,81 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(2, detail.Goal.WindowsDone);
         Assert.Equal(1, detail.Goal.WindowsMissed);
     }
+
+    /// <summary>
+    /// The profile's gallery is the whole record, not a highlight reel: every
+    /// photograph, whatever the vote made of it, newest first.
+    /// </summary>
+    [Fact]
+    public async Task YourGalleryHoldsEveryPhotographYouDeliveredWhateverBecameOfIt()
+    {
+        await ShareActiveGoalWithAsync(AutomatedTestSeed.RequestingPersonId);
+
+        var rejected = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        await DoubtByBothAsync(rejected.Id);
+
+        var voting = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+
+        // Nobody else is on this one, so it is believed on the spot.
+        var confirmed = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.QuotaGoalId);
+
+        var mine = await MineAsync(Client);
+
+        Assert.Equal([confirmed.Id, voting.Id, rejected.Id], mine.Select(proof => proof.Id));
+        Assert.Equal(
+            [ProofStatus.Confirmed, ProofStatus.Voting, ProofStatus.Rejected],
+            mine.Select(proof => proof.Status));
+
+        Assert.Equal(confirmed.ImageId, mine[0].ImageId);
+        Assert.Equal(AutomatedTestSeed.QuotaGoalId, mine[0].GoalId);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, mine[1].GoalId);
+        Assert.All(mine, proof => Assert.False(string.IsNullOrWhiteSpace(proof.GoalTitle)));
+        Assert.All(mine, proof => Assert.False(string.IsNullOrWhiteSpace(proof.GoalIcon)));
+    }
+
+    /// <summary>
+    /// Being allowed to see a friend's photograph is not the same as it being
+    /// yours. The gallery starts from who delivered it, not from who may look.
+    /// </summary>
+    [Fact]
+    public async Task SomebodyElsesPhotographNeverReachesYourGallery()
+    {
+        await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var stranger = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+
+        Assert.Empty(await MineAsync(friend));
+        Assert.Empty(await MineAsync(stranger));
+    }
+
+    /// <summary>
+    /// A picture its owner deleted is gone from the gallery rather than left as
+    /// a broken tile. The window it delivered keeps its outcome.
+    /// </summary>
+    [Fact]
+    public async Task APhotographWhosePictureWasDeletedLeavesYourGallery()
+    {
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+
+        (await Client.DeleteAsync($"/api/images/{proof.ImageId}", TestContext.Current.CancellationToken))
+            .EnsureSuccessStatusCode();
+
+        Assert.Empty(await MineAsync(Client));
+    }
+
+    private sealed record OwnProofDocument(
+        Guid Id,
+        Guid ImageId,
+        ProofStatus Status,
+        DateTimeOffset CreatedAt,
+        Guid GoalId,
+        string GoalTitle,
+        string GoalIcon);
+
+    private static async Task<IReadOnlyList<OwnProofDocument>> MineAsync(HttpClient client) =>
+        await (await client.GetAsync("/api/proofs/mine", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<OwnProofDocument>>();
 
     private sealed record GoalDetailDocument(GoalNumbersDocument Goal);
 

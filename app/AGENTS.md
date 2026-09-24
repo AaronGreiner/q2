@@ -83,13 +83,14 @@ styled. This includes toasts (`{ icon, text }` in the catalogue), reactions
 into their own messages is their business.
 
 **Corners come from `--q2-radius-*`, never from `rounded-xl`.** Nuxt UI
-rescales Tailwind's radius utilities off `--ui-radius`, so in this app
-`rounded-md` is 18px, `rounded-xl` is **36px**, `rounded-2xl` is 48px and
-`rounded-3xl` does not exist. Nuxt UI's own components land on 18px — a
-UButton is drawn at exactly the radius a `q2-card` is — so a `rounded-xl`
-written in the belief that it means Tailwind's 12px comes out at three times
-that, right beside them. The four named values in `main.css` are the whole
-scale; `rounded-full` for anything that is meant to be a pill.
+rescales Tailwind's radius utilities off `--ui-radius`, so their pixel values
+are not Tailwind defaults. The named values in `main.css` are the whole scale:
+10px, 14px, 18px, 22px and 26px for the shared content panel. Use `rounded-full`
+for pills and avatars. Nuxt UI control defaults live in `app/app.config.ts`.
+
+The palette and surfaces follow [ADR 0028](../docs/adr/0028-ruhe-design-system.md).
+`AppContentPanel` is the shared Nuxt UI content surface; `AccentPicker` selects
+a device-local palette. Nuxt UI control defaults live in `app/app.config.ts`.
 
 Current components, by folder:
 
@@ -114,11 +115,12 @@ Current components, by folder:
 | `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
-| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries the three kinds of kudos, and the composer the owner's camera in a goal's conversation |
+| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
+| `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `BadgeGrid` | the badge collection, earned and not |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
@@ -526,4 +528,6 @@ and `bun run app:icons` cover the same ground with the right environment.
 9. confirm no user content reaches Sentry, and none reaches the service worker's
    cache either (section 9a)
 
-Or `bun run validate` from the root, and report what it actually printed.
+Or `bun run validate` from the root, and report what it actually printed — here
+and on the issue the change belongs to ([../AGENTS.md](../AGENTS.md)
+section 11).

@@ -1,4 +1,4 @@
-# 0028 — A verdict by swipe, a vote you can take back, and every photograph full size
+# 0030 — A verdict by swipe, a vote you can take back, and every photograph full size
 
 **Status:** Accepted
 **Date:** 2026-09-24
@@ -78,8 +78,13 @@ What this does **not** open up:
 ### Every photograph opens full screen
 
 `AppPhotoViewer` is mounted once in `app.vue`, outside both layouts, and
-driven by `usePhotoViewer`. Proof photographs, challenge contributions,
-archive tiles and avatars all open into it.
+driven by `usePhotoViewer`. Proof photographs, photographs sent in a
+conversation ([0029](0029-photographs-in-conversations.md)), challenge
+contributions, archive tiles and avatars all open into it.
+
+The profile's own gallery keeps its `ProofPhotoViewer`: that one is about
+your photograph *as a record* — delivered when, with what outcome, and a
+way to the goal — rather than about looking closely at somebody's picture.
 
 - **It draws its own pinch-zoom.** [0013](0013-app-like-input.md) turns
   browser zoom off for the whole document, and that stays. The viewer takes
@@ -102,6 +107,8 @@ full prompt is in the viewer.
 
 - The start screen now needs `usePendingProofs`. The count on the bell is
   unaffected.
+- The swipe needs the screen not to scroll sideways, so `AppContentPanel`'s
+  scroll area clips horizontal overflow for every screen.
 - The viewer is one more overlay. It closes on navigation, so a notification
   tapped while it is open does not land underneath it.
 - The Android back gesture does not close the viewer. It navigates, and the

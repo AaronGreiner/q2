@@ -2,7 +2,7 @@
 /**
  * A titled group of settings.
  *
- * The uppercase caption above a card is the whole pattern the settings screen
+ * The quiet caption above a group is the whole pattern the settings screen
  * repeats, and putting it here is what keeps the caption a real heading rather
  * than a styled paragraph — so the screen can be navigated by heading.
  */
@@ -14,14 +14,17 @@ defineProps<{
 </script>
 
 <template>
-  <section class="mt-5 first:mt-0">
-    <h2 class="mx-1 mb-2 text-xs font-extrabold tracking-wide text-(--ui-text-muted) uppercase">
+  <section class="mt-6 first:mt-0">
+    <h2 class="mx-1 mb-2 text-xs font-semibold text-(--ui-text-muted)">
       {{ title }}
     </h2>
 
-    <div class="q2-card overflow-hidden">
+    <UCard
+      class="overflow-hidden rounded-none bg-transparent shadow-none ring-0"
+      :ui="{ body: 'p-0 sm:p-0' }"
+    >
       <slot />
-    </div>
+    </UCard>
 
     <p
       v-if="note"

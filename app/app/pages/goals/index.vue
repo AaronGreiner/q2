@@ -43,14 +43,18 @@ const { goals, due, error, isLoading, refresh, create, isCreating, createError }
 const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 
-/** Which goal the camera is open for — one sheet per screen, never per row. */
+/** Which goal the camera is open for — one camera per screen, never per row. */
 const deliveringFor = ref<string | null>(null)
 
-async function onDelivered(image: Image) {
+/** The same hand-in as the start screen's — see pages/index.vue. */
+async function handIn(image: Image) {
   const goalId = deliveringFor.value
-  deliveringFor.value = null
+  if (!goalId) return null
 
-  if (goalId && await deliver(goalId, image)) await refresh()
+  const result = await deliver(goalId, image)
+  if (result.status !== 'moved') await refresh()
+
+  return result.status === 'refused' ? result.message : null
 }
 
 const sheet = useTemplateRef('sheet')
@@ -77,15 +81,14 @@ useHead({ title: () => t.value.goals.heading })
          and two of them would put the screen's loudest control in two places. -->
     <AppScreenHeader :title="t.goals.heading" />
 
-    <div class="shrink-0 px-[18px] pt-1 pb-3">
-      <AppSegmented
-        v-model="tab"
-        :options="tabs"
-        :label="t.goals.heading"
-      />
-    </div>
-
-    <div class="q2-scroll flex-1 px-[18px] pb-6">
+    <AppContentPanel>
+      <template #toolbar>
+        <AppSegmented
+          v-model="tab"
+          :options="tabs"
+          :label="t.goals.heading"
+        />
+      </template>
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"
@@ -198,7 +201,7 @@ useHead({ title: () => t.value.goals.heading })
           />
         </section>
       </template>
-    </div>
+    </AppContentPanel>
 
     <GoalCreateSheet
       ref="sheet"
@@ -214,8 +217,8 @@ useHead({ title: () => t.value.goals.heading })
       :open="deliveringFor !== null"
       purpose="Proof"
       :max-edge="maxEdge"
+      :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"
-      @uploaded="onDelivered"
     />
   </div>
 </template>

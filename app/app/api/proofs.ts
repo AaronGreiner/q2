@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { FeedProof, Proof, ProofVoteValue, KudosKind } from './types'
+import type { DeliveredProof, FeedProof, OwnProof, Proof, ProofVoteValue, KudosKind } from './types'
 
 /**
  * Photographs and the votes on them.
@@ -15,14 +15,18 @@ export interface ProofsApi {
    *
    * On a goal nobody shares it comes back already `Confirmed`: there is nobody
    * to ask. On a shared one it comes back `Voting`, and the window does not
-   * move until friends have said so.
+   * move until friends have said so. Either way it names the goal's
+   * conversation, where the photograph is shown from now on.
    */
-  submit: (goalId: string, imageId: string, capturedInApp: boolean) => Promise<Proof>
+  submit: (goalId: string, imageId: string, capturedInApp: boolean) => Promise<DeliveredProof>
 
   get: (id: string) => Promise<Proof>
 
   /** The photographs waiting for this person's vote. */
   pending: () => Promise<FeedProof[]>
+
+  /** Every photograph this person has delivered, newest first, whatever became of it. */
+  mine: () => Promise<OwnProof[]>
 
   /** One say per person, and it stands. */
   vote: (id: string, value: ProofVoteValue) => Promise<Proof>
@@ -36,7 +40,7 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
 
   return {
     submit: (goalId, imageId, capturedInApp) =>
-      call<Proof>(`/api/goals/${encodeURIComponent(goalId)}/proof`, {
+      call<DeliveredProof>(`/api/goals/${encodeURIComponent(goalId)}/proof`, {
         method: 'POST',
         body: { imageId, capturedInApp },
       }),
@@ -44,6 +48,8 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
     get: id => call<Proof>(proof(id), { method: 'GET' }),
 
     pending: () => call<FeedProof[]>('/api/proofs/pending', { method: 'GET' }),
+
+    mine: () => call<OwnProof[]>('/api/proofs/mine', { method: 'GET' }),
 
     vote: (id, value) => call<Proof>(`${proof(id)}/vote`, { method: 'POST', body: { value } }),
 

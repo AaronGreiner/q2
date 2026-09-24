@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import { isApiError } from '~/api/errors'
 import type { Image, ImagePurpose } from '~/api/types'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
+import { type CameraFacing, rememberFacing, rememberedFacing } from '~/utils/cameraFacing'
 
 /**
  * Taking a picture and handing back the stored one.
@@ -25,24 +27,45 @@ import { downscaleForUpload, uploadSizes } from '~/utils/images'
  *
  * What is *not* here is any decision about what the picture is for. The purpose
  * comes in as a prop and goes straight to the server, which is what decides who
- * may ever see it.
+ * may ever see it — and what happens to the stored picture next is the
+ * caller's `handIn`, which this only waits for.
  *
- * **Open it from a screen, never from inside another sheet.** Two `UDrawer`s
- * open at once deadlock: vaul drives both from one set of body styles, so the
- * second one's close transition never finishes — it sits at
- * `data-state="closed"` and stays on screen while the first is translated out
- * of the viewport, and neither can be reached again. vaul's own answer,
- * `nested`, does not apply here either: it needs a real `DrawerRoot` ancestor,
- * and a drawer portals its content, so a sheet rendered beside one is not
- * inside it. The caller therefore closes its own sheet before opening this and
- * brings it back afterwards — see `pages/profile.vue`.
+ * **It is a screen of its own, not a sheet.** A full-screen `UModal`: the
+ * viewfinder takes what the phone has, and the controls sit where a thumb
+ * reaches them, the way every camera on a phone is laid out. It is still an
+ * overlay rather than a route on purpose — the caller's `handIn` and the
+ * screen underneath, with its scroll position and whatever row asked for the
+ * picture, stay exactly where they were.
+ *
+ * **Open it from a screen, never from inside a sheet.** It used to be a
+ * `UDrawer`, and two drawers open at once deadlock (vaul drives both from one
+ * set of body styles). The callers therefore close their own sheet before
+ * opening this and bring it back afterwards — see `pages/profile/index.vue` — and
+ * that stays the rule: a camera on top of a half-hidden form is not a layout
+ * anybody wants on a phone either.
+ *
+ * **It opens with the camera used last on this device**, the rear one until
+ * somebody switches (`utils/cameraFacing.ts`).
  */
 const props = withDefaults(defineProps<{
   purpose: ImagePurpose
   /** The longest edge the upload may have. Defaults to the purpose's own size. */
   maxEdge?: number
+  /**
+   * What the stored picture is handed to while the screen is still open.
+   * Resolving to a sentence means it was refused: the screen stays, showing the
+   * picture and the sentence, and "Verwenden" tries the hand-in again without
+   * uploading a second time. Without it, the screen closes once the upload is
+   * done — which is all an avatar needs.
+   *
+   * This exists because a proof's hand-in is the step that can fail, and it
+   * used to run after the camera had closed: a refused photograph was simply
+   * gone, with nothing on screen to say so.
+   */
+  handIn?: (image: Image) => Promise<string | null>
 }>(), {
   maxEdge: undefined,
+  handIn: undefined,
 })
 
 const emit = defineEmits<{ uploaded: [image: Image] }>()
@@ -59,11 +82,21 @@ const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 /** The camera is live, a picture is waiting to be confirmed, or it is going up. */
 const stage = ref<'camera' | 'preview' | 'uploading'>('camera')
 const message = ref<string | null>(null)
-const facing = ref<'user' | 'environment'>('user')
+const facing = ref<CameraFacing>('environment')
+
+/** Only offered when there is a second camera to switch to. */
+const canSwitch = ref(false)
 
 /** The picture taken but not yet sent, and the object URL showing it. */
 const pending = shallowRef<Blob | null>(null)
 const previewUrl = ref<string | null>(null)
+
+/**
+ * The stored copy of `pending`, once it is up. Kept while a refused hand-in is
+ * on screen, so trying again reuses it rather than uploading the same picture
+ * twice; dropped with `pending`, because it is a copy of that one picture.
+ */
+const uploaded = shallowRef<Image | null>(null)
 
 const stream = shallowRef<MediaStream | null>(null)
 const cameraReady = ref(false)
@@ -72,12 +105,13 @@ const edge = computed(() => props.maxEdge ?? (props.purpose === 'Avatar' ? uploa
 
 /*
  * Both directions. Opening starts the camera; closing stops it and throws the
- * pending picture away — a photograph left in memory after the sheet is gone is
+ * pending picture away — a photograph left in memory after the screen is gone is
  * the sort of thing that turns up in the next person's session.
  */
 watch(open, async (isOpen) => {
   if (isOpen) {
     reset()
+    facing.value = rememberedFacing()
     await startCamera()
   }
   else {
@@ -86,7 +120,7 @@ watch(open, async (isOpen) => {
   }
 })
 
-// A route change or a hot reload closes the sheet without a `false` ever
+// A route change or a hot reload closes the screen without a `false` ever
 // arriving, so the release has to happen here as well.
 onBeforeUnmount(() => {
   stopCamera()
@@ -108,9 +142,17 @@ async function startCamera() {
       audio: false,
     })
 
+    // Closed while the permission prompt was up: a stream nobody can see is a
+    // recording light that stays on.
+    if (!open.value) {
+      opened.getTracks().forEach(track => track.stop())
+      return
+    }
+
     stopCamera()
     stream.value = opened
     cameraReady.value = true
+    canSwitch.value = await hasSeveralCameras()
 
     await nextTick()
 
@@ -139,8 +181,30 @@ function stopCamera() {
   }
 }
 
+/**
+ * Device labels and counts are only reported once permission is granted, which
+ * is why this runs after the stream is open. A browser that cannot say keeps
+ * the button: offering a switch that changes nothing is cheaper than hiding
+ * the selfie camera from somebody who has one.
+ */
+async function hasSeveralCameras(): Promise<boolean> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices?.()
+
+    return devices ? devices.filter(device => device.kind === 'videoinput').length > 1 : true
+  }
+  catch {
+    return true
+  }
+}
+
 async function switchCamera() {
   facing.value = facing.value === 'user' ? 'environment' : 'user'
+  rememberFacing(facing.value)
+
+  // Released before the other one is asked for: plenty of Android phones
+  // refuse to open a second camera while the first is still held.
+  stopCamera()
   await startCamera()
 }
 
@@ -149,6 +213,8 @@ function shoot() {
   const element = video.value
 
   if (!element || !element.videoWidth) return
+
+  hapticTap()
 
   const canvas = document.createElement('canvas')
   canvas.width = element.videoWidth
@@ -182,6 +248,7 @@ function clearPending() {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = null
   pending.value = null
+  uploaded.value = null
 }
 
 async function retake() {
@@ -199,13 +266,24 @@ async function confirm() {
   message.value = t.value.photo.uploading
 
   try {
-    const uploaded = await api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
+    const image = uploaded.value
+      ?? await api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
 
-    // Cleared before closing: the sheet stays mounted while it animates out,
+    uploaded.value = image
+
+    const refused = props.handIn ? await props.handIn(image) : null
+
+    if (refused) {
+      stage.value = 'preview'
+      message.value = refused
+      return
+    }
+
+    // Cleared before closing: the screen stays mounted while it animates out,
     // and "Wird hochgeladen …" left standing under a finished upload reads as
     // though it were stuck.
     message.value = null
-    emit('uploaded', uploaded)
+    emit('uploaded', image)
     open.value = false
   }
   catch (caught) {
@@ -232,14 +310,50 @@ function reset() {
 </script>
 
 <template>
-  <UDrawer
+  <!--
+    `title` and `description` still reach the dialog: with the `content` slot
+    Nuxt UI renders them visually hidden, which is what a screen reader
+    announces when the screen opens. The visible heading below is the same
+    words and is therefore hidden from it.
+  -->
+  <UModal
     v-model:open="open"
+    fullscreen
     :title="t.photo.heading"
     :description="cameraReady ? t.photo.cameraHint : t.photo.fileHint"
-    :ui="{ container: 'max-w-[430px] mx-auto' }"
+    :ui="{ content: 'bg-(--ui-bg) divide-y-0' }"
   >
-    <template #body>
-      <div class="flex flex-col gap-4 pb-2">
+    <template #content>
+      <div
+        class="mx-auto flex size-full max-w-[430px] flex-col pt-[max(0.5rem,env(safe-area-inset-top))] pb-(--q2-safe-bottom)"
+        data-testid="photo-screen"
+      >
+        <div class="flex shrink-0 items-center gap-2 px-2">
+          <UButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            size="xl"
+            class="size-11 justify-center"
+            :aria-label="t.common.close"
+            data-testid="photo-close"
+            @click="open = false"
+          />
+
+          <p
+            class="flex-1 text-center text-[17px] font-bold text-(--ui-text-highlighted)"
+            aria-hidden="true"
+          >
+            {{ t.photo.heading }}
+          </p>
+
+          <!-- Balances the close button, so the heading sits in the middle. -->
+          <span
+            class="size-11"
+            aria-hidden="true"
+          />
+        </div>
+
         <!--
           `data-q2-block` on the frame, not on the picture: Session Replay
           records every session, and somebody's face is the most personal thing
@@ -247,26 +361,32 @@ function reset() {
           camera, the preview and whatever sits between them.
         -->
         <div
-          class="relative aspect-square w-full overflow-hidden rounded-(--q2-radius-lg) bg-(--ui-bg-elevated)"
+          class="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-(--q2-radius-lg) bg-(--ui-bg-elevated)"
           data-q2-block
         >
+          <!--
+            `contain`, not `cover`: this is exactly what will be sent, and a
+            preview that crops would be showing a different picture.
+          -->
           <img
             v-if="previewUrl"
             :src="previewUrl"
             :alt="t.photo.preview"
-            class="size-full object-cover"
+            class="size-full object-contain"
             data-testid="photo-preview"
           >
 
           <!--
             `playsinline` keeps iOS from taking the video full screen the moment
-            it plays, which would replace the whole sheet with a player. `muted`
-            is what makes autoplay permitted at all.
+            it plays, which would replace this screen with a player. `muted` is
+            what makes autoplay permitted at all. The front camera is mirrored
+            the way every phone shows it; the picture taken is not.
           -->
           <video
             v-show="!previewUrl && cameraReady"
             ref="video"
             class="size-full object-cover"
+            :class="{ '-scale-x-100': facing === 'user' }"
             playsinline
             muted
             autoplay
@@ -287,15 +407,23 @@ function reset() {
 
         <p
           v-if="message"
-          class="text-[13px] font-semibold text-(--ui-text-muted)"
+          class="shrink-0 px-5 pt-3 text-center text-[13px] font-semibold text-(--ui-text-muted)"
           role="status"
           data-testid="photo-message"
         >
           {{ message }}
         </p>
 
+        <p
+          v-else-if="stage === 'camera'"
+          class="shrink-0 px-5 pt-3 text-center text-[13px] text-(--ui-text-muted)"
+          aria-hidden="true"
+        >
+          {{ cameraReady ? t.photo.cameraHint : t.photo.fileHint }}
+        </p>
+
         <!--
-          Always present, never visible. The two buttons below are what people
+          Always present, never visible. The buttons below are what people
           press; this is the element the browser needs in order to open a
           picker at all.
         -->
@@ -308,48 +436,79 @@ function reset() {
           @change="onFilePicked"
         >
 
+        <!--
+          A camera's layout: the gallery under the left thumb, the shutter in
+          the middle, the other camera on the right. The shutter is the one
+          thing on this screen that is done now, so it carries the accent.
+        -->
         <div
-          v-if="stage === 'camera'"
-          class="flex flex-col gap-2"
+          v-if="stage === 'camera' && cameraReady"
+          class="grid shrink-0 grid-cols-3 items-center px-6 pt-4 pb-2"
         >
           <UButton
-            v-if="cameraReady"
-            block
-            size="xl"
-            icon="i-lucide-camera"
-            :label="t.photo.shutter"
-            data-testid="photo-shutter"
-            @click="shoot"
-          />
-
-          <UButton
-            block
-            size="xl"
             color="neutral"
-            :variant="cameraReady ? 'outline' : 'solid'"
+            variant="soft"
             icon="i-lucide-image"
-            :label="t.photo.chooseFile"
+            class="size-14 justify-self-start justify-center rounded-full"
+            :ui="{ leadingIcon: 'size-6' }"
+            :aria-label="t.photo.chooseFile"
             data-testid="photo-choose"
             @click="fileInput?.click()"
           />
 
+          <button
+            type="button"
+            class="q2-press size-[76px] justify-self-center rounded-full p-1.5 ring-4 ring-(--ui-border-accented) focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--q2-accent-solid)"
+            :aria-label="t.photo.shutter"
+            data-testid="photo-shutter"
+            @click="shoot"
+          >
+            <span class="block size-full rounded-full bg-(--q2-accent-solid)" />
+          </button>
+
           <UButton
-            v-if="cameraReady"
-            block
-            size="lg"
+            v-if="canSwitch"
             color="neutral"
-            variant="ghost"
+            variant="soft"
             icon="i-lucide-switch-camera"
-            :label="t.photo.switchCamera"
+            class="size-14 justify-self-end justify-center rounded-full"
+            :ui="{ leadingIcon: 'size-6' }"
+            :aria-label="t.photo.switchCamera"
             data-testid="photo-switch"
             @click="switchCamera"
           />
         </div>
 
         <div
-          v-else
-          class="flex flex-col gap-2"
+          v-else-if="stage === 'camera'"
+          class="shrink-0 px-4 pt-4 pb-2"
         >
+          <UButton
+            block
+            size="xl"
+            icon="i-lucide-image"
+            :label="t.photo.chooseFile"
+            data-testid="photo-choose"
+            @click="fileInput?.click()"
+          />
+        </div>
+
+        <div
+          v-else
+          class="grid shrink-0 grid-cols-2 gap-2 px-4 pt-4 pb-2"
+        >
+          <UButton
+            block
+            size="xl"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-rotate-ccw"
+            :label="t.photo.retake"
+            :disabled="stage === 'uploading'"
+            data-testid="photo-retake"
+            @click="retake"
+          />
+
           <UButton
             block
             size="xl"
@@ -359,20 +518,8 @@ function reset() {
             data-testid="photo-confirm"
             @click="confirm"
           />
-
-          <UButton
-            block
-            size="lg"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-rotate-ccw"
-            :label="t.photo.retake"
-            :disabled="stage === 'uploading'"
-            data-testid="photo-retake"
-            @click="retake"
-          />
         </div>
       </div>
     </template>
-  </UDrawer>
+  </UModal>
 </template>

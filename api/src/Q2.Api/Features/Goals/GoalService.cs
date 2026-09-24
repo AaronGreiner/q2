@@ -543,6 +543,12 @@ public sealed class GoalService(
             .Where(conversation => conversation.GoalId == goal.Id)
             .ToListAsync(cancellationToken);
 
+        // Everybody's photographs in it, not only the owner's: nobody can reach
+        // them once the thread is gone.
+        var chatPhotos = await images.RemoveChatPhotosAsync(
+            conversations.SelectMany(conversation => conversation.Messages).Select(message => message.ImageId),
+            cancellationToken);
+
         database.Conversations.RemoveRange(conversations);
 
         // The feed carries the title of what was created and how it went. A
@@ -568,7 +574,7 @@ public sealed class GoalService(
         await database.SaveChangesAsync(cancellationToken);
 
         // Bytes last, once the rows are safely gone.
-        await images.DeleteBytesAsync(removed, cancellationToken);
+        await images.DeleteBytesAsync([.. removed, .. chatPhotos], cancellationToken);
 
         notifier.Touch(participantIds, LiveArea.Goals, goal.Id);
         await notifier.FlushAsync(cancellationToken);

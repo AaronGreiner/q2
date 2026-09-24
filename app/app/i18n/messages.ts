@@ -290,12 +290,9 @@ export const de = {
     noChatsHint: 'Sobald du dich mit jemandem verbindest, entsteht hier ein Chat.',
     notFound: 'Chat nicht gefunden',
     notFoundHint: 'Diese Unterhaltung gibt es nicht — oder sie gehört nicht zu dir.',
-    quickCheers: [
-      { label: 'Stark!', text: 'Stark gemacht!' },
-      { label: 'Weiter so!', text: 'Weiter so!' },
-      { label: 'Kudos', text: 'Kudos für dich!' },
-      { label: 'Du schaffst das', text: 'Du schaffst das!' },
-    ],
+    sendPhoto: 'Foto senden',
+    photo: 'Foto',
+    photoGone: 'Foto nicht mehr verfügbar',
     cheerText: 'Los geht’s — ich feuere dich an!',
     newChat: 'Neuer Chat',
     newChatHeading: 'Neuer Chat',
@@ -462,6 +459,28 @@ export const de = {
     changeToDoubt: 'Doch anzweifeln',
     changeHint: 'Änderbar, bis abgestimmt ist.',
     enlarge: 'Foto vergrößern',
+    refusedClosed: 'Dieses Fenster nimmt gerade keinen Beweis an.',
+    refusedOffline: 'Keine Verbindung. Dein Foto ist noch da — versuch es gleich noch einmal.',
+    refusedFailed: 'Der Beweis konnte nicht abgegeben werden. Versuch es noch einmal.',
+  },
+
+  /**
+   * Your own photographs, on your profile. Only you see this collection, and
+   * it says so — each photograph was shown to its goal's friends, but the
+   * collection of them is nobody's but yours.
+   */
+  proofGallery: {
+    heading: 'Deine Beweisfotos',
+    subtitle: 'Nur du siehst diese Sammlung.',
+    showAll: 'Alle ansehen',
+    count: (count: number) => (count === 1 ? '1 Foto' : `${count} Fotos`),
+    empty: 'Noch keine Beweisfotos.',
+    emptyHint: 'Sobald du einen Beweis lieferst, landet das Foto hier.',
+    months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+    open: (what: string) => `${what} — groß ansehen`,
+    deliveredOn: (date: string) => `Geliefert am ${date}`,
+    openGoal: 'Zum Ziel',
+    unavailable: 'Foto nicht verfügbar',
   },
 
   vote: {
@@ -796,6 +815,9 @@ export const de = {
     themeSystem: 'System',
     themeLight: 'Hell',
     themeDark: 'Dunkel',
+    accent: 'Akzentfarbe',
+    accentNote: 'Gilt auf diesem Gerät. Passt sich an Hell und Dunkel an.',
+    accents: { iris: 'Iris', sage: 'Salbei', rose: 'Rosé', ochre: 'Ocker' },
     language: 'Sprache',
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
@@ -915,6 +937,8 @@ export const de = {
     inviteCopied: { icon: 'i-lucide-link', text: 'Link kopiert' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Endgültig gelöscht' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback lässt sich gerade nicht öffnen' },
+    proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
+    proofWaiting: { icon: 'i-lucide-hourglass', text: 'Beweis abgegeben — deine Freunde prüfen ihn' },
   },
 }
 
@@ -1173,12 +1197,9 @@ export const en: Messages = {
     noChatsHint: 'A chat appears here as soon as you connect with somebody.',
     notFound: 'Chat not found',
     notFoundHint: 'That conversation does not exist — or it is not yours.',
-    quickCheers: [
-      { label: 'Strong!', text: 'Nicely done!' },
-      { label: 'Keep going!', text: 'Keep going!' },
-      { label: 'Kudos', text: 'Kudos to you!' },
-      { label: 'You got this', text: 'You got this!' },
-    ],
+    sendPhoto: 'Send a photo',
+    photo: 'Photo',
+    photoGone: 'Photo no longer available',
     cheerText: 'Go on — I am cheering for you!',
     newChat: 'New chat',
     newChatHeading: 'New chat',
@@ -1321,6 +1342,23 @@ export const en: Messages = {
     changeToDoubt: 'Doubt instead',
     changeHint: 'You can change it until the vote closes.',
     enlarge: 'Enlarge photo',
+    refusedClosed: 'This window is not taking a proof right now.',
+    refusedOffline: 'No connection. Your photo is still here — try again in a moment.',
+    refusedFailed: 'The proof could not be delivered. Please try again.',
+  },
+
+  proofGallery: {
+    heading: 'Your proof photos',
+    subtitle: 'Only you can see this collection.',
+    showAll: 'Show all',
+    count: (count: number) => (count === 1 ? '1 photo' : `${count} photos`),
+    empty: 'No proof photos yet.',
+    emptyHint: 'As soon as you deliver a proof, the photo lands here.',
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    open: (what: string) => `${what} — view full size`,
+    deliveredOn: (date: string) => `Delivered on ${date}`,
+    openGoal: 'Go to goal',
+    unavailable: 'Photo unavailable',
   },
 
   vote: {
@@ -1594,6 +1632,9 @@ export const en: Messages = {
     themeSystem: 'System',
     themeLight: 'Light',
     themeDark: 'Dark',
+    accent: 'Accent colour',
+    accentNote: 'Applies on this device. Adapts to light and dark mode.',
+    accents: { iris: 'Iris', sage: 'Sage', rose: 'Rose', ochre: 'Ochre' },
     language: 'Language',
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
@@ -1689,6 +1730,8 @@ export const en: Messages = {
     inviteCopied: { icon: 'i-lucide-link', text: 'Link copied' },
     goalDeleted: { icon: 'i-lucide-trash-2', text: 'Deleted for good' },
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback cannot be opened right now' },
+    proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },
+    proofWaiting: { icon: 'i-lucide-hourglass', text: 'Proof delivered — your friends are checking it' },
   },
 }
 

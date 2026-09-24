@@ -23,6 +23,11 @@ public static class ProofEndpoints
             .WithSummary("The photographs waiting for your vote, newest first.")
             .Produces<IReadOnlyList<FeedProofResponse>>();
 
+        proofs.MapGet("/mine", ListMine)
+            .WithName("ListOwnProofs")
+            .WithSummary("Every photograph you have delivered, newest first, whatever became of it.")
+            .Produces<IReadOnlyList<OwnProofResponse>>();
+
         proofs.MapGet("/{id:guid}", GetProof)
             .WithName("GetProof")
             .WithSummary("Returns one photograph, if it is yours to see.")
@@ -48,7 +53,7 @@ public static class ProofEndpoints
             .WithTags("Proofs")
             .WithName("SubmitGoalProof")
             .WithSummary("Delivers a photograph into the goal's open window for its friends to vote on.")
-            .Produces<ProofResponse>(StatusCodes.Status201Created)
+            .Produces<DeliveredProofResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -60,20 +65,25 @@ public static class ProofEndpoints
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await proofs.FeedAsync(cancellationToken));
 
+    private static async Task<Ok<IReadOnlyList<OwnProofResponse>>> ListMine(
+        ProofService proofs,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await proofs.ListOwnAsync(cancellationToken));
+
     private static async Task<Ok<ProofResponse>> GetProof(
         ProofService proofs,
         Guid id,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await proofs.GetAsync(id, cancellationToken));
 
-    private static async Task<Created<ProofResponse>> Submit(
+    private static async Task<Created<DeliveredProofResponse>> Submit(
         ProofService proofs,
         Guid id,
         SubmitProofRequest request,
         CancellationToken cancellationToken)
     {
-        var created = await proofs.SubmitAsync(id, request, cancellationToken);
-        return TypedResults.Created($"/api/proofs/{created.Id}", created);
+        var delivered = await proofs.SubmitAsync(id, request, cancellationToken);
+        return TypedResults.Created($"/api/proofs/{delivered.Proof.Id}", delivered);
     }
 
     private static async Task<Ok<ProofResponse>> Vote(

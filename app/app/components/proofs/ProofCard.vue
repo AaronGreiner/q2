@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import { imageUrl } from '~/api/images'
 import type { Proof, ProofVoteValue } from '~/api/types'
 
@@ -86,6 +87,11 @@ function enlarge() {
     subtitle: props.proof.uploader.displayName,
     meta: formatRelativeTime(props.proof.createdAt, now.value, t.value),
   })
+}
+
+function vote(value: ProofVoteValue) {
+  hapticTap()
+  emit('vote', value)
 }
 </script>
 
@@ -207,7 +213,7 @@ function enlarge() {
             :label="t.vote.confirm"
             :disabled="busy"
             data-testid="proof-confirm"
-            @click="emit('vote', 'Confirm')"
+            @click="vote('Confirm')"
           />
 
           <UButton
@@ -219,7 +225,7 @@ function enlarge() {
             :label="t.vote.doubt"
             :disabled="busy"
             data-testid="proof-doubt"
-            @click="emit('vote', 'Doubt')"
+            @click="vote('Doubt')"
           />
         </div>
 
@@ -251,7 +257,7 @@ function enlarge() {
             :label="otherVote === 'Confirm' ? t.proof.changeToConfirm : t.proof.changeToDoubt"
             :disabled="busy"
             data-testid="proof-change"
-            @click="emit('vote', otherVote)"
+            @click="vote(otherVote)"
           />
         </div>
 

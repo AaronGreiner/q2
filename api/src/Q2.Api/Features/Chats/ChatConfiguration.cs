@@ -108,6 +108,10 @@ public sealed class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMess
         // newest message per conversation.
         builder.HasIndex(m => new { m.ConversationId, m.SentAt });
 
+        // Who may open a chat photograph is answered from the message that
+        // carries it (ImageService.CanReadAsync), on every image request.
+        builder.HasIndex(m => m.ImageId);
+
         builder.HasMany(m => m.Reactions)
             .WithOne()
             .HasForeignKey(r => r.MessageId)

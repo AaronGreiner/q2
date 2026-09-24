@@ -22,10 +22,12 @@ const capturing = ref(false)
 const pausing = ref(false)
 const closing = ref(false)
 
-async function onDelivered(image: Image) {
-  capturing.value = false
+/** Moves on to the goal's conversation when it has one — see useProofDelivery. */
+async function handIn(image: Image) {
+  const result = await deliver(id.value, image)
+  if (result.status !== 'moved') await refresh()
 
-  if (await deliver(id.value, image)) await refresh()
+  return result.status === 'refused' ? result.message : null
 }
 
 const goal = computed(() => detail.value?.goal ?? null)
@@ -95,7 +97,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1 pb-8">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -420,13 +422,13 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           </ul>
         </section>
       </article>
-    </div>
+    </AppContentPanel>
 
     <PhotoCapture
       v-model:open="capturing"
       purpose="Proof"
       :max-edge="maxEdge"
-      @uploaded="onDelivered"
+      :hand-in="handIn"
     />
 
     <GoalPauseSheet

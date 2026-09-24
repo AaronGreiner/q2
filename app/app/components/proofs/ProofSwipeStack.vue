@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { hapticTap } from '~/utils/haptics'
 import type { FeedProof, ProofVoteValue } from '~/api/types'
 
 /**
@@ -144,6 +145,9 @@ function onPointerUp(event: PointerEvent) {
 
   if (event.type === 'pointerup'
     && (distance > THRESHOLD || (Math.abs(velocity) > FLICK_VELOCITY && distance > FLICK_MIN_DISTANCE))) {
+    // From the gesture itself, so the browser still counts it as the
+    // person's own action; the buttons do the same in ProofCard.
+    hapticTap()
     decide(offset.value > 0 ? 'Confirm' : 'Doubt')
   }
   else {

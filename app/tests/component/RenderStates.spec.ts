@@ -52,17 +52,17 @@ function goal(overrides: Partial<Goal> = {}): Goal {
 
 describe('StreakHero', () => {
   /**
-   * The app's one loud surface, spent only on something that has been earned.
+   * The flame is lit only for something that has been earned.
    * Lighting it at zero would leave nothing to show somebody on the day they
    * reach five.
    */
-  it('is lit once there is a streak and plain black before there is one', async () => {
+  it('lights only the flame once there is an earned streak', async () => {
     const started = await mountSuspended(StreakHero, {
       props: { streak: 5, week: [true, true, false, false, false, false, false] },
     })
 
     expect(started.get('[data-testid="streak-hero"]').attributes()).toHaveProperty('data-lit')
-    expect(started.get('[data-testid="streak-hero"]').classes()).not.toContain('q2-card')
+    expect(started.get('[data-testid="streak-flame"]').classes()).toContain('bg-linear-to-br')
     expect(started.text()).toContain('5')
 
     const empty = await mountSuspended(StreakHero, {
@@ -70,7 +70,7 @@ describe('StreakHero', () => {
     })
 
     expect(empty.get('[data-testid="streak-hero"]').attributes()).not.toHaveProperty('data-lit')
-    expect(empty.get('[data-testid="streak-hero"]').classes()).toContain('q2-card')
+    expect(empty.get('[data-testid="streak-flame"]').classes()).not.toContain('bg-linear-to-br')
   })
 
   /** Seven letters read out one at a time tell a screen reader nothing. */

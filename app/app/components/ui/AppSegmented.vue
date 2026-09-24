@@ -1,53 +1,52 @@
 <script setup lang="ts" generic="T extends string">
-/**
- * A segmented control: two or three options, all visible, one selected.
- *
- * Used for the goals tabs, the theme and the language. A radio group rather
- * than a set of buttons, because that is what it is — arrow keys move between
- * the options, and a screen reader announces "2 of 3" instead of reading three
- * unrelated buttons.
- */
-defineProps<{
+/** Nuxt UI owns radio semantics and arrow-key navigation; q2 supplies the quiet treatment. */
+const props = defineProps<{
   options: readonly { value: T, label: string, icon?: string }[]
-  /** Names the group for anyone who cannot see the heading above it. */
   label: string
 }>()
-
 const model = defineModel<T>({ required: true })
+const selectedIndex = computed(() => props.options.findIndex(option => option.value === model.value))
+const items = computed<{ value: string, label: string, icon?: string }[]>(() => [...props.options])
+const selected = computed<string>({
+  get: () => model.value,
+  set: (value) => {
+    const option = props.options.find(option => option.value === value)
+    if (option) model.value = option.value
+  },
+})
 </script>
 
 <template>
-  <!--
-    Track and marker are both pills, and that is the point: the marker sits
-    inside the track with 4px around it, so any other pair of radii leaves a
-    square-ish tab rattling around in a round groove. A pill is the one shape
-    that stays concentric whatever the control's height turns out to be.
-  -->
-  <div
-    class="flex gap-1 rounded-full bg-(--q2-track) p-1"
-    role="radiogroup"
+  <URadioGroup
+    v-model="selected"
+    class="q2-segmented"
+    :style="{ '--q2-segment-count': options.length, '--q2-segment-index': selectedIndex }"
+    :items="items"
     :aria-label="label"
+    orientation="horizontal"
+    variant="card"
+    indicator="hidden"
+    color="neutral"
+    :ui="{
+      fieldset: 'relative isolate gap-1 rounded-full bg-(--q2-track) p-1',
+      item: 'relative min-h-11 min-w-0 flex-1 items-center justify-center rounded-full border-0 px-2 py-2.5 has-focus-visible:ring-2 has-focus-visible:ring-(--ui-primary)',
+      label: 'flex items-center justify-center gap-1.5 text-[13px] font-semibold',
+      container: 'h-0',
+    }"
   >
-    <button
-      v-for="option in options"
-      :key="option.value"
-      type="button"
-      role="radio"
-      :aria-checked="model === option.value"
-      class="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-      :class="model === option.value
-        ? 'bg-(--q2-surface) text-(--ui-text) shadow-[var(--q2-card-shadow)]'
-        : 'text-(--ui-text-muted)'"
-      :data-testid="`segment-${option.value}`"
-      @click="model = option.value"
-    >
-      <UIcon
-        v-if="option.icon"
-        :name="option.icon"
-        class="size-4"
-        aria-hidden="true"
-      />
-      {{ option.label }}
-    </button>
-  </div>
+    <template #label="{ item }">
+      <span
+        class="flex items-center justify-center gap-1.5"
+        :data-testid="`segment-${item.value}`"
+      >
+        <UIcon
+          v-if="item.icon"
+          :name="item.icon"
+          class="size-4"
+          aria-hidden="true"
+        />
+        {{ item.label }}
+      </span>
+    </template>
+  </URadioGroup>
 </template>

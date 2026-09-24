@@ -98,7 +98,7 @@ useHead({ title: () => t.value.notificationSettings.heading })
       :back-label="t.common.back"
     />
 
-    <div class="q2-scroll flex-1 px-[18px] pt-1 pb-[calc(2rem+var(--q2-safe-bottom))]">
+    <AppContentPanel>
       <!--
         This device first, because nothing below it reaches this phone until
         it says yes. Every state says what it is rather than showing a switch
@@ -219,6 +219,6 @@ useHead({ title: () => t.value.notificationSettings.heading })
           </label>
         </div>
       </SettingsSection>
-    </div>
+    </AppContentPanel>
   </div>
 </template>

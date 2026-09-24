@@ -31,19 +31,25 @@ const { room: challenge } = useChallengeRoom()
 /*
  * Which goal the camera is open for.
  *
- * Held on the screen rather than in the row: `PhotoCapture` is a sheet, and a
- * sheet per row would be one drawer per goal — with all the stacking that
- * deadlocked the profile screen when it tried exactly that.
+ * Held on the screen rather than in the row: `PhotoCapture` is a full-screen
+ * overlay, and one per row would be a camera per goal mounted at once for the
+ * single one anybody can look at.
  */
 const deliveringFor = ref<string | null>(null)
 
-async function onDelivered(image: Image) {
+/**
+ * Handed to the camera, so a refusal stays on its screen with the photograph
+ * (see useProofDelivery). A shared goal moves on to its conversation; anything
+ * else stays here and reads the screen again, because the row has changed.
+ */
+async function handIn(image: Image) {
   const goalId = deliveringFor.value
-  deliveringFor.value = null
+  if (!goalId) return null
 
-  if (goalId && await deliver(goalId, image)) {
-    await refresh()
-  }
+  const result = await deliver(goalId, image)
+  if (result.status !== 'moved') await refresh()
+
+  return result.status === 'refused' ? result.message : null
 }
 
 // Only the first few: the whole list is one tap away under "Alle anzeigen",
@@ -84,7 +90,7 @@ useHead({ title: () => t.value.nav.home })
       </template>
     </AppScreenHeader>
 
-    <div class="q2-scroll flex-1 overflow-x-hidden px-[18px] pt-0.5 pb-6">
+    <AppContentPanel>
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -310,19 +316,18 @@ useHead({ title: () => t.value.nav.home })
           />
         </section>
       </template>
-    </div>
+    </AppContentPanel>
 
     <!--
-      One camera for the whole screen, opened by whichever row asked for it. A
-      sheet per row would be one drawer per goal, and two open drawers deadlock
-      — see PhotoCapture.
+      One camera for the whole screen, opened by whichever row asked for it,
+      rather than one per row — see PhotoCapture.
     -->
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
       :max-edge="maxEdge"
+      :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"
-      @uploaded="onDelivered"
     />
   </div>
 </template>

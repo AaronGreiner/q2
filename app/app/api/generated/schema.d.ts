@@ -383,6 +383,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proofs/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every photograph you have delivered, newest first, whatever became of it. */
+        get: operations["ListOwnProofs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/proofs/{id}": {
         parameters: {
             query?: never;
@@ -1060,6 +1077,7 @@ export interface components {
             senderId: string;
             senderName: string | null;
             text: string;
+            image: null | components["schemas"]["ImageResponse"];
             isMine: boolean;
             /** Format: date-time */
             sentAt: string;
@@ -1089,6 +1107,7 @@ export interface components {
             isOnline: boolean;
             lastMessage: string | null;
             lastMessageSenderName: string | null;
+            lastMessageHasPhoto: boolean;
             lastMessageIsMine: boolean;
             /** Format: date-time */
             lastMessageAt: string | null;
@@ -1150,6 +1169,11 @@ export interface components {
         };
         DeleteAccountRequest: {
             password?: string | null;
+        };
+        DeliveredProofResponse: {
+            proof: components["schemas"]["ProofResponse"];
+            /** Format: uuid */
+            conversationId: string | null;
         };
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
@@ -1323,7 +1347,7 @@ export interface components {
         };
         IResult: Record<string, never>;
         /** @enum {unknown} */
-        ImagePurpose: "Avatar" | "Proof" | "ChallengeEntry";
+        ImagePurpose: "Avatar" | "Proof" | "ChallengeEntry" | "ChatPhoto";
         ImageQuotaResponse: {
             /** Format: int64 */
             bytesUsed: number;
@@ -1401,6 +1425,19 @@ export interface components {
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
+        OwnProofResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            imageId: string;
+            status: components["schemas"]["ProofStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            goalId: string;
+            goalTitle: string;
+            goalIcon: string;
+        };
         PasswordResetResponse: {
             email: string;
         };
@@ -1540,6 +1577,8 @@ export interface components {
         ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times";
         SendMessageRequest: {
             text?: string | null;
+            /** Format: uuid */
+            imageId?: string | null;
         };
         SentRequestResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -1765,7 +1804,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProofResponse"];
+                    "application/json": components["schemas"]["DeliveredProofResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2530,6 +2569,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedProofResponse"][];
+                };
+            };
+        };
+    };
+    ListOwnProofs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnProofResponse"][];
                 };
             };
         };

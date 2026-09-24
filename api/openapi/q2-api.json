@@ -176,7 +176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProofResponse"
+                  "$ref": "#/components/schemas/DeliveredProofResponse"
                 }
               }
             }
@@ -1129,6 +1129,30 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/FeedProofResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proofs/mine": {
+      "get": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Every photograph you have delivered, newest first, whatever became of it.",
+        "operationId": "ListOwnProofs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OwnProofResponse"
                   }
                 }
               }
@@ -2979,6 +3003,7 @@
           "senderId",
           "senderName",
           "text",
+          "image",
           "isMine",
           "sentAt",
           "reactions"
@@ -2999,6 +3024,18 @@
           },
           "text": {
             "type": "string"
+          },
+          "image": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ImageResponse"
+              }
+            ]
           },
           "isMine": {
             "type": "boolean"
@@ -3071,6 +3108,7 @@
           "isOnline",
           "lastMessage",
           "lastMessageSenderName",
+          "lastMessageHasPhoto",
           "lastMessageIsMine",
           "lastMessageAt",
           "unreadCount",
@@ -3117,6 +3155,9 @@
           "lastMessageSenderName": {
             "type": "string",
             "nullable": true
+          },
+          "lastMessageHasPhoto": {
+            "type": "boolean"
           },
           "lastMessageIsMine": {
             "type": "boolean"
@@ -3338,6 +3379,23 @@
         "properties": {
           "password": {
             "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveredProofResponse": {
+        "required": [
+          "proof",
+          "conversationId"
+        ],
+        "type": "object",
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/ProofResponse"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }
@@ -3991,7 +4049,8 @@
         "enum": [
           "Avatar",
           "Proof",
-          "ChallengeEntry"
+          "ChallengeEntry",
+          "ChatPhoto"
         ]
       },
       "ImageQuotaResponse": {
@@ -4264,6 +4323,45 @@
           "Challenge",
           "Activity"
         ]
+      },
+      "OwnProofResponse": {
+        "required": [
+          "id",
+          "imageId",
+          "status",
+          "createdAt",
+          "goalId",
+          "goalTitle",
+          "goalIcon"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProofStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "goalTitle": {
+            "type": "string"
+          },
+          "goalIcon": {
+            "type": "string"
+          }
+        }
       },
       "PasswordResetResponse": {
         "required": [
@@ -4743,6 +4841,11 @@
         "properties": {
           "text": {
             "type": "string",
+            "nullable": true
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         }

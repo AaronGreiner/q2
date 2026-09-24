@@ -185,6 +185,15 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await using var scope = Services.CreateAsyncScope();
         var maintenance = scope.ServiceProvider.GetRequiredService<DatabaseMaintenance>();
 
+        // Put back by the reset rather than by whoever moved it: a test that
+        // fails halfway through must not leave the clock at half past eight for
+        // everything that runs after it. And put back *before* seeding: the
+        // seed dates everything relative to this clock, so a seed written
+        // while the previous test's clock still stood a day ahead would put
+        // "fifteen minutes ago" in the future — unseen after the bell was
+        // read, and newer than anything the test itself does.
+        ((FixedTimeProvider)Services.GetRequiredService<TimeProvider>()).Reset();
+
         // Real migrations, not EnsureCreated: the schema under test is the
         // schema the migrations produce.
         await maintenance.MigrateAsync(CancellationToken.None);
@@ -197,11 +206,6 @@ public class Q2ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         SentryEvents.Clear();
 
         ((SequentialTestIdGenerator)Services.GetRequiredService<IIdGenerator>()).Reset();
-
-        // Put back by the reset rather than by whoever moved it: a test that
-        // fails halfway through must not leave the clock at half past eight for
-        // everything that runs after it.
-        ((FixedTimeProvider)Services.GetRequiredService<TimeProvider>()).Reset();
 
         // Same reasoning as the clock: a test that changed how the sender
         // behaves must not leave it that way for whatever runs next.

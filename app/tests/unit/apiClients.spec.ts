@@ -113,6 +113,7 @@ describe('the API modules', () => {
     await api.submit('goal/two', 'image-1', true)
     await api.get('proof/one')
     await api.pending()
+    await api.mine()
     await api.vote('proof/one', 'Doubt')
     await api.react('proof/one', 'Fire')
 
@@ -120,6 +121,7 @@ describe('the API modules', () => {
       ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', capturedInApp: true } }],
       ['/api/proofs/proof%2Fone', { method: 'GET' }],
       ['/api/proofs/pending', { method: 'GET' }],
+      ['/api/proofs/mine', { method: 'GET' }],
       ['/api/proofs/proof%2Fone/vote', { method: 'POST', body: { value: 'Doubt' } }],
       ['/api/proofs/proof%2Fone/reactions', { method: 'POST', body: { kind: 'Fire' } }],
     ])
@@ -134,7 +136,8 @@ describe('the API modules', () => {
     await chats.list()
     await chats.list({ search: 'Mara' })
     await chats.get('chat/one')
-    await chats.send('chat/one', 'Hello')
+    await chats.send('chat/one', { text: 'Hello' })
+    await chats.send('chat/one', { imageId: 'image-1' })
     await chats.react('chat/one', 'message/one', 'Applause')
     await chats.startDirect('person/one')
     await chats.createGroup(group)
@@ -148,6 +151,7 @@ describe('the API modules', () => {
       ['/api/chats', { method: 'GET', query: { search: 'Mara' } }],
       ['/api/chats/chat%2Fone', { method: 'GET' }],
       ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { text: 'Hello' } }],
+      ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { imageId: 'image-1' } }],
       ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { kind: 'Applause' } }],
       ['/api/chats/direct', { method: 'POST', body: { personId: 'person/one' } }],
       ['/api/chats/groups', { method: 'POST', body: group }],

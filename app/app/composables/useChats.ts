@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatSummary, KudosKind, ProofVoteValue } from '~/api/types'
+import type { ChatSummary, Image, KudosKind, ProofVoteValue } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ChatsPayload {
@@ -102,7 +102,7 @@ export function useChatThread(id: Ref<string>) {
 
     isSending.value = true
     try {
-      const updated = await api.chats.send(id.value, trimmed)
+      const updated = await api.chats.send(id.value, { text: trimmed })
 
       // Replaced rather than mutated: `useAsyncData` returns a shallow ref, so
       // assigning to `data.value.chat` would send the message and leave the
@@ -112,6 +112,35 @@ export function useChatThread(id: Ref<string>) {
     }
     catch (caught) {
       report(caught, { feature: 'chats', action: 'send' })
+      return false
+    }
+    finally {
+      isSending.value = false
+    }
+  }
+
+  /**
+   * A photograph, already uploaded as a `ChatPhoto`, sent as a message of its
+   * own.
+   *
+   * If the message does not go through, the upload is deleted again: a picture
+   * nobody was sent is still a picture on the server, counted against this
+   * person's allowance and reachable by nobody but them.
+   */
+  async function sendPhoto(image: Image) {
+    if (isSending.value) return false
+
+    isSending.value = true
+    try {
+      data.value = { chat: await api.chats.send(id.value, { imageId: image.id }), failure: null }
+      return true
+    }
+    catch (caught) {
+      report(caught, { feature: 'chats', action: 'send-photo' })
+      await api.images.remove(image.id).catch(() => {
+        // Best effort. It is still theirs and still in their allowance, which
+        // is where a failed tidy-up leaves it anyway.
+      })
       return false
     }
     finally {
@@ -200,6 +229,7 @@ export function useChatThread(id: Ref<string>) {
     isLoading,
     refresh,
     send,
+    sendPhoto,
     cheer,
     react,
     vote,

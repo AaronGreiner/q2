@@ -2,6 +2,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
 import { useChatThread, useChats } from '~/composables/useChats'
+import type { Image } from '~/api/types'
 import { useFriends, usePersonProfile, usePersonSearch, useProfile } from '~/composables/useFriends'
 import { useGoalArchive, useGoalLifecycle } from '~/composables/useGoalLifecycle'
 import { useGoalDetail, useGoals } from '~/composables/useGoals'
@@ -478,8 +479,36 @@ describe('chat composables', () => {
       proofs: {
         vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
       },
+      images: {
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
     }
   }
+
+  it('sends an uploaded photograph, and deletes it again when the message fails', async () => {
+    const api = chatsApi()
+    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    const { report } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    const image = { id: 'image-1', purpose: 'ChatPhoto', width: 800, height: 600 } as Image
+
+    await expect(state.sendPhoto(image)).resolves.toBe(true)
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { imageId: 'image-1' })
+    expect(api.images.remove).not.toHaveBeenCalled()
+    expect(state.isSending.value).toBe(false)
+
+    // Nobody was sent it, so nothing should be left on the server either.
+    api.chats.send.mockRejectedValueOnce(new Error('send'))
+    await expect(state.sendPhoto(image)).resolves.toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'send-photo' })
+    expect(api.images.remove).toHaveBeenCalledWith('image-1')
+
+    // A tidy-up that fails as well is not a second problem to show anybody.
+    api.chats.send.mockRejectedValueOnce(new Error('send'))
+    api.images.remove.mockRejectedValueOnce(new Error('remove'))
+    await expect(state.sendPhoto(image)).resolves.toBe(false)
+  })
 
   it('votes from a goal\'s thread and reads it again, with the vote screen and the badges', async () => {
     const api = chatsApi()
@@ -545,11 +574,11 @@ describe('chat composables', () => {
 
     await expect(state.send('   ')).resolves.toBe(false)
     await expect(state.send(' Hello ')).resolves.toBe(true)
-    expect(api.chats.send).toHaveBeenCalledWith('chat-1', 'Hello')
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { text: 'Hello' })
     expect(state.isSending.value).toBe(false)
 
     await state.cheer()
-    expect(api.chats.send).toHaveBeenCalledWith('chat-1', de.chats.cheerText)
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { text: de.chats.cheerText })
 
     await state.react('message-1', '👏')
     expect(api.chats.react).toHaveBeenCalledWith('chat-1', 'message-1', '👏')
@@ -616,7 +645,7 @@ describe('proof composables', () => {
       proofs: {
         pending: vi.fn().mockResolvedValue([card('proof-1'), card('proof-2')]),
         vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
-        submit: vi.fn().mockResolvedValue({ id: 'proof-9', status: 'Voting' }),
+        submit: vi.fn().mockResolvedValue({ proof: { id: 'proof-9', status: 'Voting' }, conversationId: 'chat-9' }),
       },
     }
   }
@@ -652,29 +681,36 @@ describe('proof composables', () => {
     expect(state.proofs.value).toHaveLength(2)
   })
 
-  it('hands a delivered photograph to the goal, and leaves the goal to say what became of it', async () => {
+  it('hands a delivered photograph to the goal and follows it to its conversation', async () => {
     const api = proofsApi()
     const { show } = installFeatureGlobals(api)
+    const navigateTo = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('useRoute', () => ({ path: '/goals' }))
+    vi.stubGlobal('navigateTo', navigateTo)
     const delivery = useProofDelivery()
 
-    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(true)
+    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toEqual({ status: 'moved' })
     expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', 'image-1', true)
+    expect(navigateTo).toHaveBeenCalledWith('/chats/chat-9')
 
-    // A goal nobody shares has nobody to ask, so it comes back believed — and
-    // that is still the goal's to show, not a toast's.
-    api.proofs.submit.mockResolvedValueOnce({ id: 'proof-10', status: 'Confirmed' })
-    await expect(delivery.deliver('goal-1', { id: 'image-2' })).resolves.toBe(true)
-    expect(show).not.toHaveBeenCalled()
+    // A goal nobody shares and with no conversation has nobody to ask, so it
+    // comes back believed — and a toast is the one place left to say so.
+    api.proofs.submit.mockResolvedValueOnce({ proof: { id: 'proof-10', status: 'Confirmed' }, conversationId: null })
+    await expect(delivery.deliver('goal-1', { id: 'image-2' })).resolves.toEqual({ status: 'stayed' })
+    expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
   })
 
   it('keeps a refused delivery visible as a failure', async () => {
     const api = proofsApi()
     const { report } = installFeatureGlobals(api)
+    vi.stubGlobal('useRoute', () => ({ path: '/goals' }))
+    vi.stubGlobal('navigateTo', vi.fn())
     const delivery = useProofDelivery()
 
     api.proofs.submit.mockRejectedValueOnce(new Error('window full'))
 
-    await expect(delivery.deliver('goal-1', { id: 'image-1' })).resolves.toBe(false)
+    const result = await delivery.deliver('goal-1', { id: 'image-1' })
+    expect(result.status).toBe('refused')
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
   })
 })
