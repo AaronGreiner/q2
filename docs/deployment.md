@@ -31,8 +31,8 @@ the client. The one cross-origin caller is the iOS app, whose WebView is the
 origin `capacitor://localhost`; `appsettings.Staging.json` lists it in
 `Cors:AllowedOrigins`, and it signs in with bearer tokens rather than the
 cookie ([adr/0034](adr/0034-bearer-tokens-for-the-native-app.md)). The app is
-not deployed by this workflow — it is built with `bun run app:ios` and, for
-now, run from Xcode ([#51](https://github.com/AaronGreiner/q2/issues/51)).
+not deployed by this workflow — it goes to TestFlight from a Mac, by hand
+(section 11).
 
 | | |
 | --- | --- |
@@ -351,3 +351,90 @@ Real errors report normally; that is what the environment is for.
   `.data/` are copied anywhere. There is no real data on this test host yet;
   the first time the data matters, this is the first gap to close
   ([#13](https://github.com/AaronGreiner/q2/issues/13)).
+
+## 11. The iOS app and TestFlight
+
+The iOS app is not part of the release workflow. It is archived and uploaded
+from a Mac with Xcode, and App Store Connect turns the upload into a TestFlight
+build ([#51](https://github.com/AaronGreiner/q2/issues/51)):
+
+```bash
+bun run app:ios:testflight
+```
+
+That is `bun run app:ios` — the native web build against **Staging**, copied
+into `app/ios` — followed by `xcodebuild archive` and `xcodebuild
+-exportArchive` with [`app/ios/App/ExportOptions.plist`](../app/ios/App/ExportOptions.plist),
+which uploads. The build carries:
+
+| | from |
+| --- | --- |
+| Version (`CFBundleShortVersionString`) | the latest `v*` tag — tag first, then upload |
+| Build number (`CFBundleVersion`) | `git rev-list --count HEAD`; `Q2_IOS_BUILD_NUMBER` overrides it |
+| Sentry | `Q2_IOS_SENTRY_DSN`, the public DSN of q2-app; without it the app reports nothing |
+
+The script says so when HEAD is past the tag or the working tree is not clean,
+because then the version on the build is not only that release's code.
+
+### Once, before the first upload
+
+These are a person's steps — an account, a contract and a signing identity
+belong to whoever pays for the Apple Developer Program.
+
+1. **Apple Developer Program** membership for the Apple ID that will own the
+   app (developer.apple.com/programs). Until it is active there is no
+   distribution signing and no App Store Connect.
+2. **Xcode → Settings → Accounts**: add that Apple ID. Signing is automatic;
+   Xcode creates the distribution certificate and profiles on first use.
+3. **The team in the project**: `bun run app:ios --open`, target *App* →
+   *Signing & Capabilities* → *Team*. That writes `DEVELOPMENT_TEAM` into
+   `project.pbxproj`, and it is committed — the script refuses to run without
+   it.
+4. **The App ID**: developer.apple.com → *Certificates, Identifiers &
+   Profiles* → *Identifiers* → + → *App IDs* → *App*, explicit bundle ID
+   `dev.aarongreiner.q2`, no capabilities. Automatic signing does **not** do
+   this for q2: an app with no capabilities is signed with the team's wildcard
+   profile, so no App ID is ever registered, and App Store Connect has nothing
+   to offer in step 5.
+5. **App Store Connect → Apps → + → New App**: platform iOS, name *Qdos* (or
+   the nearest free name — the name shown under the icon stays `Qdos` either
+   way), primary language German, bundle ID `dev.aarongreiner.q2`, SKU `q2`.
+   The bundle ID cannot be changed once the record exists.
+
+### After each upload
+
+Processing takes a few minutes to half an hour; App Store Connect mails when
+the build is ready. Then, under *TestFlight*:
+
+- **Internal testers** — people on the App Store Connect team, up to 100 —
+  get the build as soon as it is processed, with no review. Add them to an
+  internal group once, with *automatic distribution* on. That setting only
+  picks up builds uploaded after the group exists; an older build has to be
+  added to the group by hand. A tester who is not yet on the team has to be
+  invited under *Users and Access* first, since only team members can be
+  internal testers. The account holder usually gets no invitation mail, and
+  the app simply appears in TestFlight.
+- **External testers** — anyone with an e-mail address or a public link —
+  need the first build of each version through Beta App Review. That asks for
+  *Test Information*: a feedback e-mail, a privacy policy URL, and a sign-in
+  for the reviewer on Staging.
+
+A tester installs the *TestFlight* app from the App Store and accepts the
+invitation from there.
+
+Two questions App Store Connect would otherwise ask for every build are
+answered in the project: `ITSAppUsesNonExemptEncryption` is `false` in
+`Info.plist` (q2 only uses HTTPS, which is exempt), and the app is
+**iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`). The second is deliberate:
+once a build with iPad support is on the App Store, iPad support cannot be
+withdrawn, and q2 is laid out for a phone.
+
+### When the upload fails
+
+| Message | Meaning |
+| --- | --- |
+| *No Accounts* / *No signing certificate "iOS Distribution" found* | Xcode is not signed in with a member of the team (step 2) |
+| *Error Downloading App Information* (the distribution log says `missingApp`), or *No suitable application records were found* | The App Store Connect record is missing, or has another bundle ID (steps 4 and 5) |
+| `codesign` fails on `Capacitor.framework` | macOS asked for the login keychain password and nobody answered. Enter it and choose *Always Allow* |
+| *The bundle version must be higher than the previously uploaded version* | That build number is used — `Q2_IOS_BUILD_NUMBER=… bun run app:ios:testflight` |
+| *Invalid Pre-Release Train* / *train version is closed* | That version is on the App Store already — tag a new one |

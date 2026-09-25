@@ -129,9 +129,10 @@ issue; the others are decisions and say why:
   screen is somebody's signed-in one. See
   [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
 - **An Android app, and the stores.** q2 builds as an iOS app with Capacitor
-  (section 5) and runs from Xcode; Android is
-  [#49](https://github.com/AaronGreiner/q2/issues/49), TestFlight and the App
-  Store are [#51](https://github.com/AaronGreiner/q2/issues/51), and a reset or
+  (section 5) and goes to TestFlight by hand
+  ([docs/deployment.md](docs/deployment.md) section 11); Android is
+  [#49](https://github.com/AaronGreiner/q2/issues/49), the App Store is
+  [#51](https://github.com/AaronGreiner/q2/issues/51), and a reset or
   invite link still opens the browser rather than the installed app
   ([#50](https://github.com/AaronGreiner/q2/issues/50)). q2 is designed for a
   phone either way; the browser is where it is developed and tested — always

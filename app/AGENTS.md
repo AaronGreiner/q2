@@ -465,8 +465,9 @@ The same application, built client-only and wrapped in a Capacitor shell
 ([../docs/adr/0034-bearer-tokens-for-the-native-app.md](../docs/adr/0034-bearer-tokens-for-the-native-app.md)).
 
 ```bash
-bun run app:ios          # from the root: native build + cap sync ios
-bun run app:ios --open   # the same, then Xcode
+bun run app:ios             # from the root: native build + cap sync ios
+bun run app:ios --open      # the same, then Xcode
+bun run app:ios:testflight  # the same, then archive and upload (../docs/deployment.md §11)
 ```
 
 `scripts/ios.ts` sets `Q2_NATIVE=1`, which turns off server rendering and the

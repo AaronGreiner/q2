@@ -1,8 +1,10 @@
 /**
  * Builds the iOS app and hands it to Xcode.
  *
- *   bun run app:ios          # native web build + `cap sync ios`
- *   bun run app:ios --open   # the same, then open the project in Xcode
+ *   bun run app:ios             # native web build + `cap sync ios`
+ *   bun run app:ios --open      # the same, then open the project in Xcode
+ *   bun run app:ios:testflight  # the same, then archive and upload to App
+ *                               # Store Connect, where it becomes a TestFlight build
  *
  * The web build is the ordinary Nuxt app with Q2_NATIVE=1, which turns off
  * server rendering and the service worker (app/nuxt.config.ts). It points at
@@ -20,12 +22,18 @@
  * diagnostics page, localhost — and none of it may end up inside an app that
  * signs in against Staging.
  *
- * What comes out is app/ios, ready to run from Xcode. Signing, TestFlight and
- * the App Store are not this script's business (issue #51).
+ * What comes out is app/ios, ready to run from Xcode.
+ *
+ * With --testflight it is archived and uploaded as well (docs/deployment.md
+ * section 11). The version is the latest release tag, like every other
+ * artefact; the build number is the commit count, which only ever grows —
+ * Q2_IOS_BUILD_NUMBER overrides it when the same commit has to go up twice.
+ * Signing is automatic, with the team named in the Xcode project and the
+ * Apple ID Xcode is signed in with; that is also who uploads.
  */
-import { readdirSync, rmSync } from 'node:fs'
+import { readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { appDir } from './lib/paths.ts'
+import { appDir, repoRoot } from './lib/paths.ts'
 import { failure, info, runSequence, success } from './lib/proc.ts'
 
 const staging = 'https://q2.aarongreiner.dev'
@@ -34,6 +42,54 @@ const apiBaseUrl = process.env.Q2_IOS_API_BASE_URL || staging
 const siteUrl = process.env.Q2_IOS_SITE_URL || staging
 const appEnv = process.env.Q2_IOS_APP_ENV || 'staging'
 const sentryDsn = process.env.Q2_IOS_SENTRY_DSN || ''
+
+const testflight = process.argv.includes('--testflight')
+const iosProjectDir = join(appDir, 'ios', 'App')
+
+function git(...args: string[]): string {
+  const result = Bun.spawnSync(['git', ...args], { cwd: repoRoot })
+  return result.exitCode === 0 ? result.stdout.toString().trim() : ''
+}
+
+/*
+ * Everything an upload needs is checked before the minute-long web build, so
+ * a missing team or tag fails at once rather than at the end.
+ */
+let version = ''
+let buildNumber = ''
+
+if (testflight) {
+  const project = readFileSync(join(iosProjectDir, 'App.xcodeproj', 'project.pbxproj'), 'utf8')
+
+  if (!/DEVELOPMENT_TEAM = \w+;/.test(project)) {
+    failure('The Xcode project names no team. Open it (bun run app:ios --open), choose the team')
+    failure('under App → Signing & Capabilities, and run this again.')
+    process.exit(1)
+  }
+
+  const tag = git('describe', '--tags', '--abbrev=0', '--match', 'v*')
+  version = tag.replace(/^v/, '')
+  buildNumber = process.env.Q2_IOS_BUILD_NUMBER || git('rev-list', '--count', 'HEAD')
+
+  // App Store Connect takes up to three integers, no pre-release suffix.
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    failure(`The latest tag is '${tag || 'none'}', which is not a version App Store Connect accepts (1.2.3).`)
+    process.exit(1)
+  }
+
+  if (!/^\d+$/.test(buildNumber)) {
+    failure(`'${buildNumber}' is not a build number.`)
+    process.exit(1)
+  }
+
+  info(`  Version   ${version} (${buildNumber})`)
+
+  if (git('rev-list', '-n', '1', tag) !== git('rev-parse', 'HEAD'))
+    info(`  note: HEAD is past ${tag} — the build carries ${version} but not only its code`)
+
+  if (git('status', '--porcelain') !== '')
+    info('  note: the working tree has uncommitted changes, and they are in this build')
+}
 
 const env = {
   Q2_NATIVE: '1',
@@ -88,4 +144,49 @@ if (synced !== 0) {
   process.exit(synced)
 }
 
-success('app/ios is up to date — run it from Xcode (bun run app:ios --open)')
+if (!testflight) {
+  success('app/ios is up to date — run it from Xcode (bun run app:ios --open)')
+  process.exit(0)
+}
+
+// Under App/build, which is ignored; replaced by every upload.
+const archivePath = join(iosProjectDir, 'build', 'App.xcarchive')
+const exportPath = join(iosProjectDir, 'build', 'export')
+rmSync(archivePath, { recursive: true, force: true })
+rmSync(exportPath, { recursive: true, force: true })
+
+const uploaded = await runSequence([
+  {
+    label: 'archive',
+    cmd: 'xcodebuild',
+    args: [
+      '-project', join(iosProjectDir, 'App.xcodeproj'),
+      '-scheme', 'App',
+      '-configuration', 'Release',
+      '-destination', 'generic/platform=iOS',
+      '-archivePath', archivePath,
+      '-allowProvisioningUpdates',
+      `MARKETING_VERSION=${version}`,
+      `CURRENT_PROJECT_VERSION=${buildNumber}`,
+      'archive',
+    ],
+  },
+  {
+    label: 'upload to App Store Connect',
+    cmd: 'xcodebuild',
+    args: [
+      '-exportArchive',
+      '-archivePath', archivePath,
+      '-exportPath', exportPath,
+      '-exportOptionsPlist', join(iosProjectDir, 'ExportOptions.plist'),
+      '-allowProvisioningUpdates',
+    ],
+  },
+])
+
+if (uploaded !== 0) {
+  failure('The build was not uploaded.')
+  process.exit(uploaded)
+}
+
+success(`${version} (${buildNumber}) is uploaded — it shows up in TestFlight once App Store Connect has processed it`)

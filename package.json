@@ -27,6 +27,7 @@
     "api:types": "bun scripts/openapi.ts --types-only",
     "app:icons": "bun run --cwd app icons",
     "app:ios": "bun scripts/ios.ts",
+    "app:ios:testflight": "bun scripts/ios.ts --testflight",
     "lint": "bun scripts/tasks.ts lint",
     "lint:fix": "bun run --cwd app lint:fix",
     "typecheck": "bun run --cwd app typecheck",
