@@ -36,6 +36,9 @@ public sealed record RegisterRequest(
 /// <summary>Request body for signing in.</summary>
 public sealed record LoginRequest(string? Email = null, string? Password = null);
 
+/// <summary>Request body for trading a refresh token for a new pair.</summary>
+public sealed record RefreshTokenRequest(string? RefreshToken = null);
+
 /// <summary>Request body for deleting an account.</summary>
 /// <remarks>
 /// The password again, and that is the whole reason this has a body. Deleting

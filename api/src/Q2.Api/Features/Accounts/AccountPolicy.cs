@@ -56,6 +56,40 @@ public static class AccountPolicy
     public static readonly TimeSpan SessionRecheckInterval = TimeSpan.FromMinutes(1);
 
     /// <summary>
+    /// The authentication scheme every request is authenticated with: the
+    /// session cookie, or a bearer token when the request carries one.
+    /// </summary>
+    /// <remarks>
+    /// The browser signs in with the cookie; the iOS app cannot keep a
+    /// cross-site cookie and signs in with a token instead
+    /// (docs/adr/0034-bearer-tokens-for-the-native-app.md). Which one a
+    /// request uses is decided by what it carries, never by who says it is.
+    /// </remarks>
+    public const string SessionOrTokenScheme = "q2.sessionOrToken";
+
+    /// <summary>
+    /// How long an access token is honoured.
+    /// </summary>
+    /// <remarks>
+    /// The same as <see cref="SessionRecheckInterval"/>, and for the same
+    /// reason. An access token is not checked against the security stamp — it
+    /// is a sealed ticket, read without a database — so its lifetime *is* the
+    /// recheck interval: after a password reset, whoever holds an old access
+    /// token is out within a minute, and the refresh that would renew it is
+    /// refused, because refreshing does check the stamp.
+    /// </remarks>
+    public static readonly TimeSpan AccessTokenLifetime = SessionRecheckInterval;
+
+    /// <summary>
+    /// How long a refresh token works: as long as an unused cookie session.
+    /// </summary>
+    /// <remarks>
+    /// Every refresh hands out a new one, so this slides the way the cookie
+    /// does — somebody who opens the app every fortnight is never signed out.
+    /// </remarks>
+    public static readonly TimeSpan RefreshTokenLifetime = SessionLifetime;
+
+    /// <summary>
     /// How long the link in a reset mail works. Once, and for an hour.
     /// </summary>
     /// <remarks>

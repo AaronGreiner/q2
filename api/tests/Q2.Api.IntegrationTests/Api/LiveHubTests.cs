@@ -59,6 +59,33 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    /// <summary>
+    /// The iOS app's way in: no cookie, a bearer token in the address, which is
+    /// where a browser's WebSocket has to put it. Negotiation is the request
+    /// that decides, so it is enough to see it accepted.
+    /// </summary>
+    [Fact]
+    public async Task ATokenInTheAddressOpensTheLiveConnection()
+    {
+        var signedIn = await AnonymousClient.PostJsonAsync("/api/auth/token", new
+        {
+            email = AutomatedTestSeed.FriendEmail,
+            password = SeedAccounts.Password,
+        });
+        signedIn.EnsureSuccessStatusCode();
+
+        var token = (await signedIn.ReadAsync<TokenDocument>()).AccessToken;
+
+        var response = await AnonymousClient.PostAsync(
+            $"{LiveHub.Path}/negotiate?negotiateVersion=1&access_token={Uri.EscapeDataString(token)}",
+            content: null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private sealed record TokenDocument(string AccessToken);
+
     [Fact]
     public async Task AMessageArrivesLiveAndTheBadgeMovesWithIt()
     {

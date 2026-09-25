@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
 using Q2.Api.Features.Notifications;
@@ -39,6 +41,7 @@ public sealed class AccountService(
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
     Q2Metrics metrics,
+    IOptionsMonitor<BearerTokenOptions> bearerTokens,
     ILogger<AccountService> logger)
 {
     /// <summary>
@@ -139,9 +142,80 @@ public sealed class AccountService(
         return new SessionResponse(PersonSummary.From(person, now), email);
     }
 
+    /// <summary>Signs in with the session cookie — the browser's way.</summary>
     /// <exception cref="DomainValidationException">The request is not usable.</exception>
     /// <exception cref="AuthenticationRequiredException">The credentials were refused.</exception>
-    public async Task<SessionResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
+    public Task<SessionResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken) =>
+        SignInAsync(request, IdentityConstants.ApplicationScheme, cancellationToken);
+
+    /// <summary>
+    /// Signs in with a pair of bearer tokens — the iOS app's way.
+    /// </summary>
+    /// <remarks>
+    /// Exactly the checks <see cref="LoginAsync"/> makes, lockout included; only
+    /// what is handed back differs. Identity's token handler writes the answer
+    /// itself (an access token, when it expires, and a refresh token), so the
+    /// endpoint adds nothing to the response
+    /// (docs/adr/0034-bearer-tokens-for-the-native-app.md).
+    /// </remarks>
+    /// <exception cref="DomainValidationException">The request is not usable.</exception>
+    /// <exception cref="AuthenticationRequiredException">The credentials were refused.</exception>
+    public Task IssueTokensAsync(LoginRequest request, CancellationToken cancellationToken) =>
+        SignInAsync(request, IdentityConstants.BearerScheme, cancellationToken);
+
+    /// <summary>
+    /// Trades a refresh token for a new pair.
+    /// </summary>
+    /// <remarks>
+    /// The same checks as Identity's own refresh endpoint in
+    /// <c>MapIdentityApi</c>, which q2 does not map (see
+    /// <see cref="Q2.Api.Infrastructure.AuthenticationRegistration"/>): the
+    /// token must be one this server sealed, not expired, and — the part that
+    /// matters — its account's security stamp must not have changed since. A
+    /// password reset changes it, so every app signed in with the old password
+    /// is out at its next refresh. So is a deleted account, which has no stamp
+    /// left to compare.
+    /// </remarks>
+    /// <exception cref="DomainValidationException">No refresh token was sent.</exception>
+    /// <exception cref="AuthenticationRequiredException">The refresh token is not usable any more.</exception>
+    public async Task RefreshTokensAsync(RefreshTokenRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            throw new DomainValidationException(
+                nameof(request.RefreshToken),
+                "A refresh token is required.");
+        }
+
+        var ticket = bearerTokens.Get(IdentityConstants.BearerScheme)
+            .RefreshTokenProtector
+            .Unprotect(request.RefreshToken);
+
+        if (ticket?.Properties.ExpiresUtc is not { } expires
+            || timeProvider.GetUtcNow() >= expires
+            || await signIn.ValidateSecurityStampAsync(ticket.Principal) is not { } account)
+        {
+            throw new AuthenticationRequiredException("This refresh token is no longer valid.");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        signIn.AuthenticationScheme = IdentityConstants.BearerScheme;
+        await signIn.SignInAsync(account, isPersistent: true);
+    }
+
+    /// <summary>
+    /// Checks the credentials, then signs in with <paramref name="scheme"/>.
+    /// </summary>
+    /// <remarks>
+    /// The password is checked first and the session issued last, rather than
+    /// both at once with <c>PasswordSignInAsync</c>: a token response is written
+    /// the moment it is issued, so nothing may happen after it.
+    /// </remarks>
+    private async Task<SessionResponse> SignInAsync(
+        LoginRequest request,
+        string scheme,
+        CancellationToken cancellationToken)
     {
         var errors = AccountRequestValidator.Validate(request);
 
@@ -161,13 +235,13 @@ public sealed class AccountService(
             throw InvalidCredentials();
         }
 
-        var result = await signIn.PasswordSignInAsync(
+        var result = await signIn.CheckPasswordSignInAsync(
             account,
             request.Password!,
-            isPersistent: true,
 
             // Counts failures, so a password cannot be guessed at machine
-            // speed. The lockout is temporary and per account.
+            // speed. The lockout is temporary and per account, and shared by
+            // both ways of signing in.
             lockoutOnFailure: true);
 
         if (result.IsLockedOut)
@@ -189,6 +263,9 @@ public sealed class AccountService(
 
         person.SetLastSeen(now);
         await database.SaveChangesAsync(cancellationToken);
+
+        signIn.AuthenticationScheme = scheme;
+        await signIn.SignInAsync(account, isPersistent: true);
 
         logger.LogInformation("Signed in as person {PersonId}", person.Id);
         metrics.CountAccountSignedIn();

@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Q2.Api.Features.Accounts;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Infrastructure;
 
 /// <summary>
-/// Registers ASP.NET Core Identity and the cookie session it signs in with.
+/// Registers ASP.NET Core Identity, the cookie session the browser signs in
+/// with, and the bearer tokens the iOS app signs in with.
 /// </summary>
 /// <remarks>
 /// Identity's default token providers are registered for one thing so far: the
@@ -19,7 +22,10 @@ namespace Q2.Api.Infrastructure;
 ///
 /// What is used is the part that matters: the password hasher, the security
 /// stamp, lockout, the cookie and the tokens. None of that is written by hand
-/// (docs/adr/0011-authentication-with-identity.md).
+/// (docs/adr/0011-authentication-with-identity.md). The bearer tokens are
+/// Identity's own too — sealed and read by its <c>BearerToken</c> handler —
+/// added for the one client a cookie cannot serve
+/// (docs/adr/0034-bearer-tokens-for-the-native-app.md).
 /// </remarks>
 public static class AuthenticationRegistration
 {
@@ -73,8 +79,57 @@ public static class AuthenticationRegistration
             });
 
         builder.Services
-            .AddAuthentication(IdentityConstants.ApplicationScheme)
+            .AddAuthentication(AccountPolicy.SessionOrTokenScheme)
+
+            /*
+             * One scheme in front of two, chosen by what the request carries.
+             *
+             * A request with an Authorization header — or the live connection
+             * with its token in the query, see below — is authenticated as a
+             * bearer token, and everything else as the cookie. Never both: a
+             * request is one client, and a cookie a WebView happened to keep
+             * must not quietly stand in for a token that has expired.
+             */
+            .AddPolicyScheme(AccountPolicy.SessionOrTokenScheme, displayName: null, options =>
+                options.ForwardDefaultSelector = context => CarriesBearerToken(context.Request)
+                    ? IdentityConstants.BearerScheme
+                    : IdentityConstants.ApplicationScheme)
+            .AddBearerToken(IdentityConstants.BearerScheme, options =>
+            {
+                options.BearerTokenExpiration = AccountPolicy.AccessTokenLifetime;
+                options.RefreshTokenExpiration = AccountPolicy.RefreshTokenLifetime;
+
+                /*
+                 * The live connection is the one place a token travels in the
+                 * address. A browser's WebSocket cannot send a header, so
+                 * SignalR puts the token in `access_token` — and only there is
+                 * it read. Everywhere else a token in the query is ignored, so
+                 * no link or log line can become a way in.
+                 *
+                 * It reaches no log that keeps it: Caddy writes no access log
+                 * for this site, and Sentry drops query strings on both
+                 * runtimes (SentryEventScrubber).
+                 */
+                options.Events = new BearerTokenEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        if (IsLiveConnection(context.Request)
+                            && context.Request.Query.TryGetValue(LiveConnectionTokenParameter, out var token))
+                        {
+                            context.Token = token.ToString();
+                        }
+
+                        return Task.CompletedTask;
+                    },
+                };
+            })
             .AddIdentityCookies();
+
+        // The token handler reads the clock through its options; this makes it
+        // the injected one, so a test that moves time moves token expiry too.
+        builder.Services.AddOptions<BearerTokenOptions>(IdentityConstants.BearerScheme)
+            .Configure<TimeProvider>((options, time) => options.TimeProvider = time);
 
         builder.Services.ConfigureApplicationCookie(options =>
         {
@@ -124,4 +179,14 @@ public static class AuthenticationRegistration
 
         return builder;
     }
+
+    /// <summary>The query parameter SignalR's client sends its token in.</summary>
+    private const string LiveConnectionTokenParameter = "access_token";
+
+    private static bool IsLiveConnection(HttpRequest request) =>
+        request.Path.StartsWithSegments(LiveHub.Path, StringComparison.OrdinalIgnoreCase);
+
+    private static bool CarriesBearerToken(HttpRequest request) =>
+        request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+        || (IsLiveConnection(request) && request.Query.ContainsKey(LiveConnectionTokenParameter));
 }

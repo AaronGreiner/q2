@@ -237,8 +237,8 @@ public static class ApiRegistration
             if (allowedOrigins.Length == 0)
             {
                 // No origins configured means "same origin only" — the safe
-                // default for Staging and Production, where the frontend is
-                // served from the same host or through a gateway.
+                // default wherever the frontend is served from the same host.
+                // Staging lists one: the iOS app's WebView.
                 return;
             }
 
@@ -246,11 +246,13 @@ public static class ApiRegistration
                 .AllowAnyHeader()
                 .AllowAnyMethod()
 
-                // The session travels as a cookie, and a cross-origin request
-                // does not carry one unless both sides say so. This is why the
-                // origins have to be listed explicitly: a wildcard origin and
-                // credentials are not allowed together, by the specification
-                // and for good reason.
+                // The browser's session travels as a cookie, and a
+                // cross-origin request does not carry one unless both sides
+                // say so. This is why the origins have to be listed
+                // explicitly: a wildcard origin and credentials are not
+                // allowed together, by the specification and for good reason.
+                // The iOS app sends a bearer token instead and would not need
+                // it — but it needs its origin listed all the same.
                 .AllowCredentials();
         }));
 
