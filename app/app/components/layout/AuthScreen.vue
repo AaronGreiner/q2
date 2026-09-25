@@ -6,9 +6,9 @@
  * what keeps the wordmark, the spacing and the footer link from drifting apart
  * between two files nobody edits at the same time.
  *
- * The mark is the wordmark itself rather than a picture of something: this is
- * the first screen anybody sees, and a lettermark on the accent says the name
- * where an icon would only have decorated it.
+ * The mark is the Q2 ligature from the app icon, so the first screen after
+ * tapping the icon shows the same shape again. It is drawn in the text colour
+ * rather than on the accent: it names the app, it is not something to do.
  */
 defineProps<{
   heading: string
@@ -22,12 +22,7 @@ const t = useMessages()
   <div class="q2-scroll flex min-h-0 flex-1 flex-col pt-8">
     <div class="flex min-h-full w-full flex-col">
       <div class="px-[26px] pb-7">
-        <div
-          class="mb-4 flex size-14 items-center justify-center rounded-full bg-(--q2-accent-solid) text-[22px] leading-none font-extrabold tracking-[-0.05em] text-(--q2-accent-contrast)"
-          aria-hidden="true"
-        >
-          Q2
-        </div>
+        <AppMark class="mb-5 h-10 text-(--ui-text-highlighted)" />
 
         <p class="q2-eyebrow">
           {{ t.app.name }}
