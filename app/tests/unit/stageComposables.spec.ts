@@ -103,6 +103,7 @@ function installFeatureGlobals(api: object) {
   vi.stubGlobal('useErrorReporter', () => ({ report }))
   vi.stubGlobal('useToastMessage', () => ({ show }))
   vi.stubGlobal('useMessages', () => ref(de))
+  vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: '' } }))
 
   return { report, show }
 }
@@ -431,6 +432,22 @@ describe('useInvite', () => {
   it('builds the link from the page it is on', async () => {
     installBrowser()
     installFeatureGlobals(inviteApi())
+
+    const invite = useInvite()
+    await vi.waitFor(() => expect(invite.code.value).toBe('abc123'))
+
+    expect(invite.url.value).toBe('https://q2.example/join/abc123')
+  })
+
+  /**
+   * Inside the iOS app the page is capacitor://localhost, which nobody the
+   * link is sent to could open.
+   */
+  it('builds the link from the configured address when there is one', async () => {
+    installBrowser()
+    installFeatureGlobals(inviteApi())
+    vi.stubGlobal('window', { location: { origin: 'capacitor://localhost' } })
+    vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: 'https://q2.example/' } }))
 
     const invite = useInvite()
     await vi.waitFor(() => expect(invite.code.value).toBe('abc123'))

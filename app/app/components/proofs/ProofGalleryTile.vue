@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { imageUrl } from '~/api/images'
 import type { OwnProof } from '~/api/types'
 
 /**
@@ -18,7 +17,7 @@ const props = defineProps<{ proof: OwnProof }>()
 const emit = defineEmits<{ open: [] }>()
 
 const t = useMessages()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => props.proof.imageId)
 
 const failed = ref(false)
 
@@ -26,7 +25,7 @@ watch(() => props.proof.imageId, () => {
   failed.value = false
 })
 
-const source = computed(() => (failed.value ? null : imageUrl(config.apiBaseUrl, props.proof.imageId)))
+const source = computed(() => (failed.value ? null : picture.value))
 
 const day = computed(() => formatInstantDate(props.proof.createdAt))
 const status = computed(() => proofStatusLabel(props.proof.status, t.value))

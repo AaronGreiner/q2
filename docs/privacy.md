@@ -51,6 +51,7 @@ aspirational.
 | Preferences | theme, language, one switch per kind of notification, quiet hours, and which conversations are muted | |
 | Device appearance | one of four accent palette names | Stored in the `q2-accent` cookie for one year, shared by accounts using that browser. No identity or content. Read during SSR; never logged or sent to Sentry. See [ADR 0028](adr/0028-ruhe-design-system.md). |
 | Camera choice | `user` or `environment` — which camera the photo screen opens with | Stored in the browser's local storage under `q2-camera-facing`, shared by accounts using that browser, and only written when somebody switches cameras. Never sent to the server, never logged, never sent to Sentry. |
+| Sign-in on the iOS app | a refresh token in the iOS Keychain, an access token and the pictures already fetched in memory | The browser's session cookie, in another form: the tokens are sealed by the server and name only the account and its security stamp. The Keychain entry is "this device only" and never synchronised through iCloud; signing out removes it and empties the pictures. It outlives deleting the app, as Keychain items do, and stops working after 14 days unused or when the password changes. Never logged, never sent to Sentry. See [adr/0034](adr/0034-bearer-tokens-for-the-native-app.md). |
 
 **What a notification carries.** The payload is encrypted to the browser
 (RFC 8291), so a push service — Google's, Mozilla's, Apple's — carries bytes it

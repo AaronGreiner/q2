@@ -230,6 +230,56 @@ describe('session state', () => {
     expect(clearNuxtData).toHaveBeenCalledTimes(2)
   })
 
+  it('signs in for tokens inside the iOS app, and forgets them on sign-out', async () => {
+    const { api, session } = sessionApi()
+    const pair = { tokenType: 'Bearer', accessToken: 'access', refreshToken: 'refresh', expiresIn: 60 }
+    const accounts = { ...api.accounts, issueTokens: vi.fn().mockResolvedValue(pair) }
+    const tokens = { adopt: vi.fn(), clear: vi.fn(), accessToken: vi.fn(), invalidate: vi.fn() }
+    const pictures = { get: vi.fn(), clear: vi.fn() }
+    vi.stubGlobal('useQ2Api', () => ({ accounts }))
+    vi.stubGlobal('clearNuxtData', vi.fn())
+    vi.stubGlobal('useNuxtApp', () => ({
+      runWithContext: <T>(callback: () => T) => callback(),
+      $sessionTokens: tokens,
+      $imageCache: pictures,
+    }))
+    const state = useSession()
+    const credentials = { email: 'mara@example.test', password: 'long-password' }
+
+    await expect(state.login(credentials)).resolves.toEqual(session)
+    expect(accounts.issueTokens).toHaveBeenCalledWith(credentials)
+    expect(tokens.adopt).toHaveBeenCalledWith(pair)
+    expect(accounts.login).not.toHaveBeenCalled()
+
+    // Registering sets a cookie the app cannot keep, so it signs in again.
+    await expect(state.register({ name: 'Mara', ...credentials })).resolves.toEqual(session)
+    expect(accounts.register).toHaveBeenCalledOnce()
+    expect(accounts.issueTokens).toHaveBeenLastCalledWith(credentials)
+
+    await state.logout()
+    expect(accounts.logout).toHaveBeenCalledOnce()
+    expect(tokens.clear).toHaveBeenCalledOnce()
+
+    // With the payloads, every time: on sign-in, on sign-up and on sign-out.
+    expect(pictures.clear).toHaveBeenCalledTimes(3)
+    expect(state.isSignedIn.value).toBe(false)
+  })
+
+  it('forgets a session the server has already ended without asking it again', async () => {
+    const { api } = sessionApi()
+    const clearNuxtData = vi.fn()
+    vi.stubGlobal('useQ2Api', () => api)
+    vi.stubGlobal('clearNuxtData', clearNuxtData)
+    const state = useSession()
+
+    await state.resolve()
+    await state.forget()
+
+    expect(api.accounts.logout).not.toHaveBeenCalled()
+    expect(state.isSignedIn.value).toBe(false)
+    expect(clearNuxtData).toHaveBeenCalledOnce()
+  })
+
   it('does not cache a transient session failure as signed out', async () => {
     const { api, session } = sessionApi()
     api.accounts.session.mockRejectedValueOnce(new ApiError({ kind: 'network' }))
@@ -284,6 +334,23 @@ describe('configured API and toast adapters', () => {
       headers: { Accept: 'application/json' },
     }))
     expect(apiFetch).toHaveBeenCalledTimes(8)
+  })
+
+  it('sends a bearer token and no cookie inside the iOS app', async () => {
+    const apiFetch = vi.fn().mockResolvedValue({})
+    const create = vi.fn(() => apiFetch)
+    const tokens = { accessToken: vi.fn().mockResolvedValue('access.token'), invalidate: vi.fn() }
+    vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBaseUrl: 'https://api.example.test' } }))
+    vi.stubGlobal('useNuxtApp', () => ({ $sessionTokens: tokens }))
+    vi.stubGlobal('$fetch', { create })
+
+    await useQ2Api().accounts.session()
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ credentials: 'omit' }))
+    expect(apiFetch).toHaveBeenCalledWith('/api/auth/session', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer access.token' },
+    })
   })
 
   it('uses the shared toast shape', () => {

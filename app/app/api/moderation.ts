@@ -58,7 +58,8 @@ export function createModerationApi(call: ApiCaller): ModerationApi {
  *
  * The server hands back the code alone — it does not know which host the app is
  * served from, and a link with the wrong origin in it is worse than none. The
- * link is built in the browser from `window.location.origin`.
+ * link is built in the browser (`useInvite`), from `window.location.origin` or,
+ * in the iOS app, the configured `siteUrl`.
  *
  * Somebody else's code goes in a body, never into a URL here: paths reach
  * Sentry's fetch breadcrumbs and the API's request logs intact, and the code is

@@ -118,8 +118,9 @@ language the account chose in its settings, as plain text, naming nobody.
 - **HTML mail, a reply address and a durable outbox.** A reset mail is a few
   sentences and a link; nobody is there to answer a reply yet; and a mail lost
   to a restart is one somebody asks for again with a tap.
-- **Links that open the installed app.** They belong to the Capacitor build
-  ([#7](https://github.com/AaronGreiner/q2/issues/7)).
+- **Links that open the installed app.** They belong to the Capacitor build,
+  which exists for iOS now ([0034](0034-bearer-tokens-for-the-native-app.md));
+  opening a link in it is [#50](https://github.com/AaronGreiner/q2/issues/50).
 
 ## Consequences
 
@@ -151,4 +152,5 @@ language the account chose in its settings, as plain text, naming nobody.
 - when there is a second API instance — the limits and the queue are per process;
 - when q2 sends a second kind of mail, or one that needs more than a few
   sentences — the texts would outgrow one class;
-- when the Capacitor build lands — a link could open the app itself.
+- when the Capacitor build lands — a link could open the app itself. It has
+  landed for iOS; the link is [#50](https://github.com/AaronGreiner/q2/issues/50).

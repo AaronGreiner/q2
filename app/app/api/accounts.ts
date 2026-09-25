@@ -7,21 +7,37 @@ import type {
   RegisterRequest,
   ResetPasswordRequest,
   Session,
+  SessionTokens,
 } from './types'
 
 /**
  * Registering, signing in, signing out, asking who is signed in — and getting
  * back into an account whose password is gone.
  *
- * Nothing here carries a token. The session is an http-only cookie the browser
- * stores and sends by itself, which is why every one of these returns only the
- * person it belongs to — there is nothing else for the client to keep.
+ * In the browser nothing here carries a token. The session is an http-only
+ * cookie the browser stores and sends by itself, which is why these return
+ * only the person it belongs to. The iOS app is the exception: its WebView
+ * cannot keep that cookie, so it signs in for a pair of tokens instead
+ * (`issueTokens`, `refreshTokens`, docs/adr/0034-bearer-tokens-for-the-native-app.md).
  */
 export interface AccountsApi {
   register: (request: RegisterRequest) => Promise<Session>
   login: (request: LoginRequest) => Promise<Session>
   logout: () => Promise<void>
   session: () => Promise<Session>
+
+  /**
+   * Signs in for bearer tokens rather than a cookie — the iOS app's way.
+   * Same checks and the same failures as `login`; the answer is the tokens,
+   * so who is signed in is asked with `session` afterwards.
+   */
+  issueTokens: (request: LoginRequest) => Promise<SessionTokens>
+
+  /**
+   * Trades the refresh token for a new pair. Refused (401) once the password
+   * has changed or the account is gone.
+   */
+  refreshTokens: (refreshToken: string) => Promise<SessionTokens>
 
   /**
    * Deletes the account and everything personal behind it.
@@ -61,6 +77,13 @@ export function createAccountsApi(call: ApiCaller): AccountsApi {
     },
 
     session: () => call<Session>('/api/auth/session', { method: 'GET' }),
+
+    issueTokens: request => call<SessionTokens>('/api/auth/token', { method: 'POST', body: request }),
+
+    refreshTokens: refreshToken => call<SessionTokens>('/api/auth/token/refresh', {
+      method: 'POST',
+      body: { refreshToken },
+    }),
 
     remove: password => call<AccountDeletion>('/api/auth/account', {
       method: 'DELETE',

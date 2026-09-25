@@ -75,7 +75,8 @@ and thrown platform errors silently skip feedback. None creates a log or a
 Sentry event, and the original action always continues. No native dependency,
 device fingerprint or stored preference is introduced. Safari/iPhone PWAs do
 not gain arbitrary vibration; native haptics belong to the Capacitor work in
-[#7](https://github.com/AaronGreiner/q2/issues/7). This implements the haptic
+[#7](https://github.com/AaronGreiner/q2/issues/7), which left them to
+[#52](https://github.com/AaronGreiner/q2/issues/52). This implements the haptic
 portion of [#19](https://github.com/AaronGreiner/q2/issues/19).
 
 ## Verification

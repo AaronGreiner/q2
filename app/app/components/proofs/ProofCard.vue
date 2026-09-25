@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
-import { imageUrl } from '~/api/images'
 import type { Proof, ProofVoteValue } from '~/api/types'
 
 /**
@@ -53,7 +52,7 @@ const emit = defineEmits<{ vote: [value: ProofVoteValue] }>()
 
 const t = useMessages()
 const now = useNow()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => props.proof.imageId)
 
 const failed = ref(false)
 
@@ -61,7 +60,7 @@ watch(() => props.proof.imageId, () => {
   failed.value = false
 })
 
-const source = computed(() => (failed.value ? null : imageUrl(config.apiBaseUrl, props.proof.imageId)))
+const source = computed(() => (failed.value ? null : picture.value))
 
 /** Whole hours left, floored — "noch 2 Stunden" must never read as more than there is. */
 const hoursLeft = computed(() => {

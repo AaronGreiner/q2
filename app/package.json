@@ -23,6 +23,10 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "8.0.1",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/keyboard": "8.0.5",
     "@microsoft/signalr": "10.0.11",
     "@nuxt/ui": "4.10.0",
     "@sentry/nuxt": "10.69.0",
@@ -33,6 +37,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
+    "@capacitor/cli": "8.5.2",
     "@iconify-json/lucide": "1.2.120",
     "@nuxt/eslint": "1.16.0",
     "@nuxt/test-utils": "4.1.0",

@@ -18,6 +18,7 @@ const open = defineModel<boolean>('open', { required: true })
 
 const t = useMessages()
 const api = useQ2Api()
+const { forget } = useSession()
 const { report } = useErrorReporter()
 
 const password = ref('')
@@ -40,6 +41,10 @@ async function confirm() {
 
   try {
     await api.accounts.remove(password.value)
+
+    // The account is gone whatever happens here; a token the app failed to
+    // forget is refused at its next use.
+    await forget().catch(() => undefined)
 
     /*
      * A full page load rather than a route change.

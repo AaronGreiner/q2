@@ -7,10 +7,12 @@ import { isFirstLoad, placeholder } from '~/utils/firstLoad'
  * The server hands back a code and nothing else, on purpose: it does not know
  * which host the app is served from, and a link with the wrong origin in it is
  * worse than no link. The URL is built here, from the page the person is
- * actually looking at.
+ * actually looking at — or, in the iOS app, from the configured `siteUrl`:
+ * the app's own page is `capacitor://localhost`, which nobody else can open.
  */
 export function useInvite() {
   const api = useQ2Api()
+  const { public: config } = useRuntimeConfig()
   const { report } = useErrorReporter()
   const toast = useToastMessage()
   const t = useMessages()
@@ -40,7 +42,9 @@ export function useInvite() {
 
     if (!code || !import.meta.client) return ''
 
-    return `${window.location.origin}/join/${encodeURIComponent(code)}`
+    const origin = config.siteUrl ? config.siteUrl.replace(/\/$/, '') : window.location.origin
+
+    return `${origin}/join/${encodeURIComponent(code)}`
   })
 
   const isReplacing = ref(false)

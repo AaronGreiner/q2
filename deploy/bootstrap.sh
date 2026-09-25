@@ -224,7 +224,8 @@ else
   cat >> "$CADDYFILE" <<EOF
 
 # q2 — frontend and API share one origin, so the browser makes same-origin
-# requests and the API needs no CORS configuration.
+# requests. The iOS app is the one cross-origin caller; the API's own CORS
+# policy (appsettings.Staging.json) allows it, not this file.
 $DOMAIN {
 	encode zstd gzip
 

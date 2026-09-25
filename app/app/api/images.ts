@@ -31,6 +31,16 @@ export interface ImagesApi {
   quota: () => Promise<ImageQuota>
 
   remove: (id: string) => Promise<void>
+
+  /**
+   * The bytes of a picture, for the iOS app only.
+   *
+   * The browser never needs this: an `<img>` pointed at `imageUrl` carries the
+   * session cookie by itself. The app signs in with a token, which an `<img>`
+   * cannot send, so it fetches the picture and shows it from memory
+   * (`useImageSource`).
+   */
+  load: (id: string) => Promise<Blob>
 }
 
 export function createImagesApi(call: ApiCaller): ImagesApi {
@@ -51,6 +61,14 @@ export function createImagesApi(call: ApiCaller): ImagesApi {
     remove: async (id) => {
       await call<unknown>(`/api/images/${encodeURIComponent(id)}`, { method: 'DELETE' })
     },
+
+    load: id => call<Blob>(`/api/images/${encodeURIComponent(id)}`, {
+      method: 'GET',
+      responseType: 'blob',
+
+      // The client's default is JSON; the endpoint answers with the picture.
+      headers: { Accept: 'image/*' },
+    }),
   }
 }
 
@@ -64,7 +82,10 @@ export function createImagesApi(call: ApiCaller): ImagesApi {
  *
  * The element needs `crossorigin="use-credentials"` for the session cookie to
  * travel with it; `AppAvatar` and `AppPhoto` set it, which is the reason to
- * reach for one of those rather than writing an `<img>` by hand.
+ * reach for one of those rather than writing an `<img>` by hand. Components
+ * get this address through `useImageSource`, never directly: in the iOS app an
+ * `<img>` cannot carry the session, and that composable fetches the picture
+ * with the token instead.
  *
  * In a template, `crossorigin` has to come *before* `:src`. Vue sets
  * attributes in template order, and an `<img>` starts loading the moment it has

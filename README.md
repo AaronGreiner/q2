@@ -102,8 +102,9 @@ issue; the others are decisions and say why:
 - **Native push.** A phone is reached through Web Push, which on iOS means an
   installed home-screen app, and a deployment with no VAPID keys sends no push
   at all — the default, what the screen says, and so far the state of Staging
-  ([#8](https://github.com/AaronGreiner/q2/issues/8)). APNs and FCM arrive with
-  a Capacitor build ([#12](https://github.com/AaronGreiner/q2/issues/12)).
+  ([#8](https://github.com/AaronGreiner/q2/issues/8)). The iOS app gets no push
+  at all yet: a WebView has no Web Push, and APNs is
+  [#12](https://github.com/AaronGreiner/q2/issues/12).
 - **Editing a running goal.** A goal can be created, set aside, stopped and
   deleted from the archive, but its title, description, schedule and invitees
   are fixed once it runs ([#4](https://github.com/AaronGreiner/q2/issues/4)).
@@ -127,12 +128,14 @@ issue; the others are decisions and say why:
   worker keeps the build output and deliberately no content: every rendered
   screen is somebody's signed-in one. See
   [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
-- **Mobile apps.** No Capacitor packaging and no native abstractions exist yet —
-  installing from the browser is as far as it goes today
-  ([#7](https://github.com/AaronGreiner/q2/issues/7)). The *format* is not
-  missing, though: q2 is designed for a phone, and the browser is only where it
-  is developed and tested — always at phone width. See
-  [AGENTS.md](AGENTS.md) section 5.
+- **An Android app, and the stores.** q2 builds as an iOS app with Capacitor
+  (section 5) and runs from Xcode; Android is
+  [#49](https://github.com/AaronGreiner/q2/issues/49), TestFlight and the App
+  Store are [#51](https://github.com/AaronGreiner/q2/issues/51), and a reset or
+  invite link still opens the browser rather than the installed app
+  ([#50](https://github.com/AaronGreiner/q2/issues/50)). q2 is designed for a
+  phone either way; the browser is where it is developed and tested — always
+  at phone width. See [AGENTS.md](AGENTS.md) section 5.
 - **PostgreSQL.** SQLite is the initial provider. Almost nothing depends on it —
   the people search relies on SQLite's case-insensitive `LIKE` — so the switch
   is a provider change, not a rewrite
@@ -211,6 +214,30 @@ over to `bun run dev` and opens the browser. It prepares nothing the root
 scripts already do; `--manual` starts the environment of section 7 instead,
 `--help` lists the remaining flags. A completely fresh checkout still wants
 `bun run setup` once, for the Playwright browsers.
+
+### The iOS app
+
+Needs Xcode (26 or newer) in addition to the above. The app is the same
+frontend, built client-only against **Staging** and copied into `app/ios`:
+
+```bash
+bun run app:ios --open
+```
+
+Then choose a simulator or a connected iPhone in Xcode and press Run. On a
+device, pick your team under *Signing & Capabilities* first. Staging has to run
+a release that includes the token sign-in (ADR 0034) for the app to sign in.
+
+To try it against your local API instead — the seeded accounts work there —
+point the build at it; Development already allows the app's origin:
+
+```bash
+Q2_IOS_API_BASE_URL=http://localhost:5080 Q2_IOS_SITE_URL=http://localhost:3000 Q2_IOS_APP_ENV=local-development bun run app:ios --open
+```
+
+The details, and what differs from the browser, are in
+[app/AGENTS.md](app/AGENTS.md) section 9c and
+[docs/adr/0034](docs/adr/0034-bearer-tokens-for-the-native-app.md).
 
 ## 6. The development database
 

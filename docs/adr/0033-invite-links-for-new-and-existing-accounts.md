@@ -78,5 +78,6 @@ answer to it. Registration and acceptance share this one code path.
 - The E2E suite registers fresh accounts for both ends of a link, rather than
   touching the seed, because every spec shares one database.
 - The link is built from `window.location.origin`. Inside a Capacitor WebView
-  that is not an address anybody else can open; the native build will need a
-  configured public origin for it ([#7](https://github.com/AaronGreiner/q2/issues/7)).
+  that is not an address anybody else can open, so the iOS app builds it from
+  the configured `siteUrl` instead ([0034](0034-bearer-tokens-for-the-native-app.md)).
+  Opening the link in the installed app is [#50](https://github.com/AaronGreiner/q2/issues/50).

@@ -15,6 +15,8 @@
  * down and the whole set is regenerated consistently after a change.
  *
  * The output is committed: it is an input to the build, not a product of it.
+ * That includes the iOS app's icon and launch screen inside `ios/`, which are
+ * written here rather than drawn in Xcode for the same reason.
  *
  * Rasterising uses the Chromium that Playwright already installs for E2E, so
  * nothing new has to be present on the machine or in CI. It is the only
@@ -24,9 +26,11 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
+import { installedThemeColor } from '../app/utils/themeColors'
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = join(appDir, 'public')
+const iosAssetsDir = join(appDir, 'ios', 'App', 'App', 'Assets.xcassets')
 
 /**
  * The mark: a Q, as geometry rather than as type.
@@ -80,6 +84,10 @@ function drawIcon({ size, glyph, radius }: IconShape): string {
   ].join('')
 }
 
+function drawBackground(size: number): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="${installedThemeColor}"/></svg>`
+}
+
 /** Three decimals is well below a pixel at every size here and keeps the file readable. */
 function round(value: number): number {
   return Math.round(value * 1000) / 1000
@@ -100,6 +108,24 @@ const maskable: IconShape = { size: 512, glyph: 0.5, radius: 0 }
  * corners that are already dark.
  */
 const appleTouch: IconShape = { size: 180, glyph: 0.58, radius: 0 }
+
+/**
+ * The iOS app's icon: one 1024 px square, from which Xcode derives every other
+ * size. The apple-touch geometry, because it is the same home screen and the
+ * same mask. No alpha channel — App Store Connect refuses an icon that has
+ * one, and a screenshot of an opaque page has none.
+ */
+const iosAppIcon: IconShape = { size: 1024, glyph: 0.58, radius: 0 }
+
+/**
+ * The launch screen: the background the app opens on, and nothing else.
+ *
+ * It is shown for the moment before the WebView paints, so anything drawn on
+ * it would appear and vanish again. `installedThemeColor` is what the web app
+ * manifest paints behind an installed PWA and what capacitor.config.ts puts
+ * behind the WebView, so the three agree and a launch never flashes.
+ */
+const iosLaunchScreenSize = 2732
 
 /** `purpose: any` — shown as drawn, so it carries the rounding itself. */
 const anyPurpose = (size: number): IconShape => ({ size, glyph: 0.62, radius: 0.225 })
@@ -128,6 +154,15 @@ async function main(): Promise<void> {
     await write('pwa-192x192.png', await rasterise(drawIcon(anyPurpose(192)), 192))
     await write('pwa-512x512.png', await rasterise(drawIcon(anyPurpose(512)), 512))
     await write('maskable-512x512.png', await rasterise(drawIcon(maskable), 512))
+
+    await writeIos('AppIcon.appiconset/AppIcon-512@2x.png', await rasterise(drawIcon(iosAppIcon), iosAppIcon.size))
+
+    // Three files because the image set names one per scale; they are the
+    // same flat colour at every scale.
+    const launch = await rasterise(drawBackground(iosLaunchScreenSize), iosLaunchScreenSize)
+    for (const name of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
+      await writeIos(`Splash.imageset/${name}`, launch)
+    }
   }
   finally {
     await browser.close()
@@ -178,6 +213,11 @@ function toIco(png: Buffer, size: number): Buffer {
 async function write(name: string, contents: string | Buffer): Promise<void> {
   await writeFile(join(publicDir, name), contents)
   process.stdout.write(`  public/${name} (${contents.length} bytes)\n`)
+}
+
+async function writeIos(name: string, contents: Buffer): Promise<void> {
+  await writeFile(join(iosAssetsDir, name), contents)
+  process.stdout.write(`  ios/App/App/Assets.xcassets/${name} (${contents.length} bytes)\n`)
 }
 
 process.stdout.write('Generating Qdos app icons\n')

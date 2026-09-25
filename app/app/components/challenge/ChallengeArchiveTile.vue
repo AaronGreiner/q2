@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { imageUrl } from '~/api/images'
 import type { ChallengeArchiveEntry } from '~/api/types'
 
 /**
@@ -13,7 +12,7 @@ import type { ChallengeArchiveEntry } from '~/api/types'
 const props = defineProps<{ item: ChallengeArchiveEntry }>()
 
 const t = useMessages()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => props.item.entry.imageId)
 const viewer = usePhotoViewer()
 
 const failed = ref(false)
@@ -21,7 +20,7 @@ const failed = ref(false)
 const source = computed(() =>
   (failed.value || !props.item.entry.imageId
     ? null
-    : imageUrl(config.apiBaseUrl, props.item.entry.imageId)))
+    : picture.value))
 
 const day = computed(() => formatInstantDate(props.item.challenge.publishedAt))
 

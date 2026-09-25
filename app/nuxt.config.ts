@@ -2,7 +2,21 @@
 import { de } from './app/i18n/messages'
 import { installedThemeColor } from './app/utils/themeColors'
 
+/**
+ * Whether this is the iOS app's build rather than the website's.
+ *
+ * Set by `bun run app:ios` (scripts/ios.ts) and nothing else. The app is the
+ * same application with two differences, both here: it is not server-rendered
+ * — a WebView serves a static bundle and there is no Nitro to forward a cookie —
+ * and it has no service worker, because the WebView already serves every
+ * asset from the bundle (docs/adr/0034-bearer-tokens-for-the-native-app.md).
+ * Everything else that differs is decided at runtime by the platform, in
+ * app/plugins/native.client.ts.
+ */
+const native = process.env.Q2_NATIVE === '1'
+
 export default defineNuxtConfig({
+
   modules: [
     '@nuxt/ui',
     '@nuxt/eslint',
@@ -10,6 +24,9 @@ export default defineNuxtConfig({
     '@sentry/nuxt/module',
     '@vite-pwa/nuxt',
   ],
+
+  // Off in the iOS app's build — see `native` above.
+  ssr: !native,
 
   /**
    * Component names come from the file name, not from the folder path, so
@@ -54,6 +71,7 @@ export default defineNuxtConfig({
    * Each key maps to an environment variable, so nothing has to be rebuilt to
    * point at a different API or Sentry project:
    *   apiBaseUrl              -> NUXT_PUBLIC_API_BASE_URL
+   *   siteUrl                 -> NUXT_PUBLIC_SITE_URL
    *   appEnv                  -> NUXT_PUBLIC_APP_ENV
    *   diagnosticsEnabled      -> NUXT_PUBLIC_DIAGNOSTICS_ENABLED
    *   demoEmail               -> NUXT_PUBLIC_DEMO_EMAIL
@@ -71,6 +89,15 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: 'http://localhost:5080',
+
+      /*
+       * The address people open q2 at, for links handed to somebody else —
+       * the invite link. Empty means "the page's own origin", which is right
+       * everywhere q2 is served from a web address. The iOS app sets it: its
+       * page is capacitor://localhost, and a link to that opens nothing on
+       * anybody else's phone.
+       */
+      siteUrl: '',
       appEnv: 'local-development',
       diagnosticsEnabled: false,
 
@@ -287,9 +314,9 @@ export default defineNuxtConfig({
   /**
    * q2 as an installable application.
    *
-   * This is the web half of what issue #7 will finish with Capacitor: the
-   * same UI, installed from the browser
-   * rather than from a store. It buys the standalone window, the icon on the
+   * The web half of what the iOS app does natively (issue #7): the same UI,
+   * installed from the browser rather than from a store. Off in the app's own
+   * build, where the WebView serves every asset from the bundle. It buys the standalone window, the icon on the
    * home screen and a start that does not wait for the network — and it
    * deliberately buys nothing else. See docs/adr/0012-installable-pwa.md.
    *
@@ -299,6 +326,9 @@ export default defineNuxtConfig({
    * substitutes the precache list into it.
    */
   pwa: {
+    // Not in the iOS app: see `native` at the top of this file.
+    disable: native,
+
     strategies: 'injectManifest',
 
     // Resolved against Nuxt's srcDir (app/app), so this is app/service-worker.

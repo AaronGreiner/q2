@@ -166,13 +166,20 @@ export function useLiveConnection() {
   if (import.meta.server) return
 
   const { public: config } = useRuntimeConfig()
+  const tokens = useNuxtApp().$sessionTokens ?? null
   const { isSignedIn } = useSession()
   const counts = useNuxtData<Counts>('counts')
   const banner = useNotificationToast()
 
   const link = createLiveLink({
     connect: () => new HubConnectionBuilder()
-      .withUrl(`${config.apiBaseUrl}/api/live`, { withCredentials: true })
+      .withUrl(`${config.apiBaseUrl}/api/live`, tokens
+        // The iOS app: the token, which SignalR puts in the address for the
+        // WebSocket because a browser's WebSocket cannot send a header. Asked
+        // for again on every reconnect, so a long-lived connection never
+        // reconnects with a token that has run out.
+        ? { accessTokenFactory: async () => (await tokens.accessToken()) ?? '' }
+        : { withCredentials: true })
       .withAutomaticReconnect()
 
       // Its own console output would describe every dropped connection on a

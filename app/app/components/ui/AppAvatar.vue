@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { imageUrl } from '~/api/images'
-
 /**
  * Photographs or neutral initials keep identity readable without competing accents.
  *
@@ -37,7 +35,7 @@ const props = withDefaults(defineProps<{
 })
 
 const t = useMessages()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => (props.icon ? null : props.imageId))
 
 /*
  * A picture that failed to load is not tried again for as long as this avatar
@@ -53,7 +51,7 @@ watch(() => props.imageId, () => {
 
 const source = computed(() =>
   !props.icon && props.imageId && !failed.value
-    ? imageUrl(config.apiBaseUrl, props.imageId)
+    ? picture.value
     : null)
 
 const viewer = usePhotoViewer()

@@ -131,4 +131,7 @@ sign-out** — see [privacy.md](../privacy.md) section 8.
 **When Capacitor lands** ([#7](https://github.com/AaronGreiner/q2/issues/7)). A native
 shell replaces the manifest and the install flow, and the icons here are the
 source the native icon sets are generated from. The service worker does not
-travel: a Capacitor WebView serves its assets from the bundle already.
+travel: a Capacitor WebView serves its assets from the bundle already. That is
+how the iOS app is built now: `Q2_NATIVE=1` turns the worker off, and
+`bun run app:icons` draws the iOS icon from the same script
+([0034](0034-bearer-tokens-for-the-native-app.md)).

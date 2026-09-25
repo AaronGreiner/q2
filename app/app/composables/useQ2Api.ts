@@ -1,4 +1,4 @@
-import { createCaller, type ApiFetch } from '~/api/client'
+import { createCaller, withBearerToken, type ApiFetch } from '~/api/client'
 import { createAccountsApi } from '~/api/accounts'
 import { createChallengesApi } from '~/api/challenges'
 import { createChatsApi, createSettingsApi } from '~/api/chats'
@@ -19,6 +19,9 @@ import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/soc
 export function useQ2Api() {
   const { public: config } = useRuntimeConfig()
 
+  // Present only inside the iOS app (plugins/native.client.ts).
+  const tokens = useNuxtApp().$sessionTokens ?? null
+
   /*
    * The session is a cookie, and a cookie does not travel by itself.
    *
@@ -31,6 +34,10 @@ export function useQ2Api() {
    * the request, so the cookie has to be copied off the request that arrived.
    * Without this the first paint of every page would be the signed-out one and
    * the screen would only fill in after hydration.
+   *
+   * The iOS app is the exception. Its WebView is another site from the API and
+   * cannot keep the cookie, so it sends a bearer token instead and no cookie
+   * at all (docs/adr/0034-bearer-tokens-for-the-native-app.md).
    */
   const headers: Record<string, string> = { Accept: 'application/json' }
 
@@ -42,9 +49,9 @@ export function useQ2Api() {
     }
   }
 
-  const apiFetch = $fetch.create({
+  const baseFetch = $fetch.create({
     baseURL: config.apiBaseUrl,
-    credentials: 'include',
+    credentials: tokens ? 'omit' : 'include',
 
     // A failed write must not be retried silently — it could send a message
     // twice. Retries, where they make sense, are the caller's decision.
@@ -53,6 +60,7 @@ export function useQ2Api() {
     headers,
   }) as ApiFetch
 
+  const apiFetch = tokens ? withBearerToken(baseFetch, tokens) : baseFetch
   const call = createCaller(apiFetch)
 
   return {

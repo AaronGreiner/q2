@@ -24,6 +24,9 @@ node_modules/
 .nitro/
 .cache/
 dist/
+# `nuxt generate` (the iOS app's build, scripts/ios.ts) links app/dist to
+# .output/public — a symlink, which `dist/` above does not match.
+app/dist
 *.tsbuildinfo
 .data/
 

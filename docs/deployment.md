@@ -25,9 +25,14 @@ Both applications answer on the loopback interface only. Caddy is the sole
 public listener and terminates TLS.
 
 **The frontend and the API share one origin.** That is why there is a single
-DNS record and no CORS configuration: the browser's request to `/api/goals` is
-same-origin, and `NUXT_PUBLIC_API_BASE_URL` is the same value for server-side
-rendering and for the client.
+DNS record: the browser's request to `/api/goals` is same-origin, and
+`NUXT_PUBLIC_API_BASE_URL` is the same value for server-side rendering and for
+the client. The one cross-origin caller is the iOS app, whose WebView is the
+origin `capacitor://localhost`; `appsettings.Staging.json` lists it in
+`Cors:AllowedOrigins`, and it signs in with bearer tokens rather than the
+cookie ([adr/0034](adr/0034-bearer-tokens-for-the-native-app.md)). The app is
+not deployed by this workflow — it is built with `bun run app:ios` and, for
+now, run from Xcode ([#51](https://github.com/AaronGreiner/q2/issues/51)).
 
 | | |
 | --- | --- |

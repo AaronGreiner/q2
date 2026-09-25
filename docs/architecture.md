@@ -218,18 +218,19 @@ See [observability.md](observability.md) and
 
 ## What the architecture keeps possible
 
-- **Capacitor for Android and iOS.** The frontend is a Nuxt application talking
-  to an HTTP API over a configurable base URL, with no server-only assumptions
-  in the UI layer. No mobile abstractions have been added now — there is
-  nothing to abstract yet. What *is* already treated as fixed is the form
-  factor: the UI is built and tested at phone width, because that is what the
-  packaged app will be ([../app/AGENTS.md](../app/AGENTS.md) section 8).
+- **Capacitor for Android.** The frontend is a Nuxt application talking to an
+  HTTP API over a configurable base URL, with no server-only assumptions in
+  the UI layer — which is what let the iOS app be the same application built
+  client-only, signing in with bearer tokens instead of the cookie
+  ([adr/0034](adr/0034-bearer-tokens-for-the-native-app.md),
+  [../app/AGENTS.md](../app/AGENTS.md) section 9c). Android is the same shell
+  again ([#49](https://github.com/AaronGreiner/q2/issues/49)).
 - **PostgreSQL.** Provider-neutral EF configuration, committed migrations, no
   raw SQL.
 - **Account recovery and other identity flows.** Password reset, email
   confirmation and two-factor are all Identity token providers on top of what is
-  already wired up; what they need is a way to send mail. Bearer tokens for a
-  Capacitor build are the same kind of addition. See
+  already wired up; what they need is a way to send mail. The bearer tokens of
+  the iOS app were the same kind of addition. See
   [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md).
 - **More features.** Each is a folder in `Features/` and a folder in
   `components/`.

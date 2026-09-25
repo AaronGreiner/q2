@@ -69,6 +69,14 @@ to working in Claude Code.
   somebody's signed-in one. Try the PWA with `bun run build && bun run preview`,
   never `bun run dev`. See
   [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md).
+- **The iOS app is built with `bun run app:ios`, never with `cap sync` after a
+  plain build.** It is the same frontend with server rendering and the service
+  worker off, signing in with bearer tokens instead of the cookie; `app/ios/` is
+  Capacitor's Xcode project and is committed. Anything that reads the session, a
+  token or an image address goes through `useSession`, `useQ2Api` or
+  `useImageSource`, or it breaks in the app — see
+  [app/AGENTS.md](app/AGENTS.md) section 9c and
+  [docs/adr/0034-bearer-tokens-for-the-native-app.md](docs/adr/0034-bearer-tokens-for-the-native-app.md).
 - **`app/public/` is generated.** `bun run app:icons` redraws the whole icon set
   from `app/scripts/generate-icons.ts`; never hand-edit a file in there.
 - **Colour is rationed, and the rule is written down.** The accent means "you

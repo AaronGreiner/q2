@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { imageUrl } from '~/api/images'
-
 /**
  * A photograph, full screen: pinch to zoom, drag down to close.
  *
@@ -22,7 +20,7 @@ import { imageUrl } from '~/api/images'
  */
 const t = useMessages()
 const { current, close } = usePhotoViewer()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => current.value?.imageId)
 
 const MIN_SCALE = 1
 const MAX_SCALE = 4
@@ -42,7 +40,7 @@ const closeButton = useTemplateRef<HTMLButtonElement>('closeButton')
 let returnFocusTo: HTMLElement | null = null
 
 const source = computed(() =>
-  (current.value && !failed.value ? imageUrl(config.apiBaseUrl, current.value.imageId) : null))
+  (current.value && !failed.value ? picture.value : null))
 
 const isZoomed = computed(() => scale.value > 1.01)
 

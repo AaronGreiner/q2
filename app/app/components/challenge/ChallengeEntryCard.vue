@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
-import { imageUrl } from '~/api/images'
 import type { ChallengeEntry, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
 
@@ -36,7 +35,7 @@ const emit = defineEmits<{ react: [kind: KudosKind] }>()
 
 const t = useMessages()
 const now = useNow()
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => (props.covered ? null : props.entry.imageId))
 
 const failed = ref(false)
 
@@ -47,7 +46,7 @@ watch(() => props.entry.imageId, () => {
 const source = computed(() =>
   (props.covered || failed.value || !props.entry.imageId
     ? null
-    : imageUrl(config.apiBaseUrl, props.entry.imageId)))
+    : picture.value))
 
 const age = computed(() => formatRelativeTime(props.entry.createdAt, now.value, t.value))
 

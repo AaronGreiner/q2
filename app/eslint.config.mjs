@@ -14,6 +14,8 @@ export default withNuxt(
       'app/api/generated/**',
       '.nuxt/**',
       '.output/**',
+      // The Xcode project, and the copy of the build `cap sync` puts inside it.
+      'ios/**',
       'coverage/**',
       'playwright-report/**',
       'test-results/**',

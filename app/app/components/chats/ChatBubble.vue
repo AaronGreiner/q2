@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
-import { imageUrl } from '~/api/images'
 import type { ChatMessage, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
 
@@ -26,7 +25,7 @@ const zone = useTimeZoneOffset()
 
 const time = computed(() => formatClock(props.message.sentAt, zone.value))
 
-const { public: config } = useRuntimeConfig()
+const picture = useImageSource(() => props.message.image?.id)
 const photoFailed = ref(false)
 
 watch(() => props.message.image?.id, () => {
@@ -34,7 +33,7 @@ watch(() => props.message.image?.id, () => {
 })
 
 const photoSource = computed(() =>
-  props.message.image && !photoFailed.value ? imageUrl(config.apiBaseUrl, props.message.image.id) : null)
+  props.message.image && !photoFailed.value ? picture.value : null)
 
 /*
  * The frame is reserved at the picture's own proportions before a byte of it

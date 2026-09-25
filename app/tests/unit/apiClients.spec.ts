@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAccountsApi } from '~/api/accounts'
 import { createChatsApi, createSettingsApi } from '~/api/chats'
-import { createCaller, type ApiCaller, type ApiFetch } from '~/api/client'
+import { createCaller, withBearerToken, type ApiCaller, type ApiFetch } from '~/api/client'
 import { createDiagnosticsApi } from '~/api/diagnostics'
 import { ApiError } from '~/api/errors'
 import { createGoalsApi } from '~/api/goals'
@@ -16,6 +16,45 @@ import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/soc
  * shows up when a real person reaches that action.
  */
 describe('the API caller', () => {
+  it('sends the bearer token when there is one, and nothing when there is none', async () => {
+    const apiFetch = vi.fn<ApiFetch>().mockResolvedValue({})
+    const tokens = { accessToken: vi.fn().mockResolvedValueOnce('access.token').mockResolvedValueOnce(null), invalidate: vi.fn() }
+    const authorised = withBearerToken(apiFetch, tokens)
+
+    await authorised('/api/goals', { method: 'GET', headers: { Accept: 'image/*' } })
+    await authorised('/api/auth/session', { method: 'GET' })
+
+    expect(apiFetch.mock.calls).toEqual([
+      ['/api/goals', { method: 'GET', headers: { Accept: 'image/*', Authorization: 'Bearer access.token' } }],
+      ['/api/auth/session', { method: 'GET' }],
+    ])
+  })
+
+  it('tries a refused token once more with a fresh one', async () => {
+    const apiFetch = vi.fn<ApiFetch>().mockRejectedValueOnce({ status: 401 }).mockResolvedValueOnce({ id: 'answer' })
+    const tokens = { accessToken: vi.fn().mockResolvedValueOnce('stale').mockResolvedValueOnce('fresh'), invalidate: vi.fn() }
+
+    await expect(withBearerToken(apiFetch, tokens)('/api/goals')).resolves.toEqual({ id: 'answer' })
+    expect(tokens.invalidate).toHaveBeenCalledOnce()
+    expect(apiFetch.mock.calls[1]?.[1]).toEqual({ headers: { Authorization: 'Bearer fresh' } })
+  })
+
+  it('does not retry anything but a refused token', async () => {
+    const tokens = { accessToken: vi.fn().mockResolvedValue(null), invalidate: vi.fn() }
+    const anonymous = vi.fn<ApiFetch>().mockRejectedValue({ status: 401 })
+    await expect(withBearerToken(anonymous, tokens)('/api/goals')).rejects.toEqual({ status: 401 })
+    expect(anonymous).toHaveBeenCalledOnce()
+
+    tokens.accessToken.mockResolvedValue('access.token')
+    const broken = vi.fn<ApiFetch>().mockRejectedValue({ statusCode: 500 })
+    await expect(withBearerToken(broken, tokens)('/api/goals')).rejects.toEqual({ statusCode: 500 })
+    const offline = vi.fn<ApiFetch>().mockRejectedValue(new TypeError('Load failed'))
+    await expect(withBearerToken(offline, tokens)('/api/goals')).rejects.toThrow('Load failed')
+
+    expect(broken).toHaveBeenCalledOnce()
+    expect(tokens.invalidate).not.toHaveBeenCalled()
+  })
+
   it('returns the fetch result unchanged', async () => {
     const apiFetch = vi.fn<ApiFetch>().mockResolvedValue({ id: 'answer' })
 
@@ -54,6 +93,8 @@ describe('the API modules', () => {
     await api.logout()
     await api.requestPasswordReset({ email: registration.email })
     await api.resetPassword(reset)
+    await api.issueTokens(login)
+    await api.refreshTokens('refresh.token')
 
     expect(call.mock.calls).toEqual([
       ['/api/auth/register', { method: 'POST', body: registration }],
@@ -62,6 +103,8 @@ describe('the API modules', () => {
       ['/api/auth/logout', { method: 'POST' }],
       ['/api/auth/password/forgot', { method: 'POST', body: { email: registration.email } }],
       ['/api/auth/password/reset', { method: 'POST', body: reset }],
+      ['/api/auth/token', { method: 'POST', body: login }],
+      ['/api/auth/token/refresh', { method: 'POST', body: { refreshToken: 'refresh.token' } }],
     ])
   })
 
@@ -227,6 +270,7 @@ describe('the API modules', () => {
     await api.upload(file, 'Avatar')
     await api.quota()
     await api.remove('image/one')
+    await api.load('image/one')
 
     expect(call.mock.calls).toEqual([
       ['/api/images', {
@@ -237,6 +281,7 @@ describe('the API modules', () => {
       }],
       ['/api/images/quota', { method: 'GET' }],
       ['/api/images/image%2Fone', { method: 'DELETE' }],
+      ['/api/images/image%2Fone', { method: 'GET', responseType: 'blob', headers: { Accept: 'image/*' } }],
     ])
   })
 

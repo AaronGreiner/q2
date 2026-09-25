@@ -18,7 +18,7 @@ so the reasoning at the time stays readable.
 | [0008](0008-deployment-topology.md) | One host, two systemd services, one origin | Accepted |
 | [0009](0009-single-known-person.md) | One known person, flagged in the database | Superseded by [0011](0011-authentication-with-identity.md) |
 | [0010](0010-german-first-interface.md) | A German-first interface, with a hand-written catalogue | Accepted |
-| [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted, amended by [0026](0026-mail-and-password-reset.md) |
+| [0011](0011-authentication-with-identity.md) | Accounts with ASP.NET Core Identity and a session cookie | Accepted, amended by [0026](0026-mail-and-password-reset.md) and [0034](0034-bearer-tokens-for-the-native-app.md) |
 | [0012](0012-installable-pwa.md) | Installable as a PWA, with a service worker that caches no content | Accepted |
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
 | [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |
@@ -40,4 +40,5 @@ so the reasoning at the time stays readable.
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted |
 | [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) |
 | [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted |
-| [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted |
+| [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted, amended by [0034](0034-bearer-tokens-for-the-native-app.md) |
+| [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
