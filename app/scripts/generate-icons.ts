@@ -4,8 +4,7 @@
  *   bun run icons          (from app/)
  *   bun run app:icons      (from the repository root)
  *
- * The icon is the Qdos mark: a bold Q on pure black, drawn in the accent.
- * One shape, drawn once here, so the tab, the home screen and the install
+ * The icon is the Q2 ligature, light on charcoal in the Ruhe palette. One shape, drawn once here, so the tab, the home screen and the install
  * dialog cannot drift apart.
  *
  * Why a script rather than six committed drawings: the geometry differs per
@@ -26,6 +25,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
+import { q2MarkHeight, q2MarkPath, q2MarkWidth } from '../app/utils/q2Mark'
 import { installedThemeColor } from '../app/utils/themeColors'
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -33,53 +33,37 @@ const publicDir = join(appDir, 'public')
 const iosAssetsDir = join(appDir, 'ios', 'App', 'App', 'Assets.xcassets')
 
 /**
- * The mark: a Q, as geometry rather than as type.
+ * The dark theme's `--ui-text` on its `--q2-surface`, from
+ * app/assets/css/main.css (ADR 0028).
  *
- * Drawn from a circle and a tail instead of being set in Public Sans, because
- * this script rasterises in a bare Chromium that has no fonts installed — a
- * `<text>` element would come out in whatever the machine happened to have, and
- * the icon on somebody's home screen would depend on the laptop it was
- * generated on. A 24×24 viewBox with a stroke of 3 so it matches the weight the
- * rest of the app is set in.
- *
- * The tail starts *inside* the bowl and crosses the ring on its way out. That
- * one detail is the whole difference between a Q and a magnifying glass, which
- * is what a tail that merely touches the outside of the circle draws.
+ * Neutral on purpose: the accent is a per-device choice and an icon is drawn
+ * once for everybody, so it cannot follow one. The surface rather than
+ * `--ui-bg` because it is the charcoal the content sits on, and it keeps the
+ * tile from reading as a hole in a dark home screen. The shape of the mark,
+ * not a colour, is what tells q2 apart from the other apps there.
  */
-const markBody = '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><circle cx="11" cy="10.6" r="6.9"/><path d="m13.2 12.8 6.4 7"/></g>'
-
-/**
- * `--ui-bg` of the dark theme and `--ui-primary` with it, from
- * app/assets/css/main.css.
- *
- * The accent is used here even though an app icon is not an action. Inside the
- * interface that rule is what keeps the accent worth noticing; on a home screen
- * full of other people's apps the job is the opposite one, and a white mark on
- * black would be four other apps as well.
- */
-const background = '#000000'
-const foreground = '#cbee4a'
+const background = '#1c1b19'
+const foreground = '#edecea'
 
 interface IconShape {
   /** Edge length of the square canvas, in pixels. */
   readonly size: number
-  /** How much of that canvas the 24×24 glyph is scaled to fill. */
+  /** How much of the canvas's width the mark is scaled to fill; it is centred on both axes. */
   readonly glyph: number
   /** Corner radius as a fraction of the canvas, or 0 for a full-bleed square. */
   readonly radius: number
 }
 
 function drawIcon({ size, glyph, radius }: IconShape): string {
-  const scale = (size * glyph) / 24
-  const offset = (size * (1 - glyph)) / 2
+  const scale = (size * glyph) / q2MarkWidth
+  const left = (size - q2MarkWidth * scale) / 2
+  const top = (size - q2MarkHeight * scale) / 2
   const corner = size * radius
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`,
     `<rect width="${size}" height="${size}"${corner > 0 ? ` rx="${round(corner)}"` : ''} fill="${background}"/>`,
-    `<g transform="translate(${round(offset)} ${round(offset)}) scale(${round(scale)})">`,
-    markBody.replaceAll('currentColor', foreground),
-    '</g>',
+    `<path transform="translate(${round(left)} ${round(top)}) scale(${round(scale)})" fill="${foreground}" fill-rule="evenodd" d="${q2MarkPath}"/>`,
     '</svg>',
   ].join('')
 }
@@ -96,18 +80,21 @@ function round(value: number): number {
 /**
  * A maskable icon is cropped by the platform to whatever shape it likes — a
  * circle, a squircle, a teardrop — and is only guaranteed to keep the middle
- * 80 %. The largest square inside that circle is about 57 % of the canvas, so a
- * glyph at 50 % survives every mask with room to spare, and the artwork must
- * reach the edges: a rounded corner here would be cropped into a notch.
+ * 80 %. The mark is wider than it is tall, so what has to fit in that circle is
+ * its diagonal — about 1.18 × its width. At 60 % of the canvas the diagonal is
+ * 71 %, inside the 80 % with room to spare, and the artwork must reach the
+ * edges: a rounded corner here would be cropped into a notch.
  */
-const maskable: IconShape = { size: 512, glyph: 0.5, radius: 0 }
+const maskable: IconShape = { size: 512, glyph: 0.6, radius: 0 }
 
 /**
  * iOS applies its own rounded mask to `apple-touch-icon`, so this one is a
  * plain square too. A pre-rounded source would show the mask cutting into
- * corners that are already dark.
+ * corners that are already dark. The mark spans 72 % of the width — the
+ * proportion of the supplied artwork — which leaves its height at 45 %, well
+ * clear of the mask's corners.
  */
-const appleTouch: IconShape = { size: 180, glyph: 0.58, radius: 0 }
+const appleTouch: IconShape = { size: 180, glyph: 0.72, radius: 0 }
 
 /**
  * The iOS app's icon: one 1024 px square, from which Xcode derives every other
@@ -115,7 +102,7 @@ const appleTouch: IconShape = { size: 180, glyph: 0.58, radius: 0 }
  * same mask. No alpha channel — App Store Connect refuses an icon that has
  * one, and a screenshot of an opaque page has none.
  */
-const iosAppIcon: IconShape = { size: 1024, glyph: 0.58, radius: 0 }
+const iosAppIcon: IconShape = { size: 1024, glyph: 0.72, radius: 0 }
 
 /**
  * The launch screen: the background the app opens on, and nothing else.
@@ -128,14 +115,15 @@ const iosAppIcon: IconShape = { size: 1024, glyph: 0.58, radius: 0 }
 const iosLaunchScreenSize = 2732
 
 /** `purpose: any` — shown as drawn, so it carries the rounding itself. */
-const anyPurpose = (size: number): IconShape => ({ size, glyph: 0.62, radius: 0.225 })
+const anyPurpose = (size: number): IconShape => ({ size, glyph: 0.7, radius: 0.225 })
 
 /**
- * The favicon lives at 16–32 px in a tab strip, where the whole mark is about
- * eleven pixels across and the ring is one of them. The glyph is pushed wider
- * than anywhere else because any more padding closes the counter of the Q.
+ * The favicon lives at 16–32 px in a tab strip, where the mark is only nine
+ * pixels tall at the smaller size and each stroke is barely one of them. It is
+ * pushed wider than anywhere else because any more padding closes the counter
+ * of the Q and the gap between the tail and the 2.
  */
-const favicon: IconShape = { size: 512, glyph: 0.68, radius: 0.2 }
+const favicon: IconShape = { size: 512, glyph: 0.86, radius: 0.2 }
 
 async function main(): Promise<void> {
   await mkdir(publicDir, { recursive: true })
@@ -149,10 +137,10 @@ async function main(): Promise<void> {
   try {
     const rasterise = createRasteriser(browser)
 
-    await write('favicon.ico', toIco(await rasterise(faviconSvg, 32), 32))
+    await write('favicon.ico', toIco(await rasterise(faviconSvg, 32, 'rounded'), 32))
     await write('apple-touch-icon.png', await rasterise(drawIcon(appleTouch), 180))
-    await write('pwa-192x192.png', await rasterise(drawIcon(anyPurpose(192)), 192))
-    await write('pwa-512x512.png', await rasterise(drawIcon(anyPurpose(512)), 512))
+    await write('pwa-192x192.png', await rasterise(drawIcon(anyPurpose(192)), 192, 'rounded'))
+    await write('pwa-512x512.png', await rasterise(drawIcon(anyPurpose(512)), 512, 'rounded'))
     await write('maskable-512x512.png', await rasterise(drawIcon(maskable), 512))
 
     await writeIos('AppIcon.appiconset/AppIcon-512@2x.png', await rasterise(drawIcon(iosAppIcon), iosAppIcon.size))
@@ -170,13 +158,19 @@ async function main(): Promise<void> {
 }
 
 function createRasteriser(browser: Awaited<ReturnType<typeof chromium.launch>>) {
-  return async function rasterise(svg: string, size: number): Promise<Buffer> {
+  /**
+   * `rounded` is for the icons that carry their own corners: outside them the
+   * page has to stay transparent, or the corners come out as white wedges on
+   * every dark surface. Everything else is left opaque on purpose, because a
+   * PNG with an alpha channel is what App Store Connect refuses.
+   */
+  return async function rasterise(svg: string, size: number, corners: 'square' | 'rounded' = 'square'): Promise<Buffer> {
     // A viewport exactly the size of the icon means the screenshot is the icon:
     // no cropping, no scaling, and no half-pixel seam at the edges.
     const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 })
     try {
       await page.setContent(`<style>html,body{margin:0}svg{display:block;width:${size}px;height:${size}px}</style>${svg}`)
-      return await page.screenshot({ type: 'png' })
+      return await page.screenshot({ type: 'png', omitBackground: corners === 'rounded' })
     }
     finally {
       await page.close()
@@ -220,5 +214,5 @@ async function writeIos(name: string, contents: Buffer): Promise<void> {
   process.stdout.write(`  ios/App/App/Assets.xcassets/${name} (${contents.length} bytes)\n`)
 }
 
-process.stdout.write('Generating Qdos app icons\n')
+process.stdout.write('Generating q2 app icons\n')
 await main()
