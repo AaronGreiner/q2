@@ -169,7 +169,7 @@ describe('BalanceCard', () => {
       props: { balance: { done: 0, missed: 0 }, sharedGoals: 3 },
     })
 
-    expect(clean.get('[data-testid="balance-scope"]').text()).toBe('3 gemeinsame To-Dos')
+    expect(clean.get('[data-testid="balance-scope"]').text()).toBe('3 gemeinsame Dos & Don’ts')
     expect(clean.get('[data-testid="balance-missed"]').text()).toBe('0')
   })
 

@@ -2,7 +2,8 @@
 import type { CreateGoalRequest, Image } from '~/api/types'
 
 /**
- * The To-Dos tab: what is on today, and the goals themselves, under two tabs.
+ * The Dos tab — "Dos & Don'ts" on the screen: what is on today, and all of
+ * them, under two tabs.
  *
  * The plus in the header is the one way a goal is made. It lives here rather
  * than in the tab bar, because a plus in the tab bar was the only visible way
@@ -13,8 +14,12 @@ import type { CreateGoalRequest, Image } from '~/api/types'
  * shared and survives a reload. `replace`, not `push`: switching tabs is
  * looking at the same screen from another angle, and it should not take four
  * presses of the back button to leave the page.
+ *
+ * The second tab was `?tab=goals` while it was labelled "Ziele" (#60). That
+ * address is still read, so a bookmark from before keeps working, but nothing
+ * writes it any more.
  */
-type Tab = 'today' | 'goals'
+type Tab = 'today' | 'all'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,8 +27,8 @@ const t = useMessages()
 const now = useNow()
 
 const tab = computed<Tab>({
-  get: () => (route.query.tab === 'goals' ? 'goals' : 'today'),
-  set: value => router.replace({ query: value === 'goals' ? { tab: 'goals' } : {} }),
+  get: () => (route.query.tab === 'all' || route.query.tab === 'goals' ? 'all' : 'today'),
+  set: value => router.replace({ query: value === 'all' ? { tab: 'all' } : {} }),
 })
 
 /**
@@ -69,7 +74,7 @@ const sheet = useTemplateRef('sheet')
 
 const tabs = computed(() => [
   { value: 'today' as const, label: t.value.goals.tabToday },
-  { value: 'goals' as const, label: t.value.goals.tabGoals },
+  { value: 'all' as const, label: t.value.goals.tabAll },
 ])
 
 async function onCreate(request: CreateGoalRequest) {
@@ -77,7 +82,7 @@ async function onCreate(request: CreateGoalRequest) {
   if (!created) return
 
   sheet.value?.reset()
-  await router.replace({ query: { tab: 'goals' } })
+  await router.replace({ query: { tab: 'all' } })
 }
 
 useHead({ title: () => t.value.goals.heading })
@@ -173,7 +178,7 @@ useHead({ title: () => t.value.goals.heading })
             id="goals-heading"
             class="sr-only"
           >
-            {{ t.goals.tabGoals }}
+            {{ t.goals.tabAll }}
           </h2>
 
           <ul

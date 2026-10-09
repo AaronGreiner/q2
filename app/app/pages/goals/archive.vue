@@ -58,7 +58,7 @@ useHead({ title: () => t.value.archive.heading })
     <AppScreenHeader
       :title="t.archive.heading"
       :eyebrow="t.archive.subtitle"
-      back-to="/goals?tab=goals"
+      back-to="/goals?tab=all"
       :back-label="t.common.back"
     />
 

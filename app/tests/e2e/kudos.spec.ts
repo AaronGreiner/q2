@@ -114,7 +114,7 @@ test.describe('goals', () => {
     // The one delivered on the start screen is not on it any more.
     await expect(page.getByTestId('due-list')).not.toContainText(seeded.zeroProgressGoal)
 
-    await page.getByTestId('segment-goals').click()
+    await page.getByTestId('segment-all').click()
 
     const list = page.getByTestId('goal-list')
     await expect(list).toContainText(seeded.sharedGoal)
@@ -135,7 +135,7 @@ test.describe('goals', () => {
    * all, so it gets its own assertion on the card people actually read.
    */
   test('a quota goal says how much of its window is left', async ({ page }) => {
-    await page.goto('/goals?tab=goals')
+    await page.goto('/goals?tab=all')
 
     const card = page.getByTestId('goal-card').filter({ hasText: seeded.quotaGoal })
 
@@ -144,7 +144,7 @@ test.describe('goals', () => {
   })
 
   test('a goal whose chain has broken shows the miss in its record', async ({ page }) => {
-    await page.goto('/goals?tab=goals')
+    await page.goto('/goals?tab=all')
 
     await page.getByTestId('goal-card').filter({ hasText: seeded.overdueGoal }).click()
 
@@ -153,7 +153,7 @@ test.describe('goals', () => {
   })
 
   test('opening a goal shows its window, its team and its history', async ({ page }) => {
-    await page.goto('/goals?tab=goals')
+    await page.goto('/goals?tab=all')
 
     await page.getByTestId('goal-card').filter({ hasText: seeded.sharedGoal }).click()
 
@@ -287,7 +287,7 @@ test.describe('chats', () => {
 
     await expect(page.getByRole('heading', { name: seeded.sharedGoal })).toBeVisible()
     await expect(page.getByTestId('chat-goal-banner')).toContainText(seeded.sharedGoal)
-    await expect(page.getByTestId('chat-event').first()).toContainText('Du hast das Ziel erstellt.')
+    await expect(page.getByTestId('chat-event').first()).toContainText('Du hast es angelegt.')
 
     // Everybody on the goal is in it, and nobody can walk out of it. The
     // header opens who they are, and the way to the goal itself.
@@ -546,7 +546,7 @@ test.describe('the shell', () => {
 
     for (const [testId, url] of [
       ['nav-search', '/search'],
-      ['nav-todos', '/goals'],
+      ['nav-dos', '/goals'],
       ['nav-chats', '/chats'],
       ['nav-profile', '/profile'],
       ['nav-home', '/'],
@@ -556,12 +556,18 @@ test.describe('the shell', () => {
     }
   })
 
-  test('the middle of the bar is the To-Dos, and a goal is made from its plus', async ({ page }) => {
+  test('the middle of the bar is the Dos, and a goal is made from its plus', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByTestId('nav-todos').click()
+    await page.getByTestId('nav-dos').click()
     await expect(page).toHaveURL('/goals')
-    await expect(page.getByTestId('nav-todos')).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByTestId('nav-dos')).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByTestId('nav-dos')).toHaveText('Dos')
+    await expect(page.getByRole('heading', { level: 1, name: 'Dos & Don’ts' })).toBeVisible()
+    // The visible words rather than the radios' names: after a client-side
+    // navigation those are the values, not the labels (#65).
+    await expect(page.getByTestId('segment-today')).toHaveText('Heute')
+    await expect(page.getByTestId('segment-all')).toHaveText('Alle')
 
     await page.getByTestId('open-create-goal').click()
 
@@ -569,6 +575,14 @@ test.describe('the shell', () => {
     // closes with the back gesture.
     await expect(page).toHaveURL('/goals?create=1')
     await expect(page.getByTestId('goal-create-form')).toBeVisible()
+  })
+
+  test('the address of the list from before the rename still opens it', async ({ page }) => {
+    // `?tab=goals` was the list while it was called "Ziele" (#60).
+    await page.goto('/goals?tab=goals')
+
+    await expect(page.getByRole('radio', { name: 'Alle', exact: true })).toBeChecked()
+    await expect(page.getByTestId('goal-list')).toBeVisible()
   })
 
   test('the current screen is marked for assistive technology', async ({ page }) => {

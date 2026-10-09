@@ -38,7 +38,8 @@ so the reasoning at the time stays readable.
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
 | [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted |
-| [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) |
+| [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) and [0035](0035-dos-and-donts.md) |
 | [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted |
 | [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted, amended by [0034](0034-bearer-tokens-for-the-native-app.md) |
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
+| [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted |

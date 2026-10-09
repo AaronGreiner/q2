@@ -106,7 +106,7 @@ Current components, by folder:
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
-| `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the To-Dos ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md)) |
+| `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the Dos & Don'ts ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md), [0035](../docs/adr/0035-dos-and-donts.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |

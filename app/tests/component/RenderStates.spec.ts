@@ -283,13 +283,13 @@ describe('AppSegmented', () => {
         label: 'Ansicht',
         options: [
           { value: 'today', label: 'Heute' },
-          { value: 'goals', label: 'Ziele', icon: 'i-lucide-target' },
+          { value: 'all', label: 'Alle', icon: 'i-lucide-target' },
         ],
       },
     })
 
     expect(wrapper.text()).toContain('Heute')
-    expect(wrapper.text()).toContain('Ziele')
+    expect(wrapper.text()).toContain('Alle')
     expect(wrapper.findAll('svg').length).toBe(1)
   })
 })

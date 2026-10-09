@@ -32,7 +32,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   await page.getByTestId('goal-open-chat').click()
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
-  await expect(page.getByTestId('chat-event').first()).toContainText('Du hast das Ziel erstellt.')
+  await expect(page.getByTestId('chat-event').first()).toContainText('Du hast es angelegt.')
 
   // The camera is in the thread, for the owner, while the window takes one.
   await page.getByTestId('chat-deliver').click()

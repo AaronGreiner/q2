@@ -17,7 +17,7 @@ import { goalIcons } from '~/api/types'
 import type { Goal, GoalWindow } from '~/api/types'
 
 /**
- * What the start screen and the To-Dos say about time: how long is left, what
+ * What the start screen and the Dos say about time: how long is left, what
  * comes first, where today is in the week, and when a new goal's first window
  * ends.
  */

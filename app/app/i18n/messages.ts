@@ -33,7 +33,7 @@ export const de = {
     label: 'Hauptnavigation',
     home: 'Start',
     friends: 'Freunde',
-    todos: 'To-Dos',
+    dos: 'Dos',
     chats: 'Chats',
     profile: 'Profil',
   },
@@ -110,19 +110,19 @@ export const de = {
     openProfile: 'Profil öffnen',
     feedHeading: 'Aktivität deiner Freunde',
     noTasks: 'Für heute steht nichts an.',
-    noTasksHint: 'Leg unter To-Dos ein Ziel an, dann taucht es hier auf.',
-    noGoals: 'Noch keine Ziele.',
+    noTasksHint: 'Leg unter Dos etwas an, dann taucht es hier auf.',
+    noGoals: 'Noch keine Dos & Don’ts.',
     noFeed: 'Noch nichts von deinen Freunden.',
     noFeedHint: 'Sobald jemand etwas schafft, steht es hier.',
   },
 
   goals: {
-    heading: 'To-Dos',
+    heading: 'Dos & Don’ts',
     new: 'Neu',
     tabToday: 'Heute',
-    tabGoals: 'Ziele',
+    tabAll: 'Alle',
     group: 'GRUPPE',
-    detailHeading: 'Ziel-Details',
+    detailHeading: 'Details',
     recordProof: 'Erledigt',
     recordedProof: 'Eingetragen',
     streak: 'Streak',
@@ -138,19 +138,19 @@ export const de = {
     noHistoryHint: 'Sobald das erste Fenster vorbei ist, steht es hier.',
     nothingDueToday: 'Heute steht nichts an.',
     nothingDueTodayHint: 'Alles geliefert, oder für heute nichts fällig.',
-    noGoals: 'Noch keine Ziele',
-    noGoalsHint: 'Leg mit dem Plus oben dein erstes Ziel an und verfolge euren Fortschritt gemeinsam.',
-    notFound: 'Ziel nicht gefunden',
-    notFoundHint: 'Wir konnten dieses Ziel nicht finden. Vielleicht wurde es entfernt.',
+    noGoals: 'Noch keine Dos & Don’ts',
+    noGoalsHint: 'Leg mit dem Plus oben dein erstes Do oder Don’t an — deine Freunde sehen, ob du dranbleibst.',
+    notFound: 'Nicht gefunden',
+    notFoundHint: 'Wir konnten das nicht finden. Vielleicht wurde es entfernt.',
     overdue: 'Überfällig',
     archive: 'Archiv',
     openChat: 'Zum Chat',
     moreActions: 'Weitere Aktionen',
     teamMine: 'Wer dich prüft',
     teamTheirs: 'Dabei',
-    owner: 'Ziel von',
+    owner: 'Von',
     reminderEdit: 'Erinnerung ändern',
-    reminderSubtitle: 'Wann möchtest du an dieses Ziel erinnert werden?',
+    reminderSubtitle: 'Wann möchtest du daran erinnert werden?',
     reminderTime: 'Uhrzeit',
     reminderSave: 'Speichern',
     reminderRemove: 'Keine Erinnerung',
@@ -164,7 +164,7 @@ export const de = {
    */
   pause: {
     open: 'Aussetzen',
-    heading: 'Ziel aussetzen',
+    heading: 'Pause einlegen',
     subtitle: 'Krank, verreist, Gips — sag kurz, warum.',
     reasonLabel: 'Begründung',
     reasonPlaceholder: 'z. B. Grippe, seit Freitag im Bett',
@@ -187,7 +187,7 @@ export const de = {
   /** Die beiden Ausgänge: durchgezogen oder aufgegeben. */
   close: {
     open: 'Beenden',
-    heading: 'Ziel beenden',
+    heading: 'Beenden',
     subtitle: 'Es bleibt im Archiv — mit Verlauf, Streak und allen Bildern.',
     completed: 'Durchgezogen',
     completedHint: 'Du hast es geschafft.',
@@ -199,10 +199,10 @@ export const de = {
 
   archive: {
     heading: 'Archiv',
-    subtitle: 'Beendete Ziele',
+    subtitle: 'Beendete Dos & Don’ts',
     note: 'Hier passiert nichts mehr. Verlauf und Beweisbilder bleiben, bis du sie endgültig löschst.',
     empty: 'Noch nichts beendet',
-    emptyHint: 'Ein Ziel, das du beendest, landet hier — mit Verlauf und allen Beweisbildern.',
+    emptyHint: 'Was du beendest, landet hier — mit Verlauf und allen Beweisbildern.',
     closedOn: (day: string) => `Beendet am ${day}`,
     completedOn: (day: string) => `Abgeschlossen am ${day}`,
     delete: 'Endgültig löschen',
@@ -212,7 +212,7 @@ export const de = {
   },
 
   create: {
-    heading: 'Neues Ziel',
+    heading: 'Neues Do oder Don’t',
     subtitle: 'Wozu verpflichtest du dich?',
     titleLabel: 'Titel',
     titlePlaceholder: 'z. B. dreimal die Woche laufen',
@@ -225,14 +225,14 @@ export const de = {
     dueOnLabel: 'Bis wann?',
     reminderLabel: 'Tägliche Erinnerung',
     friendsLabel: 'Wer prüft dich?',
-    friendsHint: 'Mindestens eine Person. Sie sieht deine Beweise und stimmt ab — im Chat zum Ziel.',
+    friendsHint: 'Mindestens eine Person. Sie sieht deine Beweise und stimmt ab — im Chat dazu.',
     friendsChosen: (count: number) => (count === 1 ? '1 ausgewählt' : `${count} ausgewählt`),
-    noFriendsHint: 'Ein Ziel braucht jemanden, der es prüft. Lade zuerst einen Freund ein.',
-    submit: 'Ziel erstellen',
-    open: 'Neues Ziel anlegen',
+    noFriendsHint: 'Es braucht jemanden, der dich prüft. Lade zuerst einen Freund ein.',
+    submit: 'Anlegen',
+    open: 'Neues Do oder Don’t anlegen',
     next: 'Weiter',
     stepOf: (step: number, total: number) => `Schritt ${step} von ${total}`,
-    steps: ['Ziel', 'Rhythmus', 'Prüfer', 'Übersicht'],
+    steps: ['Was', 'Rhythmus', 'Prüfer', 'Übersicht'],
     templatesLabel: 'Oder nimm eine Vorlage',
     templates: {
       run: '3× pro Woche laufen',
@@ -245,7 +245,7 @@ export const de = {
     friendsSearch: 'Freunde durchsuchen',
     friendsNoMatch: 'Niemand mit diesem Namen.',
     reminderTimeLabel: 'Uhrzeit der Erinnerung',
-    reviewTitle: 'Ziel',
+    reviewTitle: 'Was',
     reviewSchedule: 'Rhythmus',
     reviewFriends: 'Prüfer',
     reviewReminder: 'Erinnerung',
@@ -316,7 +316,7 @@ export const de = {
     online: 'Online',
     lastSeen: (label: string) => `${label} aktiv`,
     offline: 'Offline',
-    sharedGoal: 'Gemeinsames Ziel',
+    sharedGoal: 'Gemeinsam',
     cheerButton: 'Anfeuern',
     messagePlaceholder: 'Nachricht …',
     send: 'Senden',
@@ -354,13 +354,13 @@ export const de = {
 
     // The list, in three: what you have to deliver, what you are asked to
     // check, and conversations that are about no goal at all.
-    sectionMine: 'Deine Ziele',
+    sectionMine: 'Deine Dos & Don’ts',
     sectionMineHint: 'Du lieferst den Beweis',
     sectionFriends: 'Von Freunden',
     sectionFriendsHint: 'Du prüfst',
     sectionConversations: 'Unterhaltungen',
     awaitingVote: 'Wartet auf dein Urteil',
-    openGoal: 'Ziel ansehen',
+    openGoal: 'Details ansehen',
 
     /**
      * What happened to a goal, as its conversation says it between the
@@ -368,7 +368,7 @@ export const de = {
      * on, and nothing here can be used to rub it in.
      */
     event: {
-      created: (name: string | null) => (name ? `${name} hat das Ziel erstellt.` : 'Du hast das Ziel erstellt.'),
+      created: (name: string | null) => (name ? `${name} hat es angelegt.` : 'Du hast es angelegt.'),
       windowDone: (streak: number) => `Geschafft · Streak ${streak}`,
       windowMissed: (confirmed: number, required: number) => (required > 1
         ? `Verpasst · ${confirmed} von ${required} geliefert`
@@ -377,13 +377,13 @@ export const de = {
       pauseStarted: (name: string | null, day: string) => (name ? `${name} setzt aus bis ${day}` : `Du setzt aus bis ${day}`),
       pauseEnded: 'Die Pause ist vorbei.',
       pauseOverturned: 'Die Pause wurde durch Einspruch aufgehoben.',
-      completed: 'Ziel abgeschlossen.',
-      stopped: (name: string | null) => (name ? `${name} hat das Ziel beendet.` : 'Du hast das Ziel beendet.'),
+      completed: 'Abgeschlossen.',
+      stopped: (name: string | null) => (name ? `${name} hat es beendet.` : 'Du hast es beendet.'),
     },
 
     /** The same, as the one line a row in the list has room for. */
     lastEvent: {
-      Created: 'Ziel erstellt',
+      Created: 'Angelegt',
       ProofDelivered: 'Neuer Beweis',
       WindowDone: 'Geschafft',
       WindowMissed: 'Verpasst',
@@ -396,7 +396,7 @@ export const de = {
 
     openInfo: 'Info zur Unterhaltung',
     infoMembers: 'Mitglieder',
-    toGoal: 'Zum Ziel',
+    toGoal: 'Details ansehen',
     dayToday: 'Heute',
     dayYesterday: 'Gestern',
     onDay: (text: string, day: string) => `${text} · ${day}`,
@@ -522,7 +522,7 @@ export const de = {
     months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
     open: (what: string) => `${what} — groß ansehen`,
     deliveredOn: (date: string) => `Geliefert am ${date}`,
-    openGoal: 'Zum Ziel',
+    openGoal: 'Details ansehen',
     unavailable: 'Foto nicht verfügbar',
   },
 
@@ -686,7 +686,7 @@ export const de = {
   deleteAccount: {
     open: 'Konto löschen',
     heading: 'Konto endgültig löschen',
-    body: 'Deine Ziele, deine Fenster, deine Bilder, deine Direktchats und dein Streak werden gelöscht. In Gruppen verschwinden deine Nachrichten, der Rest bleibt bei den anderen. Das lässt sich nicht rückgängig machen.',
+    body: 'Deine Dos & Don’ts, deine Fenster, deine Bilder, deine Direktchats und dein Streak werden gelöscht. In Gruppen verschwinden deine Nachrichten, der Rest bleibt bei den anderen. Das lässt sich nicht rückgängig machen.',
     password: 'Passwort zur Bestätigung',
     passwordHint: 'Wir fragen noch einmal, weil das hier nicht zurückzunehmen ist.',
     confirm: 'Endgültig löschen',
@@ -734,7 +734,7 @@ export const de = {
     clearBody: 'Alles, was du hier gerade siehst, wird endgültig gelöscht — auch auf deinen anderen Geräten.',
     clearConfirm: 'Alle löschen',
     empty: 'Noch nichts für dich.',
-    emptyHint: 'Wenn jemand deine Anfrage annimmt, auf deinen Beweis reagiert oder dich zu einem Ziel einlädt, steht es hier.',
+    emptyHint: 'Wenn jemand deine Anfrage annimmt, auf deinen Beweis reagiert oder dich als Prüfer einlädt, steht es hier.',
     someone: 'Jemand',
     others: (name: string, others: number) => (others === 1
       ? `${name} und eine weitere Person`
@@ -744,7 +744,7 @@ export const de = {
       vote: 'Glaubst du das?',
       result: 'Dein Beweis',
       reaction: 'Kudos',
-      goals: 'Ziele',
+      goals: 'Dos & Don’ts',
       risk: 'Wird knapp',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
@@ -786,7 +786,7 @@ export const de = {
     device: 'Dieses Gerät',
     deviceNote: 'Erlaubnis und Empfang gelten nur für diesen Browser. Die Schalter darunter gelten für jedes Gerät, auf dem du Benachrichtigungen eingeschaltet hast.',
     friends: 'Freunde',
-    goals: 'Ziele',
+    goals: 'Dos & Don’ts',
     encouragement: 'Rückmeldungen',
     challenge: 'Challenge',
     messages: 'Nachrichten',
@@ -829,8 +829,8 @@ export const de = {
     clean: 'Noch nichts verpasst.',
     /** What a profile says when the two of them share nothing. */
     nothingShared: 'Ihr habt noch nichts gemeinsam.',
-    nothingSharedHint: 'Die Bilanz zeigt nur To-Dos, auf die ihr beide eingeladen seid.',
-    sharedGoals: (count: number) => (count === 1 ? '1 gemeinsames To-Do' : `${count} gemeinsame To-Dos`),
+    nothingSharedHint: 'Die Bilanz zeigt nur Dos & Don’ts, auf die ihr beide eingeladen seid.',
+    sharedGoals: (count: number) => (count === 1 ? '1 gemeinsames Do oder Don’t' : `${count} gemeinsame Dos & Don’ts`),
   },
 
   person: {
@@ -928,7 +928,7 @@ export const de = {
     taskCompleted: (subject: string) => `hat „${subject}“ abgeschlossen`,
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht`,
     goalProgress: (subject: string, percent: number) => `ist bei „${subject}“ auf ${percent}\u00A0%`,
-    goalCreated: (subject: string) => `hat ein neues Ziel erstellt: ${subject}`,
+    goalCreated: (subject: string) => `hat sich etwas vorgenommen: ${subject}`,
     giveKudos: 'Kudos geben',
     takeBackKudos: 'Kudos zurücknehmen',
   },
@@ -990,7 +990,7 @@ export const de = {
   offline: {
     title: 'Offline',
     heading: 'Du bist offline',
-    body: 'Qdos braucht eine Verbindung, um deine Ziele zu laden. Sobald du wieder Empfang hast, geht es weiter.',
+    body: 'Qdos braucht eine Verbindung, um deine Dos & Don’ts zu laden. Sobald du wieder Empfang hast, geht es weiter.',
     retry: 'Erneut versuchen',
   },
 
@@ -1026,7 +1026,7 @@ export const en: Messages = {
     label: 'Main navigation',
     home: 'Home',
     friends: 'Friends',
-    todos: 'To-dos',
+    dos: 'Dos',
     chats: 'Chats',
     profile: 'Profile',
   },
@@ -1103,19 +1103,19 @@ export const en: Messages = {
     openProfile: 'Open profile',
     feedHeading: 'What your friends did',
     noTasks: 'Nothing on today.',
-    noTasksHint: 'Add a goal under To-dos and it will show up here.',
-    noGoals: 'No goals yet.',
+    noTasksHint: 'Add something under Dos and it will show up here.',
+    noGoals: 'No Dos & Don’ts yet.',
     noFeed: 'Nothing from your friends yet.',
     noFeedHint: 'As soon as somebody gets something done, it appears here.',
   },
 
   goals: {
-    heading: 'To-dos',
+    heading: 'Dos & Don’ts',
     new: 'New',
     tabToday: 'Today',
-    tabGoals: 'Goals',
+    tabAll: 'All',
     group: 'GROUP',
-    detailHeading: 'Goal details',
+    detailHeading: 'Details',
     recordProof: 'Done',
     recordedProof: 'Logged',
     streak: 'Streak',
@@ -1131,19 +1131,19 @@ export const en: Messages = {
     noHistoryHint: 'Once the first one is over, it shows up here.',
     nothingDueToday: 'Nothing on today.',
     nothingDueTodayHint: 'All delivered, or nothing due today.',
-    noGoals: 'No goals yet',
-    noGoalsHint: 'Add your first goal with the plus at the top and track your progress together.',
-    notFound: 'Goal not found',
-    notFoundHint: 'We could not find that goal. It may have been removed.',
+    noGoals: 'No Dos & Don’ts yet',
+    noGoalsHint: 'Add your first Do or Don’t with the plus at the top — your friends will see whether you keep at it.',
+    notFound: 'Not found',
+    notFoundHint: 'We could not find that. It may have been removed.',
     overdue: 'Overdue',
     archive: 'Archive',
     openChat: 'Open chat',
     moreActions: 'More actions',
     teamMine: 'Who checks you',
     teamTheirs: 'On it',
-    owner: 'Goal of',
+    owner: 'By',
     reminderEdit: 'Change reminder',
-    reminderSubtitle: 'When would you like to be reminded of this goal?',
+    reminderSubtitle: 'When would you like to be reminded of it?',
     reminderTime: 'Time',
     reminderSave: 'Save',
     reminderRemove: 'No reminder',
@@ -1151,7 +1151,7 @@ export const en: Messages = {
 
   pause: {
     open: 'Set aside',
-    heading: 'Set this goal aside',
+    heading: 'Take a pause',
     subtitle: 'Ill, away, arm in plaster — say briefly why.',
     reasonLabel: 'Reason',
     reasonPlaceholder: 'e.g. flu, in bed since Friday',
@@ -1173,7 +1173,7 @@ export const en: Messages = {
 
   close: {
     open: 'Stop',
-    heading: 'Stop this goal',
+    heading: 'Stop',
     subtitle: 'It stays in the archive — history, streak and every photograph.',
     completed: 'Carried through',
     completedHint: 'You did it.',
@@ -1185,10 +1185,10 @@ export const en: Messages = {
 
   archive: {
     heading: 'Archive',
-    subtitle: 'Goals that have stopped',
+    subtitle: 'Dos & Don’ts that have stopped',
     note: 'Nothing happens here any more. History and photographs stay until you delete them for good.',
     empty: 'Nothing stopped yet',
-    emptyHint: 'A goal you stop lands here — with its history and every photograph.',
+    emptyHint: 'Whatever you stop lands here — with its history and every photograph.',
     closedOn: (day: string) => `Stopped on ${day}`,
     completedOn: (day: string) => `Completed on ${day}`,
     delete: 'Delete for good',
@@ -1198,7 +1198,7 @@ export const en: Messages = {
   },
 
   create: {
-    heading: 'New goal',
+    heading: 'New Do or Don’t',
     subtitle: 'What are you committing to?',
     titleLabel: 'Title',
     titlePlaceholder: 'e.g. run three times a week',
@@ -1211,14 +1211,14 @@ export const en: Messages = {
     dueOnLabel: 'By when?',
     reminderLabel: 'Daily reminder',
     friendsLabel: 'Who checks you?',
-    friendsHint: 'At least one person. They see your proof and vote on it — in the goal\'s chat.',
+    friendsHint: 'At least one person. They see your proof and vote on it — in its chat.',
     friendsChosen: (count: number) => `${count} selected`,
-    noFriendsHint: 'A goal needs somebody to check it. Invite a friend first.',
-    submit: 'Create goal',
-    open: 'Add a goal',
+    noFriendsHint: 'It takes somebody to check you. Invite a friend first.',
+    submit: 'Create',
+    open: 'Add a Do or Don’t',
     next: 'Next',
     stepOf: (step: number, total: number) => `Step ${step} of ${total}`,
-    steps: ['Goal', 'Rhythm', 'Checkers', 'Summary'],
+    steps: ['What', 'Rhythm', 'Checkers', 'Summary'],
     templatesLabel: 'Or start from an idea',
     templates: {
       run: 'Run 3× a week',
@@ -1231,7 +1231,7 @@ export const en: Messages = {
     friendsSearch: 'Search friends',
     friendsNoMatch: 'Nobody by that name.',
     reminderTimeLabel: 'Reminder time',
-    reviewTitle: 'Goal',
+    reviewTitle: 'What',
     reviewSchedule: 'Rhythm',
     reviewFriends: 'Checkers',
     reviewReminder: 'Reminder',
@@ -1294,7 +1294,7 @@ export const en: Messages = {
     online: 'Online',
     lastSeen: (label: string) => `active ${label}`,
     offline: 'Offline',
-    sharedGoal: 'Shared goal',
+    sharedGoal: 'Together',
     cheerButton: 'Cheer on',
     messagePlaceholder: 'Message …',
     send: 'Send',
@@ -1330,16 +1330,16 @@ export const en: Messages = {
     unmute: 'Unmute',
     muted: 'Muted',
 
-    sectionMine: 'Your goals',
+    sectionMine: 'Your Dos & Don’ts',
     sectionMineHint: 'You deliver the proof',
     sectionFriends: 'From friends',
     sectionFriendsHint: 'You check',
     sectionConversations: 'Conversations',
     awaitingVote: 'Waiting for your verdict',
-    openGoal: 'View goal',
+    openGoal: 'View details',
 
     event: {
-      created: (name: string | null) => (name ? `${name} created the goal.` : 'You created the goal.'),
+      created: (name: string | null) => (name ? `${name} created it.` : 'You created it.'),
       windowDone: (streak: number) => `Done · streak ${streak}`,
       windowMissed: (confirmed: number, required: number) => (required > 1
         ? `Missed · ${confirmed} of ${required} delivered`
@@ -1347,12 +1347,12 @@ export const en: Messages = {
       pauseStarted: (name: string | null, day: string) => (name ? `${name} is pausing until ${day}` : `You are pausing until ${day}`),
       pauseEnded: 'The pause is over.',
       pauseOverturned: 'The pause was lifted by objection.',
-      completed: 'Goal completed.',
-      stopped: (name: string | null) => (name ? `${name} stopped the goal.` : 'You stopped the goal.'),
+      completed: 'Completed.',
+      stopped: (name: string | null) => (name ? `${name} stopped it.` : 'You stopped it.'),
     },
 
     lastEvent: {
-      Created: 'Goal created',
+      Created: 'Created',
       ProofDelivered: 'New proof',
       WindowDone: 'Done',
       WindowMissed: 'Missed',
@@ -1365,7 +1365,7 @@ export const en: Messages = {
 
     openInfo: 'Conversation info',
     infoMembers: 'Members',
-    toGoal: 'Open goal',
+    toGoal: 'View details',
     dayToday: 'Today',
     dayYesterday: 'Yesterday',
     onDay: (text: string, day: string) => `${text} · ${day}`,
@@ -1472,7 +1472,7 @@ export const en: Messages = {
     months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     open: (what: string) => `${what} — view full size`,
     deliveredOn: (date: string) => `Delivered on ${date}`,
-    openGoal: 'Go to goal',
+    openGoal: 'View details',
     unavailable: 'Photo unavailable',
   },
 
@@ -1599,7 +1599,7 @@ export const en: Messages = {
   deleteAccount: {
     open: 'Delete account',
     heading: 'Delete your account for good',
-    body: 'Your goals, your windows, your pictures, your direct chats and your streak will be deleted. In groups your messages disappear and the rest stays with the others. This cannot be undone.',
+    body: 'Your Dos & Don’ts, your windows, your pictures, your direct chats and your streak will be deleted. In groups your messages disappear and the rest stays with the others. This cannot be undone.',
     password: 'Password to confirm',
     passwordHint: 'We ask again because this cannot be taken back.',
     confirm: 'Delete for good',
@@ -1624,7 +1624,7 @@ export const en: Messages = {
     clearBody: 'Everything you can see here is deleted for good — on your other devices too.',
     clearConfirm: 'Delete all',
     empty: 'Nothing for you yet.',
-    emptyHint: 'When somebody accepts your request, reacts to your proof or invites you onto a goal, it turns up here.',
+    emptyHint: 'When somebody accepts your request, reacts to your proof or invites you to check them, it turns up here.',
     someone: 'Somebody',
     others: (name: string, others: number) => (others === 1
       ? `${name} and one other`
@@ -1634,7 +1634,7 @@ export const en: Messages = {
       vote: 'Do you believe it?',
       result: 'Your proof',
       reaction: 'Kudos',
-      goals: 'Goals',
+      goals: 'Dos & Don’ts',
       risk: 'Getting tight',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
@@ -1671,7 +1671,7 @@ export const en: Messages = {
     device: 'This device',
     deviceNote: 'Permission and delivery apply to this browser only. The switches below apply to every device you have turned notifications on for.',
     friends: 'Friends',
-    goals: 'Goals',
+    goals: 'Dos & Don’ts',
     encouragement: 'Encouragement',
     challenge: 'Challenge',
     messages: 'Messages',
@@ -1713,8 +1713,8 @@ export const en: Messages = {
     missed: 'missed',
     clean: 'Nothing missed yet.',
     nothingShared: 'You have nothing together yet.',
-    nothingSharedHint: 'A record only covers to-dos you are both on.',
-    sharedGoals: (count: number) => (count === 1 ? '1 shared to-do' : `${count} shared to-dos`),
+    nothingSharedHint: 'A record only covers Dos & Don’ts you are both on.',
+    sharedGoals: (count: number) => (count === 1 ? '1 shared Do or Don’t' : `${count} shared Dos & Don’ts`),
   },
 
   person: {
@@ -1807,7 +1807,7 @@ export const en: Messages = {
     taskCompleted: (subject: string) => `completed “${subject}”`,
     streakReached: (days: number) => `reached a ${days}-day streak`,
     goalProgress: (subject: string, percent: number) => `is at ${percent}% on “${subject}”`,
-    goalCreated: (subject: string) => `started a new goal: ${subject}`,
+    goalCreated: (subject: string) => `made a new commitment: ${subject}`,
     giveKudos: 'Give kudos',
     takeBackKudos: 'Take kudos back',
   },
@@ -1855,7 +1855,7 @@ export const en: Messages = {
   offline: {
     title: 'Offline',
     heading: 'You are offline',
-    body: 'Qdos needs a connection to load your goals. As soon as you have signal again, you can pick up where you left off.',
+    body: 'Qdos needs a connection to load your Dos & Don’ts. As soon as you have signal again, you can pick up where you left off.',
     retry: 'Try again',
   },
 

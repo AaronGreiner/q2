@@ -27,7 +27,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Qdos nutzt die Kamera für die Beweisfotos deiner Ziele und für dein Profilbild.</string>
+	<string>Qdos nutzt die Kamera für die Beweisfotos deiner Dos & Don’ts und für dein Profilbild.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Qdos öffnet deine Fotos nur, wenn du selbst eins auswählst: für einen Beweis, dein Profil oder einen Chat.</string>
 	<key>UIApplicationSceneManifest</key>

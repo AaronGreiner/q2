@@ -92,7 +92,7 @@ describe('goalEventText', () => {
   it('never names the reader, even if a name came along', () => {
     const mine = event('e', '2026-07-31T09:00:00+00:00', { kind: 'Stopped', isMine: true, actorName: 'Mara' })
 
-    expect(goalEventText(mine, de)).toBe('Du hast das Ziel beendet.')
+    expect(goalEventText(mine, de)).toBe('Du hast es beendet.')
   })
 })
 

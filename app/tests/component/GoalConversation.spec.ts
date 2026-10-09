@@ -81,12 +81,12 @@ function proof(overrides: Partial<Proof> = {}): Proof {
 describe('ChatEventLine', () => {
   it('names who did it, and says "Du" for the reader', async () => {
     const theirs = await mountSuspended(ChatEventLine, { props: { event: event() } })
-    expect(theirs.text()).toBe('Jonas Weber hat das Ziel erstellt.')
+    expect(theirs.text()).toBe('Jonas Weber hat es angelegt.')
 
     const mine = await mountSuspended(ChatEventLine, {
       props: { event: event({ isMine: true, actorName: null }) },
     })
-    expect(mine.text()).toBe('Du hast das Ziel erstellt.')
+    expect(mine.text()).toBe('Du hast es angelegt.')
   })
 
   it('keeps the line out of Session Replay, since it carries a name', async () => {

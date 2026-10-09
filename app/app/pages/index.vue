@@ -68,7 +68,7 @@ const nextDue = computed(() => byDeadline(due.value)
 const todayIndex = computed(() => weekdayIndex(now.value, zone.value))
 
 // The same for friends: the newest three, and the rest under "Alle anzeigen".
-// Your own goals are not repeated here at all — they have the To-Dos tab.
+// Your own goals are not repeated here at all — they have the Dos tab.
 const recentFeed = computed(() => feed.value.slice(0, 3))
 
 const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
