@@ -202,6 +202,61 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             targetDate,
             Context.DaysAgo(createdDaysAgo));
 
+        return Register(goal, schedule, history, confirmedNow, targetDate, participants);
+    }
+
+    /// <summary>A Don't: at most <paramref name="limit"/> per period, checked the way <paramref name="proofMode"/> says.</summary>
+    /// <param name="history">
+    /// As for <see cref="AddGoal"/>, plus <c>'r'</c> for a period that ended in
+    /// a relapse: one use more than the limit, logged that evening.
+    /// </param>
+    /// <param name="usesNow">How many uses are already logged in the period running now.</param>
+    public Goal AddDont(
+        string title,
+        string icon,
+        QuotaPeriod period,
+        int limit,
+        DontProofMode proofMode,
+        int createdDaysAgo,
+        string history = "",
+        int usesNow = 0,
+        Person? owner = null,
+        params Person[] participants)
+    {
+        var schedule = GoalSchedule.Per(period);
+        var goal = Goal.Create(
+            NextId(SeedEntity.Goal),
+            (owner ?? Me).Id,
+            title,
+            null,
+            icon,
+            schedule,
+            isGroup: false,
+            reminderAt: null,
+            targetDate: null,
+            Context.DaysAgo(createdDaysAgo),
+            GoalKind.Dont,
+            limit,
+            proofMode);
+
+        Register(goal, schedule, history, 0, null, participants);
+
+        for (var use = 0; use < usesNow; use++)
+        {
+            goal.LogUse(NextId(SeedEntity.DontUse), null, Context.SeededAt);
+        }
+
+        return goal;
+    }
+
+    private Goal Register(
+        Goal goal,
+        GoalSchedule schedule,
+        string history,
+        int confirmedNow,
+        DateOnly? targetDate,
+        Person[] participants)
+    {
         foreach (var participant in participants)
         {
             goal.AddParticipant(NextId(SeedEntity.GoalParticipant), participant.Id);
@@ -296,9 +351,20 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
 
             if (outcomes[index] == 'd')
             {
-                for (var proof = 0; proof < window.RequiredProofs; proof++)
+                for (var proof = 0; proof < instance.RequiredProofs; proof++)
                 {
                     instance.RecordProof(calendar.EndOfDay(window.End));
+                }
+
+                // A Don't is kept by its period running out, not by the
+                // photograph.
+                instance.Expire(calendar.EndOfDay(window.End).AddTicks(1));
+            }
+            else if (outcomes[index] == 'r' && instance.Limit is { } limit)
+            {
+                for (var use = 0; use <= limit; use++)
+                {
+                    instance.LogUse(NextId(SeedEntity.DontUse), null, calendar.StartOfDay(window.End).AddHours(20));
                 }
             }
             else

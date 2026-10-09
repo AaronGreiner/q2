@@ -34,17 +34,17 @@ public class DatabaseSeederTests
 
         Assert.False(result.WasSkipped);
         Assert.Equal(10, result.PeopleInserted);
-        Assert.Equal(8, result.GoalsInserted);
+        Assert.Equal(10, result.GoalsInserted);
 
         // Every goal brings its own history, so this is the count that would
         // change if a seed quietly stopped laying one down.
         Assert.True(result.WindowsInserted > result.GoalsInserted);
         // Every goal is shared and comes with its conversation, beside the
         // four free ones.
-        Assert.Equal(12, result.ConversationsInserted);
+        Assert.Equal(14, result.ConversationsInserted);
 
         Assert.Equal(10, await context.People.CountAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(8, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(10, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
         Assert.NotEqual(0, await context.ChatMessages.CountAsync(TestContext.Current.CancellationToken));
     }
 

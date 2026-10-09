@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalStatus, RequestPauseRequest, SetReminderRequest } from './types'
+import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalStatus, LogUseRequest, RequestPauseRequest, SetReminderRequest } from './types'
 
 /**
  * The only place the frontend talks HTTP about goals.
@@ -38,6 +38,13 @@ export interface GoalsApi {
   /** Deletes a stopped goal outright, for everybody on it. */
   remove: (id: string) => Promise<void>
 
+  /**
+   * Logs one use of your own Don't into the period running now, optionally
+   * with a photograph uploaded as a proof image first. Nobody is notified;
+   * the one over the limit is a relapse.
+   */
+  logUse: (id: string, request: LogUseRequest) => Promise<Goal>
+
   /*
    * Delivering a proof is deliberately not here. It is a photograph and a vote,
    * which is `~/api/proofs.ts` — the route still reads `/api/goals/{id}/proof`
@@ -70,6 +77,8 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     close: (id, request) => call<Goal>(`${goal(id)}/close`, { method: 'POST', body: request }),
 
     setReminder: (id, request) => call<Goal>(`${goal(id)}/reminder`, { method: 'PUT', body: request }),
+
+    logUse: (id, request) => call<Goal>(`${goal(id)}/uses`, { method: 'POST', body: request }),
 
     // 204 and no body: there is nothing left to describe.
     remove: async (id) => {

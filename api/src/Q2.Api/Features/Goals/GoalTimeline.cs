@@ -31,6 +31,15 @@ public enum GoalEventKind
 
     /// <summary>The owner stopped the goal without claiming it was carried through.</summary>
     Stopped,
+
+    /// <summary>
+    /// The owner logged a use of a Don't. Carries how many this period, and the
+    /// limit. A neutral line: no vote, no notification.
+    /// </summary>
+    UseLogged,
+
+    /// <summary>A Don't's period ended in a relapse the owner logged themselves.</summary>
+    WindowRelapse,
 }
 
 /// <summary>
@@ -44,6 +53,9 @@ public enum GoalEventKind
 /// </param>
 /// <param name="Streak">For a kept window: the goal's streak once it was kept.</param>
 /// <param name="Until">For a pause: the last local day it covers.</param>
+/// <param name="Uses">For a logged use: which one of the period it was.</param>
+/// <param name="Limit">For a Don't's window or use: the limit of its period.</param>
+/// <param name="ImageId">For a logged use: its photograph, if it had one.</param>
 public sealed record GoalEvent(
     GoalEventKind Kind,
     DateTimeOffset At,
@@ -54,7 +66,10 @@ public sealed record GoalEvent(
     int? RequiredProofs = null,
     DateOnly? Until = null,
     ProofPhoto? Proof = null,
-    DateOnly? Day = null)
+    DateOnly? Day = null,
+    int? Uses = null,
+    int? Limit = null,
+    Guid? ImageId = null)
 {
     /// <summary>
     /// Unique within one goal. A pause starts and ends, and a goal is created and
@@ -90,13 +105,36 @@ public static class GoalTimeline
             new(GoalEventKind.Created, goal.CreatedAt, goal.Id, goal.OwnerPersonId),
         };
 
-        // Counted forwards in deadline order, with the same rule as Goal.Streak
-        // counts backwards: a kept window adds one, a missed one ends the run,
-        // and a window that is open or was set aside is neither.
-        var streak = 0;
+        // Counted forwards in deadline order, with the same rules Goal.Streak
+        // counts backwards by: a kept window adds one, a missed one ends the
+        // run, a relapse holds it until the third in a row, and a window that
+        // is open or was set aside is neither.
+        var resolved = new List<GoalInstance>();
 
         foreach (var instance in goal.Instances.OrderBy(instance => instance.DueAt).ThenBy(instance => instance.Id))
         {
+            var count = 0;
+
+            foreach (var use in instance.UseLog.OrderBy(use => use.LoggedAt))
+            {
+                count++;
+                events.Add(new GoalEvent(
+                    GoalEventKind.UseLogged,
+                    use.LoggedAt,
+                    use.Id,
+                    goal.OwnerPersonId,
+                    Uses: count,
+                    Limit: instance.Limit,
+                    ImageId: use.ImageId));
+            }
+
+            if (instance.Status is GoalInstanceStatus.Done or GoalInstanceStatus.Missed or GoalInstanceStatus.Relapse)
+            {
+                resolved.Add(instance);
+            }
+
+            var streak = Goal.StreakOf(resolved);
+
             foreach (var proof in instance.Proofs)
             {
                 events.Add(new GoalEvent(
@@ -110,7 +148,6 @@ public static class GoalTimeline
             switch (instance.Status)
             {
                 case GoalInstanceStatus.Done:
-                    streak++;
                     events.Add(new GoalEvent(
                         GoalEventKind.WindowDone,
                         instance.ResolvedAt ?? instance.DueAt,
@@ -119,11 +156,23 @@ public static class GoalTimeline
                         Streak: streak,
                         ConfirmedProofs: instance.ConfirmedProofs,
                         RequiredProofs: instance.RequiredProofs,
-                        Day: instance.DueOn));
+                        Day: instance.DueOn,
+                        Limit: instance.Limit));
+                    break;
+
+                case GoalInstanceStatus.Relapse:
+                    events.Add(new GoalEvent(
+                        GoalEventKind.WindowRelapse,
+                        instance.ResolvedAt ?? instance.DueAt,
+                        instance.Id,
+                        null,
+                        Streak: streak,
+                        Day: instance.DueOn,
+                        Uses: instance.Uses,
+                        Limit: instance.Limit));
                     break;
 
                 case GoalInstanceStatus.Missed:
-                    streak = 0;
                     events.Add(new GoalEvent(
                         GoalEventKind.WindowMissed,
                         instance.ResolvedAt ?? instance.DueAt,
@@ -131,7 +180,8 @@ public static class GoalTimeline
                         null,
                         ConfirmedProofs: instance.ConfirmedProofs,
                         RequiredProofs: instance.RequiredProofs,
-                        Day: instance.DueOn));
+                        Day: instance.DueOn,
+                        Limit: instance.Limit));
                     break;
 
                 default:

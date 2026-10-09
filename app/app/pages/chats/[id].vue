@@ -78,6 +78,14 @@ const isCameraOpen = ref(false)
 const canDeliver = computed(() =>
   Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
 
+/** A Don't's use, logged from its conversation; the line it makes arrives in the thread. */
+const dontUse = useDontUse()
+
+async function onLog() {
+  const goalId = chat.value?.pinnedGoal?.id
+  if (goalId && await dontUse.logUse(goalId)) await refresh()
+}
+
 /**
  * Already where the photograph is shown, so a delivery stays here and the card
  * arriving in the thread is the confirmation; a refusal stays on the camera's
@@ -277,6 +285,8 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         <ChatGoalBanner
           v-if="chat.pinnedGoal"
           :goal="chat.pinnedGoal"
+          :logging="dontUse.isLogging.value"
+          @log="onLog"
           @cheer="cheer()"
         />
 

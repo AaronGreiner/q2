@@ -76,6 +76,8 @@ public sealed class E2ESeed : ISeedDataSource
     /// <summary>A goal due three times a week, with one proof already in.</summary>
     public const string QuotaGoalTitle = "E2E goal three times a week";
 
+    public const string DontTitle = "E2E don't with a weekly limit";
+
     public const string GroupChatTitle = "E2E group chat";
 
     public SeedData Create(SeedContext context)
@@ -173,6 +175,19 @@ public sealed class E2ESeed : ISeedDataSource
             createdDaysAgo: 30,
             history: "d",
             confirmedNow: 1);
+
+        // A Don't, weekly so it covers every day the suite runs: a relapse in
+        // its past and one use logged this week (docs/adr/0037-donts.md).
+        build.AddDont(
+            DontTitle,
+            "flame",
+            QuotaPeriod.Week,
+            limit: 2,
+            DontProofMode.HonestOnly,
+            createdDaysAgo: 21,
+            history: "dr",
+            usesNow: 1,
+            participants: [jonas]);
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "E2E morning run", null, 7, minutesAgo: 15);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 4, 2, minutesAgo: 90);

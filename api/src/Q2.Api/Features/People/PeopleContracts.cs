@@ -105,6 +105,11 @@ public sealed record FriendsResponse(
 /// </summary>
 /// <param name="Done">Windows delivered.</param>
 /// <param name="Missed">Windows whose deadline passed with something outstanding.</param>
+/// <param name="Relapsed">
+/// Don't windows whose owner logged a use over the limit. Its own number,
+/// never folded into <paramref name="Missed"/>: owning up is not being caught
+/// (docs/adr/0037-donts.md).
+/// </param>
 /// <remarks>
 /// The two numbers only mean anything beside each other. "47" is a boast;
 /// "47 · 5" is a record, and the second number is the whole reason this product
@@ -117,10 +122,10 @@ public sealed record FriendsResponse(
 /// the scoping lives in the query rather than in a filter afterwards so there
 /// is nothing for a later change to forget.
 /// </remarks>
-public sealed record BalanceResponse(int Done, int Missed)
+public sealed record BalanceResponse(int Done, int Missed, int Relapsed)
 {
     /// <summary>Nothing shared, and therefore nothing to show.</summary>
-    public static readonly BalanceResponse Empty = new(0, 0);
+    public static readonly BalanceResponse Empty = new(0, 0, 0);
 }
 
 /// <summary>Somebody else's profile, as the person asking may see it.</summary>

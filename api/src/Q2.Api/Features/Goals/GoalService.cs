@@ -80,8 +80,10 @@ public sealed class GoalService(
         var goals = await MineAsync(me.Id, cancellationToken);
         await AdvanceAsync(goals, me, now, cancellationToken);
 
+        // A Don't that relapsed this period stays on the list, decided: the
+        // period is still today's, and logging is still possible.
         var due = goals
-            .Where(goal => goal.CurrentInstance is { } instance && Covers(instance, today))
+            .Where(goal => (goal.CurrentInstance ?? goal.RelapsedInstanceAt(now)) is { } instance && Covers(instance, today))
             .ToList();
 
         var people = await LoadParticipantsAsync(due, cancellationToken);
@@ -136,9 +138,13 @@ public sealed class GoalService(
 
         // Every window that covers today, whatever became of it: one delivered
         // this morning still counts towards the day it was delivered in.
+        //
+        // A Don't's window is not in it. It is kept by the period running out,
+        // so all day long it would be an open share of a ring nobody can fill
+        // — "geliefert" is a word about Dos (docs/adr/0037-donts.md).
         var windows = goals
             .SelectMany(goal => goal.Instances)
-            .Where(instance => Covers(instance, today))
+            .Where(instance => !instance.IsDont && Covers(instance, today))
             .ToList();
 
         return DaySummaryResponse.From(
@@ -215,7 +221,8 @@ public sealed class GoalService(
     {
         var now = timeProvider.GetUtcNow();
         var me = await currentPerson.GetAsync(cancellationToken);
-        var schedule = CreateGoalRequestValidator.ToSchedule(request.Schedule);
+        var kind = request.Kind ?? GoalKind.Do;
+        var schedule = CreateGoalRequestValidator.ToSchedule(request.Schedule, kind);
 
         var goal = Goal.Create(
             idGenerator.NewId(),
@@ -227,7 +234,10 @@ public sealed class GoalService(
             request.IsGroup ?? false,
             request.ReminderAt,
             request.TargetDate,
-            now);
+            now,
+            kind,
+            request.Limit,
+            request.ProofMode);
 
         // Only friends can be added to a goal. Without that check, a goal is a
         // way to put your name into a stranger's app.
@@ -500,6 +510,67 @@ public sealed class GoalService(
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
 
+    /// <summary>
+    /// Logs one use of your own Don't into the window running now — "Heute 1
+    /// Bier" — optionally with a photograph.
+    /// </summary>
+    /// <remarks>
+    /// Nobody is notified and nobody votes: the owner said it themselves. It
+    /// shows as a neutral line in the goal's conversation, derived by
+    /// <see cref="GoalTimeline"/>, so everybody on the goal is touched for
+    /// their open screens to follow. The use that breaks the limit makes the
+    /// window a relapse on the spot (docs/adr/0037-donts.md).
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">
+    /// Not a Don't, stopped, paused, or between windows; or the photograph is
+    /// not theirs.
+    /// </exception>
+    public async Task<GoalResponse> LogUseAsync(Guid id, LogUseRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        if (!goal.IsDont)
+        {
+            throw new DomainValidationException("Goal", "Only a Don't has uses to log.");
+        }
+
+        // Theirs, and uploaded like a proof, which is what lets the goal's
+        // audience read it (ImageService.CanRead).
+        if (request.ImageId is { } imageId)
+        {
+            await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken);
+        }
+
+        // Up to date first, so a use cannot land in a window whose period
+        // ended while the screen was open.
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+
+        var use = goal.LogUse(idGenerator.NewId(), request.ImageId, now)
+            ?? throw new DomainValidationException("Use", "There is no running period to log this into.");
+
+        database.Add(use);
+        await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(
+            goal.Participants.Select(participant => participant.PersonId).Append(me.Id),
+            LiveArea.Goals,
+            goal.Id);
+        notifier.Touch(goal.Participants.Select(participant => participant.PersonId).Append(me.Id), LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
+        // Never what was logged: a use of a Don't is about as personal as
+        // anything in this app.
+        logger.LogInformation("A use was logged on goal {GoalId}", goal.Id);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
     /// <summary>Moves or removes the daily reminder of one of your own running goals.</summary>
     /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
     /// <exception cref="DomainValidationException">It has stopped.</exception>
@@ -623,6 +694,8 @@ public sealed class GoalService(
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.UseLog)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .Where(g => g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId))
@@ -718,6 +791,8 @@ public sealed class GoalService(
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.UseLog)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);

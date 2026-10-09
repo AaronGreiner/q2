@@ -109,12 +109,12 @@ public sealed class ProfileService(
 
         var shared = await SharedGoalsAsync(me.Id, personId, cancellationToken);
 
-        var (done, missed) = shared.Aggregate(
-            (Done: 0, Missed: 0),
+        var (done, missed, relapsed) = shared.Aggregate(
+            (Done: 0, Missed: 0, Relapsed: 0),
             (total, goal) =>
             {
                 var balance = goal.Balance;
-                return (total.Done + balance.Done, total.Missed + balance.Missed);
+                return (total.Done + balance.Done, total.Missed + balance.Missed, total.Relapsed + balance.Relapsed);
             });
 
         return new PersonProfileResponse(
@@ -123,7 +123,7 @@ public sealed class ProfileService(
             person.StreakOn(timeZones.For(person.TimeZoneId).Today(now)),
             person.KudosReceived,
             person.GoalsCompleted,
-            new BalanceResponse(done, missed),
+            new BalanceResponse(done, missed, relapsed),
             shared.Count);
     }
 
@@ -139,7 +139,8 @@ public sealed class ProfileService(
 
         return new BalanceResponse(
             windows.Count(status => status == GoalInstanceStatus.Done),
-            windows.Count(status => status == GoalInstanceStatus.Missed));
+            windows.Count(status => status == GoalInstanceStatus.Missed),
+            windows.Count(status => status == GoalInstanceStatus.Relapse));
     }
 
     /// <summary>

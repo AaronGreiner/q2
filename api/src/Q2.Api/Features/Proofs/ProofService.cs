@@ -458,6 +458,8 @@ public sealed class ProofService(
             .Include(goal => goal.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(goal => goal.Instances)
+            .ThenInclude(instance => instance.UseLog)
             .Include(goal => goal.Pauses)
             .SingleOrDefaultAsync(goal => goal.Id == goalId, cancellationToken);
 
@@ -477,6 +479,8 @@ public sealed class ProofService(
             .Include(candidate => candidate.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(candidate => candidate.Instances)
+            .ThenInclude(instance => instance.UseLog)
             .Include(candidate => candidate.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Reactions)

@@ -15,6 +15,12 @@ const zone = useTimeZoneOffset()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isLogging, logUse } = useDontUse()
+
+/** One tap from the row; the row has changed either way, so read it again. */
+async function onLog(goalId: string) {
+  if (await logUse(goalId)) await refresh()
+}
 
 // The bell is a count, and counts have one read of their own that the live
 // connection keeps current — see useCounts.
@@ -63,8 +69,12 @@ const upNext = computed(() => (profile.value?.atRisk.length ? null : nextUp(due.
 // top: the whole list is one tap away under "Alle anzeigen", and a start screen
 // that shows everything is not a start screen.
 const nextDue = computed(() => byDeadline(due.value)
-  .filter(goal => goal.id !== upNext.value?.id)
+  .filter(goal => goal.kind !== 'Dont' && goal.id !== upNext.value?.id)
   .slice(0, 3))
+
+// Don'ts below them, all of them: they are not three things to do, they are
+// what is being held today, and a relapse should never be what got cut off.
+const dontsToday = computed(() => due.value.filter(goal => goal.kind === 'Dont'))
 
 const todayIndex = computed(() => weekdayIndex(now.value, zone.value))
 
@@ -237,7 +247,7 @@ useHead({ title: () => t.value.nav.home })
         <!-- Not drawn when the only thing due is already at the top: saying
              "nothing on today" under it would be wrong. -->
         <section
-          v-if="nextDue.length > 0 || due.length === 0"
+          v-if="nextDue.length > 0 || dontsToday.length > 0 || due.length === 0"
           class="mt-6"
           aria-labelledby="today-heading"
         >
@@ -257,7 +267,7 @@ useHead({ title: () => t.value.nav.home })
           </div>
 
           <div
-            v-if="nextDue.length > 0"
+            v-if="nextDue.length > 0 || dontsToday.length > 0"
             class="flex flex-col gap-2.5"
           >
             <GoalWindowRow
@@ -267,6 +277,15 @@ useHead({ title: () => t.value.nav.home })
               :now="now"
               :busy="isDelivering"
               @deliver="deliveringFor = $event"
+            />
+
+            <DontWindowRow
+              v-for="goal in dontsToday"
+              :key="goal.id"
+              :goal="goal"
+              :busy="isDelivering || isLogging"
+              @deliver="deliveringFor = $event"
+              @log="onLog"
             />
           </div>
 

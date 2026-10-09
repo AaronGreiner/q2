@@ -42,9 +42,25 @@ public static class CreateGoalRequestValidator
             errors[nameof(request.Icon)] = ["That icon is not one of the available goal icons."];
         }
 
-        foreach (var (field, messages) in ValidateSchedule(request.Schedule))
+        var kind = request.Kind ?? GoalKind.Do;
+
+        if (!Enum.IsDefined(kind))
         {
-            errors[field] = messages;
+            errors[nameof(request.Kind)] = ["That is not a kind of goal."];
+        }
+        else if (kind == GoalKind.Dont)
+        {
+            foreach (var (field, messages) in ValidateDont(request))
+            {
+                errors[field] = messages;
+            }
+        }
+        else
+        {
+            foreach (var (field, messages) in ValidateSchedule(request.Schedule))
+            {
+                errors[field] = messages;
+            }
         }
 
         // At least one friend: a goal is checked by the people it is made in
@@ -65,6 +81,36 @@ public static class CreateGoalRequestValidator
             {
                 errors[nameof(request.ParticipantIds)] = ["Participant ids must not be empty."];
             }
+        }
+
+        return errors;
+    }
+
+    /// <summary>
+    /// A Don't: one limit per day, week or month, and a way for friends to
+    /// check it. No schedule at all means per day.
+    /// </summary>
+    private static Dictionary<string, string[]> ValidateDont(CreateGoalRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (request.Schedule?.Kind is { } kind && kind != ScheduleKind.Limit)
+        {
+            errors[nameof(request.Schedule)] = ["A Don't is counted per day, week or month."];
+        }
+        else if (request.Schedule?.Period is { } period && !Enum.IsDefined(period))
+        {
+            errors[nameof(request.Schedule)] = ["Choose a day, a week or a month."];
+        }
+
+        if (request.Limit is not { } limit || limit is < 0 or > Goal.MaxLimit)
+        {
+            errors[nameof(request.Limit)] = [$"A limit must be between 0 and {Goal.MaxLimit}."];
+        }
+
+        if (request.ProofMode is not { } mode || !Enum.IsDefined(mode))
+        {
+            errors[nameof(request.ProofMode)] = ["Choose how your friends can check this."];
         }
 
         return errors;
@@ -110,8 +156,12 @@ public static class CreateGoalRequestValidator
                 errors[field] = [$"A quota must be between 1 and {GoalSchedule.MaxTimesPerPeriod} times."];
                 break;
 
-            case ScheduleKind.Times when schedule.Period is not { } period || !Enum.IsDefined(period):
+            case ScheduleKind.Times when schedule.Period is not { } period || !Enum.IsDefined(period) || period == QuotaPeriod.Day:
                 errors[field] = ["Choose a week or a month."];
+                break;
+
+            case ScheduleKind.Limit:
+                errors[field] = ["Only a Don't has a limit."];
                 break;
 
             default:
@@ -128,14 +178,16 @@ public static class CreateGoalRequestValidator
     /// Defaults to every day when the request says nothing, which is the
     /// commitment people mean when they do not say otherwise.
     /// </remarks>
-    public static GoalSchedule ToSchedule(GoalScheduleRequest? request) => request?.Kind switch
-    {
-        ScheduleKind.Once => GoalSchedule.Once(),
-        ScheduleKind.Interval => GoalSchedule.EveryNDays(request.EveryDays ?? 1),
-        ScheduleKind.Weekdays => GoalSchedule.OnWeekdays(request.Weekdays),
-        ScheduleKind.Times => GoalSchedule.TimesPer(request.Times ?? 1, request.Period ?? QuotaPeriod.Week),
-        _ => GoalSchedule.EveryNDays(1),
-    };
+    public static GoalSchedule ToSchedule(GoalScheduleRequest? request, GoalKind kind = GoalKind.Do) => kind == GoalKind.Dont
+        ? GoalSchedule.Per(request?.Period ?? QuotaPeriod.Day)
+        : request?.Kind switch
+        {
+            ScheduleKind.Once => GoalSchedule.Once(),
+            ScheduleKind.Interval => GoalSchedule.EveryNDays(request.EveryDays ?? 1),
+            ScheduleKind.Weekdays => GoalSchedule.OnWeekdays(request.Weekdays),
+            ScheduleKind.Times => GoalSchedule.TimesPer(request.Times ?? 1, request.Period ?? QuotaPeriod.Week),
+            _ => GoalSchedule.EveryNDays(1),
+        };
 }
 
 /// <summary>

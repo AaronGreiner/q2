@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
+import type { DontProofMode, GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -268,6 +268,7 @@ export const de = {
     everyNDays: (days: number) => (days === 1 ? 'Jeden Tag' : days === 7 ? 'Jede Woche' : `Alle ${days} Tage`),
     timesPer: (times: number, period: string) => `${times}× pro ${period}`,
     period: {
+      Day: 'Tag',
       Week: 'Woche',
       Month: 'Monat',
     } satisfies Record<QuotaPeriod, string>,
@@ -276,6 +277,7 @@ export const de = {
       Weekdays: 'Wochentage',
       Times: 'X-mal',
       Once: 'Einmalig',
+      Limit: 'Limit',
     },
     weekdayShort: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
     explainOnce: 'Einmal erledigen, bis zum gewählten Tag.',
@@ -286,13 +288,68 @@ export const de = {
       `${times} Nachweise pro ${period} — wann genau, ist dir überlassen.`,
   },
 
+  /**
+   * Ein Don't: ein Limit pro Zeitraum, Nutzungen, die man selbst einträgt, und
+   * ein ehrlicher Rückfall (docs/adr/0037-donts.md).
+   *
+   * Der Ton ist nüchtern wie bei der Pause: Wer einen Rückfall einträgt, ist
+   * ehrlich gewesen, und die App bedankt sich nicht dafür und schimpft nicht.
+   */
+  dont: {
+    kindLabel: 'Was nimmst du dir vor?',
+    kindDo: 'Ich will …',
+    kindDont: 'Ich will nicht mehr …',
+    titlePlaceholder: 'z. B. kein Alkohol unter der Woche',
+    limitLabel: 'Wie oft höchstens?',
+    limitNever: 'Nie',
+    periodLabel: 'Pro',
+    limit: (limit: number, period: string) => (limit === 0 ? 'Nie' : `Höchstens ${limit}× pro ${period}`),
+    explainLimit: (limit: number, period: string) => (limit === 0
+      ? `Kein einziges Mal. Jeder ${period} ohne ist durchgehalten.`
+      : `Bis zu ${limit}× pro ${period} ist in Ordnung. Das ${limit + 1}. Mal ist ein Rückfall.`),
+    limitStep: 'Limit',
+    proofModeLabel: 'Wie prüfen dich deine Freunde?',
+    proofMode: {
+      SpotCheck: 'Stichprobe',
+      ProofAtEnd: 'Beweis am Ende',
+      HonestOnly: 'Nur ehrlich',
+    } satisfies Record<DontProofMode, string>,
+    proofModeHint: {
+      SpotCheck: 'Zu einem zufälligen Moment am Tag ein Live-Foto, drei Minuten Zeit.',
+      ProofAtEnd: 'Vor Ende des Zeitraums ein Foto oder Screenshot, z. B. deine Bildschirmzeit.',
+      HonestOnly: 'Nur dein Wort und die Rückfall-Regel. Es gibt nichts abzustimmen.',
+    } satisfies Record<DontProofMode, string>,
+    templatesLabel: 'Oder nimm eine Vorlage',
+    templates: {
+      alcohol: 'Kein Alkohol',
+      socialMedia: 'Kein Social Media nach 22 Uhr',
+      smoking: 'Nicht rauchen',
+      fastFood: 'Höchstens 2× Fast Food pro Woche',
+      sugar: 'Kein Zucker',
+    },
+    used: (uses: number, limit: number) => (limit === 0
+      ? (uses === 0 ? 'Bisher durchgehalten' : `${uses}× eingetragen`)
+      : `${uses} von ${limit} genutzt`),
+    run: (days: number) => (days < 0 ? 'Ab morgen' : days === 0 ? 'Ab heute' : days === 1 ? 'Seit 1 Tag' : `Seit ${days} Tagen`),
+    runLabel: 'Ohne Rückfall',
+    log: 'Eintragen',
+    logFor: (title: string) => `Nutzung eintragen: ${title}`,
+    logWithPhoto: 'Mit Foto',
+    logWithPhotoFor: (title: string) => `Nutzung mit Foto eintragen: ${title}`,
+    relapseHeading: 'Als Rückfall eintragen?',
+    relapseBody: 'Damit ist dein Limit überschritten. Das zählt als Rückfall, nicht als verpasst: Deine Serie hält — erst der dritte Rückfall in Folge beendet sie.',
+    relapseConfirm: 'Eintragen',
+  },
+
   /** One window: what it still wants, and what became of it. */
   window: {
     remaining: (remaining: number, required: number) => `Noch ${remaining} von ${required}`,
     dueToday: 'Heute fällig',
     dueBy: (day: string) => `Bis ${day}`,
     done: 'Geschafft',
+    kept: 'Durchgehalten',
     missed: 'Verpasst',
+    relapse: 'Rückfall',
     open: 'Offen',
     paused: 'Ausgesetzt',
     leftMinutes: (minutes: number) => `noch ${minutes} Min.`,
@@ -370,6 +427,12 @@ export const de = {
     event: {
       created: (name: string | null) => (name ? `${name} hat es angelegt.` : 'Du hast es angelegt.'),
       windowDone: (streak: number) => `Geschafft · Streak ${streak}`,
+      windowKept: (streak: number) => `Durchgehalten · Streak ${streak}`,
+      windowRelapse: (streak: number) => (streak > 0 ? `Rückfall · Streak hält bei ${streak}` : 'Rückfall'),
+      useLogged: (name: string | null, uses: number, limit: number | null) => {
+        const count = limit === null ? `${uses}.` : uses <= limit ? `${uses} von ${limit}` : 'über dem Limit'
+        return name ? `${name} hat eingetragen · ${count}` : `Du hast eingetragen · ${count}`
+      },
       windowMissed: (confirmed: number, required: number) => (required > 1
         ? `Verpasst · ${confirmed} von ${required} geliefert`
         : 'Verpasst'),
@@ -392,6 +455,8 @@ export const de = {
       PauseOverturned: 'Pause aufgehoben',
       Completed: 'Abgeschlossen',
       Stopped: 'Beendet',
+      UseLogged: 'Eingetragen',
+      WindowRelapse: 'Rückfall',
     } satisfies Record<GoalEventKind, string>,
 
     openInfo: 'Info zur Unterhaltung',
@@ -836,6 +901,7 @@ export const de = {
     heading: 'Bilanz',
     done: 'geschafft',
     missed: 'verpasst',
+    relapsed: (count: number) => (count === 1 ? '1 Rückfall' : `${count} Rückfälle`),
     clean: 'Noch nichts verpasst.',
     /** What a profile says when the two of them share nothing. */
     nothingShared: 'Ihr habt noch nichts gemeinsam.',
@@ -1020,6 +1086,8 @@ export const de = {
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback lässt sich gerade nicht öffnen' },
     proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Beweis abgegeben — deine Freunde prüfen ihn' },
+    useLogged: { icon: 'i-lucide-check', text: 'Eingetragen' },
+    relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Als Rückfall eingetragen' },
   },
 }
 
@@ -1257,6 +1325,7 @@ export const en: Messages = {
     everyNDays: (days: number) => (days === 1 ? 'Every day' : days === 7 ? 'Every week' : `Every ${days} days`),
     timesPer: (times: number, period: string) => `${times}× per ${period}`,
     period: {
+      Day: 'day',
       Week: 'week',
       Month: 'month',
     },
@@ -1265,6 +1334,7 @@ export const en: Messages = {
       Weekdays: 'Weekdays',
       Times: 'X times',
       Once: 'Once',
+      Limit: 'Limit',
     },
     weekdayShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     explainOnce: 'Do it once, by the chosen day.',
@@ -1275,12 +1345,60 @@ export const en: Messages = {
       `${times} proofs per ${period} — when exactly is up to you.`,
   },
 
+  dont: {
+    kindLabel: 'What are you taking on?',
+    kindDo: 'I want to …',
+    kindDont: 'I want to stop …',
+    titlePlaceholder: 'e.g. no alcohol on weekdays',
+    limitLabel: 'How often at most?',
+    limitNever: 'Never',
+    periodLabel: 'Per',
+    limit: (limit: number, period: string) => (limit === 0 ? 'Never' : `At most ${limit}× per ${period}`),
+    explainLimit: (limit: number, period: string) => (limit === 0
+      ? `Not once. Every ${period} without it is kept.`
+      : `Up to ${limit}× per ${period} is fine. Time ${limit + 1} is a relapse.`),
+    limitStep: 'Limit',
+    proofModeLabel: 'How do your friends check you?',
+    proofMode: {
+      SpotCheck: 'Spot check',
+      ProofAtEnd: 'Proof at the end',
+      HonestOnly: 'Honest only',
+    },
+    proofModeHint: {
+      SpotCheck: 'A live photo at a random moment of the day, with three minutes to take it.',
+      ProofAtEnd: 'A photo or screenshot before the period ends, such as your screen time.',
+      HonestOnly: 'Only your word and the relapse rule. There is nothing to vote on.',
+    },
+    templatesLabel: 'Or start from an idea',
+    templates: {
+      alcohol: 'No alcohol',
+      socialMedia: 'No social media after 10 pm',
+      smoking: 'No smoking',
+      fastFood: 'Fast food at most twice a week',
+      sugar: 'No sugar',
+    },
+    used: (uses: number, limit: number) => (limit === 0
+      ? (uses === 0 ? 'Kept so far' : `logged ${uses}×`)
+      : `${uses} of ${limit} used`),
+    run: (days: number) => (days < 0 ? 'From tomorrow' : days === 0 ? 'From today' : days === 1 ? 'For 1 day' : `For ${days} days`),
+    runLabel: 'Without a relapse',
+    log: 'Log',
+    logFor: (title: string) => `Log a use: ${title}`,
+    logWithPhoto: 'With a photo',
+    logWithPhotoFor: (title: string) => `Log a use with a photo: ${title}`,
+    relapseHeading: 'Log this as a relapse?',
+    relapseBody: 'This goes over your limit. It counts as a relapse, not as missed: your streak holds — only the third relapse in a row ends it.',
+    relapseConfirm: 'Log it',
+  },
+
   window: {
     remaining: (remaining: number, required: number) => `${remaining} of ${required} left`,
     dueToday: 'Due today',
     dueBy: (day: string) => `By ${day}`,
     done: 'Kept',
+    kept: 'Held',
     missed: 'Missed',
+    relapse: 'Relapse',
     open: 'Open',
     paused: 'Set aside',
     leftMinutes: (minutes: number) => `${minutes} min left`,
@@ -1351,6 +1469,12 @@ export const en: Messages = {
     event: {
       created: (name: string | null) => (name ? `${name} created it.` : 'You created it.'),
       windowDone: (streak: number) => `Done · streak ${streak}`,
+      windowKept: (streak: number) => `Held · streak ${streak}`,
+      windowRelapse: (streak: number) => (streak > 0 ? `Relapse · streak holds at ${streak}` : 'Relapse'),
+      useLogged: (name: string | null, uses: number, limit: number | null) => {
+        const count = limit === null ? `#${uses}` : uses <= limit ? `${uses} of ${limit}` : 'over the limit'
+        return name ? `${name} logged a use · ${count}` : `You logged a use · ${count}`
+      },
       windowMissed: (confirmed: number, required: number) => (required > 1
         ? `Missed · ${confirmed} of ${required} delivered`
         : 'Missed'),
@@ -1371,6 +1495,8 @@ export const en: Messages = {
       PauseOverturned: 'Pause lifted',
       Completed: 'Completed',
       Stopped: 'Stopped',
+      UseLogged: 'Logged',
+      WindowRelapse: 'Relapse',
     } satisfies Record<GoalEventKind, string>,
 
     openInfo: 'Conversation info',
@@ -1726,6 +1852,7 @@ export const en: Messages = {
     heading: 'Record',
     done: 'done',
     missed: 'missed',
+    relapsed: (count: number) => (count === 1 ? '1 relapse' : `${count} relapses`),
     clean: 'Nothing missed yet.',
     nothingShared: 'You have nothing together yet.',
     nothingSharedHint: 'A record only covers Dos & Don’ts you are both on.',
@@ -1885,6 +2012,8 @@ export const en: Messages = {
     feedbackUnavailable: { icon: 'i-lucide-circle-alert', text: 'Feedback cannot be opened right now' },
     proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Proof delivered — your friends are checking it' },
+    useLogged: { icon: 'i-lucide-check', text: 'Logged' },
+    relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Logged as a relapse' },
   },
 }
 

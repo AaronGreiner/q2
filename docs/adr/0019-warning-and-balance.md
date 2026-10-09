@@ -3,7 +3,9 @@
 **Status:** Accepted — amended by [0024](0024-one-notification-pipeline.md):
 the warning is a line in each friend's bell rather than a row in the feed, and
 the bell carries a count because it no longer opens the feed. The rules for when
-a warning is due, and the balance, stand as written.
+a warning is due, and the balance, stand as written. Amended by
+[0037](0037-donts.md): the balance has a third number, a Don't's relapses,
+which is never added to the misses.
 **Date:** 2026-09-08
 
 ## Context

@@ -44,7 +44,7 @@ public class MigrationTests
             // 3. seed
             var result = await SqliteTestDatabase.CreateSeeder()
                 .SeedAsync(context, SeedProfile.AutomatedTest, replaceExisting: true, TestContext.Current.CancellationToken);
-            Assert.Equal(4, result.GoalsInserted);
+            Assert.Equal(5, result.GoalsInserted);
             Assert.Equal(4, result.PeopleInserted);
         }
 
@@ -100,7 +100,7 @@ public class MigrationTests
             Assert.Single(stored.Instances);
             Assert.Equal(3, stored.Instances[0].RequiredProofs);
             // The seeded world plus the one written above.
-            Assert.Equal(5, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(6, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
         }
 
         Assert.True(database.FileExists);

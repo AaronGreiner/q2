@@ -126,11 +126,21 @@ public static class GoalMaintenance
                 }
 
                 // A window whose vote is still running is not overdue yet: its
-                // proof arrived in time and is simply not decided.
-                if (open.PendingProof is not null || !open.Miss(now))
+                // proof arrived in time and is simply not decided. Expire
+                // misses a Do's window and keeps a Don't's whose limit held.
+                if (open.PendingProof is not null || !open.Expire(now))
                 {
                     // Still running. Nothing more to do until its deadline.
                     break;
+                }
+
+                // A Don't kept for its period counts for the owner's daily
+                // flame on its last day, the way a believed photograph counts
+                // on the day it was believed — even when the run that notices
+                // is a day late.
+                if (open.IsDont && open.Status == GoalInstanceStatus.Done)
+                {
+                    owner?.CheckIn(ids.NewId(), open.DueOn);
                 }
 
                 changed = true;

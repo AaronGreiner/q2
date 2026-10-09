@@ -68,6 +68,7 @@ public enum SeedEntity
     // free conversations E2E navigates to.
     GoalConversation = 19,
     GoalConversationParticipant = 20,
+    DontUse = 21,
 }
 
 /// <summary>

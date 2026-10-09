@@ -206,7 +206,7 @@ public class GoalTests
         Deliver(goal, Today.AddDays(-2));
         Miss(goal, Today.AddDays(-1));
 
-        Assert.Equal((2, 1), goal.Balance);
+        Assert.Equal((2, 1, 0), goal.Balance);
     }
 
     [Fact]

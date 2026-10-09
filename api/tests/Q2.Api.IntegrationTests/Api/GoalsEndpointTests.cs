@@ -81,7 +81,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var goals = await response.ReadAsync<IReadOnlyList<GoalDocument>>();
 
-        Assert.Equal(4, goals.Count);
+        Assert.Equal(5, goals.Count);
         Assert.Equal(
             goals.OrderByDescending(goal => goal.CreatedAt).Select(goal => goal.Id),
             goals.Select(goal => goal.Id));

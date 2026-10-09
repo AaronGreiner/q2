@@ -84,6 +84,16 @@ const hasNothingShared = computed(() => props.sharedGoals === 0)
         </div>
       </dl>
 
+      <!-- A relapse is its own number and never one of the misses
+           (docs/adr/0037-donts.md); only said when there is one. -->
+      <p
+        v-if="balance.relapsed > 0"
+        class="mt-1.5 text-[12px] font-semibold text-(--ui-text-muted)"
+        data-testid="balance-relapsed"
+      >
+        {{ t.balance.relapsed(balance.relapsed) }}
+      </p>
+
       <p
         v-if="balance.missed === 0"
         class="mt-1.5 text-[12px] font-semibold text-(--ui-text-dimmed)"

@@ -110,9 +110,11 @@ public sealed class ChatService(
             // must not lift a conversation to the top of the list either
             // ("kein Nachtreten", see ActivityKind). The row falls back to what
             // came before it; the owner's row says what is due next instead.
+            // A Don't's relapse and its logged uses are held back the same way:
+            // owning up must not be what tops everybody's list.
             var lastEvent = goal is null
                 ? null
-                : GoalTimeline.For(goal, now).LastOrDefault(entry => entry.Kind != GoalEventKind.WindowMissed);
+                : GoalTimeline.For(goal, now).LastOrDefault(entry => entry.Kind is not (GoalEventKind.WindowMissed or GoalEventKind.WindowRelapse or GoalEventKind.UseLogged));
             var eventIsNewest = lastEvent is not null && (last is null || lastEvent.At > last.SentAt);
             var message = eventIsNewest ? null : last;
 
@@ -637,7 +639,7 @@ public sealed class ChatService(
                 : new ChatPinnedGoalResponse(
                     goal.Id,
                     goal.Title,
-                    goal.CurrentInstance is { } window ? GoalInstanceResponse.From(window) : null,
+                    (goal.CurrentInstance ?? goal.RelapsedInstanceAt(now)) is { } window ? GoalInstanceResponse.From(window) : null,
                     goal.Streak,
                     goal.ActivePauseAt(now)?.EndsOn,
                     goal.OwnerPersonId == meId),
@@ -659,7 +661,10 @@ public sealed class ChatService(
                         entry.RequiredProofs,
                         entry.Until,
                         entry.Proof is { } proof ? ProofService.Describe(goal, proof, meId, proofPeople, now) : null,
-                        entry.Day)),
+                        entry.Day,
+                        entry.Uses,
+                        entry.Limit,
+                        entry.ImageId)),
                 ],
 
             // The reader first, then everybody else by name — the order a
@@ -810,6 +815,8 @@ public sealed class ChatService(
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.UseLog)
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Reactions)

@@ -29,6 +29,19 @@ public enum GoalInstanceStatus
     /// about it was resolved.
     /// </remarks>
     Paused,
+
+    /// <summary>
+    /// A Don't's limit was broken, and its owner said so themselves.
+    /// </summary>
+    /// <remarks>
+    /// Its own outcome rather than <see cref="Missed"/>, because honesty about
+    /// a slip must not cost what being caught costs: the streak holds (it
+    /// neither grows nor ends) and the balance counts it on its own — until the
+    /// third in a row, which ends the streak like a miss (see
+    /// <see cref="Goal.Streak"/>). Being caught by a refused or missed check
+    /// is <see cref="Missed"/>, never this (docs/adr/0037-donts.md).
+    /// </remarks>
+    Relapse,
 }
 
 /// <summary>
@@ -55,6 +68,7 @@ public enum GoalInstanceStatus
 public sealed class GoalInstance
 {
     private readonly List<ProofPhoto> _proofs = [];
+    private readonly List<DontUse> _useLog = [];
 
     // EF Core materialisation only.
     private GoalInstance()
@@ -68,7 +82,8 @@ public sealed class GoalInstance
         DateOnly dueOn,
         DateTimeOffset startsAt,
         DateTimeOffset dueAt,
-        int requiredProofs)
+        int requiredProofs,
+        int? limit)
     {
         Id = id;
         GoalId = goalId;
@@ -77,6 +92,7 @@ public sealed class GoalInstance
         StartsAt = startsAt;
         DueAt = dueAt;
         RequiredProofs = requiredProofs;
+        Limit = limit;
     }
 
     public Guid Id { get; private set; }
@@ -101,8 +117,30 @@ public sealed class GoalInstance
     /// <summary>The deadline: the last instant of <see cref="DueOn"/>.</summary>
     public DateTimeOffset DueAt { get; private set; }
 
-    /// <summary>How many proofs this window takes. At least one.</summary>
+    /// <summary>
+    /// How many proofs this window takes. At least one for a Do; none or one
+    /// for a Don't, depending on its proof mode.
+    /// </summary>
     public int RequiredProofs { get; private set; }
+
+    /// <summary>
+    /// For a Don't: how many uses this window allows, 0 for "never". Null for
+    /// a Do's window, which is what tells the two apart.
+    /// </summary>
+    /// <remarks>
+    /// Copied from the goal when the window opens, like the deadline, so the
+    /// history keeps the limit each window was actually held to.
+    /// </remarks>
+    public int? Limit { get; private set; }
+
+    /// <summary>True for a Don't's window.</summary>
+    public bool IsDont => Limit is not null;
+
+    /// <summary>Every use logged into this window, the ones past a relapse included.</summary>
+    public IReadOnlyList<DontUse> UseLog => _useLog;
+
+    /// <summary>How many uses were logged.</summary>
+    public int Uses => _useLog.Count;
 
     /// <summary>How many have been delivered so far.</summary>
     public int ConfirmedProofs { get; private set; }
@@ -163,13 +201,21 @@ public sealed class GoalInstance
         Guid goalId,
         GoalWindow window,
         DateTimeOffset startsAt,
-        DateTimeOffset dueAt)
+        DateTimeOffset dueAt,
+        int? limit = null)
     {
-        if (window.RequiredProofs < 1)
+        // A Do is kept by photographs, so it needs at least one. A Don't is
+        // kept by its limit holding, and may need none.
+        if (window.RequiredProofs < (limit is null ? 1 : 0))
         {
             throw new DomainValidationException(
                 nameof(RequiredProofs),
                 "A window has to require at least one proof.");
+        }
+
+        if (limit is < 0)
+        {
+            throw new DomainValidationException(nameof(Limit), "A limit cannot be negative.");
         }
 
         if (dueAt < startsAt)
@@ -177,7 +223,7 @@ public sealed class GoalInstance
             throw new DomainValidationException(nameof(DueAt), "A window cannot end before it starts.");
         }
 
-        return new GoalInstance(id, goalId, window.Start, window.End, startsAt, dueAt, window.RequiredProofs);
+        return new GoalInstance(id, goalId, window.Start, window.End, startsAt, dueAt, window.RequiredProofs, limit);
     }
 
     /// <summary>
@@ -258,12 +304,77 @@ public sealed class GoalInstance
 
         ConfirmedProofs++;
 
-        if (ConfirmedProofs >= RequiredProofs)
+        // A Don't's photograph does not end its window: the period still has
+        // to run out with the limit respected, and a use logged after the
+        // photograph was believed is still a relapse. Expire decides it.
+        if (ConfirmedProofs >= RequiredProofs && !IsDont)
         {
             Status = GoalInstanceStatus.Done;
             ResolvedAt = now;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Logs one use into a Don't's window. Returns the use, or null when this
+    /// window is not taking one.
+    /// </summary>
+    /// <remarks>
+    /// Taken while the window runs, and also after it has relapsed: a relapse
+    /// closes the window at once (the rest of the period cannot change the
+    /// outcome), but somebody honest enough to keep logging should be able
+    /// to, and each use is still a line in the conversation.
+    ///
+    /// The use that goes over the limit makes the window a
+    /// <see cref="GoalInstanceStatus.Relapse"/>, on the spot. A photograph
+    /// still being voted on is left to its vote, which then has nothing left
+    /// to decide on the window.
+    /// </remarks>
+    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now)
+    {
+        if (!IsDont
+            || Status is not (GoalInstanceStatus.Open or GoalInstanceStatus.Relapse)
+            || now < StartsAt
+            || now > DueAt)
+        {
+            return null;
+        }
+
+        var use = new DontUse(id, Id, imageId, now);
+        _useLog.Add(use);
+
+        if (Status == GoalInstanceStatus.Open && Uses > Limit)
+        {
+            Status = GoalInstanceStatus.Relapse;
+            ResolvedAt = now;
+        }
+
+        return use;
+    }
+
+    /// <summary>
+    /// Settles a window whose deadline has passed. Returns false when it was
+    /// not over, already settled, or still waiting for a vote.
+    /// </summary>
+    /// <remarks>
+    /// A Do's window that runs out is missed: something was still owed. A
+    /// Don't's window that runs out has held its limit — every use over it
+    /// would have made it a relapse already — so it is kept, unless its proof
+    /// mode asked for a photograph that was never believed. Idempotent, like
+    /// <see cref="Miss"/>.
+    /// </remarks>
+    public bool Expire(DateTimeOffset now)
+    {
+        if (Status != GoalInstanceStatus.Open || now <= DueAt || PendingProof is not null)
+        {
+            return false;
+        }
+
+        Status = IsDont && ConfirmedProofs >= RequiredProofs
+            ? GoalInstanceStatus.Done
+            : GoalInstanceStatus.Missed;
+        ResolvedAt = now;
         return true;
     }
 

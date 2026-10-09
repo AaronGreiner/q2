@@ -231,9 +231,39 @@ export function scheduleLabel(schedule: GoalSchedule, t: Messages): string {
     case 'Times':
       return t.schedule.timesPer(schedule.times ?? 1, t.schedule.period[schedule.period ?? 'Week'])
 
+    // A Don't's period says nothing without its limit; goalScheduleLabel
+    // puts the two together.
+    case 'Limit':
+      return t.schedule.period[schedule.period ?? 'Day']
+
     default:
       return ''
   }
+}
+
+/**
+ * How often a goal is due, or for a Don't how often it is allowed: "Jeden
+ * Tag", "3× pro Woche", "Höchstens 3× pro Woche", "Nie".
+ */
+export function goalScheduleLabel(goal: Pick<Goal, 'kind' | 'limit' | 'schedule'>, t: Messages): string {
+  if (goal.kind !== 'Dont') return scheduleLabel(goal.schedule, t)
+
+  return t.dont.limit(goal.limit ?? 0, t.schedule.period[goal.schedule.period ?? 'Day'])
+}
+
+/**
+ * Whole days a Don't has gone without a relapse, from the first day of its
+ * clean run to today — "seit 12 Tagen". Both days are local dates
+ * (`YYYY-MM-DD`); the run's is the owner's, today's the reader's.
+ */
+export function runDays(runStartedOn: string, today: string): number {
+  const start = Date.parse(`${runStartedOn}T00:00:00Z`)
+  const end = Date.parse(`${today}T00:00:00Z`)
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0
+
+  // -1 on the day of a relapse, whose run starts tomorrow: "Ab morgen" rather
+  // than a day that has already been broken.
+  return Math.max(-1, Math.round((end - start) / 86_400_000))
 }
 
 /** The sentence under the picker, which says what the choice actually means. */
@@ -288,6 +318,12 @@ const weekdayOrder: readonly Weekday[] = [
  * proof is the whole of it, because "noch 1 von 1" says nothing.
  */
 export function windowLabel(window: GoalWindow, t: Messages): string {
+  // A Don't's window is about its uses, not its proofs: "1 von 3 genutzt",
+  // "Bisher durchgehalten", or the relapse that decided it.
+  if (window.limit !== null && window.limit !== undefined) {
+    return window.status === 'Relapse' ? t.window.relapse : t.dont.used(window.uses, window.limit)
+  }
+
   if (window.requiredProofs > 1) {
     return t.window.remaining(window.remainingProofs, window.requiredProofs)
   }
@@ -384,11 +420,19 @@ export function windowPercent(window: GoalWindow): number {
 
 /** The word for what became of a window, and the icon that goes with it. */
 export function windowOutcome(window: GoalWindow, t: Messages): StatusPresentation {
+  const isDont = window.limit !== null && window.limit !== undefined
+
   switch (window.status) {
     case 'Done':
-      return { label: t.window.done, color: 'success', icon: 'i-lucide-check' }
+      return isDont
+        ? { label: t.window.kept, color: 'success', icon: 'i-lucide-shield-check' }
+        : { label: t.window.done, color: 'success', icon: 'i-lucide-check' }
     case 'Missed':
       return { label: t.window.missed, color: 'neutral', icon: 'i-lucide-x' }
+    // Owned up to, which is not the same as caught: its own word and icon,
+    // grey like a miss and never red (ADR 0015).
+    case 'Relapse':
+      return { label: t.window.relapse, color: 'neutral', icon: 'i-lucide-rotate-ccw' }
     // A pause is not a result, so it gets the quietest treatment there is:
     // grey, and a word that says nothing happened rather than that it failed.
     case 'Paused':
@@ -449,7 +493,9 @@ export function byDeadline(goals: readonly Goal[]): Goal[] {
  * first and takes a photograph right now. Null when there is nothing to do.
  */
 export function nextUp(goals: readonly Goal[]): Goal | null {
-  return byDeadline(goals).find(goal => goal.current?.acceptsProof && isStillOpen(goal)) ?? null
+  // Not a Don't: its photograph, if it takes one, belongs to the end of the
+  // period, and a card saying "next" all day long would ask for it too early.
+  return byDeadline(goals).find(goal => goal.kind !== 'Dont' && goal.current?.acceptsProof && isStillOpen(goal)) ?? null
 }
 
 /**

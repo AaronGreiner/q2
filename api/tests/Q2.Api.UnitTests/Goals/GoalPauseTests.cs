@@ -54,7 +54,7 @@ public class GoalPauseTests
 
         goal.RequestPause(Guid.CreateVersion7(), Reason, 2, Today, Utc.EndOfDay, Noon);
 
-        Assert.Equal((2, 0), goal.Balance);
+        Assert.Equal((2, 0, 0), goal.Balance);
         Assert.Equal(2, goal.Streak);
     }
 

@@ -26,6 +26,10 @@ const route = useRoute()
 const router = useRouter()
 const t = useMessages()
 const now = useNow()
+const zone = useTimeZoneOffset()
+
+/** The reader's day, for a Don't's "seit X Tagen". */
+const today = computed(() => localDay(now.value, zone.value))
 
 const tab = computed<Tab>({
   get: () => (route.query.tab === 'all' || route.query.tab === 'goals' ? 'all' : 'today'),
@@ -56,6 +60,12 @@ const dueSorted = computed(() => byDeadline(due.value))
 // is the server's rule too.
 const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isLogging, logUse } = useDontUse()
+
+/** One tap from the row; the row has changed either way, so read it again. */
+async function onLog(goalId: string) {
+  if (await logUse(goalId)) await refresh()
+}
 
 /** Which goal the camera is open for — one camera per screen, never per row. */
 const deliveringFor = ref<string | null>(null)
@@ -152,14 +162,25 @@ useHead({ title: () => t.value.goals.heading })
             class="flex flex-col gap-2.5"
             data-testid="due-list"
           >
-            <GoalWindowRow
+            <template
               v-for="goal in dueSorted"
               :key="goal.id"
-              :goal="goal"
-              :now="now"
-              :busy="isDelivering"
-              @deliver="deliveringFor = $event"
-            />
+            >
+              <DontWindowRow
+                v-if="goal.kind === 'Dont'"
+                :goal="goal"
+                :busy="isDelivering || isLogging"
+                @deliver="deliveringFor = $event"
+                @log="onLog"
+              />
+              <GoalWindowRow
+                v-else
+                :goal="goal"
+                :now="now"
+                :busy="isDelivering"
+                @deliver="deliveringFor = $event"
+              />
+            </template>
           </div>
 
           <AppStateMessage
@@ -191,7 +212,10 @@ useHead({ title: () => t.value.goals.heading })
               v-for="goal in goals"
               :key="goal.id"
             >
-              <GoalCard :goal="goal" />
+              <GoalCard
+                :goal="goal"
+                :today="today"
+              />
             </li>
           </ul>
 

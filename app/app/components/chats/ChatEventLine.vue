@@ -11,6 +11,10 @@ import type { GoalEvent } from '~/api/types'
  * flame means everywhere in q2 — the streak it brought the goal to. A missed
  * window is stated and nothing more; there is no red and no surface to react
  * on, so there is nothing to rub it in with.
+ *
+ * A Don't's logged use and its relapse are lines like these, never messages
+ * (docs/adr/0037-donts.md). A use may bring a photograph, which sits in the
+ * line as a thumbnail and opens full size; nobody votes on it.
  */
 const props = defineProps<{ event: GoalEvent }>()
 
@@ -18,6 +22,14 @@ const t = useMessages()
 
 const text = computed(() => goalEventText(props.event, t.value))
 const icon = computed(() => goalEventIcon(props.event.kind))
+
+const picture = useImageSource(() => props.event.imageId ?? null)
+const viewer = usePhotoViewer()
+
+function enlarge() {
+  if (!props.event.imageId) return
+  viewer.open({ imageId: props.event.imageId, title: text.value })
+}
 </script>
 
 <template>
@@ -37,6 +49,23 @@ const icon = computed(() => goalEventIcon(props.event.kind))
         aria-hidden="true"
       />
       <span>{{ text }}</span>
+
+      <button
+        v-if="event.imageId && picture"
+        type="button"
+        class="-my-1 -me-1.5 size-7 shrink-0 overflow-hidden rounded-full focus-visible:outline-2 focus-visible:outline-(--ui-primary)"
+        :aria-label="t.proof.enlarge"
+        data-testid="chat-event-photo"
+        data-q2-block
+        @click="enlarge"
+      >
+        <img
+          crossorigin="use-credentials"
+          :src="picture"
+          alt=""
+          class="size-full object-cover"
+        >
+      </button>
     </p>
   </li>
 </template>

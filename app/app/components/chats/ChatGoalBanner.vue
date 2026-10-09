@@ -7,9 +7,23 @@ import type { ChatPinnedGoal } from '~/api/types'
  * This is the point of the whole chat feature: the conversation and the thing
  * it is about, in one place, with the encouragement one tap away.
  */
-defineProps<{ goal: ChatPinnedGoal }>()
+const props = withDefaults(defineProps<{
+  goal: ChatPinnedGoal
+  /** While a use is being logged, so the button cannot be pressed twice. */
+  logging?: boolean
+}>(), {
+  logging: false,
+})
 
-const emit = defineEmits<{ cheer: [] }>()
+const emit = defineEmits<{ cheer: [], log: [] }>()
+
+/**
+ * A Don't's owner can log a use from its conversation too — one of the three
+ * places the issue names. A window with a limit is a Don't's.
+ */
+const canLog = computed(() =>
+  props.goal.isMine && props.goal.current !== null && props.goal.current !== undefined
+  && props.goal.current.limit !== null && props.goal.current.limit !== undefined)
 
 const t = useMessages()
 </script>
@@ -74,9 +88,23 @@ const t = useMessages()
       :label="windowLabel(goal.current, t)"
     />
 
+    <!-- A grid, so the button fills the row without being told to. -->
+    <div
+      v-if="canLog && goal.current"
+      class="mt-3 grid"
+    >
+      <DontLogButton
+        :window="goal.current"
+        :title="goal.title"
+        :busy="logging"
+        @log="emit('log')"
+      />
+    </div>
+
     <!-- An outline, not a filled accent: the one filled control on this screen
          is the send button, and two of them would make neither loud. -->
     <UButton
+      v-if="!canLog"
       class="mt-3 min-h-11 w-full justify-center font-extrabold"
       icon="i-lucide-megaphone"
       size="lg"

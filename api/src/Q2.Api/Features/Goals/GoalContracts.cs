@@ -12,7 +12,7 @@ namespace Q2.Api.Features.Goals;
 /// <param name="EveryDays">Interval only. 1 is "every day".</param>
 /// <param name="Weekdays">Weekdays only, ascending, Monday is 1.</param>
 /// <param name="Times">Times only: how many per period.</param>
-/// <param name="Period">Times only.</param>
+/// <param name="Period">Times and Limit: the period counted over.</param>
 public sealed record GoalScheduleResponse(
     ScheduleKind Kind,
     int? EveryDays,
@@ -51,6 +51,8 @@ public sealed record GoalScheduleResponse(
 /// rule involves the attempt count and the pending vote as well as the quota —
 /// and a client that got it wrong would offer a camera whose upload is refused.
 /// </param>
+/// <param name="Limit">For a Don't's window: how many uses it allows. Null for a Do.</param>
+/// <param name="Uses">For a Don't's window: how many were logged. 0 for a Do.</param>
 public sealed record GoalInstanceResponse(
     Guid Id,
     DateOnly StartsOn,
@@ -61,7 +63,9 @@ public sealed record GoalInstanceResponse(
     int RemainingProofs,
     GoalInstanceStatus Status,
     Guid? PendingProofId,
-    bool AcceptsProof)
+    bool AcceptsProof,
+    int? Limit,
+    int Uses)
 {
     public static GoalInstanceResponse From(GoalInstance instance) => new(
         instance.Id,
@@ -73,7 +77,9 @@ public sealed record GoalInstanceResponse(
         instance.RemainingProofs,
         instance.Status,
         instance.PendingProof?.Id,
-        instance.AcceptsProof);
+        instance.AcceptsProof,
+        instance.Limit,
+        instance.Uses);
 }
 
 /// <summary>
@@ -81,9 +87,20 @@ public sealed record GoalInstanceResponse(
 /// this type is the contract, and it may only change together with the OpenAPI
 /// document and the generated frontend types.
 /// </summary>
+/// <param name="Kind">Something to do, or something to stop doing.</param>
+/// <param name="Limit">For a Don't: the most uses per period, 0 for "never".</param>
+/// <param name="ProofMode">For a Don't: what its friends get to judge.</param>
 /// <param name="Current">
 /// The window that is open now, if there is one. Null for a goal that is
-/// finished or archived.
+/// finished or archived. For a Don't that relapsed this period it is that
+/// window, decided, until the period is over — "this week" is still the week
+/// of the relapse.
+/// </param>
+/// <param name="WindowsRelapsed">Don't windows that ended in a relapse; never counted as missed.</param>
+/// <param name="RunStartedOn">
+/// For a Don't: the first local day of its current clean run, in the owner's
+/// zone — what "seit X Tagen" counts from. Null for a Do, and when the owner's
+/// calendar was not at hand.
 /// </param>
 /// <param name="Streak">
 /// Consecutive delivered windows, derived server-side from the windows
@@ -128,10 +145,15 @@ public sealed record GoalResponse(
     GoalScheduleResponse Schedule,
     GoalStatus Status,
     bool IsGroup,
+    GoalKind Kind,
+    int? Limit,
+    DontProofMode? ProofMode,
     GoalInstanceResponse? Current,
     int Streak,
     int WindowsDone,
     int WindowsMissed,
+    int WindowsRelapsed,
+    DateOnly? RunStartedOn,
     TimeOnly? ReminderAt,
     DateOnly? TargetDate,
     DateTimeOffset CreatedAt,
@@ -150,8 +172,9 @@ public sealed record GoalResponse(
         DateTimeOffset now,
         LocalCalendar? ownerCalendar = null)
     {
-        var (done, missed) = goal.Balance;
+        var (done, missed, relapsed) = goal.Balance;
         var isMine = goal.OwnerPersonId == viewerId;
+        var current = goal.CurrentInstance ?? goal.RelapsedInstanceAt(now);
 
         return new GoalResponse(
             goal.Id,
@@ -161,10 +184,15 @@ public sealed record GoalResponse(
             GoalScheduleResponse.From(goal.Schedule),
             goal.Status,
             goal.IsGroup,
-            goal.CurrentInstance is { } current ? GoalInstanceResponse.From(current) : null,
+            goal.Kind,
+            goal.Limit,
+            goal.ProofMode,
+            current is null ? null : GoalInstanceResponse.From(current),
             goal.Streak,
             done,
             missed,
+            relapsed,
+            ownerCalendar is null ? null : goal.RunStartedOn(ownerCalendar.DayOf),
             goal.ReminderAt,
             goal.TargetDate,
             goal.CreatedAt,
@@ -317,6 +345,10 @@ public sealed record DaySummaryResponse(int Done, int Total, int Percent)
 /// model-binding failure. <see cref="GoalRequestValidators"/> turns it into a
 /// real <see cref="GoalSchedule"/>, which is where the invariants are.
 /// </remarks>
+/// <param name="Period">
+/// For <see cref="ScheduleKind.Times"/>, a week or a month; for
+/// <see cref="ScheduleKind.Limit"/>, a day, week or month.
+/// </param>
 public sealed record GoalScheduleRequest(
     ScheduleKind? Kind = null,
     int? EveryDays = null,
@@ -356,6 +388,9 @@ public sealed record SetReminderRequest(TimeOnly? ReminderAt = null);
 /// <summary>
 /// Request body for creating a goal.
 /// </summary>
+/// <param name="Kind">Do when left out, which is every goal made before Don'ts.</param>
+/// <param name="Limit">A Don't only: the most uses per period, 0 for "never".</param>
+/// <param name="ProofMode">A Don't only: what its friends get to judge.</param>
 /// <remarks>
 /// Every property is nullable on purpose: a missing title should produce our
 /// own field-level validation message, not a model-binding failure.
@@ -368,4 +403,11 @@ public sealed record CreateGoalRequest(
     bool? IsGroup = null,
     TimeOnly? ReminderAt = null,
     DateOnly? TargetDate = null,
-    IReadOnlyList<Guid>? ParticipantIds = null);
+    IReadOnlyList<Guid>? ParticipantIds = null,
+    GoalKind? Kind = null,
+    int? Limit = null,
+    DontProofMode? ProofMode = null);
+
+/// <summary>Request body for logging one use of a Don't.</summary>
+/// <param name="ImageId">An optional photograph, uploaded as a proof image first.</param>
+public sealed record LogUseRequest(Guid? ImageId = null);

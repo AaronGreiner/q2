@@ -36,7 +36,7 @@ function askToDelete(goal: Goal) {
 }
 
 function closedLabel(goal: Goal): string {
-  if (!goal.closedAt) return scheduleLabel(goal.schedule, t.value)
+  if (!goal.closedAt) return goalScheduleLabel(goal, t.value)
 
   const day = formatInstantDate(goal.closedAt)
 

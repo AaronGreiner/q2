@@ -49,6 +49,13 @@ export type DeliveredProof = Schemas['DeliveredProofResponse']
 export type OwnProof = Schemas['OwnProofResponse']
 export type ProofStatus = Schemas['ProofStatus']
 export type ProofSource = Schemas['ProofSource']
+export type GoalKind = Schemas['GoalKind']
+/*
+ * Without the null the generator folds in, because the enum is only ever
+ * nullable where a Do has none: a Don't always has one.
+ */
+export type DontProofMode = NonNullable<Schemas['DontProofMode']>
+export type LogUseRequest = Schemas['LogUseRequest']
 export type VoteSummary = Schemas['VoteSummaryResponse']
 export type ReactionSummary = Schemas['ReactionSummaryResponse']
 /*
@@ -209,6 +216,15 @@ export const reportNoteLimit = 500
 
 /** The two periods a quota can be counted over. */
 export const quotaPeriods: readonly QuotaPeriod[] = ['Week', 'Month'] as const
+
+/** The three periods a Don't's limit can be counted over (docs/adr/0037-donts.md). */
+export const limitPeriods: readonly QuotaPeriod[] = ['Day', 'Week', 'Month'] as const
+
+/** How a Don't's friends can check it, in the order the create sheet offers them. */
+export const dontProofModes: readonly DontProofMode[] = ['SpotCheck', 'ProofAtEnd', 'HonestOnly'] as const
+
+/** The most uses per period a Don't may allow. Mirrors `Goal.MaxLimit`. */
+export const maxLimit = 100
 
 /**
  * The intervals the create sheet offers, in days.

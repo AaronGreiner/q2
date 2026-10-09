@@ -415,6 +415,27 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("MessageReactions", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.DontUse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LoggedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalInstanceId");
+
+                    b.ToTable("DontUses", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -438,7 +459,19 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsGroup")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Limit")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProofMode")
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
                     b.Property<TimeOnly?>("ReminderAt")
@@ -484,6 +517,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("GoalId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("Limit")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RequiredProofs")
                         .HasColumnType("INTEGER");
@@ -1232,6 +1268,15 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.DontUse", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalInstance", null)
+                        .WithMany("UseLog")
+                        .HasForeignKey("GoalInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
@@ -1491,6 +1536,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.Navigation("Proofs");
+
+                    b.Navigation("UseLog");
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>
