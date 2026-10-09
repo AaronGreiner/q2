@@ -298,6 +298,30 @@ describe('PhotoCapture, when the sheet opens', () => {
   })
 
   /**
+   * For a proof both routes are real choices (#61): the camera, and a
+   * screenshot for what only shows on a screen. Elsewhere the picker is just a
+   * picture.
+   */
+  it('offers a proof\'s second route as a screenshot, and any other picture as a picture', async () => {
+    installCamera({ getTracks: () => [] })
+
+    const proof = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', labelsSource: true, open: false } })
+    await proof.setProps({ open: true })
+
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="photo-choose"]')?.getAttribute('aria-label')).toBe('Screenshot auswählen')
+    expect(document.querySelector('[data-testid="photo-screen"]')?.textContent).toContain('Screenshot')
+    proof.unmount()
+
+    const avatar = await mountSuspended(PhotoCapture, { props: { purpose: 'Avatar', open: false } })
+    await avatar.setProps({ open: true })
+
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="photo-choose"]')?.getAttribute('aria-label')).toBe('Bild auswählen')
+    avatar.unmount()
+  })
+
+  /**
    * A refused permission is the person's answer, not a defect: no issue, just
    * the other route, and a sentence saying why.
    */

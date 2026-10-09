@@ -4724,6 +4724,7 @@
           "id",
           "imageId",
           "status",
+          "source",
           "createdAt",
           "goalId",
           "goalTitle",
@@ -4741,6 +4742,9 @@
           },
           "status": {
             "$ref": "#/components/schemas/ProofStatus"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProofSource"
           },
           "createdAt": {
             "type": "string",
@@ -4964,7 +4968,7 @@
           "status",
           "attempt",
           "attemptsLeft",
-          "capturedInApp",
+          "source",
           "createdAt",
           "expiresAt",
           "votes",
@@ -5002,8 +5006,8 @@
             "type": "integer",
             "format": "int32"
           },
-          "capturedInApp": {
-            "type": "boolean"
+          "source": {
+            "$ref": "#/components/schemas/ProofSource"
           },
           "createdAt": {
             "type": "string",
@@ -5023,6 +5027,13 @@
             }
           }
         }
+      },
+      "ProofSource": {
+        "enum": [
+          "Unknown",
+          "Live",
+          "Screenshot"
+        ]
       },
       "ProofStatus": {
         "enum": [
@@ -5346,9 +5357,17 @@
             "format": "uuid",
             "nullable": true
           },
-          "capturedInApp": {
-            "type": "boolean",
-            "default": false
+          "source": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ProofSource"
+              }
+            ]
           }
         }
       },

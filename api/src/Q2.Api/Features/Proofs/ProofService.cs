@@ -84,7 +84,7 @@ public sealed class ProofService(
         // whose deadline passed while the screen was open.
         await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
 
-        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.CapturedInApp, now)
+        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.Source ?? ProofSource.Unknown, now)
             ?? throw new DomainValidationException(
                 "Proof",
                 "This window is not taking a photograph right now.");
@@ -381,6 +381,7 @@ public sealed class ProofService(
                 row.Proof.Id,
                 row.Proof.ImageId,
                 row.Proof.Status,
+                row.Proof.Source,
                 row.Proof.CreatedAt,
                 row.Goal.Id,
                 row.Goal.Title,
@@ -585,7 +586,7 @@ public sealed class ProofService(
             proof.Status,
             proof.Attempt,
             Math.Max(0, ProofVoting.MaxAttempts - proof.Attempt),
-            proof.CapturedInApp,
+            proof.Source,
             proof.CreatedAt,
             proof.VotingDeadline,
             votes,

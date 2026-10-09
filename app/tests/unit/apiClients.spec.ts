@@ -153,7 +153,7 @@ describe('the API modules', () => {
   it('maps every proof action, including the route that still reads as a goal', async () => {
     const api = createProofsApi(caller)
 
-    await api.submit('goal/two', 'image-1', true)
+    await api.submit('goal/two', 'image-1', 'Screenshot')
     await api.get('proof/one')
     await api.pending()
     await api.mine()
@@ -161,7 +161,7 @@ describe('the API modules', () => {
     await api.react('proof/one', 'Fire')
 
     expect(call.mock.calls).toEqual([
-      ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', capturedInApp: true } }],
+      ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', source: 'Screenshot' } }],
       ['/api/proofs/proof%2Fone', { method: 'GET' }],
       ['/api/proofs/pending', { method: 'GET' }],
       ['/api/proofs/mine', { method: 'GET' }],

@@ -1,4 +1,5 @@
 using Q2.Api.Features.Proofs;
+using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.UnitTests.Proofs;
 
@@ -14,7 +15,7 @@ public sealed class ProofPhotoTests
     private static readonly Guid Friend = Guid.CreateVersion7();
 
     private static ProofPhoto Delivered() =>
-        ProofPhoto.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), Owner, Guid.CreateVersion7(), 1, true, Now);
+        ProofPhoto.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), Owner, Guid.CreateVersion7(), 1, ProofSource.Live, Now);
 
     [Fact]
     public void ASecondVoteReplacesTheFirstRatherThanCountingTwice()
@@ -44,5 +45,23 @@ public sealed class ProofPhotoTests
 
         Assert.False(proof.CastVote(Guid.CreateVersion7(), Friend, VoteValue.Doubt, Now));
         Assert.Equal(VoteValue.Confirm, proof.VoteOf(Friend));
+    }
+
+    [Theory]
+    [InlineData(ProofSource.Live)]
+    [InlineData(ProofSource.Screenshot)]
+    [InlineData(ProofSource.Unknown)]
+    public void TheRouteAPictureCameByIsKeptAsGiven(ProofSource source)
+    {
+        var proof = ProofPhoto.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), Owner, Guid.CreateVersion7(), 1, source, Now);
+
+        Assert.Equal(source, proof.Source);
+    }
+
+    [Fact]
+    public void ARouteThatDoesNotExistIsRefused()
+    {
+        Assert.Throws<DomainValidationException>(() =>
+            ProofPhoto.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), Owner, Guid.CreateVersion7(), 1, (ProofSource)42, Now));
     }
 }

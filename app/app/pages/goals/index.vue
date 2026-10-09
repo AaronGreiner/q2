@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CreateGoalRequest, Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * The Dos tab — "Dos & Don'ts" on the screen: what is on today, and all of
@@ -60,11 +61,11 @@ const { isDelivering, deliver, maxEdge } = useProofDelivery()
 const deliveringFor = ref<string | null>(null)
 
 /** The same hand-in as the start screen's — see pages/index.vue. */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -233,6 +234,7 @@ useHead({ title: () => t.value.goals.heading })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"

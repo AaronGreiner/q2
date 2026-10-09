@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * The start screen.
@@ -42,11 +43,11 @@ const deliveringFor = ref<string | null>(null)
  * (see useProofDelivery). A shared goal moves on to its conversation; anything
  * else stays here and reads the screen again, because the row has changed.
  */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -329,6 +330,7 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"

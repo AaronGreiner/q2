@@ -130,6 +130,7 @@ Current components, by folder:
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
+| `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
 | `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `SettingsSection` `SettingsToggleRow` | the settings list |

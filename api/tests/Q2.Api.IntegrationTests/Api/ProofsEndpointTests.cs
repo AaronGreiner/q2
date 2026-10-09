@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Q2.Api.Features.Goals;
@@ -426,10 +427,82 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Empty(await MineAsync(Client));
     }
 
+    /// <summary>
+    /// A screenshot is labelled as one wherever it is shown, so the source has
+    /// to come back from every read that shows a photograph — the friend's and
+    /// the owner's gallery alike.
+    /// </summary>
+    [Fact]
+    public async Task AScreenshotIsStoredAndComesBackAsOneEverywhere()
+    {
+        var delivered = await (await Client.DeliverProofAsync(AutomatedTestSeed.ActiveGoalId, ProofSource.Screenshot))
+            .ReadAsync<DeliveredProofDocument>();
+
+        Assert.Equal(ProofSource.Screenshot, delivered.Proof.Source);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var seen = await (await friend.GetAsync(
+            $"/api/proofs/{delivered.Proof.Id}",
+            TestContext.Current.CancellationToken)).ReadAsync<ProofDocument>();
+
+        Assert.Equal(ProofSource.Screenshot, seen.Source);
+        Assert.Equal(ProofSource.Screenshot, Assert.Single(await PendingAsync(friend)).Proof.Source);
+        Assert.Equal(ProofSource.Screenshot, Assert.Single(await MineAsync(Client)).Source);
+    }
+
+    /// <summary>
+    /// Builds installed before #61 send <c>capturedInApp: true</c> for every
+    /// picture, gallery or not. Believing it would label a screenshot "Live",
+    /// so a delivery that does not name its source is stored as unknown.
+    /// </summary>
+    [Fact]
+    public async Task ADeliveryThatDoesNotNameItsSourceIsStoredAsUnknown()
+    {
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/proof",
+            new { imageId = await Client.UploadProofImageAsync(), capturedInApp = true });
+
+        var delivered = await response.ReadAsync<DeliveredProofDocument>();
+
+        Assert.Equal(ProofSource.Unknown, delivered.Proof.Source);
+    }
+
+    /// <summary>
+    /// What a friend voted on has to stay what it was: the source is set at the
+    /// upload, survives the vote, and no endpoint writes to a photograph.
+    /// </summary>
+    [Fact]
+    public async Task TheSourceCannotBeChangedAfterTheUpload()
+    {
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).EnsureSuccessStatusCode();
+
+        foreach (var method in new[] { HttpMethod.Put, HttpMethod.Patch })
+        {
+            using var request = new HttpRequestMessage(method, $"/api/proofs/{proof.Id}")
+            {
+                Content = JsonContent.Create(new { source = ProofSource.Screenshot }),
+            };
+
+            var attempt = await Client.SendAsync(request, TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, attempt.StatusCode);
+        }
+
+        var after = await (await Client.GetAsync(
+            $"/api/proofs/{proof.Id}",
+            TestContext.Current.CancellationToken)).ReadAsync<ProofDocument>();
+
+        Assert.Equal(ProofSource.Live, after.Source);
+    }
+
     private sealed record OwnProofDocument(
         Guid Id,
         Guid ImageId,
         ProofStatus Status,
+        ProofSource Source,
         DateTimeOffset CreatedAt,
         Guid GoalId,
         string GoalTitle,

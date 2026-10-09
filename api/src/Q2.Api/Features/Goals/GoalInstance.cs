@@ -188,7 +188,7 @@ public sealed class GoalInstance
         Guid id,
         Guid uploaderPersonId,
         Guid imageId,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset now)
     {
         if (!AcceptsProof)
@@ -196,7 +196,7 @@ public sealed class GoalInstance
             return null;
         }
 
-        var proof = ProofPhoto.Create(id, Id, uploaderPersonId, imageId, NextAttempt, capturedInApp, now);
+        var proof = ProofPhoto.Create(id, Id, uploaderPersonId, imageId, NextAttempt, source, now);
         _proofs.Add(proof);
         return proof;
     }

@@ -40,10 +40,10 @@ public static class ProofFlow
     public static async Task<HttpResponseMessage> DeliverProofAsync(
         this HttpClient client,
         Guid goalId,
-        bool capturedInApp = true) =>
+        ProofSource? source = ProofSource.Live) =>
         await client.PostJsonAsync(
             $"/api/goals/{goalId}/proof",
-            new { imageId = await client.UploadProofImageAsync(), capturedInApp });
+            new { imageId = await client.UploadProofImageAsync(), source });
 
     /// <summary>Delivers one and insists it worked.</summary>
     public static async Task<ProofDocument> DeliverAcceptedProofAsync(this HttpClient client, Guid goalId) =>
@@ -80,7 +80,7 @@ public sealed record ProofDocument(
     ProofStatus Status,
     int Attempt,
     int AttemptsLeft,
-    bool CapturedInApp,
+    ProofSource Source,
     DateTimeOffset CreatedAt,
     DateTimeOffset ExpiresAt,
     VoteSummaryDocument Votes,

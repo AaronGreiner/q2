@@ -16,6 +16,7 @@ function proof(overrides: Partial<OwnProof> = {}): OwnProof {
     id: 'proof-1',
     imageId: 'image-1',
     status: 'Confirmed',
+    source: 'Live',
     createdAt: '2026-09-15T09:00:00+00:00',
     goalId: 'goal-1',
     goalTitle: 'Dreimal die Woche laufen',
@@ -61,10 +62,20 @@ describe('ProofGalleryTile', () => {
     const wrapper = await mountSuspended(ProofGalleryTile, { props: { proof: proof({ status: 'Rejected' }) } })
     const tile = wrapper.get('[data-testid="proof-gallery-tile"]')
 
-    expect(tile.attributes('aria-label')).toBe('Dreimal die Woche laufen, 15.9.2026, Nicht anerkannt — groß ansehen')
+    expect(tile.attributes('aria-label')).toBe('Dreimal die Woche laufen, 15.9.2026, Nicht anerkannt, Live — groß ansehen')
 
     await tile.trigger('click')
     expect(wrapper.emitted('open')).toHaveLength(1)
+  })
+
+  it('says live or screenshot on the tile, and fits a screenshot rather than cropping it', async () => {
+    const live = await mountSuspended(ProofGalleryTile, { props: { proof: proof() } })
+    expect(live.get('[data-testid="proof-source"]').text()).toBe('Live')
+    expect(live.get('img').classes()).toContain('object-cover')
+
+    const screenshot = await mountSuspended(ProofGalleryTile, { props: { proof: proof({ source: 'Screenshot' }) } })
+    expect(screenshot.get('[data-testid="proof-source"]').text()).toBe('Screenshot')
+    expect(screenshot.get('img').classes()).toContain('object-contain')
   })
 })
 
@@ -81,7 +92,8 @@ describe('ProofPhotoViewer', () => {
 
     const dialog = document.querySelector('[role="dialog"]')
     expect(dialog?.textContent).toContain('Dreimal die Woche laufen')
-    expect(dialog?.textContent).toContain('Geliefert am 15.9.2026 · Wird geprüft')
+    expect(dialog?.textContent).toContain('Geliefert am 15.9.2026 · Wird geprüft · Live')
+    expect(document.querySelector('[data-testid="proof-viewer"] [data-testid="proof-source"]')?.textContent?.trim()).toBe('Live')
 
     const goal = document.querySelector<HTMLAnchorElement>('[data-testid="proof-viewer-goal"]')
     expect(goal?.getAttribute('href')).toBe('/goals/goal-1')

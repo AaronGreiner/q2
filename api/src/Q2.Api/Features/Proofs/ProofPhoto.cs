@@ -34,12 +34,13 @@ public enum ProofStatus
 /// last night has a fixed end, and deriving it from "now minus twelve hours"
 /// would quietly move every open vote whenever the constant changed.
 ///
-/// <see cref="CapturedInApp"/> is recorded but never enforced. A picture taken
+/// <see cref="Source"/> is recorded but never enforced. A picture taken
 /// through the camera is the only one whose timing means anything — a file
 /// chosen from a gallery can be any age — so friends are told which they are
-/// looking at and left to draw their own conclusion. Refusing gallery uploads
-/// outright would lock out every phone whose camera permission was once denied,
-/// and this app has to work for them too.
+/// looking at and left to draw their own conclusion. Refusing screenshots
+/// outright would lock out every commitment that only shows on a screen, and
+/// every phone whose camera permission was once denied
+/// (docs/adr/0036-live-or-screenshot.md).
 /// </remarks>
 public sealed class ProofPhoto
 {
@@ -57,7 +58,7 @@ public sealed class ProofPhoto
         Guid uploaderPersonId,
         Guid imageId,
         int attempt,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset createdAt,
         DateTimeOffset votingDeadline)
     {
@@ -66,7 +67,7 @@ public sealed class ProofPhoto
         UploaderPersonId = uploaderPersonId;
         ImageId = imageId;
         Attempt = attempt;
-        CapturedInApp = capturedInApp;
+        Source = source;
         CreatedAt = createdAt;
         VotingDeadline = votingDeadline;
     }
@@ -90,8 +91,11 @@ public sealed class ProofPhoto
     /// <summary>When the vote closes. Fixed at upload.</summary>
     public DateTimeOffset VotingDeadline { get; private set; }
 
-    /// <summary>True when the camera took it rather than the file picker.</summary>
-    public bool CapturedInApp { get; private set; }
+    /// <summary>
+    /// Whether the camera took it or it was picked from the phone's pictures.
+    /// Set once, at upload, and never changed: there is no setter to reach.
+    /// </summary>
+    public ProofSource Source { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -123,7 +127,7 @@ public sealed class ProofPhoto
         Guid uploaderPersonId,
         Guid imageId,
         int attempt,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset createdAt)
     {
         if (attempt < 1 || attempt > ProofVoting.MaxAttempts)
@@ -138,13 +142,18 @@ public sealed class ProofPhoto
             throw new DomainValidationException(nameof(ImageId), "A proof needs a photograph.");
         }
 
+        if (!Enum.IsDefined(source))
+        {
+            throw new DomainValidationException(nameof(Source), "That is not a way a picture can arrive.");
+        }
+
         return new ProofPhoto(
             id,
             goalInstanceId,
             uploaderPersonId,
             imageId,
             attempt,
-            capturedInApp,
+            source,
             createdAt,
             createdAt.AddHours(ProofVoting.VotingWindowHours));
     }

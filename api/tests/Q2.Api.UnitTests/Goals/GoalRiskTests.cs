@@ -50,7 +50,7 @@ public sealed class GoalRiskTests
 
         for (var proof = 0; proof < confirmedProofs; proof++)
         {
-            var photograph = instance.SubmitProof(Guid.CreateVersion7(), goal.OwnerPersonId, Guid.CreateVersion7(), true, At(start, 9))!;
+            var photograph = instance.SubmitProof(Guid.CreateVersion7(), goal.OwnerPersonId, Guid.CreateVersion7(), ProofSource.Live, At(start, 9))!;
             instance.ApplyProofOutcome(photograph, VotingResult.Confirmed, At(start, 9));
         }
 
@@ -103,7 +103,7 @@ public sealed class GoalRiskTests
     public void SaysNothingWhileAPhotographIsBeingVotedOn()
     {
         var window = Window(Monday, Monday);
-        window.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), true, At(Monday, 19));
+        window.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, At(Monday, 19));
 
         Assert.Null(GoalRisk.Assess(window, Berlin, At(Monday, 21)));
     }

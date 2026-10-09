@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { GoalEventKind, GoalStatus, KudosKind, QuotaPeriod } from '../api/types'
+import type { GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -458,6 +458,8 @@ export const de = {
     shutter: 'Auslösen',
     switchCamera: 'Kamera wechseln',
     chooseFile: 'Bild auswählen',
+    chooseScreenshot: 'Screenshot auswählen',
+    labelledAs: 'Deine Freunde sehen:',
     preview: 'Vorschau',
     retake: 'Noch einmal',
     use: 'Verwenden',
@@ -488,8 +490,16 @@ export const de = {
     noAttemptLeft: 'Kein Versuch mehr — dieses Fenster ist verpasst.',
     expiresIn: (hours: number) => (hours <= 1 ? 'Läuft in unter einer Stunde ab' : `Noch ${hours} Stunden`),
     expired: 'Frist abgelaufen',
-    capturedLive: 'Live aufgenommen',
-    fromLibrary: 'Aus der Galerie',
+    /**
+     * Which way the photograph came in, on every proof (#61). "Live" says the
+     * app's camera was used — not that the server could prove it was taken
+     * just now, which nobody can.
+     */
+    source: {
+      Live: 'Live',
+      Screenshot: 'Screenshot',
+      Unknown: 'Ohne Angabe',
+    } satisfies Record<ProofSource, string>,
     confirmedByNobody: 'Noch niemand hat bestätigt.',
     confirmedBy: (names: string) => `Bestätigt von ${names}`,
     doubtCount: (count: number) => (count === 1 ? '1 Zweifel' : `${count} Zweifel`),
@@ -1420,6 +1430,8 @@ export const en: Messages = {
     shutter: 'Shutter',
     switchCamera: 'Switch camera',
     chooseFile: 'Choose a picture',
+    chooseScreenshot: 'Choose a screenshot',
+    labelledAs: 'Your friends will see:',
     preview: 'Preview',
     retake: 'Again',
     use: 'Use it',
@@ -1443,8 +1455,11 @@ export const en: Messages = {
     noAttemptLeft: 'No tries left — this window is missed.',
     expiresIn: (hours: number) => (hours <= 1 ? 'Closes in under an hour' : `${hours} hours left`),
     expired: 'Deadline passed',
-    capturedLive: 'Taken live',
-    fromLibrary: 'From the library',
+    source: {
+      Live: 'Live',
+      Screenshot: 'Screenshot',
+      Unknown: 'Not recorded',
+    },
     confirmedByNobody: 'Nobody has confirmed it yet.',
     confirmedBy: (names: string) => `Confirmed by ${names}`,
     doubtCount: (count: number) => (count === 1 ? '1 doubt' : `${count} doubts`),

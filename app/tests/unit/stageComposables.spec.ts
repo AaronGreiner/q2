@@ -44,7 +44,7 @@ function entry(overrides: Record<string, unknown> = {}) {
     id: 'entry-1',
     author: person(),
     imageId: 'image-1',
-    capturedInApp: true,
+    source: 'Live',
     createdAt: '2026-09-09T09:00:00Z',
     isMine: false,
     reactions: [],

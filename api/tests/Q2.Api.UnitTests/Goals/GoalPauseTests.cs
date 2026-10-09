@@ -134,7 +134,7 @@ public class GoalPauseTests
     {
         var goal = Build();
         Open(goal, Today);
-        goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), capturedInApp: true, Noon);
+        goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, Noon);
 
         // A goal with participants keeps the vote open, which is the case this
         // rule is about.
@@ -291,7 +291,7 @@ public class GoalPauseTests
     private static void Deliver(Goal goal, DateOnly day)
     {
         var instance = Open(goal, day)!;
-        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), true, Utc.EndOfDay(day))!;
+        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, Utc.EndOfDay(day))!;
 
         goal.ApplyProofOutcome(proof, VotingResult.Confirmed, Utc.EndOfDay(day));
         Assert.Equal(GoalInstanceStatus.Done, instance.Status);

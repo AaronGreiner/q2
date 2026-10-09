@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * One conversation.
@@ -82,11 +83,11 @@ const canDeliver = computed(() =>
  * arriving in the thread is the confirmation; a refusal stays on the camera's
  * screen with the photograph (see useProofDelivery).
  */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = chat.value?.pinnedGoal?.id
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -357,6 +358,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <PhotoCapture
       v-model:open="isCameraOpen"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
     />

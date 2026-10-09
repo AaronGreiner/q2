@@ -25,7 +25,7 @@ so the reasoning at the time stays readable.
 | [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Amended by [0028](0028-ruhe-design-system.md) and [0031](0031-todos-tab-and-a-bell-you-can-empty.md) |
 | [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted |
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
-| [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md) and [0030](0030-swipe-vote-and-full-screen-photos.md) |
+| [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md), [0030](0030-swipe-vote-and-full-screen-photos.md) and [0036](0036-live-or-screenshot.md) |
 | [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
 | [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted, amended by [0027](0027-goal-conversations.md) |
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
@@ -37,9 +37,10 @@ so the reasoning at the time stays readable.
 | [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md) |
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
 | [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
-| [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted |
+| [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted, amended by [0036](0036-live-or-screenshot.md) |
 | [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) and [0035](0035-dos-and-donts.md) |
 | [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted |
 | [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted, amended by [0034](0034-bearer-tokens-for-the-native-app.md) |
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
 | [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted |
+| [0036](0036-live-or-screenshot.md) | Live or screenshot: every proof says which it is | Accepted |

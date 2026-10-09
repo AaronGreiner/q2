@@ -1554,6 +1554,7 @@ export interface components {
             /** Format: uuid */
             imageId: string;
             status: components["schemas"]["ProofStatus"];
+            source: components["schemas"]["ProofSource"];
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -1632,7 +1633,7 @@ export interface components {
             attempt: number;
             /** Format: int32 */
             attemptsLeft: number;
-            capturedInApp: boolean;
+            source: components["schemas"]["ProofSource"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1640,6 +1641,8 @@ export interface components {
             votes: components["schemas"]["VoteSummaryResponse"];
             reactions: components["schemas"]["ReactionSummaryResponse"][];
         };
+        /** @enum {unknown} */
+        ProofSource: "Unknown" | "Live" | "Screenshot";
         /** @enum {unknown} */
         ProofStatus: "Voting" | "Confirmed" | "Rejected";
         PushKeyResponse: {
@@ -1737,8 +1740,7 @@ export interface components {
         SubmitProofRequest: {
             /** Format: uuid */
             imageId?: string | null;
-            /** @default false */
-            capturedInApp: boolean;
+            source?: null | components["schemas"]["ProofSource"];
         };
         SubscribeRequest: {
             endpoint?: string | null;

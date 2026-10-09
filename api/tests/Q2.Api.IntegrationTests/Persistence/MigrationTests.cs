@@ -208,6 +208,39 @@ public class MigrationTests
         }
     }
 
+    /// <summary>
+    /// Every proof from before #61 was sent as <c>capturedInApp: true</c>,
+    /// gallery picks included, so none of them may come out of the migration
+    /// labelled live.
+    /// </summary>
+    [Fact]
+    public async Task ExistingProofsBecomeUnknownWhateverTheirOldFlagSaid()
+    {
+        const string beforeSource = "20260923145303_ChatPhotos";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+
+        await using var context = database.CreateContext();
+        await context.GetService<IMigrator>().MigrateAsync(beforeSource, TestContext.Current.CancellationToken);
+
+        // Only the proof table matters here, so the window it points at is not
+        // built: foreign keys are off for these inserts alone, and back on
+        // before the migration runs.
+        await ExecuteAsync(context, $"""
+            PRAGMA foreign_keys = OFF;
+            INSERT INTO ProofPhotos (Id, GoalInstanceId, UploaderPersonId, ImageId, Status, Attempt, VotingDeadline, CapturedInApp, CreatedAt)
+            VALUES
+              ('{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', 'Confirmed', 1, '2026-09-01 21:00:00', 1, '2026-09-01 09:00:00'),
+              ('{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', 'Voting', 1, '2026-09-02 21:00:00', 0, '2026-09-02 09:00:00');
+            PRAGMA foreign_keys = ON;
+            """);
+
+        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, await ScalarAsync(context, "SELECT COUNT(*) FROM ProofPhotos WHERE Source = 'Unknown'"));
+        Assert.Equal(0, await ScalarAsync(context, "SELECT COUNT(*) FROM pragma_table_info('ProofPhotos') WHERE name = 'CapturedInApp'"));
+    }
+
     [Fact]
     public async Task MigrationSqlNeverDisablesForeignKeys()
     {

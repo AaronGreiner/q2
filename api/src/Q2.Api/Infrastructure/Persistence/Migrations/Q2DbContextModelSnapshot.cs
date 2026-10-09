@@ -936,9 +936,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<int>("Attempt")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("CapturedInApp")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -949,6 +946,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")

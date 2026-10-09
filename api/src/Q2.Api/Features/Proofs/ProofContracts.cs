@@ -43,10 +43,12 @@ public sealed record VoteSummaryResponse(
 /// Fetched from <c>/api/images/{id}</c>, which checks who is asking. The bytes
 /// never travel in this response.
 /// </param>
-/// <param name="CapturedInApp">
-/// Whether the camera took it. A picture chosen from a gallery can be any age,
-/// so the client says which it is looking at rather than pretending they are
-/// the same kind of evidence.
+/// <param name="Source">
+/// Whether the camera took it or it was picked from the phone's pictures. A
+/// picture chosen from a gallery can be any age, so every place that shows a
+/// proof says which it is rather than pretending they are the same kind of
+/// evidence. <see cref="ProofSource.Unknown"/> for proofs from before it was
+/// recorded.
 /// </param>
 /// <param name="ExpiresAt">When the vote closes and the votes cast decide it.</param>
 public sealed record ProofResponse(
@@ -58,7 +60,7 @@ public sealed record ProofResponse(
     ProofStatus Status,
     int Attempt,
     int AttemptsLeft,
-    bool CapturedInApp,
+    ProofSource Source,
     DateTimeOffset CreatedAt,
     DateTimeOffset ExpiresAt,
     VoteSummaryResponse Votes,
@@ -103,6 +105,7 @@ public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, st
 /// What it was delivered against. A photograph of a desk says nothing in six
 /// months; "Schreibtisch aufräumen" does.
 /// </param>
+/// <param name="Source">Live or screenshot, labelled on the tile like everywhere else.</param>
 /// <remarks>
 /// Deliberately thin: no votes, no reactions, no deadline. The gallery is a
 /// look back, and the vote itself is one tap away on the goal.
@@ -111,17 +114,27 @@ public sealed record OwnProofResponse(
     Guid Id,
     Guid ImageId,
     ProofStatus Status,
+    ProofSource Source,
     DateTimeOffset CreatedAt,
     Guid GoalId,
     string GoalTitle,
     string GoalIcon);
 
 /// <summary>Request body for delivering a photograph.</summary>
+/// <param name="Source">
+/// The route the app used. Left out, the proof is stored as
+/// <see cref="ProofSource.Unknown"/>.
+/// </param>
 /// <remarks>
 /// Nullable so an empty body produces a field error rather than a binding
 /// failure, like every other request in this API.
+///
+/// There was a <c>capturedInApp</c> flag here until #61. Builds already
+/// installed from TestFlight still send it, always as true, whatever the
+/// picture was; it is ignored like any property the API does not know, and
+/// their proofs are stored as unknown rather than believed to be live.
 /// </remarks>
-public sealed record SubmitProofRequest(Guid? ImageId = null, bool CapturedInApp = false);
+public sealed record SubmitProofRequest(Guid? ImageId = null, ProofSource? Source = null);
 
 /// <summary>Request body for voting on one.</summary>
 public sealed record CastVoteRequest(VoteValue? Value = null);

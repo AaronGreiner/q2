@@ -2,6 +2,7 @@ import type { ApiFailure } from '~/api/errors'
 import type { FeedProof, Image, OwnProof, ProofVoteValue } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
+import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
 
 interface OwnPayload {
   proofs: OwnProof[]
@@ -132,15 +133,16 @@ export function useProofDelivery() {
    * Sends an already-uploaded photograph and goes where it can be seen.
    *
    * `PhotoCapture` has done the shrinking and the upload by the time this runs,
-   * which is why it takes an `Image` rather than a file.
+   * which is why it takes an `Image` rather than a file — and why it is told
+   * which way the picture came in rather than finding out.
    */
-  async function deliver(goalId: string, image: Image): Promise<DeliveryResult> {
+  async function deliver(goalId: string, image: Image, origin: PhotoOrigin): Promise<DeliveryResult> {
     if (isDelivering.value) return { status: 'refused', message: t.value.proof.refusedFailed }
 
     isDelivering.value = true
 
     try {
-      const { proof, conversationId } = await api.proofs.submit(goalId, image.id, true)
+      const { proof, conversationId } = await api.proofs.submit(goalId, image.id, proofSourceOf(origin))
       const conversation = conversationId ? `/chats/${conversationId}` : null
 
       if (conversation && route.path !== conversation) {

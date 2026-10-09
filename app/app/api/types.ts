@@ -48,6 +48,7 @@ export type FeedProof = Schemas['FeedProofResponse']
 export type DeliveredProof = Schemas['DeliveredProofResponse']
 export type OwnProof = Schemas['OwnProofResponse']
 export type ProofStatus = Schemas['ProofStatus']
+export type ProofSource = Schemas['ProofSource']
 export type VoteSummary = Schemas['VoteSummaryResponse']
 export type ReactionSummary = Schemas['ReactionSummaryResponse']
 /*

@@ -1,6 +1,6 @@
 # 0018 — A window is closed by other people
 
-**Status:** Accepted, amended by [0030](0030-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided
+**Status:** Accepted, amended by [0030](0030-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided — and by [0036](0036-live-or-screenshot.md) — every proof says whether it is live or a screenshot
 **Date:** 2026-09-07
 
 ## Context

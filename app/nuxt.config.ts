@@ -265,6 +265,10 @@ export default defineNuxtConfig({
         'lucide:rotate-ccw',
         'lucide:trash-2',
 
+        // Which way a proof came in, chosen at runtime from
+        // utils/proofSource.ts (camera and image are listed above).
+        'lucide:smartphone',
+
         // Stage 4: the photograph, the wait, and the verdict.
         'lucide:hourglass',
         'lucide:gavel',

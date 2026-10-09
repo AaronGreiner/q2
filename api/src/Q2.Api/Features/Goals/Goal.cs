@@ -244,9 +244,9 @@ public sealed class Goal
     public ProofPhoto? SubmitProof(
         Guid id,
         Guid imageId,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset now) =>
-        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, capturedInApp, now);
+        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, source, now);
 
     /// <summary>
     /// Applies a decided vote, and completes a one-off goal when its only

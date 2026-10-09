@@ -36,7 +36,7 @@ public class GoalTests
     /// </remarks>
     private static bool Deliver(Goal goal, DateTimeOffset now)
     {
-        var proof = goal.SubmitProof(Guid.NewGuid(), Guid.NewGuid(), capturedInApp: true, now);
+        var proof = goal.SubmitProof(Guid.NewGuid(), Guid.NewGuid(), ProofSource.Live, now);
 
         return proof is not null && goal.ApplyProofOutcome(proof, VotingResult.Confirmed, now);
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 import { pauseLimits } from '~/api/types'
 
 /**
@@ -24,8 +25,8 @@ const closing = ref(false)
 const reminding = ref(false)
 
 /** Moves on to the goal's conversation when it has one — see useProofDelivery. */
-async function handIn(image: Image) {
-  const result = await deliver(id.value, image)
+async function handIn(image: Image, origin: PhotoOrigin) {
+  const result = await deliver(id.value, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -456,6 +457,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
     <PhotoCapture
       v-model:open="capturing"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
     />
