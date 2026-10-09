@@ -76,6 +76,7 @@ public sealed class SettingsService(
             GoalUpdates = change.GoalUpdates ?? current.GoalUpdates,
             FriendsAtRisk = change.FriendsAtRisk ?? current.FriendsAtRisk,
             Challenge = change.Challenge ?? current.Challenge,
+            SpotChecks = change.SpotChecks ?? current.SpotChecks,
         };
 
         return switches.WithQuietHours(quiet.From, quiet.To);

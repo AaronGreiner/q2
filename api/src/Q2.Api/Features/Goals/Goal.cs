@@ -282,6 +282,55 @@ public sealed class Goal
         return window?.LogUse(id, imageId, now);
     }
 
+    /// <summary>True for a running Don't that is checked by spot checks.</summary>
+    public bool TakesSpotChecks => IsDont && ProofMode == DontProofMode.SpotCheck && Status == GoalStatus.Active;
+
+    /// <summary>
+    /// Draws a spot check for the owner's local <paramref name="day"/> at the
+    /// moment the caller picked. Returns null when there is nothing to draw:
+    /// not a spot-check Don't, paused, no open window, or already one that day.
+    /// </summary>
+    public SpotCheck? ScheduleSpotCheck(Guid id, DateOnly day, DateTimeOffset at, DateTimeOffset now)
+    {
+        if (!TakesSpotChecks || ActivePauseAt(now) is not null)
+        {
+            return null;
+        }
+
+        return CurrentInstance?.ScheduleSpotCheck(id, day, at);
+    }
+
+    /// <summary>
+    /// Draws today's check for right now, or moves today's not-yet-asked one to
+    /// now. Only for the diagnostics endpoint, which exists outside Staging and
+    /// Production so E2E and manual testing can see a check without waiting
+    /// for a random moment.
+    /// </summary>
+    internal bool ScheduleSpotCheckNow(Guid id, DateOnly day, DateTimeOffset now)
+    {
+        if (!TakesSpotChecks || ActivePauseAt(now) is not null || CurrentInstance is not { } window)
+        {
+            return false;
+        }
+
+        return window.SpotChecks.FirstOrDefault(check => check.Day == day) is { } existing
+            ? existing.Reschedule(now)
+            : window.ScheduleSpotCheck(id, day, now) is not null;
+    }
+
+    /// <summary>Opens the checks whose moment has come, to be announced to the owner.</summary>
+    public IReadOnlyList<SpotCheck> IssueDueSpotChecks(DateTimeOffset now) =>
+        TakesSpotChecks && ActivePauseAt(now) is null && CurrentInstance is { } window
+            ? window.IssueDueSpotChecks(now)
+            : [];
+
+    /// <summary>The check the owner can answer right now, if there is one.</summary>
+    public SpotCheck? OpenSpotCheckAt(DateTimeOffset now) => CurrentInstance?.OpenSpotCheckAt(now);
+
+    /// <summary>Answers an open check with a live photograph. Null when there is none to answer.</summary>
+    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now) =>
+        CurrentInstance?.AnswerSpotCheck(checkId, proofId, OwnerPersonId, imageId, now);
+
     /// <summary>
     /// The first local day of a Don't's current clean run: the day after its
     /// last relapse or miss, or its first day. What "seit X Tagen" counts from.
@@ -622,6 +671,16 @@ public sealed class Goal
             throw new DomainValidationException(
                 "Pause",
                 $"A goal may be paused {PauseRules.MaxPerMonth} times a month.");
+        }
+
+        // Nor may it be the way out of a spot check that has just been asked:
+        // a pause requested in its three minutes would void the very check it
+        // was meant to answer.
+        if (CurrentInstance?.OpenSpotCheckAt(now) is not null)
+        {
+            throw new DomainValidationException(
+                "Pause",
+                "Answer the spot check first.");
         }
 
         // A vote in flight is the one thing a pause may not interrupt; see

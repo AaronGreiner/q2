@@ -69,6 +69,7 @@ public sealed class GoalInstance
 {
     private readonly List<ProofPhoto> _proofs = [];
     private readonly List<DontUse> _useLog = [];
+    private readonly List<SpotCheck> _spotChecks = [];
 
     // EF Core materialisation only.
     private GoalInstance()
@@ -141,6 +142,96 @@ public sealed class GoalInstance
 
     /// <summary>How many uses were logged.</summary>
     public int Uses => _useLog.Count;
+
+    /// <summary>A spot-check Don't's checks, at most one per day of this window.</summary>
+    public IReadOnlyList<SpotCheck> SpotChecks => _spotChecks;
+
+    /// <summary>The check the owner can answer right now, if there is one.</summary>
+    public SpotCheck? OpenSpotCheckAt(DateTimeOffset now) =>
+        _spotChecks.FirstOrDefault(check => check.IsOpenAt(now));
+
+    /// <summary>
+    /// Draws today's check for a moment the caller picked. Returns null when
+    /// this window is not taking one: not a running Don't's, already checked
+    /// that day, or the moment outside the window.
+    /// </summary>
+    internal SpotCheck? ScheduleSpotCheck(Guid id, DateOnly day, DateTimeOffset at)
+    {
+        if (!IsDont
+            || Status != GoalInstanceStatus.Open
+            || _spotChecks.Any(check => check.Day == day)
+            || at < StartsAt
+            || at > DueAt)
+        {
+            return null;
+        }
+
+        var check = new SpotCheck(id, Id, day, at);
+        _spotChecks.Add(check);
+        return check;
+    }
+
+    /// <summary>Opens every check whose moment has come. Returns the ones it opened, to be announced.</summary>
+    internal IReadOnlyList<SpotCheck> IssueDueSpotChecks(DateTimeOffset now) =>
+        Status == GoalInstanceStatus.Open
+            ? [.. _spotChecks.Where(check => check.Issue(now))]
+            : [];
+
+    /// <summary>
+    /// Settles checks whose time is up. An unanswered one misses the window —
+    /// being caught is a miss, never a relapse. Returns true when anything moved.
+    /// </summary>
+    internal bool SettleSpotChecks(DateTimeOffset now)
+    {
+        var changed = false;
+
+        foreach (var check in _spotChecks)
+        {
+            if (check.Settle(now) is not { } settled)
+            {
+                continue;
+            }
+
+            changed = true;
+
+            if (settled == SpotCheckStatus.Missed && Status == GoalInstanceStatus.Open)
+            {
+                Status = GoalInstanceStatus.Missed;
+                ResolvedAt = now;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Answers an open check with a live photograph for friends to vote on.
+    /// Returns null when that check is not open.
+    /// </summary>
+    /// <remarks>
+    /// Always <see cref="ProofSource.Live"/>: a check is answered through the
+    /// camera only. And always the last attempt: the moment is over once it
+    /// has passed, so a doubted check is refused rather than retried.
+    /// </remarks>
+    internal ProofPhoto? AnswerSpotCheck(
+        Guid checkId,
+        Guid proofId,
+        Guid uploaderPersonId,
+        Guid imageId,
+        DateTimeOffset now)
+    {
+        var check = _spotChecks.FirstOrDefault(candidate => candidate.Id == checkId);
+
+        if (check is null || !check.IsOpenAt(now))
+        {
+            return null;
+        }
+
+        var proof = ProofPhoto.Create(proofId, Id, uploaderPersonId, imageId, ProofVoting.MaxAttempts, ProofSource.Live, now);
+        check.Answer(proof.Id, now);
+        _proofs.Add(proof);
+        return proof;
+    }
 
     /// <summary>How many have been delivered so far.</summary>
     public int ConfirmedProofs { get; private set; }
@@ -271,7 +362,9 @@ public sealed class GoalInstance
 
         if (result == VotingResult.Confirmed)
         {
-            return RecordProof(now);
+            // A believed check on a Don't decides nothing about its window,
+            // which is still held to its limit; the photograph itself moved.
+            return RecordProof(now) || IsDont;
         }
 
         if (result == VotingResult.Rejected && Status == GoalInstanceStatus.Open)

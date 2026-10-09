@@ -274,6 +274,14 @@ public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalIns
         builder.Ignore(i => i.IsDont);
         builder.Ignore(i => i.Uses);
 
+        builder.HasMany(i => i.SpotChecks)
+            .WithOne()
+            .HasForeignKey(check => check.GoalInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalInstance.SpotChecks))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(i => i.Proofs)
             .WithOne()
             .HasForeignKey(proof => proof.GoalInstanceId)
@@ -332,5 +340,44 @@ public sealed class DontUseConfiguration : IEntityTypeConfiguration<DontUse>
         builder.Property(use => use.ImageId);
 
         builder.HasIndex(use => use.GoalInstanceId);
+    }
+}
+
+public sealed class SpotCheckConfiguration : IEntityTypeConfiguration<SpotCheck>
+{
+    public void Configure(EntityTypeBuilder<SpotCheck> builder)
+    {
+        builder.ToTable("SpotChecks");
+        builder.HasKey(check => check.Id);
+
+        builder.Property(check => check.Day).IsRequired();
+
+        builder.Property(check => check.ScheduledAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(check => check.IssuedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.ExpiresAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.ResolvedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.Status)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        // No foreign key to the photograph: it lives on the same window, and
+        // the check keeps its outcome whatever happens to the picture.
+        builder.Property(check => check.ProofPhotoId);
+
+        // One per window and day, which is what makes drawing twice harmless.
+        builder.HasIndex(check => new { check.GoalInstanceId, check.Day }).IsUnique();
+
+        // The worker asks "what is due" every half minute, across everybody.
+        builder.HasIndex(check => new { check.Status, check.ScheduledAt });
     }
 }

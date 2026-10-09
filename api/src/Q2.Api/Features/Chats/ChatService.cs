@@ -818,6 +818,8 @@ public sealed class ChatService(
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.UseLog)
             .Include(g => g.Instances)
+            .ThenInclude(instance => instance.SpotChecks)
+            .Include(g => g.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Reactions)
             .Include(g => g.Pauses)

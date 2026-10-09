@@ -79,6 +79,14 @@ public static class GoalMaintenance
         // below asks whether one is still running.
         var changed = goal.ExpirePauses(now);
 
+        // Spot checks on windows that are no longer open — relapsed, paused,
+        // set aside — are settled too, so none stays "open" for ever. They
+        // cannot move such a window any more.
+        foreach (var settled in goal.Instances.Where(instance => instance.Status != GoalInstanceStatus.Open))
+        {
+            changed |= settled.SettleSpotChecks(now);
+        }
+
         for (var step = 0; step < MaxWindowsPerRun; step++)
         {
             // An archived or completed goal has no future: no window is opened
@@ -99,6 +107,15 @@ public static class GoalMaintenance
 
             if (goal.CurrentInstance is { } open)
             {
+                // A spot check whose three minutes are up is settled first: an
+                // unanswered one misses the window before anything else is
+                // asked of it.
+                if (open.SettleSpotChecks(now))
+                {
+                    changed = true;
+                    continue;
+                }
+
                 /*
                  * A vote first, and the window afterwards.
                  *

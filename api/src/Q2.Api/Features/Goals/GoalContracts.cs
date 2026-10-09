@@ -137,6 +137,11 @@ public sealed record GoalInstanceResponse(
 /// else needs their allowance, and it is a fact about a person rather than
 /// about the goal.
 /// </param>
+/// <param name="SpotCheck">
+/// The spot check the owner can answer right now, with when its three minutes
+/// end. Only for the owner, and never before it is asked: a check drawn for
+/// later is not announced (docs/adr/0038-spot-checks.md).
+/// </param>
 public sealed record GoalResponse(
     Guid Id,
     string Title,
@@ -163,7 +168,8 @@ public sealed record GoalResponse(
     bool IsMine,
     RiskResponse? Risk,
     GoalPauseResponse? Pause,
-    int? RemainingPauses)
+    int? RemainingPauses,
+    OpenSpotCheckResponse? SpotCheck)
 {
     public static GoalResponse From(
         Goal goal,
@@ -226,9 +232,15 @@ public sealed record GoalResponse(
             // without their calendar there is no month to count in.
             isMine && ownerCalendar is not null
                 ? goal.RemainingPauses(ownerCalendar.Today(now))
+                : null,
+            isMine && goal.OpenSpotCheckAt(now) is { ExpiresAt: { } expiresAt } check
+                ? new OpenSpotCheckResponse(check.Id, expiresAt)
                 : null);
     }
 }
+
+/// <summary>A spot check that is open: answer it with a live photograph before <paramref name="ExpiresAt"/>.</summary>
+public sealed record OpenSpotCheckResponse(Guid Id, DateTimeOffset ExpiresAt);
 
 /// <summary>
 /// A running pause, as everybody invited to the goal sees it.

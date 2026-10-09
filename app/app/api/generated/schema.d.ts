@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/{id}/spot-checks/{checkId}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answers the spot check open on your own Don't with a live photograph, for its friends to vote on. */
+        post: operations["AnswerSpotCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reports": {
         parameters: {
             query?: never;
@@ -1124,6 +1141,10 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
         };
+        AnswerSpotCheckRequest: {
+            /** Format: uuid */
+            imageId?: string | null;
+        };
         /** @enum {unknown} */
         BadgeKey: "StreakHero" | "EarlyBird" | "Bookworm" | "KudosGiver" | "Marathon" | "WeeklyWinner";
         BadgeResponse: {
@@ -1467,6 +1488,7 @@ export interface components {
             pause: null | components["schemas"]["GoalPauseResponse"];
             /** Format: int32 */
             remainingPauses: number | null;
+            spotCheck: null | components["schemas"]["OpenSpotCheckResponse"];
         };
         GoalScheduleRequest: {
             kind?: null | components["schemas"]["ScheduleKind"];
@@ -1564,7 +1586,7 @@ export interface components {
             muted?: boolean | null;
         };
         /** @enum {unknown} */
-        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished";
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue";
         NotificationResponse: {
             /** Format: uuid */
             id: string | null;
@@ -1594,9 +1616,16 @@ export interface components {
             quietHoursFrom: string | null;
             /** Format: time */
             quietHoursTo: string | null;
+            spotChecks: boolean;
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
+        OpenSpotCheckResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         OwnProofResponse: {
             /** Format: uuid */
             id: string;
@@ -1818,6 +1847,7 @@ export interface components {
             quietHoursFrom?: string | null;
             /** Format: time */
             quietHoursTo?: string | null;
+            spotChecks?: boolean | null;
         };
         UpdateProfileRequest: {
             displayName?: string | null;
@@ -1976,6 +2006,51 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SubmitProofRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveredProofResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AnswerSpotCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                checkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerSpotCheckRequest"];
             };
         };
         responses: {

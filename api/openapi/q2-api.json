@@ -204,6 +204,77 @@
         }
       }
     },
+    "/api/goals/{id}/spot-checks/{checkId}/proof": {
+      "post": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Answers the spot check open on your own Don't with a live photograph, for its friends to vote on.",
+        "operationId": "AnswerSpotCheck",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "checkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerSpotCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveredProofResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports": {
       "post": {
         "tags": [
@@ -3094,6 +3165,16 @@
           }
         }
       },
+      "AnswerSpotCheckRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
       "BadgeKey": {
         "enum": [
           "StreakHero",
@@ -4283,7 +4364,8 @@
           "isMine",
           "risk",
           "pause",
-          "remainingPauses"
+          "remainingPauses",
+          "spotCheck"
         ],
         "type": "object",
         "properties": {
@@ -4422,6 +4504,18 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "spotCheck": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/OpenSpotCheckResponse"
+              }
+            ]
           }
         }
       },
@@ -4776,7 +4870,8 @@
           "GoalPaused",
           "PauseLifted",
           "FriendWindowAtRisk",
-          "ChallengePublished"
+          "ChallengePublished",
+          "SpotCheckDue"
         ]
       },
       "NotificationResponse": {
@@ -4855,7 +4950,8 @@
           "friendsAtRisk",
           "challenge",
           "quietHoursFrom",
-          "quietHoursTo"
+          "quietHoursTo",
+          "spotChecks"
         ],
         "type": "object",
         "properties": {
@@ -4892,6 +4988,9 @@
             "type": "string",
             "format": "time",
             "nullable": true
+          },
+          "spotChecks": {
+            "type": "boolean"
           }
         }
       },
@@ -4904,6 +5003,23 @@
           "Challenge",
           "Activity"
         ]
+      },
+      "OpenSpotCheckResponse": {
+        "required": [
+          "id",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "OwnProofResponse": {
         "required": [
@@ -5656,6 +5772,10 @@
           "quietHoursTo": {
             "type": "string",
             "format": "time",
+            "nullable": true
+          },
+          "spotChecks": {
+            "type": "boolean",
             "nullable": true
           }
         }

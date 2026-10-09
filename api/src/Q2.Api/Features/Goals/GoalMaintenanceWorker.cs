@@ -133,6 +133,8 @@ public sealed class GoalMaintenanceWorker(
                 .ThenInclude(proof => proof.Votes)
                 .Include(g => g.Instances)
                 .ThenInclude(instance => instance.UseLog)
+                .Include(g => g.Instances)
+                .ThenInclude(instance => instance.SpotChecks)
 
                 // Without the pauses this job cannot see one, and would spend
                 // the night missing windows somebody is excused from — the

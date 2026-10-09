@@ -136,6 +136,9 @@ public sealed record OwnProofResponse(
 /// </remarks>
 public sealed record SubmitProofRequest(Guid? ImageId = null, ProofSource? Source = null);
 
+/// <summary>Request body for answering a spot check: a live photograph, uploaded as a proof image first.</summary>
+public sealed record AnswerSpotCheckRequest(Guid? ImageId = null);
+
 /// <summary>Request body for voting on one.</summary>
 public sealed record CastVoteRequest(VoteValue? Value = null);
 

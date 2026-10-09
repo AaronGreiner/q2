@@ -78,6 +78,13 @@ public enum NotificationKind
 
     /// <summary>Today's challenge is up. <c>Subject</c> is the prompt.</summary>
     ChallengePublished,
+
+    /// <summary>
+    /// A spot check on the reader's own Don't: a live photograph, now, within
+    /// three minutes (docs/adr/0038-spot-checks.md). Interrupting by default,
+    /// and not kept in the bell: three minutes later it means nothing.
+    /// </summary>
+    SpotCheckDue,
 }
 
 /// <summary>What a notification leads to when it is tapped.</summary>
@@ -126,4 +133,5 @@ public enum NotificationSwitch
     GoalUpdates,
     FriendsAtRisk,
     Challenge,
+    SpotChecks,
 }

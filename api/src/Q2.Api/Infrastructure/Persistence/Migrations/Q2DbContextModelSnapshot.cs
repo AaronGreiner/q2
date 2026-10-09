@@ -644,6 +644,47 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("PauseVetoes", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.SpotCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ProofPhotoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ScheduledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalInstanceId", "Day")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "ScheduledAt");
+
+                    b.ToTable("SpotChecks", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Images.StoredImage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1118,6 +1159,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("NotifyReactions");
 
+                            b1.Property<bool>("SpotChecks")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("NotifySpotChecks");
+
                             b1.Property<bool>("VotesDue")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("NotifyVotesDue");
@@ -1381,6 +1426,15 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.SpotCheck", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalInstance", null)
+                        .WithMany("SpotChecks")
+                        .HasForeignKey("GoalInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Moderation.Report", b =>
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
@@ -1536,6 +1590,8 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.Navigation("Proofs");
+
+                    b.Navigation("SpotChecks");
 
                     b.Navigation("UseLog");
                 });

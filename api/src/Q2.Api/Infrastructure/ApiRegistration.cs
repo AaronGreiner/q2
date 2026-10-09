@@ -162,6 +162,7 @@ public static class ApiRegistration
         else
         {
             builder.Services.AddHostedService<GoalMaintenanceWorker>();
+            builder.Services.AddHostedService<SpotCheckWorker>();
             builder.Services.AddHostedService<ChallengeQueueWorker>();
             builder.Services.AddHostedService<NotificationRetentionWorker>();
 

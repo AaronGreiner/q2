@@ -45,6 +45,10 @@ public static class ProofVerdicts
             await AnnounceAsync(notifier, goal, voting, cancellationToken);
         }
 
+        // A spot check whose moment has come is asked now, by whatever looked
+        // first — the background pass or the owner opening the app.
+        changed |= await SpotChecks.IssueAsync(notifier, goal, now, cancellationToken);
+
         return changed;
     }
 

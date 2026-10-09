@@ -571,6 +571,32 @@ public sealed class GoalService(
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
 
+    /// <summary>
+    /// Asks a spot check on one of your own spot-check Don'ts right now.
+    /// Diagnostics only: mapped outside Staging and Production, so E2E and
+    /// manual testing can see a check without waiting for its random moment.
+    /// </summary>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">Not a running spot-check Don't, or today's check is already decided.</exception>
+    public async Task AskSpotCheckNowAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+
+        if (!goal.ScheduleSpotCheckNow(idGenerator.NewId(), calendar.Today(now), now))
+        {
+            throw new DomainValidationException("SpotCheck", "There is no spot check to ask on this goal today.");
+        }
+
+        await SpotChecks.IssueAsync(notifier, goal, now, cancellationToken);
+        await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
+    }
+
     /// <summary>Moves or removes the daily reminder of one of your own running goals.</summary>
     /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
     /// <exception cref="DomainValidationException">It has stopped.</exception>
@@ -696,6 +722,8 @@ public sealed class GoalService(
             .ThenInclude(proof => proof.Votes)
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.UseLog)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.SpotChecks)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .Where(g => g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId))
@@ -793,6 +821,8 @@ public sealed class GoalService(
             .ThenInclude(proof => proof.Votes)
             .Include(g => g.Instances)
             .ThenInclude(instance => instance.UseLog)
+            .Include(g => g.Instances)
+            .ThenInclude(instance => instance.SpotChecks)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
             .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);

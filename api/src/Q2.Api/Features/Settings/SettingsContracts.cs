@@ -45,7 +45,8 @@ public sealed record NotificationSettingsResponse(
     bool FriendsAtRisk,
     bool Challenge,
     TimeOnly? QuietHoursFrom,
-    TimeOnly? QuietHoursTo)
+    TimeOnly? QuietHoursTo,
+    bool SpotChecks)
 {
     public static NotificationSettingsResponse From(NotificationPreferences preferences)
     {
@@ -61,7 +62,8 @@ public sealed record NotificationSettingsResponse(
             preferences.FriendsAtRisk,
             preferences.Challenge,
             preferences.QuietHoursFrom,
-            preferences.QuietHoursTo);
+            preferences.QuietHoursTo,
+            preferences.SpotChecks);
     }
 }
 
@@ -96,4 +98,5 @@ public sealed record UpdateNotificationSettingsRequest(
     bool? Challenge = null,
     bool? QuietHoursEnabled = null,
     TimeOnly? QuietHoursFrom = null,
-    TimeOnly? QuietHoursTo = null);
+    TimeOnly? QuietHoursTo = null,
+    bool? SpotChecks = null);
