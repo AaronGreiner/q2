@@ -11,6 +11,10 @@ import type { OwnProof } from '~/api/types'
  *
  * The goal is not written on the tile; in a three-column grid it would not fit.
  * It is in the button's accessible name and on the full-size view instead.
+ *
+ * Live or screenshot is written on it, like on every proof (#61), and a
+ * screenshot is fitted rather than cropped: a square cut out of a tall picture
+ * full of text is the part that says nothing.
  */
 const props = defineProps<{ proof: OwnProof }>()
 
@@ -35,7 +39,7 @@ const status = computed(() => proofStatusLabel(props.proof.status, t.value))
   <button
     type="button"
     class="relative block aspect-square w-full overflow-hidden rounded-(--q2-radius-md) border border-(--ui-border) bg-(--ui-bg-elevated) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-    :aria-label="t.proofGallery.open([proof.goalTitle, day, status].join(', '))"
+    :aria-label="t.proofGallery.open([proof.goalTitle, day, status, t.proof.source[proof.source]].join(', '))"
     :data-status="proof.status"
     data-testid="proof-gallery-tile"
     data-q2-block
@@ -48,7 +52,8 @@ const status = computed(() => proofStatusLabel(props.proof.status, t.value))
       alt=""
       decoding="async"
       loading="lazy"
-      class="size-full object-cover"
+      class="size-full"
+      :class="proof.source === 'Screenshot' ? 'object-contain' : 'object-cover'"
       @error="failed = true"
     >
 
@@ -70,11 +75,16 @@ const status = computed(() => proofStatusLabel(props.proof.status, t.value))
       data-testid="proof-gallery-status"
     >{{ status }}</span>
 
-    <!-- A drop shadow rather than a bar, as on the challenge archive: the
-         picture stays whole and the date still reads over it. -->
+    <!-- Stacked rather than side by side: in a three-column grid on a phone
+         "Screenshot" and a date do not fit on one line. A drop shadow rather
+         than a bar for the date, as on the challenge archive: the picture
+         stays whole and the date still reads over it. -->
     <span
-      class="absolute start-1.5 bottom-1 text-[10px] font-extrabold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
+      class="absolute start-1.5 bottom-1 flex flex-col items-start gap-0.5"
       aria-hidden="true"
-    >{{ day }}</span>
+    >
+      <ProofSourceBadge :source="proof.source" />
+      <span class="text-[10px] font-extrabold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">{{ day }}</span>
+    </span>
   </button>
 </template>

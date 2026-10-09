@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 import { pauseLimits } from '~/api/types'
 
 /**
@@ -17,18 +18,40 @@ const id = computed(() => String(route.params.id))
 const { detail, error, isMissing, isLoading, refresh } = useGoalDetail(id)
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
 const lifecycle = useGoalLifecycle()
+const dontUse = useDontUse()
+const now = useNow()
+const zone = useTimeZoneOffset()
+
+/** The reader's day, for a Don't's run. */
+const today = computed(() => localDay(now.value, zone.value))
 
 const capturing = ref(false)
+
+/** The camera for a use's optional photograph — a different hand-in from a proof's. */
+const capturingUse = ref(false)
 const pausing = ref(false)
 const closing = ref(false)
 const reminding = ref(false)
 
 /** Moves on to the goal's conversation when it has one — see useProofDelivery. */
-async function handIn(image: Image) {
-  const result = await deliver(id.value, image)
+async function handIn(image: Image, origin: PhotoOrigin) {
+  const result = await deliver(id.value, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
+}
+
+async function onLog() {
+  if (await dontUse.logUse(id.value)) await refresh()
+}
+
+/** A use with its photograph: logged once the picture is up, refused on the camera's screen. */
+async function handInUse(image: Image) {
+  const logged = await dontUse.logUse(id.value, image.id)
+  if (!logged) return t.value.proof.refusedFailed
+
+  await refresh()
+  return null
 }
 
 const goal = computed(() => detail.value?.goal ?? null)
@@ -196,7 +219,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
               {{ goal.title }}
             </h1>
             <p class="mt-0.5 text-[13px] font-semibold text-(--ui-text-muted)">
-              {{ scheduleLabel(goal.schedule, t) }}
+              {{ goalScheduleLabel(goal, t) }}
             </p>
           </div>
         </header>
@@ -223,8 +246,19 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
              a ring would have nothing to show and the status word underneath
              would read "Aktiv" over a goal that is resting. The banner above
              says what is true instead. -->
+        <DontHero
+          v-if="!pause && goal.kind === 'Dont'"
+          :goal="goal"
+          :today="today"
+          :delivering="isDelivering"
+          :logging="dontUse.isLogging.value"
+          @deliver="capturing = true"
+          @log="onLog"
+          @log-with-photo="capturingUse = true"
+        />
+
         <section
-          v-if="!pause"
+          v-else-if="!pause"
           class="q2-card mt-4 p-5 text-center"
           aria-labelledby="goal-window-heading"
         >
@@ -394,6 +428,14 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             <p class="text-[11px] font-semibold text-(--ui-text-dimmed)">
               {{ t.goals.balanceCaption }}
             </p>
+            <!-- A relapse is its own number, never added to the misses. -->
+            <p
+              v-if="goal.windowsRelapsed > 0"
+              class="text-[11px] font-semibold text-(--ui-text-dimmed)"
+              data-testid="goal-relapses"
+            >
+              {{ t.balance.relapsed(goal.windowsRelapsed) }}
+            </p>
           </div>
         </div>
 
@@ -456,8 +498,19 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
     <PhotoCapture
       v-model:open="capturing"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
+    />
+
+    <!-- Uploaded like a proof, which is what lets the goal's friends see it in
+         the conversation; nobody votes on it. -->
+    <PhotoCapture
+      v-if="goal?.kind === 'Dont'"
+      v-model:open="capturingUse"
+      purpose="Proof"
+      :max-edge="maxEdge"
+      :hand-in="handInUse"
     />
 
     <GoalPauseSheet

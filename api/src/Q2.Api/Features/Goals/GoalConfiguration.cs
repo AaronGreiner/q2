@@ -40,6 +40,19 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
 
         builder.Property(g => g.IsGroup).IsRequired();
 
+        // Text like every enum here. Every goal from before Don'ts is a Do,
+        // which is what the migration's default says.
+        builder.Property(g => g.Kind)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Property(g => g.Limit);
+
+        builder.Property(g => g.ProofMode)
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
         /*
          * The schedule is owned rather than referenced: it has no identity of
          * its own, it is never queried without its goal, and the alternative —
@@ -89,6 +102,7 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
         builder.Ignore(g => g.LatestInstance);
         builder.Ignore(g => g.DeliveredDays);
         builder.Ignore(g => g.IsClosed);
+        builder.Ignore(g => g.IsDont);
 
         builder.Property(g => g.ReminderAt);
         builder.Property(g => g.TargetDate);
@@ -245,6 +259,9 @@ public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalIns
         builder.Property(i => i.RequiredProofs).IsRequired();
         builder.Property(i => i.ConfirmedProofs).IsRequired();
 
+        // Null for a Do's window: what tells the two apart in the history.
+        builder.Property(i => i.Limit);
+
         builder.Property(i => i.Status)
             .IsRequired()
             .HasMaxLength(32)
@@ -254,6 +271,16 @@ public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalIns
         builder.Ignore(i => i.PendingProof);
         builder.Ignore(i => i.NextAttempt);
         builder.Ignore(i => i.AcceptsProof);
+        builder.Ignore(i => i.IsDont);
+        builder.Ignore(i => i.Uses);
+
+        builder.HasMany(i => i.SpotChecks)
+            .WithOne()
+            .HasForeignKey(check => check.GoalInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalInstance.SpotChecks))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasMany(i => i.Proofs)
             .WithOne()
@@ -261,6 +288,14 @@ public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalIns
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Metadata.FindNavigation(nameof(GoalInstance.Proofs))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(i => i.UseLog)
+            .WithOne()
+            .HasForeignKey(use => use.GoalInstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalInstance.UseLog))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         // One window per goal per period. This is what makes the maintenance
@@ -286,5 +321,63 @@ public sealed class GoalParticipantConfiguration : IEntityTypeConfiguration<Goal
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(p => new { p.GoalId, p.PersonId }).IsUnique();
+    }
+}
+
+public sealed class DontUseConfiguration : IEntityTypeConfiguration<DontUse>
+{
+    public void Configure(EntityTypeBuilder<DontUse> builder)
+    {
+        builder.ToTable("DontUses");
+        builder.HasKey(use => use.Id);
+
+        builder.Property(use => use.LoggedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        // No foreign key to the image, like a proof's: deleting a picture
+        // leaves the use, which was logged whether or not it had one.
+        builder.Property(use => use.ImageId);
+
+        builder.HasIndex(use => use.GoalInstanceId);
+    }
+}
+
+public sealed class SpotCheckConfiguration : IEntityTypeConfiguration<SpotCheck>
+{
+    public void Configure(EntityTypeBuilder<SpotCheck> builder)
+    {
+        builder.ToTable("SpotChecks");
+        builder.HasKey(check => check.Id);
+
+        builder.Property(check => check.Day).IsRequired();
+
+        builder.Property(check => check.ScheduledAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(check => check.IssuedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.ExpiresAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.ResolvedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(check => check.Status)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        // No foreign key to the photograph: it lives on the same window, and
+        // the check keeps its outcome whatever happens to the picture.
+        builder.Property(check => check.ProofPhotoId);
+
+        // One per window and day, which is what makes drawing twice harmless.
+        builder.HasIndex(check => new { check.GoalInstanceId, check.Day }).IsUnique();
+
+        // The worker asks "what is due" every half minute, across everybody.
+        builder.HasIndex(check => new { check.Status, check.ScheduledAt });
     }
 }

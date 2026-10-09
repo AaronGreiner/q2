@@ -32,7 +32,8 @@ public sealed record NotificationPreferences(
     bool FriendsAtRisk,
     bool Challenge,
     TimeOnly? QuietHoursFrom,
-    TimeOnly? QuietHoursTo)
+    TimeOnly? QuietHoursTo,
+    bool SpotChecks = true)
 {
     /// <summary>What somebody who has never been asked gets.</summary>
     public static NotificationPreferences Default { get; } = new(
@@ -45,7 +46,8 @@ public sealed record NotificationPreferences(
         FriendsAtRisk: true,
         Challenge: true,
         QuietHoursFrom: QuietHours.DefaultFrom,
-        QuietHoursTo: QuietHours.DefaultTo);
+        QuietHoursTo: QuietHours.DefaultTo,
+        SpotChecks: true);
 
     /// <summary>Whether this switch is on.</summary>
     public bool Allows(NotificationSwitch key) => key switch
@@ -58,6 +60,7 @@ public sealed record NotificationPreferences(
         NotificationSwitch.GoalUpdates => GoalUpdates,
         NotificationSwitch.FriendsAtRisk => FriendsAtRisk,
         NotificationSwitch.Challenge => Challenge,
+        NotificationSwitch.SpotChecks => SpotChecks,
 
         // Silence for a switch nobody has heard of. Unreachable through the
         // enum, and the safe answer if a stored value ever outlives its member.

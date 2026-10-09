@@ -106,7 +106,7 @@ Current components, by folder:
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
-| `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the To-Dos ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md)) |
+| `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the Dos & Don'ts ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md), [0035](../docs/adr/0035-dos-and-donts.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |
@@ -116,7 +116,8 @@ Current components, by folder:
 | `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
 | `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |
 | `GoalReminderSheet` | moving or removing a goal's daily reminder |
-| `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary |
+| `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't |
+| `DontWindowRow` `DontHero` `DontLogButton` `DontLimitPicker` | a Don't: its row on today's list, the top of its own screen with the run, the one tap that logs a use (and asks first when it would be the relapse), and its limit, period and proof mode in the create sheet ([0037](../docs/adr/0037-donts.md)) |
 | `ActivityRow` | one line of the friends' feed, with its kudos button |
 | `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |
 | `FriendRow` `FriendRequestRow` `SentRequestRow` `FriendSuggestionRow` | the four friend states |
@@ -130,6 +131,7 @@ Current components, by folder:
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
+| `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
 | `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `SettingsSection` `SettingsToggleRow` | the settings list |

@@ -18,7 +18,10 @@ public sealed class ProofPhotoConfiguration : IEntityTypeConfiguration<ProofPhot
             .HasConversion<string>();
 
         builder.Property(proof => proof.Attempt).IsRequired();
-        builder.Property(proof => proof.CapturedInApp).IsRequired();
+        builder.Property(proof => proof.Source)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
 
         builder.Property(proof => proof.CreatedAt)
             .IsRequired()

@@ -155,6 +155,12 @@ public sealed record ChatPinnedGoalResponse(
 /// For a delivered photograph: the photograph itself, with the reader's vote and
 /// whether they may still cast one — exactly what the vote screen shows.
 /// </param>
+/// <param name="Uses">For a logged use of a Don't: which one of its period it was.</param>
+/// <param name="Limit">
+/// For a Don't's window or logged use: the limit of its period. Null on a Do's
+/// lines, which is how a client tells "Durchgehalten" from "Geschafft".
+/// </param>
+/// <param name="ImageId">For a logged use: its optional photograph.</param>
 public sealed record GoalEventResponse(
     string Key,
     GoalEventKind Kind,
@@ -166,7 +172,10 @@ public sealed record GoalEventResponse(
     int? RequiredProofs,
     DateOnly? Until,
     ProofResponse? Proof,
-    DateOnly? Day);
+    DateOnly? Day,
+    int? Uses,
+    int? Limit,
+    Guid? ImageId);
 
 /// <summary>Everything the thread screen shows.</summary>
 /// <param name="Members">

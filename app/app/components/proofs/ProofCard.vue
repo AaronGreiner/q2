@@ -19,10 +19,12 @@ import type { Proof, ProofVoteValue } from '~/api/types'
  * - **Doubt is named as anonymous, out loud.** People will not doubt honestly
  *   unless they know it cannot be traced, so the card says so where the button
  *   is rather than burying it.
- * - **"Live aufgenommen" is stated.** A picture chosen from a gallery can be
- *   any age, and the person voting is entitled to know which they are looking
- *   at. It is a label, never a refusal — a phone whose camera permission was
- *   denied still has to be able to deliver.
+ * - **"Live" or "Screenshot" is stated.** A picture chosen from a gallery can
+ *   be any age, and the person voting is entitled to know which they are
+ *   looking at. It is a label, never a refusal — some commitments only show on
+ *   a screen, and a phone whose camera permission was denied still has to be
+ *   able to deliver (#61). A screenshot is tall and full of text, so it is
+ *   fitted into the square rather than cropped.
  *
  * A vote already cast can be changed from here until the photograph is
  * decided — the server says when with `canIVote`. It is one quiet button under
@@ -85,6 +87,7 @@ function enlarge() {
     title: props.goalTitle ?? props.context,
     subtitle: props.proof.uploader.displayName,
     meta: formatRelativeTime(props.proof.createdAt, now.value, t.value),
+    source: props.proof.source,
   })
 }
 
@@ -160,7 +163,8 @@ function vote(value: ProofVoteValue) {
           alt=""
           decoding="async"
           draggable="false"
-          class="size-full object-cover"
+          class="size-full"
+          :class="proof.source === 'Screenshot' ? 'object-contain' : 'object-cover'"
           data-testid="proof-image"
           @error="failed = true"
         >
@@ -177,17 +181,10 @@ function vote(value: ProofVoteValue) {
         />
       </div>
 
-      <span
-        class="absolute start-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-sm"
-        data-testid="proof-provenance"
-      >
-        <UIcon
-          :name="proof.capturedInApp ? 'i-lucide-camera' : 'i-lucide-image'"
-          class="size-3"
-          aria-hidden="true"
-        />
-        {{ proof.capturedInApp ? t.proof.capturedLive : t.proof.fromLibrary }}
-      </span>
+      <ProofSourceBadge
+        :source="proof.source"
+        class="absolute start-2.5 bottom-2.5"
+      />
     </div>
 
     <div class="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">

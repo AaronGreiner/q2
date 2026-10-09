@@ -24,6 +24,12 @@ public sealed class Goal
     public const int MaxDescriptionLength = 1000;
     public const int MaxParticipants = 20;
 
+    /// <summary>The most uses a Don't may allow per period. Beyond it, it is not a limit.</summary>
+    public const int MaxLimit = 100;
+
+    /// <summary>How many relapses in a row a streak survives; the next one ends it.</summary>
+    public const int RelapsesBeforeStreakEnds = 3;
+
     private readonly List<GoalParticipant> _participants = [];
     private readonly List<GoalInstance> _instances = [];
     private readonly List<GoalPause> _pauses = [];
@@ -46,9 +52,15 @@ public sealed class Goal
         bool isGroup,
         TimeOnly? reminderAt,
         DateOnly? targetDate,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        GoalKind kind,
+        int? limit,
+        DontProofMode? proofMode)
     {
         Id = id;
+        Kind = kind;
+        Limit = limit;
+        ProofMode = proofMode;
         OwnerPersonId = ownerPersonId;
         Title = title;
         Description = description;
@@ -76,6 +88,18 @@ public sealed class Goal
     public Guid OwnerPersonId { get; private set; }
 
     public string Title { get; private set; }
+
+    /// <summary>Something to do, or something to stop doing.</summary>
+    public GoalKind Kind { get; private set; }
+
+    /// <summary>
+    /// For a Don't: the most uses per period, 0 for "never". Null for a Do.
+    /// Fixed once the goal runs, like its schedule.
+    /// </summary>
+    public int? Limit { get; private set; }
+
+    /// <summary>For a Don't: what its friends get to judge. Null for a Do.</summary>
+    public DontProofMode? ProofMode { get; private set; }
 
     public string? Description { get; private set; }
 
@@ -141,11 +165,41 @@ public sealed class Goal
         bool isGroup,
         TimeOnly? reminderAt,
         DateOnly? targetDate,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        GoalKind kind = GoalKind.Do,
+        int? limit = null,
+        DontProofMode? proofMode = null)
     {
         ArgumentNullException.ThrowIfNull(schedule);
 
         var errors = new Dictionary<string, string[]>();
+
+        if (!Enum.IsDefined(kind))
+        {
+            errors[nameof(Kind)] = ["That is not a kind of goal."];
+        }
+        else if (kind == GoalKind.Dont)
+        {
+            // One shape: at most N per period, the period being the window.
+            if (schedule.Kind != ScheduleKind.Limit)
+            {
+                errors[nameof(Schedule)] = ["A Don't is counted per day, week or month."];
+            }
+
+            if (limit is not { } n || n is < 0 or > MaxLimit)
+            {
+                errors[nameof(Limit)] = [$"A limit must be between 0 and {MaxLimit}."];
+            }
+
+            if (proofMode is not { } mode || !Enum.IsDefined(mode))
+            {
+                errors[nameof(ProofMode)] = ["Choose how your friends can check this."];
+            }
+        }
+        else if (schedule.Kind == ScheduleKind.Limit)
+        {
+            errors[nameof(Schedule)] = ["Only a Don't has a limit."];
+        }
 
         if (ownerPersonId == Guid.Empty)
         {
@@ -183,6 +237,8 @@ public sealed class Goal
         // a repeating goal would leave two answers to "when is this due".
         var normalisedTarget = schedule.Kind == ScheduleKind.Once ? targetDate : null;
 
+        var isDont = kind == GoalKind.Dont;
+
         return new Goal(
             id,
             ownerPersonId,
@@ -193,7 +249,114 @@ public sealed class Goal
             isGroup,
             reminderAt,
             normalisedTarget,
-            createdAt);
+            createdAt,
+            kind,
+            isDont ? limit : null,
+            isDont ? proofMode : null);
+    }
+
+    /// <summary>True for something to stop doing.</summary>
+    public bool IsDont => Kind == GoalKind.Dont;
+
+    /// <summary>
+    /// A Don't's window that relapsed and whose period has not run out yet —
+    /// the window "this week" still is, although it is decided.
+    /// </summary>
+    public GoalInstance? RelapsedInstanceAt(DateTimeOffset now) =>
+        _instances.FirstOrDefault(instance =>
+            instance.Status == GoalInstanceStatus.Relapse && instance.StartsAt <= now && now <= instance.DueAt);
+
+    /// <summary>
+    /// Logs one use of a Don't into the window running now. Returns null when
+    /// there is none to log into — a Do, a stopped or paused goal, or a moment
+    /// between windows.
+    /// </summary>
+    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now)
+    {
+        if (!IsDont || Status != GoalStatus.Active || ActivePauseAt(now) is not null)
+        {
+            return null;
+        }
+
+        var window = CurrentInstance ?? RelapsedInstanceAt(now);
+        return window?.LogUse(id, imageId, now);
+    }
+
+    /// <summary>True for a running Don't that is checked by spot checks.</summary>
+    public bool TakesSpotChecks => IsDont && ProofMode == DontProofMode.SpotCheck && Status == GoalStatus.Active;
+
+    /// <summary>
+    /// Draws a spot check for the owner's local <paramref name="day"/> at the
+    /// moment the caller picked. Returns null when there is nothing to draw:
+    /// not a spot-check Don't, paused, no open window, or already one that day.
+    /// </summary>
+    public SpotCheck? ScheduleSpotCheck(Guid id, DateOnly day, DateTimeOffset at, DateTimeOffset now)
+    {
+        if (!TakesSpotChecks || ActivePauseAt(now) is not null)
+        {
+            return null;
+        }
+
+        return CurrentInstance?.ScheduleSpotCheck(id, day, at);
+    }
+
+    /// <summary>
+    /// Draws today's check for right now, or moves today's not-yet-asked one to
+    /// now. Only for the diagnostics endpoint, which exists outside Staging and
+    /// Production so E2E and manual testing can see a check without waiting
+    /// for a random moment.
+    /// </summary>
+    internal bool ScheduleSpotCheckNow(Guid id, DateOnly day, DateTimeOffset now)
+    {
+        if (!TakesSpotChecks || ActivePauseAt(now) is not null || CurrentInstance is not { } window)
+        {
+            return false;
+        }
+
+        return window.SpotChecks.FirstOrDefault(check => check.Day == day) is { } existing
+            ? existing.Reschedule(now)
+            : window.ScheduleSpotCheck(id, day, now) is not null;
+    }
+
+    /// <summary>Opens the checks whose moment has come, to be announced to the owner.</summary>
+    public IReadOnlyList<SpotCheck> IssueDueSpotChecks(DateTimeOffset now) =>
+        TakesSpotChecks && ActivePauseAt(now) is null && CurrentInstance is { } window
+            ? window.IssueDueSpotChecks(now)
+            : [];
+
+    /// <summary>The check the owner can answer right now, if there is one.</summary>
+    public SpotCheck? OpenSpotCheckAt(DateTimeOffset now) => CurrentInstance?.OpenSpotCheckAt(now);
+
+    /// <summary>Answers an open check with a live photograph. Null when there is none to answer.</summary>
+    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now) =>
+        CurrentInstance?.AnswerSpotCheck(checkId, proofId, OwnerPersonId, imageId, now);
+
+    /// <summary>
+    /// The first local day of a Don't's current clean run: the day after its
+    /// last relapse or miss, or its first day. What "seit X Tagen" counts from.
+    /// </summary>
+    /// <param name="dayOf">The owner's local day of an instant.</param>
+    public DateOnly? RunStartedOn(Func<DateTimeOffset, DateOnly> dayOf)
+    {
+        ArgumentNullException.ThrowIfNull(dayOf);
+
+        if (!IsDont || _instances.Count == 0)
+        {
+            return null;
+        }
+
+        // A relapse breaks the run on the day it was logged; a miss is only
+        // known at the end of its window.
+        var breaks = _instances
+            .Where(instance => instance.Status is GoalInstanceStatus.Relapse or GoalInstanceStatus.Missed)
+            .Select(instance => instance.Status == GoalInstanceStatus.Relapse && instance.ResolvedAt is { } at
+                ? dayOf(at)
+                : instance.DueOn)
+            .ToList();
+
+        return breaks.Count == 0
+            ? _instances.Min(instance => instance.StartsOn)
+            : breaks.Max().AddDays(1);
     }
 
     /// <summary>The window that is currently open, if there is one.</summary>
@@ -227,7 +390,17 @@ public sealed class Goal
             return null;
         }
 
-        var instance = GoalInstance.Create(id, Id, window, startsAt, dueAt);
+        // A Don't's window takes a photograph only when its proof mode asks
+        // for one at the end; the limit comes along so the window knows it.
+        var instance = IsDont
+            ? GoalInstance.Create(
+                id,
+                Id,
+                window with { RequiredProofs = ProofMode == DontProofMode.ProofAtEnd ? 1 : 0 },
+                startsAt,
+                dueAt,
+                Limit ?? 0)
+            : GoalInstance.Create(id, Id, window, startsAt, dueAt);
         _instances.Add(instance);
         return instance;
     }
@@ -244,9 +417,9 @@ public sealed class Goal
     public ProofPhoto? SubmitProof(
         Guid id,
         Guid imageId,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset now) =>
-        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, capturedInApp, now);
+        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, source, now);
 
     /// <summary>
     /// Applies a decided vote, and completes a one-off goal when its only
@@ -328,23 +501,57 @@ public sealed class Goal
     /// ends it, and the window that is currently open does not, because it has
     /// not failed yet and saying so before the deadline would be a claim about
     /// the future.
+    ///
+    /// A Don't's relapse holds it: it neither adds one nor ends the chain, so
+    /// owning up costs less than being caught. The third relapse in a row ends
+    /// it like a miss, or honesty would be a way never to lose a streak
+    /// (docs/adr/0037-donts.md). <see cref="StreakOf"/> is the one place this
+    /// is counted; the conversation counts it forwards with the same rules.
     /// </remarks>
-    public int Streak =>
-        _instances
-            .Where(instance => instance.Status is GoalInstanceStatus.Done or GoalInstanceStatus.Missed)
-            .OrderByDescending(instance => instance.DueAt)
-            .TakeWhile(instance => instance.Status == GoalInstanceStatus.Done)
-            .Count();
+    public int Streak => StreakOf(_instances);
 
-    /// <summary>How many windows were delivered, and how many were missed.</summary>
+    /// <summary>The streak a sequence of windows adds up to, with the rules above.</summary>
+    internal static int StreakOf(IEnumerable<GoalInstance> instances)
+    {
+        var streak = 0;
+        var relapsesInARow = 0;
+
+        foreach (var instance in instances
+            .Where(instance => instance.Status is GoalInstanceStatus.Done or GoalInstanceStatus.Missed or GoalInstanceStatus.Relapse)
+            .OrderByDescending(instance => instance.DueAt))
+        {
+            if (instance.Status == GoalInstanceStatus.Missed)
+            {
+                break;
+            }
+
+            if (instance.Status == GoalInstanceStatus.Relapse)
+            {
+                if (++relapsesInARow >= RelapsesBeforeStreakEnds)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            relapsesInARow = 0;
+            streak++;
+        }
+
+        return streak;
+    }
+
+    /// <summary>How many windows were kept, missed, and relapsed.</summary>
     /// <remarks>
-    /// The balance a profile shows. Returned together because the two numbers
+    /// The balance a profile shows. Returned together because the numbers
     /// only mean anything beside each other: "47" is a boast, "47 · 5" is a
-    /// record.
+    /// record. A relapse is its own number and never added to the misses.
     /// </remarks>
-    public (int Done, int Missed) Balance => (
+    public (int Done, int Missed, int Relapsed) Balance => (
         _instances.Count(instance => instance.Status == GoalInstanceStatus.Done),
-        _instances.Count(instance => instance.Status == GoalInstanceStatus.Missed));
+        _instances.Count(instance => instance.Status == GoalInstanceStatus.Missed),
+        _instances.Count(instance => instance.Status == GoalInstanceStatus.Relapse));
 
     /// <summary>The local days this goal was delivered on. What a streak of days is read from.</summary>
     public IEnumerable<DateOnly> DeliveredDays =>
@@ -464,6 +671,16 @@ public sealed class Goal
             throw new DomainValidationException(
                 "Pause",
                 $"A goal may be paused {PauseRules.MaxPerMonth} times a month.");
+        }
+
+        // Nor may it be the way out of a spot check that has just been asked:
+        // a pause requested in its three minutes would void the very check it
+        // was meant to answer.
+        if (CurrentInstance?.OpenSpotCheckAt(now) is not null)
+        {
+            throw new DomainValidationException(
+                "Pause",
+                "Answer the spot check first.");
         }
 
         // A vote in flight is the one thing a pause may not interrupt; see

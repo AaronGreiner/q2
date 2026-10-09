@@ -9,11 +9,29 @@ import type { Goal } from '~/api/types'
  * from a plain object. Navigation belongs to the page composing it — which is
  * why the whole card is a link rather than a div with a click handler.
  */
-const props = defineProps<{ goal: Goal }>()
+const props = withDefaults(defineProps<{
+  goal: Goal
+  /**
+   * Today as the reader's local day (`YYYY-MM-DD`), for a Don't's "seit X
+   * Tagen". Passed in, like every clock here, so the card stays a function of
+   * its props.
+   */
+  today?: string | null
+}>(), {
+  today: null,
+})
 
 const t = useMessages()
 
-const schedule = computed(() => scheduleLabel(props.goal.schedule, t.value))
+const schedule = computed(() => goalScheduleLabel(props.goal, t.value))
+
+/**
+ * A Don't shows its clean run where a Do shows its streak: "Seit 12 Tagen" is
+ * what somebody who stopped something counts, and a relapse is the break in it.
+ */
+const run = computed(() => (props.goal.kind === 'Dont' && props.goal.runStartedOn && props.today
+  ? t.value.dont.run(runDays(props.goal.runStartedOn, props.today))
+  : null))
 const reminder = computed(() => formatClock(props.goal.reminderAt))
 
 /** What the open window still wants, or nothing when there is none. */
@@ -130,6 +148,21 @@ const statusLine = computed(() => {
 
       <div class="flex items-center gap-3">
         <span
+          v-if="run"
+          class="flex items-center gap-1 text-[11px] font-bold text-(--ui-text-toned)"
+          data-testid="goal-run"
+          data-q2-private
+        >
+          <UIcon
+            name="i-lucide-shield-check"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          {{ run }}
+        </span>
+
+        <span
+          v-else
           class="flex items-center gap-1 text-[11px] font-bold text-(--q2-flame-text)"
           data-q2-private
         >

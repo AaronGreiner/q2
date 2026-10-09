@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
@@ -286,12 +287,24 @@ public sealed class ImageService(
          */
         if (image.Purpose == ImagePurpose.Proof)
         {
-            return await database.ProofPhotos
+            var asProof = await database.ProofPhotos
                 .AsNoTracking()
                 .AnyAsync(
                     proof => proof.ImageId == image.Id
                         && database.Goals.Any(goal =>
                             goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
+                            && (goal.OwnerPersonId == viewerId
+                                || goal.Participants.Any(participant => participant.PersonId == viewerId))),
+                    cancellationToken);
+
+            // The optional photograph on a Don't's logged use is uploaded as a
+            // proof and shown to the same people, in the same conversation.
+            return asProof || await database.Set<DontUse>()
+                .AsNoTracking()
+                .AnyAsync(
+                    use => use.ImageId == image.Id
+                        && database.Goals.Any(goal =>
+                            goal.Instances.Any(instance => instance.Id == use.GoalInstanceId)
                             && (goal.OwnerPersonId == viewerId
                                 || goal.Participants.Any(participant => participant.PersonId == viewerId))),
                     cancellationToken);

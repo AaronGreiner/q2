@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * One conversation.
@@ -77,16 +78,24 @@ const isCameraOpen = ref(false)
 const canDeliver = computed(() =>
   Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
 
+/** A Don't's use, logged from its conversation; the line it makes arrives in the thread. */
+const dontUse = useDontUse()
+
+async function onLog() {
+  const goalId = chat.value?.pinnedGoal?.id
+  if (goalId && await dontUse.logUse(goalId)) await refresh()
+}
+
 /**
  * Already where the photograph is shown, so a delivery stays here and the card
  * arriving in the thread is the confirmation; a refusal stays on the camera's
  * screen with the photograph (see useProofDelivery).
  */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = chat.value?.pinnedGoal?.id
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -276,6 +285,8 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
         <ChatGoalBanner
           v-if="chat.pinnedGoal"
           :goal="chat.pinnedGoal"
+          :logging="dontUse.isLogging.value"
+          @log="onLog"
           @cheer="cheer()"
         />
 
@@ -357,6 +368,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <PhotoCapture
       v-model:open="isCameraOpen"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
     />

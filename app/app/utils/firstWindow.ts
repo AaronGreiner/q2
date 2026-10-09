@@ -21,6 +21,10 @@ export function firstWindowEnd(schedule: GoalScheduleRequest, today: string): st
     case 'Times':
       return schedule.period === 'Month' ? lastOfMonth(today) : sundayOf(today)
 
+    // A Don't's period: today, this week, or this month.
+    case 'Limit':
+      return schedule.period === 'Month' ? lastOfMonth(today) : schedule.period === 'Week' ? sundayOf(today) : today
+
     case 'Interval':
     case 'Once':
     default:

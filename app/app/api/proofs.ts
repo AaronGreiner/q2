@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { DeliveredProof, FeedProof, OwnProof, Proof, ProofVoteValue, KudosKind } from './types'
+import type { DeliveredProof, FeedProof, OwnProof, Proof, ProofSource, ProofVoteValue, KudosKind } from './types'
 
 /**
  * Photographs and the votes on them.
@@ -17,8 +17,11 @@ export interface ProofsApi {
    * to ask. On a shared one it comes back `Voting`, and the window does not
    * move until friends have said so. Either way it names the goal's
    * conversation, where the photograph is shown from now on.
+   *
+   * `source` is the route the camera screen used — live or a picture from the
+   * phone — and is shown to everybody who sees the photograph.
    */
-  submit: (goalId: string, imageId: string, capturedInApp: boolean) => Promise<DeliveredProof>
+  submit: (goalId: string, imageId: string, source: ProofSource) => Promise<DeliveredProof>
 
   get: (id: string) => Promise<Proof>
 
@@ -39,10 +42,10 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
   const proof = (id: string) => `/api/proofs/${encodeURIComponent(id)}`
 
   return {
-    submit: (goalId, imageId, capturedInApp) =>
+    submit: (goalId, imageId, source) =>
       call<DeliveredProof>(`/api/goals/${encodeURIComponent(goalId)}/proof`, {
         method: 'POST',
-        body: { imageId, capturedInApp },
+        body: { imageId, source },
       }),
 
     get: id => call<Proof>(proof(id), { method: 'GET' }),

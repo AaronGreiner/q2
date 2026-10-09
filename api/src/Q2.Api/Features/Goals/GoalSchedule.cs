@@ -20,14 +20,20 @@ public enum Weekday
     Sunday = 7,
 }
 
-/// <summary>The period a quota is counted over.</summary>
+/// <summary>The period a quota or a limit is counted over.</summary>
+/// <remarks>
+/// <see cref="Day"/> is for a Don't's limit only. "Three times a day" as a Do
+/// is not a commitment anybody makes (and would take three photographs a day),
+/// so a quota is still a week or a month.
+/// </remarks>
 public enum QuotaPeriod
 {
     Week,
     Month,
+    Day,
 }
 
-/// <summary>The four shapes a commitment can have.</summary>
+/// <summary>The shapes a commitment can have.</summary>
 public enum ScheduleKind
 {
     /// <summary>Once, by a chosen day.</summary>
@@ -41,6 +47,12 @@ public enum ScheduleKind
 
     /// <summary>A number of times per week or per month, whenever you like.</summary>
     Times,
+
+    /// <summary>
+    /// A Don't's period: its limit is counted per day, week or month, and each
+    /// period is one window (docs/adr/0037-donts.md).
+    /// </summary>
+    Limit,
 }
 
 /// <summary>
@@ -124,14 +136,23 @@ public sealed class GoalSchedule
     /// <summary>Set only for <see cref="ScheduleKind.Times"/>.</summary>
     public int? Times { get; private set; }
 
-    /// <summary>Set only for <see cref="ScheduleKind.Times"/>.</summary>
+    /// <summary>Set for <see cref="ScheduleKind.Times"/> and <see cref="ScheduleKind.Limit"/>.</summary>
     public QuotaPeriod? Period { get; private set; }
 
     /// <summary>The weekdays, parsed. Empty for every other kind.</summary>
     public IReadOnlyList<Weekday> Weekdays => Parse(WeekdayList);
 
     /// <summary>How many proofs one window of this schedule takes.</summary>
-    public int RequiredProofs => Kind == ScheduleKind.Times ? Times ?? 1 : 1;
+    /// <remarks>
+    /// None for a Don't's period: whether it takes a photograph is its proof
+    /// mode's business, and <see cref="Goal"/> says so when it opens one.
+    /// </remarks>
+    public int RequiredProofs => Kind switch
+    {
+        ScheduleKind.Times => Times ?? 1,
+        ScheduleKind.Limit => 0,
+        _ => 1,
+    };
 
     /// <summary>Whether a finished window is followed by another one.</summary>
     public bool Repeats => Kind != ScheduleKind.Once;
@@ -184,12 +205,24 @@ public sealed class GoalSchedule
                 $"A quota must be between 1 and {MaxTimesPerPeriod} times.");
         }
 
+        if (!Enum.IsDefined(period) || period == QuotaPeriod.Day)
+        {
+            throw new DomainValidationException(nameof(Period), "A quota is counted per week or per month.");
+        }
+
+        return new GoalSchedule(ScheduleKind.Times, null, string.Empty, times, period);
+    }
+
+    /// <summary>A Don't's period: one window per day, week or month.</summary>
+    /// <exception cref="DomainValidationException">The period is not one.</exception>
+    public static GoalSchedule Per(QuotaPeriod period)
+    {
         if (!Enum.IsDefined(period))
         {
             throw new DomainValidationException(nameof(Period), "That is not a period.");
         }
 
-        return new GoalSchedule(ScheduleKind.Times, null, string.Empty, times, period);
+        return new GoalSchedule(ScheduleKind.Limit, null, string.Empty, null, period);
     }
 
     /// <summary>
@@ -208,7 +241,7 @@ public sealed class GoalSchedule
         ScheduleKind.Interval => Day(today),
 
         ScheduleKind.Weekdays => Day(NextMatchingDay(today) ?? today),
-        ScheduleKind.Times => PeriodAround(today),
+        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(today),
         _ => Day(today),
     };
 
@@ -222,7 +255,7 @@ public sealed class GoalSchedule
         ScheduleKind.Once => null,
         ScheduleKind.Interval => Day(previousEnd.AddDays(Math.Max(1, EveryDays ?? 1))),
         ScheduleKind.Weekdays => NextMatchingDay(previousEnd.AddDays(1)) is { } day ? Day(day) : null,
-        ScheduleKind.Times => PeriodAround(previousEnd.AddDays(1)),
+        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(previousEnd.AddDays(1)),
         _ => null,
     };
 
@@ -241,15 +274,18 @@ public sealed class GoalSchedule
         ScheduleKind.Once => null,
         ScheduleKind.Interval => Day(followingStart.AddDays(-Math.Max(1, EveryDays ?? 1))),
         ScheduleKind.Weekdays => PreviousMatchingDay(followingStart.AddDays(-1)) is { } day ? Day(day) : null,
-        ScheduleKind.Times => PeriodAround(followingStart.AddDays(-1)),
+        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(followingStart.AddDays(-1)),
         _ => null,
     };
 
     private GoalWindow Day(DateOnly day) => new(day, day, RequiredProofs);
 
-    private GoalWindow PeriodAround(DateOnly day) => Period == QuotaPeriod.Month
-        ? new GoalWindow(FirstOfMonth(day), LastOfMonth(day), RequiredProofs)
-        : new GoalWindow(MondayOf(day), MondayOf(day).AddDays(6), RequiredProofs);
+    private GoalWindow PeriodAround(DateOnly day) => Period switch
+    {
+        QuotaPeriod.Month => new GoalWindow(FirstOfMonth(day), LastOfMonth(day), RequiredProofs),
+        QuotaPeriod.Day => Day(day),
+        _ => new GoalWindow(MondayOf(day), MondayOf(day).AddDays(6), RequiredProofs),
+    };
 
     /// <summary>The next chosen weekday on or after <paramref name="from"/>.</summary>
     private DateOnly? NextMatchingDay(DateOnly from)

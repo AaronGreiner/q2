@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/{id}/spot-checks/{checkId}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answers the spot check open on your own Don't with a live photograph, for its friends to vote on. */
+        post: operations["AnswerSpotCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reports": {
         parameters: {
             query?: never;
@@ -291,6 +308,23 @@ export interface paths {
         post?: never;
         /** Deletes a stopped goal outright, for everybody on it. */
         delete: operations["DeleteGoal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/uses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logs one use of your own Don't into the running period. No vote, no notification. */
+        post: operations["LogDontUse"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1107,6 +1141,10 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
         };
+        AnswerSpotCheckRequest: {
+            /** Format: uuid */
+            imageId?: string | null;
+        };
         /** @enum {unknown} */
         BadgeKey: "StreakHero" | "EarlyBird" | "Bookworm" | "KudosGiver" | "Marathon" | "WeeklyWinner";
         BadgeResponse: {
@@ -1120,6 +1158,8 @@ export interface components {
             done: number;
             /** Format: int32 */
             missed: number;
+            /** Format: int32 */
+            relapsed: number;
         };
         CastVoteRequest: {
             value?: null | components["schemas"]["VoteValue"];
@@ -1258,6 +1298,10 @@ export interface components {
             /** Format: date */
             targetDate?: string | null;
             participantIds?: string[] | null;
+            kind?: null | components["schemas"]["GoalKind"];
+            /** Format: int32 */
+            limit?: number | null;
+            proofMode?: null | components["schemas"]["DontProofMode"];
         };
         CreateGroupChatRequest: {
             title?: string | null;
@@ -1287,6 +1331,8 @@ export interface components {
             /** Format: uuid */
             conversationId: string | null;
         };
+        /** @enum {unknown} */
+        DontProofMode: "SpotCheck" | "ProofAtEnd" | "HonestOnly" | null;
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
             goalTitle: string;
@@ -1330,7 +1376,7 @@ export interface components {
             conversationId: string | null;
         };
         /** @enum {unknown} */
-        GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | null;
+        GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | "UseLogged" | "WindowRelapse" | null;
         GoalEventResponse: {
             key: string;
             kind: components["schemas"]["GoalEventKind"];
@@ -1349,6 +1395,12 @@ export interface components {
             proof: null | components["schemas"]["ProofResponse"];
             /** Format: date */
             day: string | null;
+            /** Format: int32 */
+            uses: number | null;
+            /** Format: int32 */
+            limit: number | null;
+            /** Format: uuid */
+            imageId: string | null;
         };
         GoalInstanceResponse: {
             /** Format: uuid */
@@ -1369,9 +1421,15 @@ export interface components {
             /** Format: uuid */
             pendingProofId: string | null;
             acceptsProof: boolean;
+            /** Format: int32 */
+            limit: number | null;
+            /** Format: int32 */
+            uses: number;
         };
         /** @enum {unknown} */
-        GoalInstanceStatus: "Open" | "Done" | "Missed" | "Paused";
+        GoalInstanceStatus: "Open" | "Done" | "Missed" | "Paused" | "Relapse";
+        /** @enum {unknown} */
+        GoalKind: "Do" | "Dont";
         GoalPauseResponse: {
             /** Format: uuid */
             id: string;
@@ -1400,6 +1458,10 @@ export interface components {
             schedule: components["schemas"]["GoalScheduleResponse"];
             status: components["schemas"]["GoalStatus"];
             isGroup: boolean;
+            kind: components["schemas"]["GoalKind"];
+            /** Format: int32 */
+            limit: number | null;
+            proofMode: null | components["schemas"]["DontProofMode"];
             current: null | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
             streak: number;
@@ -1407,6 +1469,10 @@ export interface components {
             windowsDone: number;
             /** Format: int32 */
             windowsMissed: number;
+            /** Format: int32 */
+            windowsRelapsed: number;
+            /** Format: date */
+            runStartedOn: string | null;
             /** Format: time */
             reminderAt: string | null;
             /** Format: date */
@@ -1422,6 +1488,7 @@ export interface components {
             pause: null | components["schemas"]["GoalPauseResponse"];
             /** Format: int32 */
             remainingPauses: number | null;
+            spotCheck: null | components["schemas"]["OpenSpotCheckResponse"];
         };
         GoalScheduleRequest: {
             kind?: null | components["schemas"]["ScheduleKind"];
@@ -1501,6 +1568,10 @@ export interface components {
         KudosKind: "Fire" | "Strong" | "Applause";
         /** @enum {unknown} */
         LanguagePreference: "German" | "English";
+        LogUseRequest: {
+            /** Format: uuid */
+            imageId?: string | null;
+        };
         LoginRequest: {
             email?: string | null;
             password?: string | null;
@@ -1515,7 +1586,7 @@ export interface components {
             muted?: boolean | null;
         };
         /** @enum {unknown} */
-        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished";
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue";
         NotificationResponse: {
             /** Format: uuid */
             id: string | null;
@@ -1545,15 +1616,23 @@ export interface components {
             quietHoursFrom: string | null;
             /** Format: time */
             quietHoursTo: string | null;
+            spotChecks: boolean;
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
+        OpenSpotCheckResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         OwnProofResponse: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             imageId: string;
             status: components["schemas"]["ProofStatus"];
+            source: components["schemas"]["ProofSource"];
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -1632,7 +1711,7 @@ export interface components {
             attempt: number;
             /** Format: int32 */
             attemptsLeft: number;
-            capturedInApp: boolean;
+            source: components["schemas"]["ProofSource"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1641,13 +1720,15 @@ export interface components {
             reactions: components["schemas"]["ReactionSummaryResponse"][];
         };
         /** @enum {unknown} */
+        ProofSource: "Unknown" | "Live" | "Screenshot";
+        /** @enum {unknown} */
         ProofStatus: "Voting" | "Confirmed" | "Rejected";
         PushKeyResponse: {
             isAvailable: boolean;
             publicKey: string | null;
         };
         /** @enum {unknown} */
-        QuotaPeriod: "Week" | "Month" | null;
+        QuotaPeriod: "Week" | "Month" | "Day" | null;
         ReactToChallengeEntryRequest: {
             kind?: null | components["schemas"]["KudosKind"];
         };
@@ -1700,7 +1781,7 @@ export interface components {
             remainingDays: number;
         };
         /** @enum {unknown} */
-        ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times";
+        ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times" | "Limit";
         SendMessageRequest: {
             text?: string | null;
             /** Format: uuid */
@@ -1737,8 +1818,7 @@ export interface components {
         SubmitProofRequest: {
             /** Format: uuid */
             imageId?: string | null;
-            /** @default false */
-            capturedInApp: boolean;
+            source?: null | components["schemas"]["ProofSource"];
         };
         SubscribeRequest: {
             endpoint?: string | null;
@@ -1767,6 +1847,7 @@ export interface components {
             quietHoursFrom?: string | null;
             /** Format: time */
             quietHoursTo?: string | null;
+            spotChecks?: boolean | null;
         };
         UpdateProfileRequest: {
             displayName?: string | null;
@@ -1925,6 +2006,51 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SubmitProofRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveredProofResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AnswerSpotCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                checkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerSpotCheckRequest"];
             };
         };
         responses: {
@@ -2452,6 +2578,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    LogDontUse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogUseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
             };
             /** @description Bad Request */
             400: {

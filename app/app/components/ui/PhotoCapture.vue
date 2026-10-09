@@ -4,6 +4,7 @@ import { isApiError } from '~/api/errors'
 import type { Image, ImagePurpose } from '~/api/types'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
 import { type CameraFacing, rememberFacing, rememberedFacing } from '~/utils/cameraFacing'
+import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
 
 /**
  * Taking a picture and handing back the stored one.
@@ -46,6 +47,12 @@ import { type CameraFacing, rememberFacing, rememberedFacing } from '~/utils/cam
  *
  * **It opens with the camera used last on this device**, the rear one until
  * somebody switches (`utils/cameraFacing.ts`).
+ *
+ * **It says which route a picture took** — the shutter or the picker — to
+ * `handIn` and with `uploaded`, and leaves what that means to the caller. A
+ * proof turns it into "Live" or "Screenshot" for its friends (#61); with
+ * `labelsSource` the picker is offered as a screenshot and the preview shows
+ * the label the friends will see, so nobody is surprised by it afterwards.
  */
 const props = withDefaults(defineProps<{
   purpose: ImagePurpose
@@ -62,13 +69,19 @@ const props = withDefaults(defineProps<{
    * used to run after the camera had closed: a refused photograph was simply
    * gone, with nothing on screen to say so.
    */
-  handIn?: (image: Image) => Promise<string | null>
+  handIn?: (image: Image, origin: PhotoOrigin) => Promise<string | null>
+  /**
+   * For a proof: the picker is "Screenshot" rather than "Bild auswählen", and
+   * the preview shows the label friends will see on the photograph.
+   */
+  labelsSource?: boolean
 }>(), {
   maxEdge: undefined,
   handIn: undefined,
+  labelsSource: false,
 })
 
-const emit = defineEmits<{ uploaded: [image: Image] }>()
+const emit = defineEmits<{ uploaded: [image: Image, origin: PhotoOrigin] }>()
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -87,9 +100,10 @@ const facing = ref<CameraFacing>('environment')
 /** Only offered when there is a second camera to switch to. */
 const canSwitch = ref(false)
 
-/** The picture taken but not yet sent, and the object URL showing it. */
+/** The picture taken but not yet sent, the object URL showing it, and which way it came. */
 const pending = shallowRef<Blob | null>(null)
 const previewUrl = ref<string | null>(null)
+const origin = ref<PhotoOrigin>('camera')
 
 /**
  * The stored copy of `pending`, once it is up. Kept while a refused hand-in is
@@ -222,22 +236,23 @@ function shoot() {
   canvas.getContext('2d')?.drawImage(element, 0, 0)
 
   canvas.toBlob((blob) => {
-    if (blob) hold(blob)
+    if (blob) hold(blob, 'camera')
   }, 'image/jpeg', 0.92)
 }
 
 function onFilePicked(event: Event) {
   const [file] = (event.target as HTMLInputElement).files ?? []
 
-  if (file) hold(file)
+  if (file) hold(file, 'library')
 
   // Cleared so picking the same file twice in a row fires `change` again.
   if (fileInput.value) fileInput.value.value = ''
 }
 
-function hold(blob: Blob) {
+function hold(blob: Blob, from: PhotoOrigin) {
   clearPending()
   pending.value = blob
+  origin.value = from
   previewUrl.value = URL.createObjectURL(blob)
   stage.value = 'preview'
   message.value = null
@@ -271,7 +286,7 @@ async function confirm() {
 
     uploaded.value = image
 
-    const refused = props.handIn ? await props.handIn(image) : null
+    const refused = props.handIn ? await props.handIn(image, origin.value) : null
 
     if (refused) {
       stage.value = 'preview'
@@ -283,7 +298,7 @@ async function confirm() {
     // and "Wird hochgeladen …" left standing under a finished upload reads as
     // though it were stuck.
     message.value = null
-    emit('uploaded', image)
+    emit('uploaded', image, origin.value)
     open.value = false
   }
   catch (caught) {
@@ -376,6 +391,16 @@ function reset() {
             data-testid="photo-preview"
           >
 
+          <!-- What the friends will read on it, before it is sent. -->
+          <p
+            v-if="previewUrl && labelsSource"
+            class="absolute start-2.5 bottom-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
+            data-testid="photo-source-note"
+          >
+            {{ t.photo.labelledAs }}
+            <ProofSourceBadge :source="proofSourceOf(origin)" />
+          </p>
+
           <!--
             `playsinline` keeps iOS from taking the video full screen the moment
             it plays, which would replace this screen with a player. `muted` is
@@ -445,16 +470,25 @@ function reset() {
           v-if="stage === 'camera' && cameraReady"
           class="grid shrink-0 grid-cols-3 items-center px-6 pt-4 pb-2"
         >
-          <UButton
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-image"
-            class="size-14 justify-self-start justify-center rounded-full"
-            :ui="{ leadingIcon: 'size-6' }"
-            :aria-label="t.photo.chooseFile"
-            data-testid="photo-choose"
-            @click="fileInput?.click()"
-          />
+          <div class="flex flex-col items-center gap-1 justify-self-start">
+            <UButton
+              color="neutral"
+              variant="soft"
+              :icon="labelsSource ? 'i-lucide-smartphone' : 'i-lucide-image'"
+              class="size-14 justify-center rounded-full"
+              :ui="{ leadingIcon: 'size-6' }"
+              :aria-label="labelsSource ? t.photo.chooseScreenshot : t.photo.chooseFile"
+              data-testid="photo-choose"
+              @click="fileInput?.click()"
+            />
+            <!-- For a proof the two routes are both real choices, so the
+                 second one is named rather than left to an icon. -->
+            <span
+              v-if="labelsSource"
+              class="text-[11px] font-semibold text-(--ui-text-muted)"
+              aria-hidden="true"
+            >{{ t.proof.source.Screenshot }}</span>
+          </div>
 
           <button
             type="button"
@@ -486,8 +520,8 @@ function reset() {
           <UButton
             block
             size="xl"
-            icon="i-lucide-image"
-            :label="t.photo.chooseFile"
+            :icon="labelsSource ? 'i-lucide-smartphone' : 'i-lucide-image'"
+            :label="labelsSource ? t.photo.chooseScreenshot : t.photo.chooseFile"
             data-testid="photo-choose"
             @click="fileInput?.click()"
           />

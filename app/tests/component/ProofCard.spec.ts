@@ -39,7 +39,7 @@ function proof(overrides: Partial<Proof> = {}): Proof {
     status: 'Voting',
     attempt: 1,
     attemptsLeft: 1,
-    capturedInApp: true,
+    source: 'Live',
     createdAt: '2026-06-15T09:00:00+00:00',
     expiresAt: '2026-06-15T21:00:00+00:00',
     votes: {
@@ -79,16 +79,36 @@ describe('ProofCard', () => {
   /**
    * A picture chosen from a gallery can be any age. The person voting is
    * entitled to know which they are looking at — it is a label, never a
-   * refusal.
+   * refusal (#61).
    */
-  it('says whether the camera took it', async () => {
+  it('says whether the camera took it or it is a screenshot', async () => {
     const live = await mountSuspended(ProofCard, { props: { proof: proof() } })
-    expect(live.get('[data-testid="proof-provenance"]').text()).toBe('Live aufgenommen')
+    expect(live.get('[data-testid="proof-source"]').text()).toBe('Live')
+    expect(live.get('[data-testid="proof-image"]').classes()).toContain('object-cover')
 
-    const picked = await mountSuspended(ProofCard, {
-      props: { proof: proof({ capturedInApp: false }) },
+    const screenshot = await mountSuspended(ProofCard, {
+      props: { proof: proof({ source: 'Screenshot' }) },
     })
-    expect(picked.get('[data-testid="proof-provenance"]').text()).toBe('Aus der Galerie')
+    expect(screenshot.get('[data-testid="proof-source"]').text()).toBe('Screenshot')
+
+    // Tall and full of text: fitted into the square rather than cropped.
+    expect(screenshot.get('[data-testid="proof-image"]').classes()).toContain('object-contain')
+
+    const unknown = await mountSuspended(ProofCard, {
+      props: { proof: proof({ source: 'Unknown' }) },
+    })
+    expect(unknown.get('[data-testid="proof-source"]').text()).toBe('Ohne Angabe')
+  })
+
+  it('takes its source into the full-screen view', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: { proof: proof({ source: 'Screenshot' }), goalTitle: 'Bildschirmzeit' },
+    })
+
+    await wrapper.get('[data-testid="proof-enlarge"]').trigger('click')
+
+    expect(usePhotoViewer().current.value?.source).toBe('Screenshot')
+    usePhotoViewer().close()
   })
 
   it('offers confirm before doubt, and says doubting is anonymous', async () => {

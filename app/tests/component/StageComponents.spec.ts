@@ -34,7 +34,7 @@ function archiveEntry(overrides: Record<string, unknown> = {}): ChallengeArchive
         avatarImageId: null,
       },
       imageId: 'image-1',
-      capturedInApp: true,
+      source: 'Live',
       createdAt: '2026-09-08T09:00:00Z',
       isMine: true,
       reactions: [],

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { CreateGoalRequest, Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
- * The To-Dos tab: what is on today, and the goals themselves, under two tabs.
+ * The Dos tab — "Dos & Don'ts" on the screen: what is on today, and all of
+ * them, under two tabs.
  *
  * The plus in the header is the one way a goal is made. It lives here rather
  * than in the tab bar, because a plus in the tab bar was the only visible way
@@ -13,17 +15,25 @@ import type { CreateGoalRequest, Image } from '~/api/types'
  * shared and survives a reload. `replace`, not `push`: switching tabs is
  * looking at the same screen from another angle, and it should not take four
  * presses of the back button to leave the page.
+ *
+ * The second tab was `?tab=goals` while it was labelled "Ziele" (#60). That
+ * address is still read, so a bookmark from before keeps working, but nothing
+ * writes it any more.
  */
-type Tab = 'today' | 'goals'
+type Tab = 'today' | 'all'
 
 const route = useRoute()
 const router = useRouter()
 const t = useMessages()
 const now = useNow()
+const zone = useTimeZoneOffset()
+
+/** The reader's day, for a Don't's "seit X Tagen". */
+const today = computed(() => localDay(now.value, zone.value))
 
 const tab = computed<Tab>({
-  get: () => (route.query.tab === 'goals' ? 'goals' : 'today'),
-  set: value => router.replace({ query: value === 'goals' ? { tab: 'goals' } : {} }),
+  get: () => (route.query.tab === 'all' || route.query.tab === 'goals' ? 'all' : 'today'),
+  set: value => router.replace({ query: value === 'all' ? { tab: 'all' } : {} }),
 })
 
 /**
@@ -50,16 +60,22 @@ const dueSorted = computed(() => byDeadline(due.value))
 // is the server's rule too.
 const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isLogging, logUse } = useDontUse()
+
+/** One tap from the row; the row has changed either way, so read it again. */
+async function onLog(goalId: string) {
+  if (await logUse(goalId)) await refresh()
+}
 
 /** Which goal the camera is open for — one camera per screen, never per row. */
 const deliveringFor = ref<string | null>(null)
 
 /** The same hand-in as the start screen's — see pages/index.vue. */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -69,7 +85,7 @@ const sheet = useTemplateRef('sheet')
 
 const tabs = computed(() => [
   { value: 'today' as const, label: t.value.goals.tabToday },
-  { value: 'goals' as const, label: t.value.goals.tabGoals },
+  { value: 'all' as const, label: t.value.goals.tabAll },
 ])
 
 async function onCreate(request: CreateGoalRequest) {
@@ -77,7 +93,7 @@ async function onCreate(request: CreateGoalRequest) {
   if (!created) return
 
   sheet.value?.reset()
-  await router.replace({ query: { tab: 'goals' } })
+  await router.replace({ query: { tab: 'all' } })
 }
 
 useHead({ title: () => t.value.goals.heading })
@@ -146,14 +162,25 @@ useHead({ title: () => t.value.goals.heading })
             class="flex flex-col gap-2.5"
             data-testid="due-list"
           >
-            <GoalWindowRow
+            <template
               v-for="goal in dueSorted"
               :key="goal.id"
-              :goal="goal"
-              :now="now"
-              :busy="isDelivering"
-              @deliver="deliveringFor = $event"
-            />
+            >
+              <DontWindowRow
+                v-if="goal.kind === 'Dont'"
+                :goal="goal"
+                :busy="isDelivering || isLogging"
+                @deliver="deliveringFor = $event"
+                @log="onLog"
+              />
+              <GoalWindowRow
+                v-else
+                :goal="goal"
+                :now="now"
+                :busy="isDelivering"
+                @deliver="deliveringFor = $event"
+              />
+            </template>
           </div>
 
           <AppStateMessage
@@ -173,7 +200,7 @@ useHead({ title: () => t.value.goals.heading })
             id="goals-heading"
             class="sr-only"
           >
-            {{ t.goals.tabGoals }}
+            {{ t.goals.tabAll }}
           </h2>
 
           <ul
@@ -185,7 +212,10 @@ useHead({ title: () => t.value.goals.heading })
               v-for="goal in goals"
               :key="goal.id"
             >
-              <GoalCard :goal="goal" />
+              <GoalCard
+                :goal="goal"
+                :today="today"
+              />
             </li>
           </ul>
 
@@ -228,6 +258,7 @@ useHead({ title: () => t.value.goals.heading })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"

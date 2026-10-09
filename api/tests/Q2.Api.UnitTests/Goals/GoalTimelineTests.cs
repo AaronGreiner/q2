@@ -67,7 +67,7 @@ public class GoalTimelineTests
         var goal = Build();
         Open(goal, Today);
 
-        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), capturedInApp: true, Noon)!;
+        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, Noon)!;
         goal.ApplyProofOutcome(proof, VotingResult.Confirmed, Noon.AddHours(1));
 
         var timeline = GoalTimeline.For(goal, Noon.AddHours(2));
@@ -85,7 +85,7 @@ public class GoalTimelineTests
         var goal = Build(GoalSchedule.TimesPer(3, QuotaPeriod.Week));
         var window = GoalSchedule.TimesPer(3, QuotaPeriod.Week).FirstWindow(Today.AddDays(-7), null);
         var instance = goal.OpenWindow(Guid.CreateVersion7(), window, Utc.StartOfDay(window.Start), Utc.EndOfDay(window.End))!;
-        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), capturedInApp: true, Utc.StartOfDay(window.Start).AddHours(9))!;
+        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, Utc.StartOfDay(window.Start).AddHours(9))!;
         goal.ApplyProofOutcome(proof, VotingResult.Confirmed, Utc.StartOfDay(window.Start).AddHours(10));
         instance.Miss(Utc.EndOfDay(window.End).AddTicks(1));
 
@@ -191,7 +191,7 @@ public class GoalTimelineTests
         Open(goal, day);
 
         var at = Utc.StartOfDay(day).AddHours(9);
-        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), capturedInApp: true, at)!;
+        var proof = goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, at)!;
         goal.ApplyProofOutcome(proof, VotingResult.Confirmed, at.AddHours(1));
     }
 

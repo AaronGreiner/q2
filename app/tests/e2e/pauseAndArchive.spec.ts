@@ -26,7 +26,7 @@ async function createGoal(page: import('@playwright/test').Page, name: string): 
 }
 
 async function openGoal(page: import('@playwright/test').Page, title: string) {
-  await page.goto('/goals?tab=goals')
+  await page.goto('/goals?tab=all')
   await page.getByTestId('goal-card').filter({ hasText: title }).click()
   await expect(page.getByTestId('goal-detail')).toBeVisible()
 }
@@ -63,7 +63,7 @@ test.describe('setting a goal aside', () => {
     await page.keyboard.press('Escape')
 
     // And it says so in the list as well, in grey rather than as a failure.
-    await page.goto('/goals?tab=goals')
+    await page.goto('/goals?tab=all')
     await expect(
       page.getByTestId('goal-card').filter({ hasText: title }).getByTestId('goal-paused'),
     ).toContainText('Ausgesetzt')
@@ -98,7 +98,7 @@ test.describe('the archive', () => {
     expect((await page.getByTestId('goal-balance').innerText()).trim()).toBe(balance)
 
     // Gone from the list of things still owed …
-    await page.goto('/goals?tab=goals')
+    await page.goto('/goals?tab=all')
     await expect(page.getByTestId('goal-card').filter({ hasText: title })).toHaveCount(0)
 
     // … and present in the archive, with the day it ended.

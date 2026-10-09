@@ -32,7 +32,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   await page.getByTestId('goal-open-chat').click()
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
-  await expect(page.getByTestId('chat-event').first()).toContainText('Du hast das Ziel erstellt.')
+  await expect(page.getByTestId('chat-event').first()).toContainText('Du hast es angelegt.')
 
   // The camera is in the thread, for the owner, while the window takes one.
   await page.getByTestId('chat-deliver').click()
@@ -40,6 +40,10 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
 
   const mine = page.getByTestId('chat-proof').last()
   await expect(mine.getByTestId('proof-status')).toContainText('Dein eigener Beweis')
+
+  // Picked rather than shot, so it says so — to its owner and to the friend
+  // deciding it (#61).
+  await expect(mine.getByTestId('proof-source')).toHaveText('Screenshot')
   await expect(mine.getByTestId('proof-confirm')).toHaveCount(0)
   await expect(page.getByTestId('chat-deliver')).toHaveCount(0)
 
@@ -64,6 +68,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
     await expect(friendPage).toHaveURL(chatUrl)
 
     const proof = friendPage.getByTestId('chat-proof').last()
+    await expect(proof.getByTestId('proof-source')).toHaveText('Screenshot')
     await proof.getByTestId('proof-confirm').click()
 
     // The only friend on it believed it: the photograph counts and the window

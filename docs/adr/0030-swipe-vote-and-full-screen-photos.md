@@ -1,6 +1,6 @@
 # 0030 — A verdict by swipe, a vote you can take back, and every photograph full size
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0036](0036-live-or-screenshot.md)
 **Date:** 2026-09-24
 **Amends:** [0018 — A window is closed by other people](0018-proof-and-vote.md),
 where a vote was cast once and never changed.

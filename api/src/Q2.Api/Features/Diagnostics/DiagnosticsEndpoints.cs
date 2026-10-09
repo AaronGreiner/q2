@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Goals;
 using Q2.Api.Infrastructure;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Observability;
@@ -77,6 +78,18 @@ public static class DiagnosticsEndpoints
             .WithName("TriggerDiagnosticsError")
             .WithSummary("Throws on purpose, to verify error handling and Sentry capture end to end.")
             .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        // A spot check now rather than at its random moment, so it can be seen
+        // and answered in E2E and by hand (docs/adr/0038-spot-checks.md). Only
+        // ever on the caller's own goal, so signed in like any goal route.
+        group.MapPost("/spot-check/{goalId:guid}", async (GoalService goals, Guid goalId, CancellationToken cancellationToken) =>
+            {
+                await goals.AskSpotCheckNowAsync(goalId, cancellationToken);
+                return Results.NoContent();
+            })
+            .RequireAuthorization()
+            .WithName("AskSpotCheckNow")
+            .WithSummary("Asks a spot check on one of your own spot-check Don'ts right now.");
 
         return endpoints;
     }

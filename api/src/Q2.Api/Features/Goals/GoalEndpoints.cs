@@ -46,6 +46,13 @@ public static class GoalEndpoints
             .Produces<GoalResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem();
 
+        goals.MapPost("/{id:guid}/uses", LogUse)
+            .WithName("LogDontUse")
+            .WithSummary("Logs one use of your own Don't into the running period. No vote, no notification.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         goals.MapPost("/{id:guid}/pause", PauseGoal)
             .WithName("PauseGoal")
             .WithSummary("Sets a goal aside for whole days, with a reason its friends read.")
@@ -180,6 +187,13 @@ public static class GoalEndpoints
         SetReminderRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await goals.SetReminderAsync(id, request, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> LogUse(
+        GoalService goals,
+        Guid id,
+        LogUseRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.LogUseAsync(id, request, cancellationToken));
 
     private static async Task<NoContent> DeleteGoal(
         GoalService goals,

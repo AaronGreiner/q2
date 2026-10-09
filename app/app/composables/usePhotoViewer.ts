@@ -1,3 +1,5 @@
+import type { ProofSource } from '~/api/types'
+
 /** What the full-screen view shows: the picture, and what it is a picture of. */
 export interface PhotoViewerItem {
   imageId: string
@@ -7,6 +9,8 @@ export interface PhotoViewerItem {
   subtitle?: string | null
   /** When — a date, or a relative time. */
   meta?: string | null
+  /** For a proof: live or screenshot, which every proof says wherever it is (#61). */
+  source?: ProofSource | null
 }
 
 /**

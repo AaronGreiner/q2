@@ -155,6 +155,17 @@ public sealed class AutomatedTestSeed : ISeedDataSource
             history: "dm",
             confirmedNow: 1);
 
+        // A Don't from before friends were required, weekly so it covers every
+        // day: a kept week, then a relapse (docs/adr/0037-donts.md).
+        build.AddDont(
+            "Automated test: a don't",
+            "target",
+            QuotaPeriod.Week,
+            limit: 1,
+            DontProofMode.HonestOnly,
+            createdDaysAgo: 30,
+            history: "dr");
+
         build.AddActivity(friend, ActivityKind.TaskCompleted, "Automated test: a run", null, 5, minutesAgo: 10);
         build.AddActivity(friend, ActivityKind.StreakReached, null, 2, 3, minutesAgo: 60, kudosFromMe: true);
         build.AddActivity(me, ActivityKind.GoalProgress, active.Title, 2, 1, minutesAgo: 120);

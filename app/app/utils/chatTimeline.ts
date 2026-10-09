@@ -150,10 +150,20 @@ export function goalEventText(event: GoalEvent, t: Messages): string {
     // A window's line says which day it was: the thread puts no separator
     // above it (see threadRows), and a miss is settled whenever somebody next
     // looks, so where it sits does not say so either.
+    // A Don't's window carries its limit: it was held, not done.
     case 'WindowDone': {
-      const text = t.chats.event.windowDone(event.streak ?? 0)
+      const text = event.limit === null || event.limit === undefined
+        ? t.chats.event.windowDone(event.streak ?? 0)
+        : t.chats.event.windowKept(event.streak ?? 0)
       return event.day ? t.chats.onDay(text, formatDay(event.day)) : text
     }
+    // Stated like a miss, never commented on: the owner said it themselves.
+    case 'WindowRelapse': {
+      const text = t.chats.event.windowRelapse(event.streak ?? 0)
+      return event.day ? t.chats.onDay(text, formatDay(event.day)) : text
+    }
+    case 'UseLogged':
+      return t.chats.event.useLogged(name, event.uses ?? 1, event.limit ?? null)
     case 'WindowMissed': {
       const text = t.chats.event.windowMissed(event.confirmedProofs ?? 0, event.requiredProofs ?? 1)
       return event.day ? t.chats.onDay(text, formatDay(event.day)) : text
@@ -186,6 +196,10 @@ export function goalEventIcon(kind: GoalEvent['kind']): string {
       return 'i-lucide-flame'
     case 'WindowMissed':
       return 'i-lucide-circle-x'
+    case 'WindowRelapse':
+      return 'i-lucide-rotate-ccw'
+    case 'UseLogged':
+      return 'i-lucide-plus'
     case 'PauseStarted':
       return 'i-lucide-pause'
     case 'PauseEnded':

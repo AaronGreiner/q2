@@ -293,7 +293,7 @@ function onKeydown(event: KeyboardEvent) {
         picture wants the corner, not a caption over it.
       -->
       <div
-        v-if="current.title || current.subtitle || current.meta"
+        v-if="current.title || current.subtitle || current.meta || current.source"
         class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 to-transparent px-5 pt-12 pb-[max(1.25rem,var(--q2-safe-bottom))] transition-opacity duration-150"
         :class="isZoomed ? 'opacity-0' : 'opacity-100'"
         data-testid="photo-viewer-info"
@@ -312,6 +312,11 @@ function onKeydown(event: KeyboardEvent) {
         >
           {{ [current.subtitle, current.meta].filter(Boolean).join(' · ') }}
         </p>
+        <ProofSourceBadge
+          v-if="current.source"
+          :source="current.source"
+          class="mt-2"
+        />
       </div>
     </div>
   </Transition>

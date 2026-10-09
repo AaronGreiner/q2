@@ -43,6 +43,7 @@ public sealed class UserSettingsConfiguration : IEntityTypeConfiguration<UserSet
             notifications.Property(n => n.GoalUpdates).HasColumnName("NotifyGoalUpdates");
             notifications.Property(n => n.FriendsAtRisk).HasColumnName("NotifyFriendsAtRisk");
             notifications.Property(n => n.Challenge).HasColumnName("NotifyChallenge");
+            notifications.Property(n => n.SpotChecks).HasColumnName("NotifySpotChecks");
             notifications.Property(n => n.QuietHoursFrom).HasColumnName("QuietHoursFrom");
             notifications.Property(n => n.QuietHoursTo).HasColumnName("QuietHoursTo");
         });

@@ -112,12 +112,12 @@ describe('interactive UI primitives', () => {
     const segmented = await mountSuspended(AppSegmented, {
       props: {
         label: 'Ansicht',
-        options: [{ value: 'today', label: 'Heute' }, { value: 'goals', label: 'Ziele' }],
+        options: [{ value: 'today', label: 'Heute' }, { value: 'all', label: 'Alle' }],
         modelValue: 'today',
       },
     })
-    await segmented.get('[data-testid="segment-goals"]').trigger('click')
-    expect(segmented.emitted('update:modelValue')?.[0]).toEqual(['goals'])
+    await segmented.get('[data-testid="segment-all"]').trigger('click')
+    expect(segmented.emitted('update:modelValue')?.[0]).toEqual(['all'])
     expect(segmented.findAll('[role="radio"]')).toHaveLength(2)
 
     const toggle = await mountSuspended(AppToggle, { props: { label: 'Erinnerungen', modelValue: false } })
@@ -401,12 +401,12 @@ describe('feature cards and rows', () => {
       route: '/',
     })
 
-    // Five destinations, and the middle one is the To-Dos — not a create
+    // Five destinations, and the middle one is the Dos — not a create
     // button, which is the plus on that screen now.
     expect(wrapper.findAll('a')).toHaveLength(5)
     expect(wrapper.get('[data-testid="nav-home"]').attributes('href')).toBe('/')
-    expect(wrapper.get('[data-testid="nav-todos"]').attributes('href')).toBe('/goals')
-    expect(wrapper.get('[data-testid="nav-todos"]').text()).toContain('To-Dos')
+    expect(wrapper.get('[data-testid="nav-dos"]').attributes('href')).toBe('/goals')
+    expect(wrapper.get('[data-testid="nav-dos"]').text()).toBe('Dos')
     expect(wrapper.find('[data-testid="nav-create"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="nav-chats"]').text()).toContain('3')
 

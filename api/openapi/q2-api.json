@@ -204,6 +204,77 @@
         }
       }
     },
+    "/api/goals/{id}/spot-checks/{checkId}/proof": {
+      "post": {
+        "tags": [
+          "Proofs"
+        ],
+        "summary": "Answers the spot check open on your own Don't with a live photograph, for its friends to vote on.",
+        "operationId": "AnswerSpotCheck",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "checkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerSpotCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveredProofResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports": {
       "post": {
         "tags": [
@@ -797,6 +868,68 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/uses": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Logs one use of your own Don't into the running period. No vote, no notification.",
+        "operationId": "LogDontUse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogUseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -3032,6 +3165,16 @@
           }
         }
       },
+      "AnswerSpotCheckRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
       "BadgeKey": {
         "enum": [
           "StreakHero",
@@ -3066,7 +3209,8 @@
       "BalanceResponse": {
         "required": [
           "done",
-          "missed"
+          "missed",
+          "relapsed"
         ],
         "type": "object",
         "properties": {
@@ -3075,6 +3219,10 @@
             "format": "int32"
           },
           "missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "relapsed": {
             "type": "integer",
             "format": "int32"
           }
@@ -3638,6 +3786,35 @@
               "format": "uuid"
             },
             "nullable": true
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalKind"
+              }
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "proofMode": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/DontProofMode"
+              }
+            ]
           }
         }
       },
@@ -3747,6 +3924,14 @@
             "nullable": true
           }
         }
+      },
+      "DontProofMode": {
+        "enum": [
+          "SpotCheck",
+          "ProofAtEnd",
+          "HonestOnly",
+          null
+        ]
       },
       "FeedProofResponse": {
         "required": [
@@ -3921,6 +4106,8 @@
           "PauseOverturned",
           "Completed",
           "Stopped",
+          "UseLogged",
+          "WindowRelapse",
           null
         ]
       },
@@ -3936,7 +4123,10 @@
           "requiredProofs",
           "until",
           "proof",
-          "day"
+          "day",
+          "uses",
+          "limit",
+          "imageId"
         ],
         "type": "object",
         "properties": {
@@ -3993,6 +4183,21 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -4007,7 +4212,9 @@
           "remainingProofs",
           "status",
           "pendingProofId",
-          "acceptsProof"
+          "acceptsProof",
+          "limit",
+          "uses"
         ],
         "type": "object",
         "properties": {
@@ -4049,6 +4256,15 @@
           },
           "acceptsProof": {
             "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -4057,7 +4273,14 @@
           "Open",
           "Done",
           "Missed",
-          "Paused"
+          "Paused",
+          "Relapse"
+        ]
+      },
+      "GoalKind": {
+        "enum": [
+          "Do",
+          "Dont"
         ]
       },
       "GoalPauseResponse": {
@@ -4123,10 +4346,15 @@
           "schedule",
           "status",
           "isGroup",
+          "kind",
+          "limit",
+          "proofMode",
           "current",
           "streak",
           "windowsDone",
           "windowsMissed",
+          "windowsRelapsed",
+          "runStartedOn",
           "reminderAt",
           "targetDate",
           "createdAt",
@@ -4136,7 +4364,8 @@
           "isMine",
           "risk",
           "pause",
-          "remainingPauses"
+          "remainingPauses",
+          "spotCheck"
         ],
         "type": "object",
         "properties": {
@@ -4163,6 +4392,26 @@
           "isGroup": {
             "type": "boolean"
           },
+          "kind": {
+            "$ref": "#/components/schemas/GoalKind"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "proofMode": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/DontProofMode"
+              }
+            ]
+          },
           "current": {
             "oneOf": [
               {
@@ -4186,6 +4435,15 @@
           "windowsMissed": {
             "type": "integer",
             "format": "int32"
+          },
+          "windowsRelapsed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "runStartedOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
           },
           "reminderAt": {
             "type": "string",
@@ -4246,6 +4504,18 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "spotCheck": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/OpenSpotCheckResponse"
+              }
+            ]
           }
         }
       },
@@ -4535,6 +4805,16 @@
           "English"
         ]
       },
+      "LogUseRequest": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
@@ -4590,7 +4870,8 @@
           "GoalPaused",
           "PauseLifted",
           "FriendWindowAtRisk",
-          "ChallengePublished"
+          "ChallengePublished",
+          "SpotCheckDue"
         ]
       },
       "NotificationResponse": {
@@ -4669,7 +4950,8 @@
           "friendsAtRisk",
           "challenge",
           "quietHoursFrom",
-          "quietHoursTo"
+          "quietHoursTo",
+          "spotChecks"
         ],
         "type": "object",
         "properties": {
@@ -4706,6 +4988,9 @@
             "type": "string",
             "format": "time",
             "nullable": true
+          },
+          "spotChecks": {
+            "type": "boolean"
           }
         }
       },
@@ -4719,11 +5004,29 @@
           "Activity"
         ]
       },
+      "OpenSpotCheckResponse": {
+        "required": [
+          "id",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "OwnProofResponse": {
         "required": [
           "id",
           "imageId",
           "status",
+          "source",
           "createdAt",
           "goalId",
           "goalTitle",
@@ -4741,6 +5044,9 @@
           },
           "status": {
             "$ref": "#/components/schemas/ProofStatus"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProofSource"
           },
           "createdAt": {
             "type": "string",
@@ -4964,7 +5270,7 @@
           "status",
           "attempt",
           "attemptsLeft",
-          "capturedInApp",
+          "source",
           "createdAt",
           "expiresAt",
           "votes",
@@ -5002,8 +5308,8 @@
             "type": "integer",
             "format": "int32"
           },
-          "capturedInApp": {
-            "type": "boolean"
+          "source": {
+            "$ref": "#/components/schemas/ProofSource"
           },
           "createdAt": {
             "type": "string",
@@ -5023,6 +5329,13 @@
             }
           }
         }
+      },
+      "ProofSource": {
+        "enum": [
+          "Unknown",
+          "Live",
+          "Screenshot"
+        ]
       },
       "ProofStatus": {
         "enum": [
@@ -5051,6 +5364,7 @@
         "enum": [
           "Week",
           "Month",
+          "Day",
           null
         ]
       },
@@ -5237,7 +5551,8 @@
           "Once",
           "Interval",
           "Weekdays",
-          "Times"
+          "Times",
+          "Limit"
         ]
       },
       "SendMessageRequest": {
@@ -5346,9 +5661,17 @@
             "format": "uuid",
             "nullable": true
           },
-          "capturedInApp": {
-            "type": "boolean",
-            "default": false
+          "source": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ProofSource"
+              }
+            ]
           }
         }
       },
@@ -5449,6 +5772,10 @@
           "quietHoursTo": {
             "type": "string",
             "format": "time",
+            "nullable": true
+          },
+          "spotChecks": {
+            "type": "boolean",
             "nullable": true
           }
         }

@@ -160,4 +160,49 @@ public class CreateGoalRequestValidatorTests
 
         Assert.Contains(nameof(CreateGoalRequest.ParticipantIds), errors.Keys);
     }
+
+    [Fact]
+    public void ADontWithALimitAndAWayToCheckItIsValidAndCountedPerDayByDefault()
+    {
+        var request = new CreateGoalRequest(
+            Title: "Kein Alkohol",
+            ParticipantIds: AFriend,
+            Kind: GoalKind.Dont,
+            Limit: 0,
+            ProofMode: DontProofMode.SpotCheck);
+
+        Assert.Empty(CreateGoalRequestValidator.Validate(request));
+
+        var schedule = CreateGoalRequestValidator.ToSchedule(request.Schedule, GoalKind.Dont);
+        Assert.Equal(ScheduleKind.Limit, schedule.Kind);
+        Assert.Equal(QuotaPeriod.Day, schedule.Period);
+    }
+
+    [Fact]
+    public void ADontReportsAMissingLimitAMissingProofModeAndAScheduleThatIsNotAPeriod()
+    {
+        var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(
+            Title: "Kein Alkohol",
+            Schedule: new GoalScheduleRequest(Kind: ScheduleKind.Interval, EveryDays: 1),
+            ParticipantIds: AFriend,
+            Kind: GoalKind.Dont,
+            Limit: Goal.MaxLimit + 1));
+
+        Assert.Contains(nameof(CreateGoalRequest.Limit), errors.Keys);
+        Assert.Contains(nameof(CreateGoalRequest.ProofMode), errors.Keys);
+        Assert.Contains(nameof(CreateGoalRequest.Schedule), errors.Keys);
+    }
+
+    [Theory]
+    [InlineData(ScheduleKind.Limit, QuotaPeriod.Week)]
+    [InlineData(ScheduleKind.Times, QuotaPeriod.Day)]
+    public void ADoIsNeitherALimitNorADailyQuota(ScheduleKind kind, QuotaPeriod period)
+    {
+        var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(
+            Title: "Laufen",
+            Schedule: new GoalScheduleRequest(Kind: kind, Times: 3, Period: period),
+            ParticipantIds: AFriend));
+
+        Assert.Contains(nameof(CreateGoalRequest.Schedule), errors.Keys);
+    }
 }

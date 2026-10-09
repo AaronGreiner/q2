@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, Friend, GoalScheduleRequest } from '~/api/types'
+import type { CreateGoalRequest, Friend, GoalKind, GoalScheduleRequest } from '~/api/types'
 import { goalIcons } from '~/api/types'
-import type { GoalTemplate } from '~/utils/goalTemplates'
+import type { DontLimit } from '~/components/donts/DontLimitPicker.vue'
+import type { DontTemplate, GoalTemplate } from '~/utils/goalTemplates'
 
 /**
  * The sheet that slides up from the bottom to create a goal.
@@ -23,6 +24,11 @@ import type { GoalTemplate } from '~/utils/goalTemplates'
  * they are who votes on its photographs. Without a friend there is nothing to
  * choose, so the sheet offers the invite link instead of a form that could
  * only be refused (docs/adr/0027-goal-conversations.md).
+ *
+ * **A Do or a Don't, decided first.** "Ich will …" or "Ich will nicht mehr …"
+ * at the top of the first step. A Don't swaps the rhythm for a limit and a way
+ * for friends to check it, and has no daily reminder: there is nothing to be
+ * reminded to do (docs/adr/0037-donts.md).
  */
 const props = withDefaults(defineProps<{
   friends: Friend[]
@@ -47,6 +53,7 @@ const maxTitleLength = 120
 const stepCount = 4
 
 const step = ref(0)
+const kind = ref<GoalKind>('Do')
 const title = ref('')
 const icon = ref<string>(goalIcons[0]!)
 const withReminder = ref(true)
@@ -60,11 +67,34 @@ const friendQuery = ref('')
  */
 const schedule = ref<GoalScheduleRequest>({ kind: 'Interval', everyDays: 1 })
 
+/** A Don't's half of the draft: never, per day, on the owner's word until changed. */
+const dontLimit = ref<DontLimit>({ limit: 0, period: 'Day', proofMode: 'HonestOnly' })
+
+const isDont = computed(() => kind.value === 'Dont')
+
+const kindOptions = computed(() => [
+  { value: 'Do' as const, label: t.value.dont.kindDo },
+  { value: 'Dont' as const, label: t.value.dont.kindDont },
+])
+
 function useTemplate(template: GoalTemplate) {
   title.value = t.value.create.templates[template.key]
   icon.value = template.icon
   schedule.value = { ...template.schedule }
 }
+
+function useDontTemplate(template: DontTemplate) {
+  title.value = t.value.dont.templates[template.key]
+  icon.value = template.icon
+  dontLimit.value = { limit: template.limit, period: template.period, proofMode: template.proofMode }
+}
+
+/** The step names, with "Limit" in place of "Rhythmus" for a Don't. */
+const stepNames = computed(() => t.value.create.steps.map((name, index) =>
+  (index === 1 && isDont.value ? t.value.dont.limitStep : name)))
+
+/** The schedule a Don't is sent with: its period, which is its window. */
+const dontSchedule = computed<GoalScheduleRequest>(() => ({ kind: 'Limit', period: dontLimit.value.period }))
 
 function toggleFriend(personId: string) {
   participantIds.value = participantIds.value.includes(personId)
@@ -89,18 +119,20 @@ const chosenNames = computed(() => props.friends
   .map(friend => friend.person.displayName)
   .join(', '))
 
-const scheduleText = computed(() => scheduleLabel({
-  kind: schedule.value.kind ?? 'Interval',
-  everyDays: schedule.value.everyDays ?? null,
-  weekdays: schedule.value.weekdays ?? [],
-  times: schedule.value.times ?? null,
-  period: schedule.value.period ?? null,
-}, t.value))
+const scheduleText = computed(() => (isDont.value
+  ? t.value.dont.limit(dontLimit.value.limit, t.value.schedule.period[dontLimit.value.period])
+  : scheduleLabel({
+      kind: schedule.value.kind ?? 'Interval',
+      everyDays: schedule.value.everyDays ?? null,
+      weekdays: schedule.value.weekdays ?? [],
+      times: schedule.value.times ?? null,
+      period: schedule.value.period ?? null,
+    }, t.value)))
 
 /** The sentence that says what happens the moment the goal exists. */
 const firstWindow = computed(() => {
   const today = localDay(now.value, zone.value)
-  const end = firstWindowEnd(schedule.value, today)
+  const end = firstWindowEnd(isDont.value ? dontSchedule.value : schedule.value, today)
 
   if (end === today) return t.value.create.firstWindowToday
   if (end === addDays(today, 1)) return t.value.create.firstWindowTomorrow
@@ -121,14 +153,14 @@ function fieldError(field: string): string | undefined {
 watch(() => props.error, (failure) => {
   if (!failure) return
   if (fieldError('title') || fieldError('icon')) step.value = 0
-  else if (fieldError('schedule') || fieldError('reminderAt')) step.value = 1
+  else if (fieldError('schedule') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
 
 /** Only blocks the obviously empty cases; the API remains the authority. */
 const canContinue = computed(() => {
   if (step.value === 0) return title.value.trim().length > 0
-  if (step.value === 1) return !withReminder.value || /^\d{2}:\d{2}$/.test(reminderTime.value)
+  if (step.value === 1) return isDont.value || !withReminder.value || /^\d{2}:\d{2}$/.test(reminderTime.value)
   if (step.value === 2) return participantIds.value.length > 0
   return !props.submitting
 })
@@ -146,21 +178,34 @@ function back() {
 function onSubmit() {
   if (title.value.trim().length === 0 || participantIds.value.length === 0 || props.submitting) return
 
-  emit('submit', {
-    title: title.value.trim(),
-    schedule: schedule.value,
-    icon: icon.value,
-    reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
-    participantIds: [...participantIds.value],
-  })
+  emit('submit', isDont.value
+    ? {
+        title: title.value.trim(),
+        kind: 'Dont',
+        schedule: dontSchedule.value,
+        limit: dontLimit.value.limit,
+        proofMode: dontLimit.value.proofMode,
+        icon: icon.value,
+        reminderAt: null,
+        participantIds: [...participantIds.value],
+      }
+    : {
+        title: title.value.trim(),
+        schedule: schedule.value,
+        icon: icon.value,
+        reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
+        participantIds: [...participantIds.value],
+      })
 }
 
 /** Called by the page after a successful create. */
 function reset() {
   step.value = 0
+  kind.value = 'Do'
   title.value = ''
   icon.value = goalIcons[0]!
   schedule.value = { kind: 'Interval', everyDays: 1 }
+  dontLimit.value = { limit: 0, period: 'Day', proofMode: 'HonestOnly' }
   withReminder.value = true
   reminderTime.value = '09:00'
   participantIds.value = []
@@ -227,12 +272,23 @@ defineExpose({ reset })
             aria-live="polite"
             data-testid="goal-create-step"
           >
-            {{ t.create.stepOf(step + 1, stepCount) }} · {{ t.create.steps[step] }}
+            {{ t.create.stepOf(step + 1, stepCount) }} · {{ stepNames[step] }}
           </p>
         </div>
 
         <!-- 1 — what -->
         <template v-if="step === 0">
+          <div>
+            <p class="mb-2 text-sm font-semibold">
+              {{ t.dont.kindLabel }}
+            </p>
+            <AppSegmented
+              v-model="kind"
+              :options="kindOptions"
+              :label="t.dont.kindLabel"
+            />
+          </div>
+
           <UFormField
             :label="t.create.titleLabel"
             name="title"
@@ -242,7 +298,7 @@ defineExpose({ reset })
           >
             <UInput
               v-model="title"
-              :placeholder="t.create.titlePlaceholder"
+              :placeholder="isDont ? t.dont.titlePlaceholder : t.create.titlePlaceholder"
               :maxlength="maxTitleLength"
               autocomplete="off"
               size="xl"
@@ -255,7 +311,34 @@ defineExpose({ reset })
             <p class="mb-2 text-sm font-semibold text-(--ui-text-muted)">
               {{ t.create.templatesLabel }}
             </p>
-            <ul class="flex list-none flex-wrap gap-2 p-0">
+            <ul
+              v-if="isDont"
+              class="flex list-none flex-wrap gap-2 p-0"
+            >
+              <li
+                v-for="template in dontTemplates"
+                :key="template.key"
+              >
+                <button
+                  type="button"
+                  class="q2-press inline-flex min-h-10 items-center gap-1.5 rounded-full border border-(--ui-border) bg-(--q2-surface) px-3 text-[13px] font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+                  :data-testid="`dont-template-${template.key}`"
+                  @click="useDontTemplate(template)"
+                >
+                  <UIcon
+                    name="i-lucide-ban"
+                    class="size-4 text-(--ui-text-muted)"
+                    aria-hidden="true"
+                  />
+                  {{ t.dont.templates[template.key] }}
+                </button>
+              </li>
+            </ul>
+
+            <ul
+              v-else
+              class="flex list-none flex-wrap gap-2 p-0"
+            >
               <li
                 v-for="template in goalTemplates"
                 :key="template.key"
@@ -309,6 +392,15 @@ defineExpose({ reset })
             </div>
           </UFormField>
         </template>
+
+        <!-- 2 — for a Don't: how often at most, and how friends check it -->
+        <UFormField
+          v-else-if="step === 1 && isDont"
+          name="limit"
+          :error="fieldError('limit') || fieldError('proofMode') || fieldError('schedule')"
+        >
+          <DontLimitPicker v-model="dontLimit" />
+        </UFormField>
 
         <!-- 2 — how often, and when to be nudged -->
         <template v-else-if="step === 1">
@@ -457,7 +549,21 @@ defineExpose({ reset })
                 {{ chosenNames }}
               </dd>
             </div>
-            <div class="flex justify-between gap-3 py-3 text-sm">
+            <div
+              v-if="isDont"
+              class="flex justify-between gap-3 py-3 text-sm"
+            >
+              <dt class="font-semibold text-(--ui-text-muted)">
+                {{ t.dont.proofModeLabel }}
+              </dt>
+              <dd class="text-end font-bold">
+                {{ t.dont.proofMode[dontLimit.proofMode] }}
+              </dd>
+            </div>
+            <div
+              v-else
+              class="flex justify-between gap-3 py-3 text-sm"
+            >
               <dt class="font-semibold text-(--ui-text-muted)">
                 {{ t.create.reviewReminder }}
               </dt>

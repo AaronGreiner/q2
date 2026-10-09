@@ -57,6 +57,15 @@ public static class ProofEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        endpoints.MapPost("/api/goals/{id:guid}/spot-checks/{checkId:guid}/proof", AnswerSpotCheck)
+            .RequireAuthorization()
+            .WithTags("Proofs")
+            .WithName("AnswerSpotCheck")
+            .WithSummary("Answers the spot check open on your own Don't with a live photograph, for its friends to vote on.")
+            .Produces<DeliveredProofResponse>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
 
@@ -83,6 +92,17 @@ public static class ProofEndpoints
         CancellationToken cancellationToken)
     {
         var delivered = await proofs.SubmitAsync(id, request, cancellationToken);
+        return TypedResults.Created($"/api/proofs/{delivered.Proof.Id}", delivered);
+    }
+
+    private static async Task<Created<DeliveredProofResponse>> AnswerSpotCheck(
+        ProofService proofs,
+        Guid id,
+        Guid checkId,
+        AnswerSpotCheckRequest request,
+        CancellationToken cancellationToken)
+    {
+        var delivered = await proofs.AnswerSpotCheckAsync(id, checkId, request, cancellationToken);
         return TypedResults.Created($"/api/proofs/{delivered.Proof.Id}", delivered);
     }
 

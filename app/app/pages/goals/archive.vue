@@ -36,7 +36,7 @@ function askToDelete(goal: Goal) {
 }
 
 function closedLabel(goal: Goal): string {
-  if (!goal.closedAt) return scheduleLabel(goal.schedule, t.value)
+  if (!goal.closedAt) return goalScheduleLabel(goal, t.value)
 
   const day = formatInstantDate(goal.closedAt)
 
@@ -58,7 +58,7 @@ useHead({ title: () => t.value.archive.heading })
     <AppScreenHeader
       :title="t.archive.heading"
       :eyebrow="t.archive.subtitle"
-      back-to="/goals?tab=goals"
+      back-to="/goals?tab=all"
       :back-label="t.common.back"
     />
 

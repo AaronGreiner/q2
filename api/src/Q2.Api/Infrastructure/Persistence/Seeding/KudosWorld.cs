@@ -154,6 +154,30 @@ internal static class KudosWorld
             targetDate: context.DaysFromToday(2),
             participants: [david]);
 
+        // Don'ts (docs/adr/0037-donts.md): one checked by a screenshot at the
+        // end of each day, with one honest relapse in its past, and a weekly
+        // limit half used up this week.
+        build.AddDont(
+            "Kein Social Media nach 22 Uhr",
+            "alarm-clock",
+            QuotaPeriod.Day,
+            limit: 0,
+            DontProofMode.ProofAtEnd,
+            createdDaysAgo: 8,
+            history: "dddrddd",
+            participants: [lena, sarah]);
+
+        build.AddDont(
+            "Höchstens 3 Bier pro Woche",
+            "flame",
+            QuotaPeriod.Week,
+            limit: 3,
+            DontProofMode.HonestOnly,
+            createdDaysAgo: 30,
+            history: "ddrd",
+            usesNow: 1,
+            participants: [jonas]);
+
         // Friends' goals I was invited to check: what the "Von Freunden" half of
         // the chat list is made of, and the other end of every vote.
         var morningRun = build.AddGoal(

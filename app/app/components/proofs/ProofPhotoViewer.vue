@@ -30,7 +30,11 @@ const source = computed(() =>
   (!props.proof || failed.value ? null : picture.value))
 
 const description = computed(() => (props.proof
-  ? `${t.value.proofGallery.deliveredOn(formatInstantDate(props.proof.createdAt))} · ${proofStatusLabel(props.proof.status, t.value)}`
+  ? [
+      t.value.proofGallery.deliveredOn(formatInstantDate(props.proof.createdAt)),
+      proofStatusLabel(props.proof.status, t.value),
+      t.value.proof.source[props.proof.source],
+    ].join(' · ')
   : ''))
 </script>
 
@@ -77,7 +81,7 @@ const description = computed(() => (props.proof
 
     <template #body>
       <div
-        class="flex size-full items-center justify-center"
+        class="relative flex size-full items-center justify-center"
         data-testid="proof-viewer"
         data-q2-block
       >
@@ -90,6 +94,12 @@ const description = computed(() => (props.proof
           class="size-full object-contain"
           @error="failed = true"
         >
+
+        <ProofSourceBadge
+          v-if="proof"
+          :source="proof.source"
+          class="absolute start-3 bottom-3"
+        />
 
         <AppStateMessage
           v-else

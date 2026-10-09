@@ -415,6 +415,27 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("MessageReactions", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.DontUse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LoggedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalInstanceId");
+
+                    b.ToTable("DontUses", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -438,7 +459,19 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsGroup")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Limit")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProofMode")
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
                     b.Property<TimeOnly?>("ReminderAt")
@@ -484,6 +517,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("GoalId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("Limit")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("RequiredProofs")
                         .HasColumnType("INTEGER");
@@ -606,6 +642,47 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("PauseVetoes", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.SpotCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalInstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ProofPhotoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ScheduledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalInstanceId", "Day")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "ScheduledAt");
+
+                    b.ToTable("SpotChecks", (string)null);
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Images.StoredImage", b =>
@@ -936,9 +1013,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<int>("Attempt")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("CapturedInApp")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -949,6 +1023,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -1079,6 +1158,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                             b1.Property<bool>("Reactions")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("NotifyReactions");
+
+                            b1.Property<bool>("SpotChecks")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("NotifySpotChecks");
 
                             b1.Property<bool>("VotesDue")
                                 .HasColumnType("INTEGER")
@@ -1230,6 +1313,15 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.DontUse", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalInstance", null)
+                        .WithMany("UseLog")
+                        .HasForeignKey("GoalInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
@@ -1330,6 +1422,15 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.HasOne("Q2.Api.Features.People.Person", null)
                         .WithMany()
                         .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.SpotCheck", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalInstance", null)
+                        .WithMany("SpotChecks")
+                        .HasForeignKey("GoalInstanceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -1489,6 +1590,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.Navigation("Proofs");
+
+                    b.Navigation("SpotChecks");
+
+                    b.Navigation("UseLog");
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>

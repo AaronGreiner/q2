@@ -1,6 +1,6 @@
 # 0016 — Windows instead of steps: a goal you can miss
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0037](0037-donts.md) — a Don't's window is kept by its limit holding, and can end in a relapse
 **Date:** 2026-09-07
 
 ## Context

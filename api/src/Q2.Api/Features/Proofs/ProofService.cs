@@ -45,6 +45,75 @@ public sealed class ProofService(
     public const int FeedLimit = 30;
 
     /// <summary>
+    /// Answers the spot check open on your own Don't with a live photograph,
+    /// for its friends to vote on (docs/adr/0038-spot-checks.md).
+    /// </summary>
+    /// <remarks>
+    /// Stored as <see cref="ProofSource.Live"/> whatever the client says: a
+    /// check offers the camera only. The vote is the one any proof has (ADR
+    /// 0018), except that it cannot be retried — the moment is over — so a
+    /// refused check misses the window.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal, or the image is not theirs.</exception>
+    /// <exception cref="DomainValidationException">That check is not open any more.</exception>
+    public async Task<DeliveredProofResponse> AnswerSpotCheckAsync(
+        Guid goalId,
+        Guid checkId,
+        AnswerSpotCheckRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await LoadGoalAsync(goalId, cancellationToken);
+
+        if (goal is null || goal.OwnerPersonId != me.Id)
+        {
+            throw new ResourceNotFoundException("Goal", goalId);
+        }
+
+        if (request.ImageId is not { } imageId)
+        {
+            throw new DomainValidationException(nameof(request.ImageId), "A spot check needs a photograph.");
+        }
+
+        await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken);
+
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        var proof = goal.AnswerSpotCheck(checkId, idGenerator.NewId(), imageId, now)
+            ?? throw new DomainValidationException("SpotCheck", "This spot check is not open any more.");
+
+        database.ProofPhotos.Add(proof);
+
+        Settle(goal, proof, ProofVoting.Evaluate(proof.CastValues, goal.VoterCount, proof.Attempt), me, calendar, now);
+
+        if (proof.Status == ProofStatus.Voting)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.ProofAwaitingVote, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                goal.Participants.Select(participant => participant.PersonId),
+                cancellationToken);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
+
+        logger.LogInformation("A spot check was answered on goal {GoalId}", goal.Id);
+
+        var conversationId = await database.Conversations
+            .AsNoTracking()
+            .Where(conversation => conversation.GoalId == goal.Id)
+            .Select(conversation => (Guid?)conversation.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new DeliveredProofResponse(
+            await DescribeAsync(goal, proof, me.Id, now, cancellationToken),
+            conversationId);
+    }
+
+    /// <summary>
     /// Delivers a photograph into a goal's open window.
     /// </summary>
     /// <exception cref="ResourceNotFoundException">
@@ -84,7 +153,7 @@ public sealed class ProofService(
         // whose deadline passed while the screen was open.
         await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
 
-        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.CapturedInApp, now)
+        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.Source ?? ProofSource.Unknown, now)
             ?? throw new DomainValidationException(
                 "Proof",
                 "This window is not taking a photograph right now.");
@@ -381,6 +450,7 @@ public sealed class ProofService(
                 row.Proof.Id,
                 row.Proof.ImageId,
                 row.Proof.Status,
+                row.Proof.Source,
                 row.Proof.CreatedAt,
                 row.Goal.Id,
                 row.Goal.Title,
@@ -434,6 +504,13 @@ public sealed class ProofService(
         // A day only counts once, and only for a proof somebody believed.
         owner.CheckIn(idGenerator.NewId(), calendar.DayOf(now));
 
+        // A Don't's photograph finished nothing — the period still has to hold
+        // — so there is nothing to tell the feed it "completed".
+        if (goal.IsDont)
+        {
+            return;
+        }
+
         var instance = goal.Instances.FirstOrDefault(candidate => candidate.Id == proof.GoalInstanceId);
 
         activity.Publish(
@@ -457,6 +534,10 @@ public sealed class ProofService(
             .Include(goal => goal.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(goal => goal.Instances)
+            .ThenInclude(instance => instance.UseLog)
+            .Include(goal => goal.Instances)
+            .ThenInclude(instance => instance.SpotChecks)
             .Include(goal => goal.Pauses)
             .SingleOrDefaultAsync(goal => goal.Id == goalId, cancellationToken);
 
@@ -476,6 +557,10 @@ public sealed class ProofService(
             .Include(candidate => candidate.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Votes)
+            .Include(candidate => candidate.Instances)
+            .ThenInclude(instance => instance.UseLog)
+            .Include(candidate => candidate.Instances)
+            .ThenInclude(instance => instance.SpotChecks)
             .Include(candidate => candidate.Instances)
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Reactions)
@@ -585,7 +670,7 @@ public sealed class ProofService(
             proof.Status,
             proof.Attempt,
             Math.Max(0, ProofVoting.MaxAttempts - proof.Attempt),
-            proof.CapturedInApp,
+            proof.Source,
             proof.CreatedAt,
             proof.VotingDeadline,
             votes,

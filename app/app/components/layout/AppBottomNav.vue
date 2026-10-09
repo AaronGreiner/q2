@@ -2,12 +2,14 @@
 /**
  * The bottom navigation.
  *
- * Five destinations, and the one in the middle is your To-Dos: what is due
- * today and the goals behind it. It used to be a create button that opened the
+ * Five destinations, and the one in the middle is your Dos & Don'ts — "Dos"
+ * in the bar, where five labels at 390 px leave no room for more: what is due
+ * today and the commitments behind it. It used to be a create button that opened the
  * goals screen with its sheet already up, which made "Neu" the only visible way
  * to reach your own goals — people went looking for them under a plus. So the
  * middle is a place now, and creating one is the plus on that screen, the only
- * place a goal is made from.
+ * place a goal is made from. It was labelled "To-Dos" until #60; the route
+ * stayed `/goals`, like `/search` below, so links and notifications still land.
  *
  * The second tab is "Freunde". It is the screen with your requests,
  * suggestions and friends, with the search box on top — it was labelled
@@ -33,7 +35,7 @@ const t = useMessages()
 const items = computed(() => [
   { to: '/', key: 'home', icon: 'i-lucide-house', label: t.value.nav.home },
   { to: '/search', key: 'search', icon: 'i-lucide-users', label: t.value.nav.friends },
-  { to: '/goals', key: 'todos', icon: 'i-lucide-list-checks', label: t.value.nav.todos },
+  { to: '/goals', key: 'dos', icon: 'i-lucide-list-checks', label: t.value.nav.dos },
   { to: '/chats', key: 'chats', icon: 'i-lucide-message-circle', label: t.value.nav.chats },
   { to: '/profile', key: 'profile', icon: 'i-lucide-user', label: t.value.nav.profile },
 ])

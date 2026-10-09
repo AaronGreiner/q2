@@ -81,6 +81,24 @@ public sealed class LocalCalendar
     /// where the next one begins and no second falls between two windows.
     /// </remarks>
     public DateTimeOffset EndOfDay(DateOnly day) => StartOfDay(day.AddDays(1)).AddTicks(-1);
+
+    /// <summary>
+    /// The instant a local clock time falls on, or null when that time does not
+    /// exist on that day (the hour a zone springs forward).
+    /// </summary>
+    /// <remarks>
+    /// Null rather than a nudged answer, unlike <see cref="StartOfDay"/>: the
+    /// one caller picks a moment out of many, and simply skipping the ones that
+    /// do not exist is the honest answer there.
+    /// </remarks>
+    public DateTimeOffset? At(DateOnly day, TimeOnly time)
+    {
+        var local = day.ToDateTime(time, DateTimeKind.Unspecified);
+
+        return Zone.IsInvalidTime(local)
+            ? null
+            : new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, Zone), TimeSpan.Zero);
+    }
 }
 
 /// <summary>

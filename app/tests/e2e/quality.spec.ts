@@ -17,7 +17,7 @@ const accessibilityScreens = [
 const signedInScreens = [
   '/',
   '/goals',
-  '/goals?tab=goals',
+  '/goals?tab=all',
   `/goals/${sharedGoalId}`,
   '/chats',
   '/search',
@@ -103,7 +103,7 @@ test.describe('phone geometry', () => {
   test('visible controls meet the 44px touch-target rule', async ({ page }) => {
     const undersized: string[] = []
 
-    for (const path of ['/', '/goals?tab=goals', '/goals/archive', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
+    for (const path of ['/', '/goals?tab=all', '/goals/archive', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
       await page.goto(path)
       await waitForMotion(page)
 

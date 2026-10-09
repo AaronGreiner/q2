@@ -1,4 +1,4 @@
-import type { GoalScheduleRequest } from '~/api/types'
+import type { DontProofMode, GoalScheduleRequest, QuotaPeriod } from '~/api/types'
 
 /**
  * The ideas the create sheet offers above an empty title.
@@ -21,4 +21,25 @@ export const goalTemplates: readonly GoalTemplate[] = [
   { key: 'early', icon: 'sunrise', schedule: { kind: 'Interval', everyDays: 1 } },
   { key: 'gym', icon: 'trophy', schedule: { kind: 'Times', times: 2, period: 'Week' } },
   { key: 'tidy', icon: 'sparkles', schedule: { kind: 'Weekdays', weekdays: ['Sunday'] } },
+]
+
+/**
+ * The Don't ideas, offered in the same place when the sheet is set to "Ich will
+ * nicht mehr …". Each fills the title, the icon, the limit and how friends
+ * check it (docs/adr/0037-donts.md).
+ */
+export interface DontTemplate {
+  key: 'alcohol' | 'socialMedia' | 'smoking' | 'fastFood' | 'sugar'
+  icon: string
+  limit: number
+  period: QuotaPeriod
+  proofMode: DontProofMode
+}
+
+export const dontTemplates: readonly DontTemplate[] = [
+  { key: 'alcohol', icon: 'flame', limit: 0, period: 'Day', proofMode: 'SpotCheck' },
+  { key: 'socialMedia', icon: 'alarm-clock', limit: 0, period: 'Day', proofMode: 'ProofAtEnd' },
+  { key: 'smoking', icon: 'hand-heart', limit: 0, period: 'Day', proofMode: 'SpotCheck' },
+  { key: 'fastFood', icon: 'calendar', limit: 2, period: 'Week', proofMode: 'HonestOnly' },
+  { key: 'sugar', icon: 'droplet', limit: 0, period: 'Day', proofMode: 'HonestOnly' },
 ]

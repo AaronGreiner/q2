@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * The start screen.
@@ -14,6 +15,12 @@ const zone = useTimeZoneOffset()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isLogging, logUse } = useDontUse()
+
+/** One tap from the row; the row has changed either way, so read it again. */
+async function onLog(goalId: string) {
+  if (await logUse(goalId)) await refresh()
+}
 
 // The bell is a count, and counts have one read of their own that the live
 // connection keeps current — see useCounts.
@@ -42,11 +49,11 @@ const deliveringFor = ref<string | null>(null)
  * (see useProofDelivery). A shared goal moves on to its conversation; anything
  * else stays here and reads the screen again, because the row has changed.
  */
-async function handIn(image: Image) {
+async function handIn(image: Image, origin: PhotoOrigin) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image)
+  const result = await deliver(goalId, image, origin)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -62,13 +69,17 @@ const upNext = computed(() => (profile.value?.atRisk.length ? null : nextUp(due.
 // top: the whole list is one tap away under "Alle anzeigen", and a start screen
 // that shows everything is not a start screen.
 const nextDue = computed(() => byDeadline(due.value)
-  .filter(goal => goal.id !== upNext.value?.id)
+  .filter(goal => goal.kind !== 'Dont' && goal.id !== upNext.value?.id)
   .slice(0, 3))
+
+// Don'ts below them, all of them: they are not three things to do, they are
+// what is being held today, and a relapse should never be what got cut off.
+const dontsToday = computed(() => due.value.filter(goal => goal.kind === 'Dont'))
 
 const todayIndex = computed(() => weekdayIndex(now.value, zone.value))
 
 // The same for friends: the newest three, and the rest under "Alle anzeigen".
-// Your own goals are not repeated here at all — they have the To-Dos tab.
+// Your own goals are not repeated here at all — they have the Dos tab.
 const recentFeed = computed(() => feed.value.slice(0, 3))
 
 const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
@@ -236,7 +247,7 @@ useHead({ title: () => t.value.nav.home })
         <!-- Not drawn when the only thing due is already at the top: saying
              "nothing on today" under it would be wrong. -->
         <section
-          v-if="nextDue.length > 0 || due.length === 0"
+          v-if="nextDue.length > 0 || dontsToday.length > 0 || due.length === 0"
           class="mt-6"
           aria-labelledby="today-heading"
         >
@@ -256,7 +267,7 @@ useHead({ title: () => t.value.nav.home })
           </div>
 
           <div
-            v-if="nextDue.length > 0"
+            v-if="nextDue.length > 0 || dontsToday.length > 0"
             class="flex flex-col gap-2.5"
           >
             <GoalWindowRow
@@ -266,6 +277,15 @@ useHead({ title: () => t.value.nav.home })
               :now="now"
               :busy="isDelivering"
               @deliver="deliveringFor = $event"
+            />
+
+            <DontWindowRow
+              v-for="goal in dontsToday"
+              :key="goal.id"
+              :goal="goal"
+              :busy="isDelivering || isLogging"
+              @deliver="deliveringFor = $event"
+              @log="onLog"
             />
           </div>
 
@@ -329,6 +349,7 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"
