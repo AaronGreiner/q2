@@ -44,8 +44,9 @@ public interface IPushSender
 
     /// <summary>
     /// Sends <paramref name="payload"/> — the same shape as a line in the bell,
-    /// never a sentence. The service worker writes the words, in the language
-    /// the person chose, from the catalogue the rest of the app uses.
+    /// never a sentence. The service worker writes the words from the catalogue
+    /// the rest of the app uses, in the language the payload names: the one the
+    /// person chose in q2, which <see cref="PushDelivery"/> sets per recipient.
     /// </summary>
     Task<PushOutcome> SendAsync(
         PushSubscription subscription,

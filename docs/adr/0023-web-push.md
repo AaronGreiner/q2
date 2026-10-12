@@ -57,8 +57,13 @@ message catalogue it was already importing for the offline page.
 Three things follow, and all three are why it is done this way rather than
 sending a title and a body:
 
-- A notification arrives in **the language the person chose**, decided on the
-  device that knows it.
+- A notification arrives in **the language the person chose**. The device
+  writes the sentence, but it cannot ask the account which language that is,
+  so every push names it — set per recipient from their settings
+  ([#39](https://github.com/AaronGreiner/q2/issues/39)). This first said the
+  device decided, and the worker used the browser's language, which is not
+  the choice; the browser's language is now only the fallback for a payload
+  that does not say, and for the offline page.
 - Adding a language is still one file.
 - The wording cannot drift from the feed's, because it is the same catalogue.
 

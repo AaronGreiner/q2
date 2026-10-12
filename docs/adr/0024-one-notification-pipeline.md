@@ -150,7 +150,9 @@ Who is connected is held in memory in the API process. There is one today
 `NotificationResponse` is both a line in the bell and the push payload.
 `notificationText` in `app/utils/display.ts` writes the sentence for both, and
 the service worker imports it, so a lock screen and the bell cannot say one
-event two ways. The server still sends parts rather than prose.
+event two ways. The server still sends parts rather than prose — and, in a
+push only, the recipient's chosen language, because the worker cannot ask the
+account ([#39](https://github.com/AaronGreiner/q2/issues/39)).
 
 For a message the payload now carries its first 140 characters. They are the
 sender's words on the way to the person they were written for, encrypted to

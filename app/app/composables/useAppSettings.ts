@@ -66,7 +66,9 @@ export function useAppSettings() {
   // Applied as soon as the answer arrives, and again if it is refreshed.
   watch(data, (settings) => {
     if (!settings) return
-    language.value = settings.language
+    // Never null from here; the generated union carries the null of a push's
+    // language, which is optional (see `LanguagePreference` in api/types.ts).
+    if (settings.language) language.value = settings.language
     theme.preference.value = settings.theme
   }, { immediate: true })
 

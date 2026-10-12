@@ -151,7 +151,12 @@ export type UpdateSettingsRequest = Schemas['UpdateSettingsRequest']
 export type NotificationSettings = Schemas['NotificationSettingsResponse']
 export type UpdateNotificationSettingsRequest = Schemas['UpdateNotificationSettingsRequest']
 export type ThemePreference = Schemas['ThemePreference']
-export type LanguagePreference = Schemas['LanguagePreference']
+/**
+ * `NonNullable` for the same reason as `QuotaPeriod`: the generated union
+ * carries the `null` of the one place the language is optional — a line in
+ * the bell, which only names it when it travels as a push (#39).
+ */
+export type LanguagePreference = NonNullable<Schemas['LanguagePreference']>
 
 export type ProblemDetails = Schemas['ProblemDetails']
 export type ValidationProblemDetails = Schemas['HttpValidationProblemDetails']

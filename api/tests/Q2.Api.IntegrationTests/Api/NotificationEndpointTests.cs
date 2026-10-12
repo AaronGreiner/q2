@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -164,8 +165,9 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
     /// <summary>
     /// The wording is not in the payload. The same fields the bell is read as go
-    /// out, and the service worker composes the sentence in the person's own
-    /// language from the catalogue it already has.
+    /// out, and the service worker composes the sentence from the catalogue it
+    /// already has — in the language the payload names, because a worker cannot
+    /// ask the account which one was chosen (#39).
     /// </summary>
     [Fact]
     public async Task ThePayloadCarriesTheFactsRatherThanASentence()
@@ -190,6 +192,32 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
         Assert.Contains("\"kind\":\"FriendWindowAtRisk\"", json, StringComparison.Ordinal);
         Assert.Contains("\"target\":\"Goal\"", json, StringComparison.Ordinal);
+
+        // Nobody in this world has chosen a language, so it is the default.
+        Assert.Contains("\"language\":\"German\"", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One announcement, two people, two languages: each device is told in the
+    /// language its owner chose in q2, not in its browser's (#39).
+    /// </summary>
+    [Fact]
+    public async Task EachDeviceIsToldInTheLanguageItsOwnerChose()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        await SubscribeAsync(Client, "https://push.example/me");
+        await SubscribeAsync(friend, "https://push.example/friend");
+        (await friend.PutJsonAsync("/api/settings", new { language = LanguagePreference.English }))
+            .EnsureSuccessStatusCode();
+
+        var worker = ActivatorUtilities.CreateInstance<ChallengeQueueWorker>(Factory.Services);
+        await worker.AnnounceAsync(TestContext.Current.CancellationToken);
+
+        var sent = Factory.PushSender.Sent;
+
+        Assert.Equal(LanguagePreference.German, Assert.Single(sent, message => message.Endpoint == "https://push.example/me").Payload.Language);
+        Assert.Equal(LanguagePreference.English, Assert.Single(sent, message => message.Endpoint == "https://push.example/friend").Payload.Language);
     }
 
     [Fact]

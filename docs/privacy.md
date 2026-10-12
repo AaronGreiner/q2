@@ -56,7 +56,8 @@ aspirational.
 **What a notification carries.** The payload is encrypted to the browser
 (RFC 8291), so a push service — Google's, Mozilla's, Apple's — carries bytes it
 cannot read. It holds the same parts as a line in the bell — a kind, a name, a
-goal title or group name, a number — and the sentence is composed on the device.
+goal title or group name, a number — and the recipient's chosen language, and
+the sentence is composed on the device.
 For a message it also holds the first 140 characters: the sender's words on the
 way to the person they were written for, never stored a second time on the
 server. Whether a lock screen shows them is the operating system's setting,

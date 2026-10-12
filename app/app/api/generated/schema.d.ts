@@ -1567,7 +1567,7 @@ export interface components {
         /** @enum {unknown} */
         KudosKind: "Fire" | "Strong" | "Applause";
         /** @enum {unknown} */
-        LanguagePreference: "German" | "English";
+        LanguagePreference: "German" | "English" | null;
         LogUseRequest: {
             /** Format: uuid */
             imageId?: string | null;
@@ -1602,6 +1602,7 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
             isNew: boolean;
+            language?: null | components["schemas"]["LanguagePreference"];
         };
         NotificationSettingsResponse: {
             messages: boolean;

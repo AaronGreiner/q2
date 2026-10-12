@@ -258,3 +258,112 @@ test.describe('with no connection, in an English browser', () => {
     }
   })
 })
+
+/** What the worker shows, collected where the lock screen would have it. */
+interface Shown {
+  title: string
+  body?: string
+}
+
+/**
+ * Hands the worker a push the way a push service would, through DevTools, and
+ * returns what it then showed.
+ *
+ * A real push needs VAPID keys, which E2E deliberately has none of, and the
+ * headless browser grants no notification permission whatever it is told. So
+ * the one thing replaced is the operating system's half — `showNotification`
+ * records instead of drawing. Reading the payload, choosing the language and
+ * writing the sentence are the shipped worker's own code.
+ */
+async function deliverPush(page: import('@playwright/test').Page, payload: object): Promise<Shown[]> {
+  const worker = page.context().serviceWorkers()[0]
+  expect(worker, 'a service worker to deliver the push to').toBeDefined()
+
+  await worker!.evaluate(() => {
+    const scope = self as unknown as ServiceWorkerGlobalScope & { q2Shown: Shown[] }
+    scope.q2Shown = []
+    scope.registration.showNotification = async (title: string, options?: NotificationOptions) => {
+      scope.q2Shown.push({ title, body: options?.body })
+    }
+  })
+
+  const origin = new URL(page.url()).origin
+  const cdp = await page.context().newCDPSession(page)
+  const registration = new Promise<string>((resolve) => {
+    cdp.on('ServiceWorker.workerRegistrationUpdated', ({ registrations }) => {
+      const ours = registrations.find(entry => !entry.isDeleted && entry.scopeURL.startsWith(origin))
+      if (ours) resolve(ours.registrationId)
+    })
+  })
+
+  await cdp.send('ServiceWorker.enable')
+  await cdp.send('ServiceWorker.deliverPushMessage', {
+    origin,
+    registrationId: await registration,
+    data: JSON.stringify(payload),
+  })
+
+  const shown = () => worker!.evaluate(() => (self as unknown as { q2Shown: Shown[] }).q2Shown)
+  await expect.poll(async () => (await shown()).length, { message: 'the worker showed the push' }).toBe(1)
+  return shown()
+}
+
+/** A friend request as the server pushes it; `language` is what #39 added. */
+function friendRequest(language?: 'German' | 'English') {
+  return {
+    id: null,
+    kind: 'FriendRequestReceived',
+    actor: {
+      id: 'e2e00000-0001-4000-8000-000000000002',
+      displayName: 'E2E Jonas',
+      handle: '@e2e.jonas',
+      initials: 'EJ',
+      avatarColor: '#4f46e5',
+      isOnline: false,
+      avatarImageId: null,
+    },
+    subject: null,
+    excerpt: null,
+    amount: null,
+    target: 'Person',
+    targetId: 'e2e00000-0001-4000-8000-000000000002',
+    occurredAt: '2026-06-15T09:00:00+00:00',
+    isNew: true,
+    ...(language ? { language } : {}),
+  }
+}
+
+test.describe('a push, on a phone set to German', () => {
+  test.use({ locale: 'de-DE' })
+
+  test('is written in the language chosen in q2, not the browser\'s (#39)', async ({ page }) => {
+    await page.goto('/')
+    await waitForServiceWorker(page)
+
+    expect(await deliverPush(page, friendRequest('English'))).toEqual([
+      { title: 'Friends', body: 'E2E Jonas wants to be friends with you.' },
+    ])
+  })
+
+  test('falls back to the browser only when the payload does not say', async ({ page }) => {
+    await page.goto('/')
+    await waitForServiceWorker(page)
+
+    expect(await deliverPush(page, friendRequest())).toEqual([
+      { title: 'Freunde', body: 'E2E Jonas möchte mit dir befreundet sein.' },
+    ])
+  })
+})
+
+test.describe('a push, on a phone set to English', () => {
+  test.use({ locale: 'en-US' })
+
+  test('is written in German when German was chosen in q2', async ({ page }) => {
+    await page.goto('/')
+    await waitForServiceWorker(page)
+
+    expect(await deliverPush(page, friendRequest('German'))).toEqual([
+      { title: 'Freunde', body: 'E2E Jonas möchte mit dir befreundet sein.' },
+    ])
+  })
+})

@@ -30,8 +30,9 @@ import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { NetworkOnly } from 'workbox-strategies'
 import type { NotificationLine } from '../app/api/types'
-import { de, en, type Messages } from '../app/i18n/messages'
+import { de } from '../app/i18n/messages'
 import { notificationLink, notificationTag, notificationText } from '../app/utils/display'
+import { browserMessages, pushMessages } from '../app/utils/pushLanguage'
 
 declare const self: ServiceWorkerGlobalScope & {
   /** Replaced at build time with the precache list; see `injectManifest` in nuxt.config.ts. */
@@ -85,9 +86,10 @@ self.addEventListener('activate', (event) => {
  * The payload is the very shape the bell is read as — a `NotificationLine`,
  * generated from the API contract — and the words are composed here by the
  * same `notificationText` the bell uses, from the same catalogue. The server
- * never sends a sentence, which is how a notification arrives in the language
- * of the device, and why a lock screen and the bell can never say one event
- * two ways (docs/adr/0024-one-notification-pipeline.md).
+ * never sends a sentence, only the language the person chose in q2, which is
+ * how a notification arrives in that language rather than the browser's (#39),
+ * and why a lock screen and the bell can never say one event two ways
+ * (docs/adr/0024-one-notification-pipeline.md).
  *
  * **A push event must always end in a visible notification.** Browsers permit a
  * silent one only for a short grace period and then revoke the permission
@@ -142,7 +144,8 @@ function read(data: PushMessageData | null): NotificationLine | null {
 }
 
 async function show(line: NotificationLine | null): Promise<void> {
-  const t = language()
+  // The language the person chose in q2, named in the payload (#39).
+  const t = pushMessages(line?.language, self.navigator.language)
 
   const content = line === null
     ? { title: t.app.name, body: t.push.generic, url: '/' }
@@ -186,7 +189,7 @@ function tagOf(line: NotificationLine | null): string {
  * a hex value here would be a copy of a token, and copies drift.
  */
 function offlinePage(): Response {
-  const t = language()
+  const t = browserMessages(self.navigator.language)
   const lang = t === de ? 'de' : 'en'
 
   const html = `<!doctype html>
@@ -248,17 +251,6 @@ function offlinePage(): Response {
       'cache-control': 'no-store',
     },
   })
-}
-
-/**
- * Which language to say it in.
- *
- * The person's actual preference is stored on their account, and this runs at
- * moments the account is unreachable or not asked. The browser's language is
- * the best guess available; German is the product default and the fallback.
- */
-function language(): Messages {
-  return self.navigator.language.toLowerCase().startsWith('en') ? en : de
 }
 
 /** These strings come from our own catalogue, but they are still going into markup. */

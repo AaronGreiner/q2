@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Settings;
 
 namespace Q2.Api.Features.Notifications;
 
@@ -54,6 +55,12 @@ public sealed record UnsubscribeRequest(string? Endpoint = null);
 /// reactions, how many different people reacted.
 /// </param>
 /// <param name="IsNew">Arrived after the bell was last opened. Always true in a push.</param>
+/// <param name="Language">
+/// The language the recipient chose in q2. Only ever in a push: the service
+/// worker writes the sentence without the app around it and cannot ask the
+/// account, and the browser's language is not the choice (#39). Null in the
+/// bell and in a banner, which the open app words in the language it shows.
+/// </param>
 public sealed record NotificationResponse(
     Guid? Id,
     NotificationKind Kind,
@@ -64,7 +71,8 @@ public sealed record NotificationResponse(
     NotificationTarget Target,
     Guid? TargetId,
     DateTimeOffset OccurredAt,
-    bool IsNew)
+    bool IsNew,
+    LanguagePreference? Language = null)
 {
     /// <summary>How much of a message a lock screen gets.</summary>
     public const int MaxExcerptLength = 140;

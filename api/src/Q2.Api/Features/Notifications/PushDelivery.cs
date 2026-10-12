@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.Notifications;
@@ -56,13 +57,27 @@ public sealed class PushDelivery(
             return 0;
         }
 
+        // One payload per person rather than one for everybody: each is written
+        // in the language its recipient chose, which a device cannot ask for
+        // (#39). Nobody with settings yet has the product default, as in the app.
+        var owners = subscriptions.Select(subscription => subscription.PersonId).Distinct().ToList();
+        var languages = await database.UserSettings
+            .AsNoTracking()
+            .Where(settings => owners.Contains(settings.PersonId))
+            .ToDictionaryAsync(settings => settings.PersonId, settings => settings.Language, cancellationToken);
+
         var now = timeProvider.GetUtcNow();
         var delivered = 0;
         var abandoned = new List<PushSubscription>();
 
         foreach (var subscription in subscriptions)
         {
-            switch (await sender.SendAsync(subscription, payload, cancellationToken))
+            var addressed = payload with
+            {
+                Language = languages.GetValueOrDefault(subscription.PersonId, LanguagePreference.German),
+            };
+
+            switch (await sender.SendAsync(subscription, addressed, cancellationToken))
             {
                 case PushOutcome.Delivered:
                     subscription.Delivered(now);
