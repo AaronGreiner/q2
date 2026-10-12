@@ -41,8 +41,16 @@ function saved(page: Page) {
  * the badges on the server, where this page cannot see it, so the first read
  * the browser makes is that one. A thread uses the plain layout without badges,
  * so its catch-up reads the thread itself instead.
+ *
+ * It has to be the first screen the test opens. A screen opened before it
+ * connects only after `goto` has returned, so its own catch-up read arrives
+ * while this one is still loading — and satisfied the wait for a connection
+ * this screen did not have yet. That was #54: the kudos went out unheard, the
+ * bell caught up afterwards, and the banner never came.
  */
 async function openListening(page: Page, path: string) {
+  expect(page.url(), 'openListening opens the first screen of a test').toBe('about:blank')
+
   const endpoint = path.startsWith('/chats/') ? `/api${path}` : '/api/counts'
   const listening = page.waitForResponse(response => response.url().endsWith(endpoint))
   await page.goto(path)
@@ -220,8 +228,10 @@ test.describe('arriving while the app is open', () => {
   })
 
   test('kudos from a friend ring the bell, and opening it is seeing it', async ({ page }) => {
-    // Everything already there is seen, so the number that appears is this test's.
-    await page.goto('/notifications')
+    // Everything already there is seen, so the number that appears is this
+    // test's. Reading the bell is what marks it seen — through the API rather
+    // than its screen, which openListening must not follow (#54).
+    expect((await page.request.get(`${apiBaseUrl}/api/notifications`)).ok(), 'reading the bell').toBe(true)
     await openListening(page, '/')
     await expect(page.getByTestId('bell-count')).toHaveCount(0)
 
