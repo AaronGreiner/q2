@@ -14,10 +14,27 @@ const selected = computed<string>({
     if (option) model.value = option.value
   },
 })
+
+/*
+ * reka-ui names each radio by looking for its label in `document` once, as the
+ * radio is mounted, and names it by its value when the label is not there. After
+ * a client-side navigation the new screen is built off-document, so the radios
+ * were announced as "today" and "all" on a German screen; and a language switch
+ * never renewed the name at all. Mounting the group again once it is in the
+ * document, and whenever its words change, lets that lookup find the label (#65).
+ * `onMounted` is the moment it is in the document: inside a pending Suspense,
+ * Vue holds mounted hooks back until the screen has been moved into place.
+ */
+const attached = ref(false)
+onMounted(() => {
+  attached.value = true
+})
+const namingKey = computed(() => `${attached.value}:${props.options.map(option => option.label).join('\n')}`)
 </script>
 
 <template>
   <URadioGroup
+    :key="namingKey"
     v-model="selected"
     class="q2-segmented"
     :style="{ '--q2-segment-count': options.length, '--q2-segment-index': selectedIndex }"

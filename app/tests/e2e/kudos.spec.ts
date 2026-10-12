@@ -564,10 +564,12 @@ test.describe('the shell', () => {
     await expect(page.getByTestId('nav-dos')).toHaveAttribute('aria-current', 'page')
     await expect(page.getByTestId('nav-dos')).toHaveText('Dos')
     await expect(page.getByRole('heading', { level: 1, name: 'Dos & Don’ts' })).toBeVisible()
-    // The visible words rather than the radios' names: after a client-side
-    // navigation those are the values, not the labels (#65).
-    await expect(page.getByTestId('segment-today')).toHaveText('Heute')
-    await expect(page.getByTestId('segment-all')).toHaveText('Alle')
+    // Reached through the tab bar, not `page.goto`: a client-side navigation
+    // builds the screen off-document, which is where the radios used to be
+    // named by their values, "today" and "all" (#65).
+    await expect(page.getByRole('radio', { name: 'Heute' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Alle' })).not.toBeChecked()
+    await expect(page.getByRole('radio', { name: 'today' })).toHaveCount(0)
 
     await page.getByTestId('open-create-goal').click()
 

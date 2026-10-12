@@ -125,6 +125,27 @@ describe('interactive UI primitives', () => {
     expect(toggle.emitted('update:modelValue')?.[0]).toEqual([true])
   })
 
+  it('names each segment by its label, and renames it when the language changes', async () => {
+    // reka-ui looks the label up in `document`, so the control has to be in it.
+    const segmented = await mountSuspended(AppSegmented, {
+      props: {
+        label: 'Design',
+        options: [{ value: 'Light', label: 'Hell' }, { value: 'Dark', label: 'Dunkel' }],
+        modelValue: 'Light',
+      },
+      attachTo: document.body,
+    })
+    await nextTick()
+    // A browser's innerText trims the template's whitespace; happy-dom's does not.
+    const names = () => segmented.findAll('[role="radio"]').map(radio => radio.attributes('aria-label')?.trim())
+    expect(names()).toEqual(['Hell', 'Dunkel'])
+
+    await segmented.setProps({ options: [{ value: 'Light', label: 'Light' }, { value: 'Dark', label: 'Dark' }] })
+    await nextTick()
+    expect(names()).toEqual(['Light', 'Dark'])
+    segmented.unmount()
+  })
+
   it('closes and emits a destructive confirmation', async () => {
     const wrapper = await mountSuspended(AppConfirmDialog, {
       props: {
