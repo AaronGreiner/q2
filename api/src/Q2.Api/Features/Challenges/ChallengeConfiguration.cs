@@ -57,7 +57,10 @@ public sealed class ChallengeEntryConfiguration : IEntityTypeConfiguration<Chall
         builder.ToTable("ChallengeEntries");
         builder.HasKey(entry => entry.Id);
 
-        builder.Property(entry => entry.CapturedInApp).IsRequired();
+        builder.Property(entry => entry.Source)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
 
         builder.Property(entry => entry.CreatedAt)
             .IsRequired()

@@ -248,9 +248,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("CapturedInApp")
-                        .HasColumnType("INTEGER");
-
                     b.Property<Guid>("ChallengeId")
                         .HasColumnType("TEXT");
 
@@ -261,6 +258,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

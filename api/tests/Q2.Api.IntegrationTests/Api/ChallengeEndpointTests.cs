@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -32,7 +33,7 @@ public class ChallengeEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Guid Id,
         ChallengePersonDocument Author,
         Guid? ImageId,
-        bool CapturedInApp,
+        ProofSource Source,
         DateTimeOffset CreatedAt,
         bool IsMine,
         IReadOnlyList<ReactionSummaryDocument> Reactions);
@@ -66,14 +67,18 @@ public class ChallengeEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         return (await response.ReadAsync<UploadedImage>()).Id;
     }
 
-    private static async Task<HttpResponseMessage> ContributeAsync(HttpClient client, bool capturedInApp = true) =>
+    private static async Task<HttpResponseMessage> ContributeAsync(
+        HttpClient client,
+        ProofSource source = ProofSource.Live) =>
         await client.PostJsonAsync(
             "/api/challenges/today/entry",
-            new { imageId = await UploadAsync(client), capturedInApp });
+            new { imageId = await UploadAsync(client), source });
 
-    private static async Task<RoomDocument> ContributedRoomAsync(HttpClient client)
+    private static async Task<RoomDocument> ContributedRoomAsync(
+        HttpClient client,
+        ProofSource source = ProofSource.Live)
     {
-        var response = await ContributeAsync(client);
+        var response = await ContributeAsync(client, source);
 
         Assert.True(
             response.IsSuccessStatusCode,
@@ -238,14 +243,14 @@ public class ChallengeEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
         var theirs = await UploadAsync(friend);
 
-        var withoutImage = await Client.PostJsonAsync("/api/challenges/today/entry", new { capturedInApp = true });
+        var withoutImage = await Client.PostJsonAsync("/api/challenges/today/entry", new { source = ProofSource.Live });
         Assert.Equal(HttpStatusCode.BadRequest, withoutImage.StatusCode);
 
         // Otherwise "contribute this id" would be a way to put somebody else's
         // picture in the room — and contributing is how the room opens.
         var borrowed = await Client.PostJsonAsync(
             "/api/challenges/today/entry",
-            new { imageId = theirs, capturedInApp = true });
+            new { imageId = theirs, source = ProofSource.Live });
 
         Assert.Equal(HttpStatusCode.NotFound, borrowed.StatusCode);
     }
@@ -259,9 +264,59 @@ public class ChallengeEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     {
         var response = await Client.PostJsonAsync(
             "/api/challenges/today/entry",
-            new { imageId = await Client.UploadProofImageAsync(), capturedInApp = true });
+            new { imageId = await Client.UploadProofImageAsync(), source = ProofSource.Live });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The prompt asks for a moment, so friends are told which route a picture
+    /// took — the camera, or the phone's pictures (#64).
+    /// </summary>
+    [Theory]
+    [InlineData(ProofSource.Live)]
+    [InlineData(ProofSource.Screenshot)]
+    public async Task FriendsSeeWhichRouteAContributionTook(ProofSource source)
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirs = await ContributedRoomAsync(friend, source);
+
+        Assert.Equal(source, theirs.OwnEntry!.Source);
+
+        var room = await ContributedRoomAsync(Client);
+
+        Assert.Equal(source, Assert.Single(room.Entries).Source);
+        Assert.Equal(source, Assert.Single(await ArchiveAsync(friend)).Entry.Source);
+    }
+
+    /// <summary>
+    /// Builds from before #64 send <c>capturedInApp: true</c> for every
+    /// picture, gallery or not. Believing it would call a gallery pick live, so
+    /// a contribution that does not name its source is stored as unknown.
+    /// </summary>
+    [Fact]
+    public async Task AContributionThatDoesNotNameItsSourceIsStoredAsUnknown()
+    {
+        var response = await Client.PostJsonAsync(
+            "/api/challenges/today/entry",
+            new { imageId = await UploadAsync(Client), capturedInApp = true });
+
+        var room = await response.ReadAsync<RoomDocument>();
+
+        Assert.Equal(ProofSource.Unknown, room.OwnEntry!.Source);
+    }
+
+    /// <summary>
+    /// A second picture brings its own route with it: replacing a camera
+    /// picture with a gallery pick must not leave it labelled live.
+    /// </summary>
+    [Fact]
+    public async Task ASecondPictureCarriesItsOwnSource()
+    {
+        await ContributedRoomAsync(Client, ProofSource.Live);
+        var room = await ContributedRoomAsync(Client, ProofSource.Screenshot);
+
+        Assert.Equal(ProofSource.Screenshot, room.OwnEntry!.Source);
     }
 
     [Fact]

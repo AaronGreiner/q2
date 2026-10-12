@@ -55,9 +55,10 @@ const age = computed(() => formatRelativeTime(props.entry.createdAt, now.value, 
  *
  * The origin weighs more here than on a proof: the prompt asks for a moment,
  * and a picture out of a gallery misses it by definition. It stays a label
- * rather than a refusal.
+ * rather than a refusal. A contribution from before the route was recorded
+ * (`Unknown`, #64) is not called one: nobody knows that it was.
  */
-const fromLibrary = computed(() => !props.covered && !props.entry.capturedInApp)
+const fromLibrary = computed(() => !props.covered && props.entry.source === 'Screenshot')
 
 const viewer = usePhotoViewer()
 

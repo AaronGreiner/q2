@@ -64,5 +64,10 @@ the same honesty 0018 asks of the vote itself.
 
 - `CapturedInApp` is gone from proofs: the contract carries `source` on
   `ProofResponse` and `OwnProofResponse`, and the request takes `source`.
-- The daily challenge has the same always-true flag. It is not a proof and
-  is tracked separately ([#64](https://github.com/AaronGreiner/q2/issues/64)).
+- The daily challenge had the same always-true flag. It is not a proof, but
+  it now records the same `Source` the same way
+  ([#64](https://github.com/AaronGreiner/q2/issues/64)): `ChallengeEntry.Source`
+  replaces `CapturedInApp`, existing entries are migrated to `Unknown`, and a
+  request without `source` is stored as `Unknown`. The room keeps its own,
+  plainer label: only a known gallery pick says "Nicht live aufgenommen", and
+  an unknown entry says nothing, because nobody knows that it was one.

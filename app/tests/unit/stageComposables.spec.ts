@@ -154,14 +154,26 @@ describe('useChallengeRoom', () => {
     await vi.waitFor(() => expect(state.room.value).not.toBeNull())
     expect(state.room.value?.isRevealed).toBe(false)
 
-    await state.contribute({ id: 'image-2' } as never)
+    await state.contribute({ id: 'image-2' } as never, 'camera')
 
-    expect(api.challenges.submit).toHaveBeenCalledWith('image-2', true)
+    expect(api.challenges.submit).toHaveBeenCalledWith('image-2', 'Live')
     expect(state.room.value?.isRevealed).toBe(true)
     expect(state.room.value?.ownEntry).not.toBeNull()
 
     // The room uncovering is the answer; nothing is announced on top of it.
     expect(show).not.toHaveBeenCalled()
+  })
+
+  /** A gallery pick used to be sent as taken live, whatever it was (#64). */
+  it('contributes a picture from the phone as one', async () => {
+    const api = challengeApi()
+    installFeatureGlobals(api)
+    const state = useChallengeRoom()
+
+    await vi.waitFor(() => expect(state.room.value).not.toBeNull())
+    await state.contribute({ id: 'image-2' } as never, 'library')
+
+    expect(api.challenges.submit).toHaveBeenCalledWith('image-2', 'Screenshot')
   })
 
   it('withdrawing covers the room again', async () => {
@@ -234,7 +246,7 @@ describe('useChallengeRoom', () => {
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'challenge', action: 'today' })
 
     api.challenges.submit.mockRejectedValueOnce(new Error('gone'))
-    await state.contribute({ id: 'image-2' } as never)
+    await state.contribute({ id: 'image-2' } as never, 'camera')
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'challenge', action: 'contribute' })
 
     api.challenges.withdraw.mockRejectedValueOnce(new Error('gone'))
@@ -257,11 +269,11 @@ describe('useChallengeRoom', () => {
     const state = useChallengeRoom()
     await vi.waitFor(() => expect(state.room.value).not.toBeNull())
 
-    const first = state.contribute({ id: 'image-2' } as never)
+    const first = state.contribute({ id: 'image-2' } as never, 'camera')
     await nextTick()
     expect(state.isSubmitting.value).toBe(true)
 
-    await state.contribute({ id: 'image-3' } as never)
+    await state.contribute({ id: 'image-3' } as never, 'camera')
     expect(api.challenges.submit).toHaveBeenCalledTimes(1)
 
     release(room())

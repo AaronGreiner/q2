@@ -2,6 +2,7 @@ import type { ApiFailure } from '~/api/errors'
 import type { ChallengeArchiveEntry, ChallengeRoom, Image, KudosKind } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { uploadSizes } from '~/utils/images'
+import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
 
 interface RoomPayload {
   room: ChallengeRoom | null
@@ -45,14 +46,15 @@ export function useChallengeRoom() {
    * `PhotoCapture` has done the shrinking and the upload by the time this runs,
    * which is why it takes an `Image` rather than a file — the same split as a
    * proof, so a dropped connection never leaves half a picture in the room.
+   * The route it used goes with it, so a gallery pick is called one (#64).
    */
-  async function contribute(image: Image) {
+  async function contribute(image: Image, origin: PhotoOrigin) {
     if (isSubmitting.value) return
 
     isSubmitting.value = true
 
     try {
-      const room = await api.challenges.submit(image.id, true)
+      const room = await api.challenges.submit(image.id, proofSourceOf(origin))
       data.value = { room, failure: null }
     }
     catch (caught) {

@@ -22,9 +22,9 @@ public sealed record ChallengeResponse(
 /// has not contributed never receives the id at all, so there is nothing for a
 /// browser to un-blur — see <see cref="Challenge.RevealsTo"/>.
 /// </param>
-/// <param name="CapturedInApp">
-/// Whether the camera took it. Null-ish cases do not arise: it is only sent
-/// with the picture it describes.
+/// <param name="Source">
+/// Live, from the phone's pictures, or unknown — the same three values as a
+/// proof's. Contributions from before #64 are unknown.
 /// </param>
 /// <remarks>
 /// The author travels even while the picture does not, and that is deliberate:
@@ -35,7 +35,7 @@ public sealed record ChallengeEntryResponse(
     Guid Id,
     PersonSummary Author,
     Guid? ImageId,
-    bool CapturedInApp,
+    ProofSource Source,
     DateTimeOffset CreatedAt,
     bool IsMine,
     IReadOnlyList<ReactionSummaryResponse> Reactions);
@@ -84,11 +84,20 @@ public sealed record ChallengeArchiveEntryResponse(
     ChallengeEntryResponse Entry);
 
 /// <summary>Request body for contributing.</summary>
+/// <param name="Source">
+/// The route the app used. Left out, the contribution is stored as
+/// <see cref="ProofSource.Unknown"/>.
+/// </param>
 /// <remarks>
 /// Nullable so an empty body produces a field error rather than a binding
 /// failure, like every other request in this API.
+///
+/// There was a <c>capturedInApp</c> flag here until #64, sent as true for every
+/// picture, gallery or not. Builds that still send it are treated like a proof
+/// from before #61: the flag is ignored, and the contribution is unknown rather
+/// than believed to be live.
 /// </remarks>
-public sealed record SubmitChallengeEntryRequest(Guid? ImageId = null, bool CapturedInApp = false);
+public sealed record SubmitChallengeEntryRequest(Guid? ImageId = null, ProofSource? Source = null);
 
 /// <summary>Request body for reacting to one.</summary>
 public sealed record ReactToChallengeEntryRequest(KudosKind? Kind = null);

@@ -96,7 +96,9 @@ public sealed class ChallengeService(
 
         var replaced = challenge.EntryOf(me.Id)?.ImageId;
 
-        challenge.Contribute(idGenerator.NewId(), me.Id, imageId, request.CapturedInApp, now);
+        var source = request.Source ?? ProofSource.Unknown;
+
+        challenge.Contribute(idGenerator.NewId(), me.Id, imageId, source, now);
 
         // The picture that has just been replaced goes with it. Nothing points
         // at it any more, and leaving it would let a second contribution be a
@@ -118,7 +120,7 @@ public sealed class ChallengeService(
 
         // No prompt, no person: that one happened, and nothing about whose.
         logger.LogInformation("A challenge contribution was made");
-        metrics.CountChallengeEntry(request.CapturedInApp);
+        metrics.CountChallengeEntry(source);
 
         return await DescribeRoomAsync(challenge, me.Id, now, cancellationToken);
     }
@@ -370,7 +372,7 @@ public sealed class ChallengeService(
             entry.Id,
             PersonSummary.From(people[entry.PersonId], now),
             revealed ? entry.ImageId : null,
-            entry.CapturedInApp,
+            entry.Source,
             entry.CreatedAt,
             entry.PersonId == viewerId,
             reactions);

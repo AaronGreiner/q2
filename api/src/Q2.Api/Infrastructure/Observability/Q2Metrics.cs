@@ -1,4 +1,5 @@
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Proofs;
 using Sentry;
 
 namespace Q2.Api.Infrastructure.Observability;
@@ -52,16 +53,17 @@ public sealed class Q2Metrics(IHub hub)
         Count(WindowResolved, ("outcome", status.ToString()));
 
     /// <summary>
-    /// Somebody contributed to the daily challenge, counted by whether the
-    /// camera or the file picker produced it.
+    /// Somebody contributed to the daily challenge, counted by the route the
+    /// picture took: the camera, the phone's pictures, or a client that did
+    /// not say.
     /// </summary>
     /// <remarks>
     /// The one number worth having about the challenge, because it is the one
     /// that says whether the feature is doing its job. Never the prompt: that is
     /// authored text, and a metric is read by everyone.
     /// </remarks>
-    public void CountChallengeEntry(bool capturedInApp) =>
-        Count(ChallengeEntry, ("captured", capturedInApp));
+    public void CountChallengeEntry(ProofSource source) =>
+        Count(ChallengeEntry, ("source", source.ToString()));
 
     public void CountAccountRegistered() => Count(AccountRegistered);
 

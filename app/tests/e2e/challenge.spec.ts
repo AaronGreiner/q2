@@ -44,6 +44,9 @@ test.describe('the daily challenge', () => {
     await expect(page.getByTestId('challenge-entry')).toBeVisible()
     await expect(page.getByTestId('challenge-image')).toBeVisible()
 
+    // The file picker, not the shutter — and the card says so (#64).
+    await expect(page.getByTestId('challenge-origin')).toHaveText('Nicht live aufgenommen')
+
     await page.getByTestId('challenge-archive-link').click()
     await expect(page.getByTestId('challenge-archive-tile').first()).toBeVisible()
 

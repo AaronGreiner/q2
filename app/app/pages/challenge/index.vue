@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image, KudosKind } from '~/api/types'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * The room for today's prompt.
@@ -59,9 +60,9 @@ const participation = computed(() => {
     : t.value.challenge.participation(room.value.entries.length, room.value.friendCount)
 })
 
-async function onCaptured(image: Image) {
+async function onCaptured(image: Image, origin: PhotoOrigin) {
   isCapturing.value = false
-  await contribute(image)
+  await contribute(image, origin)
 }
 
 useHead({ title: () => t.value.challenge.heading })

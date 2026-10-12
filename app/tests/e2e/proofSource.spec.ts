@@ -76,6 +76,27 @@ test('a picture from the phone is delivered as a screenshot, and says so before 
   await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('viewer.png') })
 })
 
+test('a challenge picture from the shutter is not called a gallery pick', async ({ page }, testInfo) => {
+  await page.goto('/challenge')
+  await page.getByTestId('challenge-join').click()
+
+  const camera = page.getByTestId('photo-camera')
+  await expect.poll(() => camera.evaluate(element => (element as HTMLVideoElement).videoWidth)).toBeGreaterThan(0)
+  await page.getByTestId('photo-shutter').click()
+  await page.getByTestId('photo-confirm').click()
+
+  // Until #64 every contribution was sent as live, so this passed for the
+  // wrong reason; challenge.spec.ts asserts the gallery half.
+  await expect(page.getByTestId('challenge-image')).toBeVisible()
+  await expect(page.getByTestId('challenge-origin')).toHaveCount(0)
+  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('challenge.png') })
+
+  // Back out again, which leaves the room as this spec found it.
+  await page.getByTestId('challenge-remove').click()
+  await page.getByTestId('confirm-accept').click()
+  await expect(page.getByTestId('challenge-join')).toBeVisible()
+})
+
 test('your own gallery labels each photograph', async ({ page }, testInfo) => {
   const title = `E2E gallery source ${Date.now()}`
   await openGoalChat(page, title)

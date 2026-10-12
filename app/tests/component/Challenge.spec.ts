@@ -34,7 +34,7 @@ function entry(overrides: Partial<ChallengeEntry> = {}): ChallengeEntry {
     id: 'entry-1',
     author: person(),
     imageId: 'image-1',
-    capturedInApp: true,
+    source: 'Live',
     createdAt: '2026-06-15T09:00:00+00:00',
     isMine: false,
     reactions: [],
@@ -125,9 +125,21 @@ describe('ChallengeEntryCard', () => {
     expect(live.find('[data-testid="challenge-origin"]').exists()).toBe(false)
 
     const picked = await mountSuspended(ChallengeEntryCard, {
-      props: { entry: entry({ capturedInApp: false }), covered: false },
+      props: { entry: entry({ source: 'Screenshot' }), covered: false },
     })
     expect(picked.get('[data-testid="challenge-origin"]').text()).toBe('Nicht live aufgenommen')
+  })
+
+  /**
+   * Every contribution from before #64 was sent as taken live, so its route is
+   * not known — and calling it a gallery pick would be as wrong as calling it
+   * live.
+   */
+  it('claims nothing about a contribution whose route is unknown', async () => {
+    const unknown = await mountSuspended(ChallengeEntryCard, {
+      props: { entry: entry({ source: 'Unknown' }), covered: false },
+    })
+    expect(unknown.find('[data-testid="challenge-origin"]').exists()).toBe(false)
   })
 
   /**

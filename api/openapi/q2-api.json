@@ -3265,7 +3265,7 @@
           "id",
           "author",
           "imageId",
-          "capturedInApp",
+          "source",
           "createdAt",
           "isMine",
           "reactions"
@@ -3284,8 +3284,8 @@
             "format": "uuid",
             "nullable": true
           },
-          "capturedInApp": {
-            "type": "boolean"
+          "source": {
+            "$ref": "#/components/schemas/ProofSource"
           },
           "createdAt": {
             "type": "string",
@@ -5647,9 +5647,17 @@
             "format": "uuid",
             "nullable": true
           },
-          "capturedInApp": {
-            "type": "boolean",
-            "default": false
+          "source": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ProofSource"
+              }
+            ]
           }
         }
       },

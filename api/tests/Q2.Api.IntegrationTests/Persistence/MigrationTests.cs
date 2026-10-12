@@ -242,6 +242,38 @@ public class MigrationTests
     }
 
     /// <summary>
+    /// The challenge had the same always-true flag (#64), so no contribution
+    /// from before it may come out of the migration labelled live either.
+    /// </summary>
+    [Fact]
+    public async Task ExistingChallengeEntriesBecomeUnknownWhateverTheirOldFlagSaid()
+    {
+        const string beforeSource = "20261009091852_SpotChecks";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+
+        await using var context = database.CreateContext();
+        await context.GetService<IMigrator>().MigrateAsync(beforeSource, TestContext.Current.CancellationToken);
+
+        // Only the entry table matters here, so the challenge and the people it
+        // points at are not built: foreign keys are off for these inserts
+        // alone, and back on before the migration runs.
+        await ExecuteAsync(context, $"""
+            PRAGMA foreign_keys = OFF;
+            INSERT INTO ChallengeEntries (Id, ChallengeId, PersonId, ImageId, CapturedInApp, CreatedAt)
+            VALUES
+              ('{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', 1, '2026-10-01 09:00:00'),
+              ('{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', '{Guid.CreateVersion7()}', 0, '2026-10-02 09:00:00');
+            PRAGMA foreign_keys = ON;
+            """);
+
+        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, await ScalarAsync(context, "SELECT COUNT(*) FROM ChallengeEntries WHERE Source = 'Unknown'"));
+        Assert.Equal(0, await ScalarAsync(context, "SELECT COUNT(*) FROM pragma_table_info('ChallengeEntries') WHERE name = 'CapturedInApp'"));
+    }
+
+    /// <summary>
     /// Every goal from before Don'ts is a Do (#62): its kind defaults to Do,
     /// it has no limit and no proof mode, its windows have no limit — and so a
     /// window that runs out is still missed, exactly as before.

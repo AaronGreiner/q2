@@ -1174,7 +1174,7 @@ export interface components {
             author: components["schemas"]["PersonSummary"];
             /** Format: uuid */
             imageId: string | null;
-            capturedInApp: boolean;
+            source: components["schemas"]["ProofSource"];
             /** Format: date-time */
             createdAt: string;
             isMine: boolean;
@@ -1812,8 +1812,7 @@ export interface components {
         SubmitChallengeEntryRequest: {
             /** Format: uuid */
             imageId?: string | null;
-            /** @default false */
-            capturedInApp: boolean;
+            source?: null | components["schemas"]["ProofSource"];
         };
         SubmitProofRequest: {
             /** Format: uuid */

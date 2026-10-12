@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { ChallengeEntry, ChallengeArchiveEntry, ChallengeRoom, ChallengeToday, KudosKind } from './types'
+import type { ChallengeEntry, ChallengeArchiveEntry, ChallengeRoom, ChallengeToday, KudosKind, ProofSource } from './types'
 
 /**
  * The daily challenge: today's prompt, the room, and your own archive.
@@ -22,8 +22,12 @@ export interface ChallengesApi {
    */
   today: () => Promise<ChallengeToday>
 
-  /** Contributes a photograph. A second one replaces the first. */
-  submit: (imageId: string, capturedInApp: boolean) => Promise<ChallengeRoom>
+  /**
+   * Contributes a photograph. A second one replaces the first.
+   *
+   * `source` is the route the camera screen used, as for a proof (#64).
+   */
+  submit: (imageId: string, source: ProofSource) => Promise<ChallengeRoom>
 
   /** Takes your contribution back. The room is covered again afterwards. */
   withdraw: () => Promise<ChallengeToday>
@@ -41,8 +45,8 @@ export function createChallengesApi(call: ApiCaller): ChallengesApi {
   return {
     today: () => call<ChallengeToday>('/api/challenges/today', { method: 'GET' }),
 
-    submit: (imageId, capturedInApp) =>
-      call<ChallengeRoom>(entry, { method: 'POST', body: { imageId, capturedInApp } }),
+    submit: (imageId, source) =>
+      call<ChallengeRoom>(entry, { method: 'POST', body: { imageId, source } }),
 
     withdraw: () => call<ChallengeToday>(entry, { method: 'DELETE' }),
 

@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.Features.Challenges;
@@ -181,7 +182,7 @@ public sealed class Challenge
         Guid id,
         Guid personId,
         Guid imageId,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset now)
     {
         if (!IsActiveAt(now))
@@ -196,11 +197,11 @@ public sealed class Challenge
 
         if (EntryOf(personId) is { } existing)
         {
-            existing.Replace(imageId, capturedInApp, now);
+            existing.Replace(imageId, source, now);
             return existing;
         }
 
-        var entry = new ChallengeEntry(id, Id, personId, imageId, capturedInApp, now);
+        var entry = new ChallengeEntry(id, Id, personId, imageId, source, now);
         _entries.Add(entry);
         return entry;
     }
@@ -235,11 +236,11 @@ public sealed class Challenge
 /// would be meaningless here: there is nothing to win and so nothing to check.
 /// What is left is the picture, who took it, and encouragement.
 ///
-/// <see cref="CapturedInApp"/> is recorded for the same reason it is on a
-/// proof, and matters slightly more: the prompt asks for a moment, and a
-/// picture out of a gallery misses it by definition. It stays a label rather
-/// than a refusal — a phone whose camera permission was once denied has to be
-/// able to join in too.
+/// <see cref="Source"/> is recorded for the same reason it is on a proof, and
+/// with the same values, and matters slightly more: the prompt asks for a
+/// moment, and a picture out of a gallery misses it by definition. It stays a
+/// label rather than a refusal — a phone whose camera permission was once
+/// denied has to be able to join in too (docs/adr/0036-live-or-screenshot.md).
 /// </remarks>
 public sealed class ChallengeEntry
 {
@@ -255,14 +256,14 @@ public sealed class ChallengeEntry
         Guid challengeId,
         Guid personId,
         Guid imageId,
-        bool capturedInApp,
+        ProofSource source,
         DateTimeOffset createdAt)
     {
         Id = id;
         ChallengeId = challengeId;
         PersonId = personId;
         ImageId = imageId;
-        CapturedInApp = capturedInApp;
+        Source = source;
         CreatedAt = createdAt;
     }
 
@@ -276,8 +277,12 @@ public sealed class ChallengeEntry
     /// <summary>The stored picture. Its bytes are reached through the image endpoint, never from here.</summary>
     public Guid ImageId { get; private set; }
 
-    /// <summary>True when the camera took it rather than the file picker.</summary>
-    public bool CapturedInApp { get; private set; }
+    /// <summary>
+    /// Which route the app used: the camera, or a picture from the phone.
+    /// <see cref="ProofSource.Unknown"/> for contributions from before #64,
+    /// whose flag was true for every picture.
+    /// </summary>
+    public ProofSource Source { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -291,10 +296,10 @@ public sealed class ChallengeEntry
     /// somebody's "stark" standing under a photograph they never saw, which is
     /// the one way a reaction here could become dishonest.
     /// </remarks>
-    internal void Replace(Guid imageId, bool capturedInApp, DateTimeOffset now)
+    internal void Replace(Guid imageId, ProofSource source, DateTimeOffset now)
     {
         ImageId = imageId;
-        CapturedInApp = capturedInApp;
+        Source = source;
         CreatedAt = now;
         _reactions.Clear();
     }

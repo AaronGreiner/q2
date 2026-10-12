@@ -1,5 +1,6 @@
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Time;
 
@@ -60,12 +61,12 @@ public class ChallengeTests
     {
         var challenge = Build();
 
-        var first = challenge.Contribute(NewId(1), Mara, NewId(90), capturedInApp: true, Noon);
-        var second = challenge.Contribute(NewId(2), Mara, NewId(91), capturedInApp: false, Noon.AddMinutes(5));
+        var first = challenge.Contribute(NewId(1), Mara, NewId(90), ProofSource.Live, Noon);
+        var second = challenge.Contribute(NewId(2), Mara, NewId(91), ProofSource.Screenshot, Noon.AddMinutes(5));
 
         Assert.Same(first, second);
         Assert.Equal(NewId(91), second.ImageId);
-        Assert.False(second.CapturedInApp);
+        Assert.Equal(ProofSource.Screenshot, second.Source);
         Assert.Equal(Noon.AddMinutes(5), second.CreatedAt);
         Assert.Single(challenge.Entries);
     }
@@ -79,10 +80,10 @@ public class ChallengeTests
     public void ReplacingAPictureDropsItsReactions()
     {
         var challenge = Build();
-        var entry = challenge.Contribute(NewId(1), Mara, NewId(90), capturedInApp: true, Noon);
+        var entry = challenge.Contribute(NewId(1), Mara, NewId(90), ProofSource.Live, Noon);
         entry.ToggleReaction(NewId(50), Jonas, KudosKind.Applause);
 
-        challenge.Contribute(NewId(2), Mara, NewId(91), capturedInApp: true, Noon.AddMinutes(5));
+        challenge.Contribute(NewId(2), Mara, NewId(91), ProofSource.Live, Noon.AddMinutes(5));
 
         Assert.Empty(entry.Reactions);
     }
@@ -93,7 +94,7 @@ public class ChallengeTests
         var challenge = Build();
 
         Assert.Throws<DomainValidationException>(() =>
-            challenge.Contribute(NewId(1), Mara, NewId(90), capturedInApp: true, Utc.StartOfDay(Today.AddDays(1))));
+            challenge.Contribute(NewId(1), Mara, NewId(90), ProofSource.Live, Utc.StartOfDay(Today.AddDays(1))));
     }
 
     /// <summary>
@@ -104,11 +105,11 @@ public class ChallengeTests
     public void TheRoomOpensWithYourOwnContributionAndClosesAgainWithoutIt()
     {
         var challenge = Build();
-        challenge.Contribute(NewId(1), Jonas, NewId(90), capturedInApp: true, Noon);
+        challenge.Contribute(NewId(1), Jonas, NewId(90), ProofSource.Live, Noon);
 
         Assert.False(challenge.RevealsTo(Mara));
 
-        challenge.Contribute(NewId(2), Mara, NewId(91), capturedInApp: true, Noon);
+        challenge.Contribute(NewId(2), Mara, NewId(91), ProofSource.Live, Noon);
         Assert.True(challenge.RevealsTo(Mara));
 
         var withdrawn = challenge.Withdraw(Mara);
@@ -135,7 +136,7 @@ public class ChallengeTests
     public void AReactionTogglesAndOnlyOneStands()
     {
         var challenge = Build();
-        var entry = challenge.Contribute(NewId(1), Mara, NewId(90), capturedInApp: true, Noon);
+        var entry = challenge.Contribute(NewId(1), Mara, NewId(90), ProofSource.Live, Noon);
 
         Assert.Equal(KudosKind.Fire, entry.ToggleReaction(NewId(50), Jonas, KudosKind.Fire));
         Assert.Equal(KudosKind.Applause, entry.ToggleReaction(NewId(51), Jonas, KudosKind.Applause));
