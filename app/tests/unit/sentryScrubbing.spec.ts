@@ -1,4 +1,4 @@
-import type { Breadcrumb, ErrorEvent, Log, Metric } from '@sentry/nuxt'
+import type { Breadcrumb, ErrorEvent, Event, Log, Metric, ReplayFrameEvent } from '@sentry/nuxt'
 import { describe, expect, it } from 'vitest'
 import {
   isSensitiveKey,
@@ -6,10 +6,13 @@ import {
   replayMaskSelectors,
   redactText,
   resolveSentryOptions,
+  scrubAddresses,
   scrubBreadcrumb,
   scrubEvent,
   scrubLog,
   scrubMetric,
+  scrubRecordingEvent,
+  scrubTransaction,
   sentryMetricNames,
 } from '../../sentry.shared'
 
@@ -272,10 +275,165 @@ describe('resolveSentryOptions', () => {
     const options = resolveSentryOptions(base)
 
     expect(options.beforeSend).toBe(scrubEvent)
+    expect(options.beforeSendTransaction).toBe(scrubTransaction)
     expect(options.beforeBreadcrumb).toBe(scrubBreadcrumb)
     expect(options.beforeSendLog).toBe(scrubLog)
     expect(options.beforeSendMetric).toBe(scrubMetric)
     expect(options.enableLogs).toBe(true)
     expect(options.enableMetrics).toBe(true)
+  })
+})
+
+/**
+ * An invite code is a credential in everything but name, and it is part of the
+ * address: `/join/<code>`, then `/register?invite=<code>` and
+ * `/login?next=%2Fjoin%2F<code>` (#47). Every route Sentry has to an address
+ * is followed here — events, breadcrumbs, transactions, a replay's metadata and
+ * its recording, and a feedback.
+ */
+describe('invite codes', () => {
+  const code = 'q2Inv1te_Code-x7Yz'
+
+  type TransactionEvent = Parameters<typeof scrubTransaction>[0]
+
+  it.each([
+    ['/join/' + code, '/join/[redacted]'],
+    ['https://q2.example.com/join/' + code, 'https://q2.example.com/join/[redacted]'],
+    ['/register?invite=' + code, '/register?invite=[redacted]'],
+    ['/login?next=%2Fjoin%2F' + code, '/login?next=%2Fjoin%2F[redacted]'],
+    ['{"inviteCode":"' + code + '"}', '{"inviteCode":"[redacted]"}'],
+  ])('redacts the code in %s', (input, expected) => {
+    expect(redactText(input)).toBe(expected)
+  })
+
+  it('keeps the route template, which says nothing', () => {
+    expect(redactText('/join/:code()')).toBe('/join/:code()')
+  })
+
+  it('leaves the word alone where it is not a code', () => {
+    expect(redactText('invited: 3 friends')).toBe('invited: 3 friends')
+  })
+
+  it('drops the route parameter and the query the router puts on a span', () => {
+    expect(isSensitiveKey('params.code')).toBe(true)
+    expect(isSensitiveKey('url.path.parameter.code')).toBe(true)
+    expect(isSensitiveKey('query.invite')).toBe(true)
+    expect(isSensitiveKey('query.next')).toBe(true)
+
+    // A goal's id is not a credential, and the template says which route it was.
+    expect(isSensitiveKey('params.id')).toBe(false)
+    expect(isSensitiveKey('url.template')).toBe(false)
+  })
+
+  it('leaves no code in an error raised on the page', () => {
+    const event = scrubEvent(errorEvent({ request: { url: `https://q2.example.com/join/${code}` } }))
+
+    expect(event?.request?.url).toBe('https://q2.example.com/join/[redacted]')
+  })
+
+  it('leaves no code in a navigation breadcrumb, either way', () => {
+    const into = scrubBreadcrumb({ category: 'navigation', data: { from: '/', to: `/join/${code}` } })
+    const onward = scrubBreadcrumb({
+      category: 'navigation',
+      data: { from: `/join/${code}`, to: `/register?invite=${code}` },
+    })
+
+    expect(into?.data?.to).toBe('/join/[redacted]')
+    expect(onward?.data).toEqual({ from: '/join/[redacted]', to: '/register' })
+  })
+
+  // Named after the address, not the route: the browser's tracing has no router.
+  it('leaves no code in a page-load transaction', () => {
+    const event = scrubTransaction({
+      type: 'transaction',
+      transaction: `/join/${code}`,
+      request: { url: `https://q2.example.com/join/${code}`, headers: { Referer: `https://q2.example.com/join/${code}` } },
+      contexts: {
+        trace: {
+          trace_id: 'a'.repeat(32),
+          span_id: 'b'.repeat(16),
+          data: {
+            'params.code': code,
+            'url.path.parameter.code': code,
+            'url.template': '/join/:code()',
+            'url.full': `https://q2.example.com/join/${code}`,
+          },
+        },
+      },
+      spans: [{
+        span_id: 'c'.repeat(16),
+        trace_id: 'a'.repeat(32),
+        start_timestamp: 1,
+        description: `GET /register?invite=${code}`,
+        data: { 'http.target': `/login?next=%2Fjoin%2F${code}`, 'query.invite': code },
+      }],
+    } as TransactionEvent)
+
+    expect(JSON.stringify(event)).not.toContain(code)
+    expect(event?.transaction).toBe('/join/[redacted]')
+    expect(event?.contexts?.trace?.data?.['url.template']).toBe('/join/:code()')
+  })
+
+  it('leaves no code in a server transaction named after the request', () => {
+    const event = scrubTransaction({ type: 'transaction', transaction: `GET /join/${code}` } as TransactionEvent)
+
+    expect(event?.transaction).toBe('GET /join/[redacted]')
+  })
+
+  it('leaves no code in the pages a replay lists, nor in a feedback', () => {
+    const replay = scrubAddresses({
+      type: 'replay_event',
+      urls: [`https://q2.example.com/join/${code}`, `/register?invite=${code}`],
+      request: { url: `https://q2.example.com/join/${code}`, headers: { 'Referer': `https://q2.example.com/join/${code}`, 'User-Agent': 'Mobile' } },
+    } as Event & { urls: string[] })
+    const feedback = scrubAddresses({
+      type: 'feedback',
+      contexts: { feedback: { message: 'The button does nothing', url: `https://q2.example.com/join/${code}` } },
+    } as Event)
+
+    expect(JSON.stringify(replay)).not.toContain(code)
+    // The browser is still worth knowing.
+    expect(replay.request?.headers?.['User-Agent']).toBe('Mobile')
+    expect(JSON.stringify(feedback)).not.toContain(code)
+    // What somebody wrote is sent as written, on purpose (sentry.feedback.ts).
+    expect(feedback.contexts?.feedback?.message).toBe('The button does nothing')
+  })
+
+  it('leaves no code in what a replay recorded on the way', () => {
+    const navigation = scrubRecordingEvent({
+      type: 5,
+      timestamp: 1,
+      data: {
+        tag: 'performanceSpan',
+        payload: {
+          op: 'navigation.push',
+          description: `/register?invite=${code}`,
+          startTimestamp: 1,
+          endTimestamp: 1,
+          data: { previous: `/join/${code}` },
+        },
+      },
+    } as ReplayFrameEvent)
+    const crumb = scrubRecordingEvent({
+      type: 5,
+      timestamp: 1,
+      data: {
+        tag: 'breadcrumb',
+        payload: { category: 'replay.hydrate-error', timestamp: 1, data: { url: `https://q2.example.com/join/${code}` } },
+      },
+    } as ReplayFrameEvent)
+
+    expect(JSON.stringify(navigation)).not.toContain(code)
+    expect(JSON.stringify(crumb)).not.toContain(code)
+  })
+
+  it('drops from a recording what it drops everywhere else', () => {
+    const typed = scrubRecordingEvent({
+      type: 5,
+      timestamp: 1,
+      data: { tag: 'breadcrumb', payload: { category: 'ui.input', timestamp: 1, message: 'input[name=title]' } },
+    } as ReplayFrameEvent)
+
+    expect(typed).toBeNull()
   })
 })

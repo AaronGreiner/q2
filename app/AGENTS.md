@@ -297,6 +297,13 @@ refreshes all mounted reads, because missed live events are not replayed.
   banners, which Nuxt UI teleports out of reach of a data attribute.
 - `scrubEvent` preserves only `user.ip_address`. Do not remove it and silently
   undo `sendDefaultPii`; do not preserve the account id, name or email either.
+- **An address reaches Sentry on more routes than errors and breadcrumbs**:
+  transactions (`scrubTransaction`), a replay's page list and a feedback's page
+  (`scrubAddresses`), and a replay's recorded navigations
+  (`scrubRecordingEvent`). All of them remove query strings and the invite
+  code in `/join/<code>` (#47). A link's `href` in a replay cannot be masked —
+  it is recorded before `maskAttributes` applies — so a link whose address
+  carries something private gets `data-q2-block`.
 - Structured logs and metrics are enabled. Browser and Nitro capture only
   `console.warn`/`console.error`, and attributes still pass through
   `beforeSendLog`. A metric must be an anonymous operational counter, never a

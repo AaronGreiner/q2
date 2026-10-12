@@ -1,4 +1,7 @@
-import type { Breadcrumb, ErrorEvent, EventHint, Log, Metric } from '@sentry/nuxt'
+import type { Breadcrumb, ErrorEvent, Event, EventHint, init, Log, Metric, ReplayFrameEvent } from '@sentry/nuxt'
+
+/** Not exported by `@sentry/nuxt` under its own name, so read off the option it is handed to. */
+type TransactionEvent = Parameters<NonNullable<Parameters<typeof init>[0]['beforeSendTransaction']>>[0]
 
 /**
  * Sentry rules shared by the browser and the Nuxt server.
@@ -19,7 +22,23 @@ export interface SentryRuntimeConfig {
 
 /** Keys whose value is dropped wherever it appears. */
 const sensitiveKeyPattern
-  = /(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|session|credential|dsn|latitude|longitude|coordinates?|geolocation)/i
+  = /(password|passwd|pwd|secret|token|api[_-]?key|apikey|authorization|cookie|session|credential|invite|dsn|latitude|longitude|coordinates?|geolocation)/i
+
+/**
+ * Span attributes the Vue router integration adds to every navigation: the
+ * query, value by value, and the route's parameters. A query is dropped
+ * everywhere else, and `code` is the invite code of `/join/:code` (#47).
+ */
+const routeAttributePattern = /^(query\.|(params|url\.path\.parameter)\.code$)/i
+
+/**
+ * An invite code in an address: `/join/<code>`, or the same percent-encoded in
+ * another address's `?next=`. The code is a credential in everything but name
+ * (ADR 0022, ADR 0033), and paths are kept everywhere else, so the segment
+ * itself is replaced (#47). Not the route template `/join/:code()`, which
+ * says nothing.
+ */
+const invitePathPattern = /(\/join\/|%2Fjoin%2F)(?!:)[^\s/?#&"'%]+/gi
 
 /** User-authored content: personal, and never useful in telemetry. */
 const userContentKeys = [
@@ -76,8 +95,9 @@ const redactionPatterns: RegExp[] = [
   /(https?:\/\/[^\s?#"']+)[?#][^\s"']*/gi,
   /\bbearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
   /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g,
-  // key=value / "key": "value" in free text.
-  /\b(password|passwd|pwd|secret|token|access[_-]?token|api[_-]?key|authorization|cookie|session)\b("?\s*[=:]\s*"?)[^&\s"';,}]+/gi,
+  // key=value / "key": "value" in free text. `invite=` is the code an invite
+  // link hands to the sign-up form.
+  /\b(password|passwd|pwd|secret|token|access[_-]?token|api[_-]?key|authorization|cookie|session|invite(?:[_-]?code)?)\b("?\s*[=:]\s*"?)[^&\s"';,}]+/gi,
   /\b(title|description|goal[._-]?title|goal[._-]?description|task[._-]?title|message[._-]?text|chat[._-]?name|conversation[._-]?name|display[_-]?name|handle|email)\b("?\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^,;}\r\n]+)/gi,
   /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}/g,
   /\b(lat|lon|lng|latitude|longitude)\b\s*[:=]\s*-?\d{1,3}\.\d+/gi,
@@ -89,11 +109,12 @@ export function isSensitiveKey(key: string): boolean {
   const lowered = key.toLowerCase()
 
   return sensitiveKeyPattern.test(key)
+    || routeAttributePattern.test(key)
     || userContentKeys.includes(lowered)
     || identifyingKeys.includes(lowered)
 }
 
-/** Removes credential-, token-, email- and coordinate-shaped substrings. */
+/** Removes credential-, token-, email-, invite- and coordinate-shaped substrings. */
 export function redactText(value: string): string {
   let result = value
 
@@ -109,10 +130,19 @@ export function redactText(value: string): string {
     })
   }
 
-  return result
+  return result.replace(invitePathPattern, `$1${redactionPlaceholder}`)
 }
 
-function sanitiseRecord(source: Record<string, unknown>): Record<string, unknown> {
+/** An address without its query and fragment, and without an invite code in its path. */
+export function scrubUrl(value: string): string {
+  return redactText(value.split(/[?#]/)[0] ?? '')
+}
+
+/**
+ * The same kind of record with sensitive keys dropped and strings redacted —
+ * the same kind because a string only ever becomes another string.
+ */
+function sanitiseRecord<T extends Record<string, unknown>>(source: T): T {
   const result: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(source)) {
@@ -120,7 +150,7 @@ function sanitiseRecord(source: Record<string, unknown>): Record<string, unknown
     result[key] = typeof value === 'string' ? redactText(value) : value
   }
 
-  return result
+  return result as T
 }
 
 /**
@@ -155,6 +185,55 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
     return null
   }
 
+  scrubEnvelope(event)
+
+  for (const value of event.exception?.values ?? []) {
+    if (typeof value.value === 'string') {
+      value.value = redactText(value.value)
+    }
+  }
+
+  if (typeof event.message === 'string') {
+    event.message = redactText(event.message)
+  }
+
+  return event
+}
+
+/**
+ * The single `beforeSendTransaction` for both runtimes.
+ *
+ * A transaction is a page load or a request, and it records where it went:
+ * the address, the route's parameters, the query value by value and every
+ * span's address. Without this none of it passed through a filter — and on
+ * `/join/<code>` all of it carries the invite code (#47).
+ */
+export function scrubTransaction(event: TransactionEvent, _hint?: EventHint): TransactionEvent | null {
+  scrubEnvelope(event)
+
+  if (typeof event.transaction === 'string') {
+    event.transaction = redactText(event.transaction)
+  }
+
+  const trace = event.contexts?.trace
+  if (trace?.data) {
+    trace.data = sanitiseRecord(trace.data)
+  }
+
+  for (const span of event.spans ?? []) {
+    if (typeof span.description === 'string') {
+      span.description = redactText(span.description)
+    }
+    if (span.data) {
+      span.data = sanitiseRecord(span.data)
+    }
+  }
+
+  return event
+}
+
+/** What errors and transactions have in common: who, where from, and the extras. */
+function scrubEnvelope(event: Event) {
   // sendDefaultPii is on so Sentry may attach the IP address. Keep exactly that
   // field, while removing account identity which is not needed to diagnose an
   // incident. This mirrors the backend scrubber.
@@ -176,7 +255,7 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
       event.request.query_string = redactionPlaceholder
     }
     if (typeof event.request.url === 'string') {
-      event.request.url = event.request.url.split(/[?#]/)[0]
+      event.request.url = scrubUrl(event.request.url)
     }
   }
 
@@ -193,18 +272,48 @@ export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | n
       Object.entries(event.contexts).filter(([key]) => !isSensitiveKey(key)),
     )
   }
+}
 
-  for (const value of event.exception?.values ?? []) {
-    if (typeof value.value === 'string') {
-      value.value = redactText(value.value)
+/**
+ * An event processor for the two kinds of event no `beforeSend*` hook reaches:
+ * a replay, which lists every page it was recorded on, and a feedback, which
+ * says which page it was sent from. Only their addresses are touched — the
+ * feedback's message is sent as written, on purpose (`sentry.feedback.ts`).
+ *
+ * It runs on every event, before any `beforeSend*` hook. For errors and
+ * transactions those scrub the same addresses again, which changes nothing.
+ */
+export function scrubAddresses(event: Event & { urls?: unknown }): Event {
+  if (event.request) {
+    if (typeof event.request.url === 'string') {
+      event.request.url = scrubUrl(event.request.url)
+    }
+    const referer = event.request.headers?.Referer
+    if (event.request.headers && typeof referer === 'string') {
+      event.request.headers.Referer = scrubUrl(referer)
     }
   }
 
-  if (typeof event.message === 'string') {
-    event.message = redactText(event.message)
+  if (Array.isArray(event.urls)) {
+    event.urls = event.urls.map(url => (typeof url === 'string' ? scrubUrl(url) : url))
+  }
+
+  const feedback = event.contexts?.feedback
+  if (feedback && typeof feedback.url === 'string') {
+    feedback.url = scrubUrl(feedback.url)
   }
 
   return event
+}
+
+/**
+ * The integration that runs `scrubAddresses`. An integration rather than a
+ * global event processor so it sits in the browser's integration list, beside
+ * Session Replay and the feedback form whose events it is for.
+ */
+export const addressScrubbingIntegration = {
+  name: 'Q2AddressScrubbing',
+  processEvent: scrubAddresses,
 }
 
 /**
@@ -225,13 +334,47 @@ export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
 
   if (scrubbed.data) {
     const data = sanitiseRecord(scrubbed.data)
-    if (typeof data.url === 'string') {
-      data.url = data.url.split(/[?#]/)[0]
+    // `url` on a request, `from` and `to` on a navigation.
+    for (const key of ['url', 'from', 'to']) {
+      const value = data[key]
+      if (typeof value === 'string') {
+        data[key] = scrubUrl(value)
+      }
     }
     scrubbed.data = data
   }
 
   return scrubbed
+}
+
+/**
+ * Session Replay's `beforeAddRecordingEvent`.
+ *
+ * A recording carries its own copy of the timeline: every page it went to, as
+ * a span whose description is the address, and its breadcrumbs, some of which
+ * it makes itself and never offers to `beforeBreadcrumb`. Both go through the
+ * same filters here (#47).
+ *
+ * What it cannot reach is the page itself. A link's address is recorded as it
+ * is, before `maskAttributes` is consulted, so an element whose `href` carries
+ * something private has to be blocked with `data-q2-block` instead.
+ */
+export function scrubRecordingEvent(event: ReplayFrameEvent): ReplayFrameEvent | null {
+  if (event.data.tag === 'breadcrumb') {
+    const breadcrumb = scrubBreadcrumb(event.data.payload)
+    if (!breadcrumb) return null
+    event.data.payload = breadcrumb as typeof event.data.payload
+  }
+
+  if (event.data.tag === 'performanceSpan') {
+    const span = event.data.payload
+    span.description = redactText(span.description)
+    if (span.data) {
+      span.data = sanitiseRecord(span.data as Record<string, unknown>) as typeof span.data
+    }
+  }
+
+  return event
 }
 
 /**
@@ -364,6 +507,7 @@ export function resolveSentryOptions(config: SentryRuntimeConfig) {
     enableMetrics: true,
 
     beforeSend: scrubEvent,
+    beforeSendTransaction: scrubTransaction,
     beforeBreadcrumb: scrubBreadcrumb,
     beforeSendLog: scrubLog,
     beforeSendMetric: scrubMetric,

@@ -210,7 +210,12 @@ What still limits the damage:
   after text masking. All inputs remain masked. `blockAllMedia` is off because
   q2 has no user photographs or uploads; application icons stay visible.
 - **`beforeSend` and `beforeBreadcrumb` still run on every event.** Everything
-  in the "never sent" list above is still removed.
+  in the "never sent" list above is still removed. Transactions, a replay's
+  metadata and recorded navigations, and a feedback's page address go through
+  the same rules for addresses ([#47](https://github.com/AaronGreiner/q2/issues/47)).
+- **An invite code never reaches Sentry.** It is removed from every address,
+  and the links on the invite and sign-up screens that carry it are blocked in
+  Replay, because a link's address is recorded before any mask applies.
 - **`ui.input` breadcrumbs are still dropped**, so keystrokes are not captured.
 - **Cookies and all but a handful of headers are still stripped**, on both
   sides, and request bodies never leave the process.

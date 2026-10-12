@@ -149,6 +149,11 @@ const isSettled = computed(() => props.preview?.relation === 'Self' || props.pre
       </div>
 
       <div class="flex flex-col gap-2.5">
+        <!--
+          Both addresses carry the invite code, and Session Replay records a
+          link's address as it is, before any masking: blocked rather than
+          masked, so the recording shows a box where the button was (#47).
+        -->
         <template v-if="!isSignedIn">
           <UButton
             :to="registerTo"
@@ -156,6 +161,7 @@ const isSettled = computed(() => props.preview?.relation === 'Self' || props.pre
             size="xl"
             class="min-h-11 justify-center font-extrabold"
             data-testid="invite-welcome-register"
+            data-q2-block
           >
             {{ t.join.createAccount }}
           </UButton>
@@ -167,6 +173,7 @@ const isSettled = computed(() => props.preview?.relation === 'Self' || props.pre
             color="neutral"
             class="min-h-11 justify-center font-extrabold"
             data-testid="invite-welcome-sign-in"
+            data-q2-block
           >
             {{ t.join.haveAccount }}
           </UButton>

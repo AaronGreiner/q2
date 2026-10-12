@@ -1,9 +1,11 @@
 import * as Sentry from '@sentry/nuxt'
 import { feedbackFormOptions } from './sentry.feedback'
 import {
+  addressScrubbingIntegration,
   replayBlockSelectors,
   replayMaskSelectors,
   resolveSentryOptions,
+  scrubRecordingEvent,
 } from './sentry.shared'
 
 /**
@@ -77,6 +79,9 @@ Sentry.init({
      *  - `block: replayBlockSelectors` — personal state whose geometry leaks
      *    information (messages, progress, activity and avatars) is replaced as
      *    a whole rather than merely having its text masked.
+     *  - `beforeAddRecordingEvent` — the addresses and breadcrumbs inside the
+     *    recording go through the same filters as everything else; an invite
+     *    code in the address is a credential (#47).
      */
     Sentry.replayIntegration({
       maskAllText: false,
@@ -84,7 +89,14 @@ Sentry.init({
       block: replayBlockSelectors,
       maskAllInputs: true,
       blockAllMedia: false,
+      beforeAddRecordingEvent: scrubRecordingEvent,
     }),
+
+    /*
+     * The addresses on a replay and on a feedback, which no `beforeSend*`
+     * hook reaches — see `scrubAddresses`.
+     */
+    addressScrubbingIntegration,
 
     /*
      * User Feedback. `feedbackIntegration` is the synchronous build, so the

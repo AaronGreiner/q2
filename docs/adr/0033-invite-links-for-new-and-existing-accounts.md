@@ -43,7 +43,11 @@ fits the visitor:
 
 Nothing has to survive a redirect any more: the code is in the address at
 every step. Sentry drops query strings on both runtimes, and the code was in
-the address of the landing page anyway.
+the address of the landing page anyway. Dropping query strings turned out not
+to be enough — paths are kept, and transactions, Replay and the router's span
+attributes each carried the code their own way — so the code is now removed
+from every address Sentry receives, and the links carrying it are blocked in
+Replay ([#47](https://github.com/AaronGreiner/q2/issues/47)).
 
 **There is now a way to look a code up** — the rule 0022 relied on ("an
 endpoint that answered 'whose code is this?' would turn an unguessable string

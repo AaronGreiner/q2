@@ -55,6 +55,14 @@ describe('InviteWelcome', () => {
     expect(wrapper.find('[data-testid="invite-welcome-accept"]').exists()).toBe(false)
   })
 
+  /** Replay records a link's address before any masking, and both carry the code (#47). */
+  it('keeps the links that carry the code out of Session Replay', async () => {
+    const wrapper = await mountSuspended(InviteWelcome, { props: props() })
+
+    expect(wrapper.get('[data-testid="invite-welcome-register"]').attributes()).toHaveProperty('data-q2-block')
+    expect(wrapper.get('[data-testid="invite-welcome-sign-in"]').attributes()).toHaveProperty('data-q2-block')
+  })
+
   it.each<FriendshipState>(['None', 'RequestSent', 'RequestReceived'])(
     'offers to accept to somebody signed in who is not a friend yet (%s)',
     async (relation) => {

@@ -66,6 +66,9 @@ test('somebody without an account follows a link, signs up, and is friends', asy
     await page.reload()
     await expect(page.getByTestId('register-invite')).toContainText(sender.name)
 
+    // Its way back to the link carries the code, which Replay would record (#47).
+    await expect(page.getByTestId('to-login')).toHaveAttribute('data-q2-block', '')
+
     const unique = Date.now()
     const newcomer = `E2E Neu ${unique}`
     await page.getByTestId('register-name').fill(newcomer)

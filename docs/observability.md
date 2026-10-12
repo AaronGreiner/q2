@@ -195,6 +195,24 @@ One central filter per side — `SentryEventScrubber` (backend),
 Both are unit-tested directly, so the tests exercise the shipped configuration
 rather than a copy of it.
 
+The frontend has three more entry points, because an address reaches Sentry on
+more routes than errors and breadcrumbs
+([#47](https://github.com/AaronGreiner/q2/issues/47)):
+
+- `beforeSendTransaction` (`scrubTransaction`, both runtimes) — a page load or
+  a request records its address, the route's parameters, the query value by
+  value and every span's address;
+- an event processor (`scrubAddresses`, browser) for the two event types no
+  `beforeSend*` hook reaches: a replay's list of visited pages and a
+  feedback's page. It touches addresses only — a feedback's message is sent as
+  written, on purpose;
+- Session Replay's `beforeAddRecordingEvent` (`scrubRecordingEvent`) — the
+  navigations and breadcrumbs inside a recording.
+
+What none of them can reach is a link's `href` in a replay's DOM snapshot: it
+is recorded as it is, before `maskAttributes` is consulted. A link whose address
+carries a credential is blocked with `data-q2-block` instead.
+
 **Dropped entirely:**
 
 - health checks (`/health`, `/healthz`) and `favicon.ico`
@@ -210,6 +228,11 @@ rather than a copy of it.
 - query strings and fragments, replaced with `[redacted]`; URLs keep only their
   path. The fragment matters in the browser: a reset link carries its token
   there ([adr/0026](adr/0026-mail-and-password-reset.md))
+- the one path segment that is a credential: the invite code in `/join/<code>`,
+  also percent-encoded inside a `?next=`, and `invite=<code>`
+  ([adr/0033](adr/0033-invite-links-for-new-and-existing-accounts.md)). A
+  browser transaction is named after the address, so its name is redacted
+  too; the route template `/join/:code()` is left alone
 - request and response bodies
 - user id, email and username — but **not the IP address**, on either side.
   `sendDefaultPii` is on, and removing the address in a scrubber would silently

@@ -213,10 +213,13 @@ useHead({ title: () => t.value.auth.signUpHeading })
 
     <p class="mt-4 text-center text-sm text-(--ui-text-muted)">
       {{ t.auth.haveAccount }}
+      <!-- Blocked in Session Replay while its address carries an invite
+           code; see InviteWelcome (#47). -->
       <NuxtLink
         :to="signInTo"
         class="ms-1 font-extrabold text-(--ui-primary) underline-offset-2 hover:underline"
         data-testid="to-login"
+        :data-q2-block="inviteCode ? '' : undefined"
       >
         {{ t.auth.toSignIn }}
       </NuxtLink>
