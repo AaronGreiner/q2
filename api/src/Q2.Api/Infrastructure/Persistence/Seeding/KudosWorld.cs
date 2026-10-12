@@ -167,6 +167,19 @@ internal static class KudosWorld
             history: "dddrddd",
             participants: [lena, sarah]);
 
+        // Checked by spot checks: one went unanswered three days ago, and one
+        // is open right now, for its three minutes (docs/adr/0038-spot-checks.md).
+        build.AddDont(
+            "Nicht rauchen",
+            "hand-heart",
+            QuotaPeriod.Day,
+            limit: 0,
+            DontProofMode.SpotCheck,
+            createdDaysAgo: 6,
+            history: "ddsdd",
+            openSpotCheck: true,
+            participants: [lena, jonas]);
+
         build.AddDont(
             "Höchstens 3 Bier pro Woche",
             "flame",

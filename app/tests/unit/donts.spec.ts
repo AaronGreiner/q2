@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { Goal, GoalEvent, GoalWindow } from '~/api/types'
+import type { Goal, GoalEvent, GoalWindow, NotificationLine } from '~/api/types'
 import { de } from '~/i18n/messages'
 import { goalEventIcon, goalEventText } from '~/utils/chatTimeline'
-import { goalScheduleLabel, nextUp, runDays, windowLabel, windowOutcome } from '~/utils/display'
+import { goalScheduleLabel, isNotificationOnScreen, nextUp, notificationIcon, notificationLink, notificationText, runDays, windowLabel, windowOutcome } from '~/utils/display'
 import { firstWindowEnd } from '~/utils/firstWindow'
 import { proofSourceOf } from '~/utils/proofSource'
 
@@ -142,6 +142,36 @@ describe('a Don\'t, in its conversation', () => {
   it('calls a kept period held, where a Do\'s is done', () => {
     expect(goalEventText(event({ kind: 'WindowDone', streak: 3, limit: 0 }), de)).toBe('Durchgehalten · Streak 3')
     expect(goalEventText(event({ kind: 'WindowDone', streak: 3 }), de)).toBe('Geschafft · Streak 3')
+  })
+})
+
+describe('a spot check, as a notification', () => {
+  const due: NotificationLine = {
+    id: 'line-1',
+    kind: 'SpotCheckDue',
+    actor: null,
+    subject: 'Nicht rauchen',
+    excerpt: null,
+    amount: null,
+    target: 'Goal',
+    targetId: 'dont-1',
+    occurredAt: '2026-06-17T14:00:00Z',
+    isNew: true,
+  }
+
+  it('says what to do and by when, with nobody behind it', () => {
+    const text = notificationText(due, de)
+
+    expect(text.title).toBe('Stichprobe')
+    expect(text.who).toBeNull()
+    expect(text.body).toBe('„Nicht rauchen“: Zeig in den nächsten drei Minuten live, was du gerade machst.')
+    expect(notificationIcon(due)).toBe('i-lucide-camera')
+  })
+
+  it('opens the start screen, where the check is, and needs no banner there', () => {
+    expect(notificationLink(due)).toBe('/')
+    expect(isNotificationOnScreen(due, '/')).toBe(true)
+    expect(isNotificationOnScreen(due, '/chats')).toBe(false)
   })
 })
 

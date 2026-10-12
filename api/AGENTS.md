@@ -118,6 +118,7 @@ configuration, contracts with their mapping, a service, and endpoints. Taking
 | `GoalSchedule.cs` | how often a goal is due, and the window maths |
 | `GoalInstance.cs` | one window: when it runs, what it takes, what became of it |
 | `GoalKind.cs` `DontUse.cs` | a Do or a Don't, a Don't's proof mode, and one logged use ([0037](../docs/adr/0037-donts.md)) |
+| `SpotCheck.cs` `SpotChecks.cs` `SpotCheckWorker.cs` | a spot check on a Don't: drawn, asked, settled, and the thirty-second pass that keeps its three minutes ([0038](../docs/adr/0038-spot-checks.md)) |
 | `GoalMaintenance.cs` | what happens to a window while nobody is looking |
 | `GoalMaintenanceWorker.cs` | the same, on a timer, for everybody |
 | `GoalParticipant.cs` | somebody a goal is shared with |

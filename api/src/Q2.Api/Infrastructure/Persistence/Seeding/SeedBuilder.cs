@@ -208,9 +208,15 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// <summary>A Don't: at most <paramref name="limit"/> per period, checked the way <paramref name="proofMode"/> says.</summary>
     /// <param name="history">
     /// As for <see cref="AddGoal"/>, plus <c>'r'</c> for a period that ended in
-    /// a relapse: one use more than the limit, logged that evening.
+    /// a relapse: one use more than the limit, logged that evening — and
+    /// <c>'s'</c> for one missed because a spot check at three in the afternoon
+    /// went unanswered.
     /// </param>
     /// <param name="usesNow">How many uses are already logged in the period running now.</param>
+    /// <param name="openSpotCheck">
+    /// A spot check asked at the moment of seeding and open for its three
+    /// minutes — what the start screen looks like when one comes in.
+    /// </param>
     public Goal AddDont(
         string title,
         string icon,
@@ -220,6 +226,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         int createdDaysAgo,
         string history = "",
         int usesNow = 0,
+        bool openSpotCheck = false,
         Person? owner = null,
         params Person[] participants)
     {
@@ -244,6 +251,12 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         for (var use = 0; use < usesNow; use++)
         {
             goal.LogUse(NextId(SeedEntity.DontUse), null, Context.SeededAt);
+        }
+
+        if (openSpotCheck)
+        {
+            goal.ScheduleSpotCheck(NextId(SeedEntity.SpotCheck), Context.Today, Context.SeededAt, Context.SeededAt);
+            goal.IssueDueSpotChecks(Context.SeededAt);
         }
 
         return goal;
@@ -359,6 +372,13 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
                 // A Don't is kept by its period running out, not by the
                 // photograph.
                 instance.Expire(calendar.EndOfDay(window.End).AddTicks(1));
+            }
+            else if (outcomes[index] == 's' && instance.IsDont)
+            {
+                var asked = calendar.StartOfDay(window.End).AddHours(15);
+                instance.ScheduleSpotCheck(NextId(SeedEntity.SpotCheck), window.End, asked);
+                instance.IssueDueSpotChecks(asked);
+                instance.SettleSpotChecks(asked + SpotCheckRules.AnswerTime + TimeSpan.FromMinutes(1));
             }
             else if (outcomes[index] == 'r' && instance.Limit is { } limit)
             {

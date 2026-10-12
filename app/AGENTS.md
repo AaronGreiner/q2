@@ -117,6 +117,7 @@ Current components, by folder:
 | `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |
 | `GoalReminderSheet` | moving or removing a goal's daily reminder |
 | `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't |
+| `SpotCheckCard` | an open spot check: its countdown in seconds and the live-only camera, first on the start screen and on the Don't's screen ([0038](../docs/adr/0038-spot-checks.md)) |
 | `DontWindowRow` `DontHero` `DontLogButton` `DontLimitPicker` | a Don't: its row on today's list, the top of its own screen with the run, the one tap that logs a use (and asks first when it would be the relapse), and its limit, period and proof mode in the create sheet ([0037](../docs/adr/0037-donts.md)) |
 | `ActivityRow` | one line of the friends' feed, with its kudos button |
 | `NotificationBell` `NotificationRow` | the bell with its count, and one line in it — worded by the same `notificationText` the service worker writes a lock screen with |

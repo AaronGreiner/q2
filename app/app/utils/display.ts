@@ -615,6 +615,9 @@ export function notificationText(line: NotificationLine, t: Messages): Notificat
       return said(t.notify.titles.risk, name, t.notify.friendAtRisk(subject, line.amount ?? 1))
     case 'ChallengePublished':
       return said(t.challenge.heading, null, subject || t.push.generic)
+    // Nobody did this; the server drew the moment.
+    case 'SpotCheckDue':
+      return said(t.notify.titles.spotCheck, null, t.notify.spotCheckDue(subject))
     default:
       return said(t.app.name, null, t.push.generic)
   }
@@ -666,6 +669,10 @@ export function notificationLink(line: NotificationLine): string {
       return '/vote'
     case 'ChallengePublished':
       return '/challenge'
+    // The start screen, where the open check is the first thing, with its
+    // countdown and the camera (docs/adr/0038-spot-checks.md).
+    case 'SpotCheckDue':
+      return '/'
     case 'ReactionReceived':
       return reactionLink(line)
     default:
@@ -724,6 +731,8 @@ export function notificationIcon(line: NotificationLine): string {
       return 'i-lucide-clock-alert'
     case 'ChallengePublished':
       return 'i-lucide-zap'
+    case 'SpotCheckDue':
+      return 'i-lucide-camera'
     default:
       return 'i-lucide-bell'
   }

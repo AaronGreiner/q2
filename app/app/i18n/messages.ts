@@ -341,6 +341,20 @@ export const de = {
     relapseConfirm: 'Eintragen',
   },
 
+  /**
+   * Die Stichprobe (docs/adr/0038-spot-checks.md): drei Minuten für ein
+   * Live-Foto von dem, was man gerade macht. Kurz und ohne Drohung — die Uhr
+   * läuft auch so.
+   */
+  spotCheck: {
+    heading: 'Stichprobe',
+    prompt: 'Zeig deinen Freunden live, was du gerade machst.',
+    left: (minutes: number, seconds: number) => `noch ${minutes}:${String(seconds).padStart(2, '0')}`,
+    answer: 'Live-Foto aufnehmen',
+    answerFor: (title: string) => `Stichprobe beantworten: ${title}`,
+    over: 'Die Zeit ist um.',
+  },
+
   /** One window: what it still wants, and what became of it. */
   window: {
     remaining: (remaining: number, required: number) => `Noch ${remaining} von ${required}`,
@@ -530,6 +544,7 @@ export const de = {
     use: 'Verwenden',
     uploading: 'Wird hochgeladen …',
     cameraBlocked: 'Kein Zugriff auf die Kamera. Du kannst stattdessen ein Bild auswählen.',
+    cameraRequired: 'Für eine Stichprobe braucht q2 die Kamera. Erlaube den Zugriff in den Einstellungen deines Geräts.',
     unreadable: 'Diese Datei konnten wir nicht als Bild lesen.',
     tooLarge: 'Das Bild ist zu groß. Bitte nimm ein kleineres.',
     failed: 'Das Bild konnte nicht hochgeladen werden.',
@@ -821,6 +836,7 @@ export const de = {
       reaction: 'Kudos',
       goals: 'Dos & Don’ts',
       risk: 'Wird knapp',
+      spotCheck: 'Stichprobe',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'Neue Nachricht',
@@ -849,6 +865,7 @@ export const de = {
     friendAtRisk: (goal: string, missing: number) => (missing === 1
       ? `droht „${goal}“ zu verpassen — ein Nachweis fehlt noch.`
       : `droht „${goal}“ zu verpassen — es fehlen noch ${missing} Nachweise.`),
+    spotCheckDue: (goal: string) => `„${goal}“: Zeig in den nächsten drei Minuten live, was du gerade machst.`,
   },
 
   /**
@@ -870,6 +887,7 @@ export const de = {
     proofResults: 'Urteil über deine Beweise',
     goalUpdates: 'Einladungen & Pausen',
     friendsAtRisk: 'Wird knapp bei Freunden',
+    spotChecks: 'Stichproben bei deinen Don’ts',
     reactions: 'Kudos & Reaktionen',
     dailyChallenge: 'Challenge des Tages',
     switchesNote: 'Die Schalter entscheiden, was dich unterbrechen darf: ein Push auf dem Handy oder ein Hinweis oben in der offenen App. In der Glocke steht trotzdem alles.',
@@ -1087,6 +1105,7 @@ export const de = {
     proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Beweis abgegeben — deine Freunde prüfen ihn' },
     useLogged: { icon: 'i-lucide-check', text: 'Eingetragen' },
+    spotCheckAnswered: { icon: 'i-lucide-hourglass', text: 'Stichprobe abgegeben — deine Freunde prüfen sie' },
     relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Als Rückfall eingetragen' },
   },
 }
@@ -1391,6 +1410,15 @@ export const en: Messages = {
     relapseConfirm: 'Log it',
   },
 
+  spotCheck: {
+    heading: 'Spot check',
+    prompt: 'Show your friends, live, what you are doing right now.',
+    left: (minutes: number, seconds: number) => `${minutes}:${String(seconds).padStart(2, '0')} left`,
+    answer: 'Take a live photo',
+    answerFor: (title: string) => `Answer the spot check: ${title}`,
+    over: 'Time is up.',
+  },
+
   window: {
     remaining: (remaining: number, required: number) => `${remaining} of ${required} left`,
     dueToday: 'Due today',
@@ -1563,6 +1591,7 @@ export const en: Messages = {
     use: 'Use it',
     uploading: 'Uploading …',
     cameraBlocked: 'No access to the camera. You can pick a picture instead.',
+    cameraRequired: 'A spot check needs the camera. Allow access in your device\'s settings.',
     unreadable: 'We could not read that file as a picture.',
     tooLarge: 'That picture is too large. Please use a smaller one.',
     failed: 'The picture could not be uploaded.',
@@ -1777,6 +1806,7 @@ export const en: Messages = {
       reaction: 'Kudos',
       goals: 'Dos & Don’ts',
       risk: 'Getting tight',
+      spotCheck: 'Spot check',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'New message',
@@ -1805,6 +1835,7 @@ export const en: Messages = {
     friendAtRisk: (goal: string, missing: number) => (missing === 1
       ? `is about to miss “${goal}” — one proof still missing.`
       : `is about to miss “${goal}” — ${missing} proofs still missing.`),
+    spotCheckDue: (goal: string) => `“${goal}”: show, live, what you are doing — within three minutes.`,
   },
 
   notificationSettings: {
@@ -1821,6 +1852,7 @@ export const en: Messages = {
     proofResults: 'Verdicts on your proofs',
     goalUpdates: 'Invitations & pauses',
     friendsAtRisk: 'Friends running out of time',
+    spotChecks: 'Spot checks on your Don’ts',
     reactions: 'Kudos & reactions',
     dailyChallenge: 'Challenge of the day',
     switchesNote: 'The switches decide what may interrupt you: a push on your phone, or a banner at the top of the open app. The bell keeps everything either way.',
@@ -2013,6 +2045,7 @@ export const en: Messages = {
     proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Proof delivered — your friends are checking it' },
     useLogged: { icon: 'i-lucide-check', text: 'Logged' },
+    spotCheckAnswered: { icon: 'i-lucide-hourglass', text: 'Spot check delivered — your friends are checking it' },
     relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Logged as a relapse' },
   },
 }

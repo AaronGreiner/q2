@@ -13,6 +13,7 @@ type Schemas = components['schemas']
 export type Person = Schemas['PersonSummary']
 
 export type Goal = Schemas['GoalResponse']
+export type OpenSpotCheck = Schemas['OpenSpotCheckResponse']
 export type GoalDetail = Schemas['GoalDetailResponse']
 export type GoalTeamMember = Schemas['GoalTeamMemberResponse']
 export type GoalStatus = Schemas['GoalStatus']

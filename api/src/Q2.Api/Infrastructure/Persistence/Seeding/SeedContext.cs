@@ -69,6 +69,7 @@ public enum SeedEntity
     GoalConversation = 19,
     GoalConversationParticipant = 20,
     DontUse = 21,
+    SpotCheck = 22,
 }
 
 /// <summary>

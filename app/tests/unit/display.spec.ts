@@ -90,6 +90,7 @@ const everyKind: readonly NotificationKind[] = [
   'PauseLifted',
   'FriendWindowAtRisk',
   'ChallengePublished',
+  'SpotCheckDue',
 ]
 
 /**

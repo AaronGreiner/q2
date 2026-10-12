@@ -16,7 +16,7 @@ const t = useMessages()
 
 const id = computed(() => String(route.params.id))
 const { detail, error, isMissing, isLoading, refresh } = useGoalDetail(id)
-const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isDelivering, deliver, answerSpotCheck, maxEdge } = useProofDelivery()
 const lifecycle = useGoalLifecycle()
 const dontUse = useDontUse()
 const now = useNow()
@@ -29,6 +29,19 @@ const capturing = ref(false)
 
 /** The camera for a use's optional photograph — a different hand-in from a proof's. */
 const capturingUse = ref(false)
+
+/** The live-only camera for an open spot check (docs/adr/0038-spot-checks.md). */
+const answering = ref<string | null>(null)
+
+async function handInCheck(image: Image) {
+  const checkId = answering.value
+  if (!checkId) return null
+
+  const result = await answerSpotCheck(id.value, checkId, image)
+  await refresh()
+
+  return result.status === 'refused' ? result.message : null
+}
 const pausing = ref(false)
 const closing = ref(false)
 const reminding = ref(false)
@@ -246,6 +259,16 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
              a ring would have nothing to show and the status word underneath
              would read "Aktiv" over a goal that is resting. The banner above
              says what is true instead. -->
+        <SpotCheckCard
+          v-if="goal.spotCheck"
+          class="mt-4"
+          :goal="goal"
+          :now="now"
+          :busy="isDelivering"
+          @answer="(_, checkId) => answering = checkId"
+          @expired="refresh()"
+        />
+
         <DontHero
           v-if="!pause && goal.kind === 'Dont'"
           :goal="goal"
@@ -501,6 +524,16 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
+    />
+
+    <PhotoCapture
+      v-if="goal?.kind === 'Dont'"
+      :open="answering !== null"
+      purpose="Proof"
+      live-only
+      :max-edge="maxEdge"
+      :hand-in="handInCheck"
+      @update:open="value => { if (!value) answering = null }"
     />
 
     <!-- Uploaded like a proof, which is what lets the goal's friends see it in

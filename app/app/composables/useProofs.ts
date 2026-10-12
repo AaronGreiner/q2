@@ -167,6 +167,34 @@ export function useProofDelivery() {
   }
 
   /**
+   * Answers an open spot check with the live photograph just taken
+   * (docs/adr/0038-spot-checks.md).
+   *
+   * It stays where it was asked — usually the start screen — and says in a
+   * toast that friends are looking at it: the card it was answered from goes
+   * away, and the photograph is in the goal's conversation for anybody who
+   * wants to follow it there.
+   */
+  async function answerSpotCheck(goalId: string, checkId: string, image: Image): Promise<DeliveryResult> {
+    if (isDelivering.value) return { status: 'refused', message: t.value.proof.refusedFailed }
+
+    isDelivering.value = true
+
+    try {
+      await api.proofs.answerSpotCheck(goalId, checkId, image.id)
+      toast.show(t.value.toast.spotCheckAnswered)
+      return { status: 'stayed' }
+    }
+    catch (caught) {
+      const failure = report(caught, { feature: 'proofs', action: 'answerSpotCheck' })
+      return { status: 'refused', message: refusal(failure) }
+    }
+    finally {
+      isDelivering.value = false
+    }
+  }
+
+  /**
    * Why a delivery was not taken. A window that closed or filled while the
    * screen was open is the common case, and trying again will not change it;
    * a dropped connection is the other, and trying again is the whole answer.
@@ -187,6 +215,7 @@ export function useProofDelivery() {
   return {
     isDelivering: computed(() => isDelivering.value),
     deliver,
+    answerSpotCheck,
     /** The longest edge a proof photograph is uploaded at. */
     maxEdge: uploadSizes.proof,
     downscale: downscaleForUpload,

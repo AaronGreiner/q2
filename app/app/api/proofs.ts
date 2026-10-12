@@ -23,6 +23,13 @@ export interface ProofsApi {
    */
   submit: (goalId: string, imageId: string, source: ProofSource) => Promise<DeliveredProof>
 
+  /**
+   * Answers the spot check open on your own Don't with a live photograph,
+   * uploaded as a proof image first. Stored as live whatever is sent, and voted
+   * on like any proof — without a second attempt (docs/adr/0038-spot-checks.md).
+   */
+  answerSpotCheck: (goalId: string, checkId: string, imageId: string) => Promise<DeliveredProof>
+
   get: (id: string) => Promise<Proof>
 
   /** The photographs waiting for this person's vote. */
@@ -47,6 +54,12 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
         method: 'POST',
         body: { imageId, source },
       }),
+
+    answerSpotCheck: (goalId, checkId, imageId) =>
+      call<DeliveredProof>(
+        `/api/goals/${encodeURIComponent(goalId)}/spot-checks/${encodeURIComponent(checkId)}/proof`,
+        { method: 'POST', body: { imageId } },
+      ),
 
     get: id => call<Proof>(proof(id), { method: 'GET' }),
 

@@ -34,18 +34,24 @@ public class DatabaseSeederTests
 
         Assert.False(result.WasSkipped);
         Assert.Equal(10, result.PeopleInserted);
-        Assert.Equal(10, result.GoalsInserted);
+        Assert.Equal(11, result.GoalsInserted);
 
         // Every goal brings its own history, so this is the count that would
         // change if a seed quietly stopped laying one down.
         Assert.True(result.WindowsInserted > result.GoalsInserted);
         // Every goal is shared and comes with its conversation, beside the
         // four free ones.
-        Assert.Equal(14, result.ConversationsInserted);
+        Assert.Equal(15, result.ConversationsInserted);
 
         Assert.Equal(10, await context.People.CountAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(10, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(11, await context.Goals.CountAsync(TestContext.Current.CancellationToken));
         Assert.NotEqual(0, await context.ChatMessages.CountAsync(TestContext.Current.CancellationToken));
+
+        // A spot check open at the moment of seeding, and one in the past that
+        // went unanswered (docs/adr/0038-spot-checks.md).
+        var checks = await context.Set<SpotCheck>().ToListAsync(TestContext.Current.CancellationToken);
+        Assert.Contains(checks, check => check.Status == SpotCheckStatus.Open);
+        Assert.Contains(checks, check => check.Status == SpotCheckStatus.Missed);
     }
 
     [Fact]

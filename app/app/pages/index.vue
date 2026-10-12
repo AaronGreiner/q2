@@ -14,8 +14,26 @@ const now = useNow()
 const zone = useTimeZoneOffset()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
-const { isDelivering, deliver, maxEdge } = useProofDelivery()
+const { isDelivering, deliver, answerSpotCheck, maxEdge } = useProofDelivery()
 const { isLogging, logUse } = useDontUse()
+
+/*
+ * An open spot check is the first thing on this screen (docs/adr/0038-spot-checks.md):
+ * three minutes, and push is off by default, so this is often where it is
+ * found. Its own camera, live only.
+ */
+const spotChecks = computed(() => due.value.filter(goal => goal.spotCheck))
+const answering = ref<{ goalId: string, checkId: string } | null>(null)
+
+async function handInCheck(image: Image) {
+  const check = answering.value
+  if (!check) return null
+
+  const result = await answerSpotCheck(check.goalId, check.checkId, image)
+  await refresh()
+
+  return result.status === 'refused' ? result.message : null
+}
 
 /** One tap from the row; the row has changed either way, so read it again. */
 async function onLog(goalId: string) {
@@ -145,6 +163,21 @@ useHead({ title: () => t.value.nav.home })
       />
 
       <template v-else-if="profile">
+        <div
+          v-if="spotChecks.length > 0"
+          class="mb-3 flex flex-col gap-2"
+        >
+          <SpotCheckCard
+            v-for="goal in spotChecks"
+            :key="goal.id"
+            :goal="goal"
+            :now="now"
+            :busy="isDelivering"
+            @answer="(goalId, checkId) => answering = { goalId, checkId }"
+            @expired="refresh()"
+          />
+        </div>
+
         <!--
           Your own windows that are about to go, above everything else on the
           screen. They are the only thing here with a deadline tonight.
@@ -353,6 +386,15 @@ useHead({ title: () => t.value.nav.home })
       :max-edge="maxEdge"
       :hand-in="handIn"
       @update:open="value => { if (!value) deliveringFor = null }"
+    />
+
+    <PhotoCapture
+      :open="answering !== null"
+      purpose="Proof"
+      live-only
+      :max-edge="maxEdge"
+      :hand-in="handInCheck"
+      @update:open="value => { if (!value) answering = null }"
     />
   </div>
 </template>

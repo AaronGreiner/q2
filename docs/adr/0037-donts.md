@@ -1,6 +1,6 @@
 # 0037 — Don'ts: a limit per period, logged uses and an honest relapse
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0038](0038-spot-checks.md) — how a spot check is drawn, asked and decided
 **Date:** 2026-10-09
 **Amends:** [0016 — Windows instead of steps](0016-windows-instead-of-steps.md),
 where every window was closed by proofs;

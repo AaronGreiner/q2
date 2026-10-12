@@ -6,6 +6,7 @@ import DontLimitPicker from '~/components/donts/DontLimitPicker.vue'
 import DontWindowRow from '~/components/donts/DontWindowRow.vue'
 import GoalCard from '~/components/goals/GoalCard.vue'
 import GoalCreateSheet from '~/components/goals/GoalCreateSheet.vue'
+import SpotCheckCard from '~/components/donts/SpotCheckCard.vue'
 import type { Friend, Goal, GoalWindow } from '~/api/types'
 
 /**
@@ -59,6 +60,7 @@ function dont(overrides: Partial<Goal> = {}): Goal {
     risk: null,
     pause: null,
     remainingPauses: 2,
+    spotCheck: null,
     ...overrides,
   }
 }
@@ -253,5 +255,49 @@ describe('GoalCreateSheet, for a Don\'t', () => {
       participantIds: ['person-1'],
     }])
     wrapper.unmount()
+  })
+})
+
+describe('SpotCheckCard', () => {
+  // Relative to the real clock: once mounted the card keeps its own.
+  const now = Date.now()
+  const inSeconds = (seconds: number) => new Date(now + seconds * 1000).toISOString()
+
+  it('counts the three minutes down and opens the camera for this check', async () => {
+    const wrapper = await mountSuspended(SpotCheckCard, {
+      props: {
+        goal: dont({ spotCheck: { id: 'check-1', expiresAt: inSeconds(161) } }),
+        now,
+      },
+    })
+
+    // The first frame is the shared clock's, as on the server.
+    expect(wrapper.get('[data-testid="spot-check-left"]').text()).toMatch(/^noch \d:\d{2}$/)
+    expect(wrapper.text()).toContain('Höchstens 3 Bier')
+
+    const answer = wrapper.get('[data-testid="spot-check-answer"]')
+    expect(answer.attributes('aria-label')).toBe('Stichprobe beantworten: Höchstens 3 Bier')
+
+    await answer.trigger('click')
+    expect(wrapper.emitted('answer')?.[0]).toEqual(['dont-1', 'check-1'])
+  })
+
+  it('says when the time is up and offers nothing more', async () => {
+    const wrapper = await mountSuspended(SpotCheckCard, {
+      props: {
+        goal: dont({ spotCheck: { id: 'check-1', expiresAt: inSeconds(-60) } }),
+        now,
+      },
+    })
+
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[data-testid="spot-check-left"]').text()).toBe('Die Zeit ist um.')
+    expect(wrapper.get('[data-testid="spot-check-answer"]').attributes()).toHaveProperty('disabled')
+  })
+
+  it('is not drawn without an open check', async () => {
+    const wrapper = await mountSuspended(SpotCheckCard, { props: { goal: dont({ spotCheck: null }), now } })
+
+    expect(wrapper.find('[data-testid="spot-check"]').exists()).toBe(false)
   })
 })

@@ -322,6 +322,31 @@ describe('PhotoCapture, when the sheet opens', () => {
   })
 
   /**
+   * A spot check asks what somebody is doing right now, so its camera offers
+   * nothing else — and says why when there is no camera to offer.
+   */
+  it('offers the camera and nothing else for a spot check', async () => {
+    installCamera({ getTracks: () => [] })
+
+    const live = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', liveOnly: true, open: false } })
+    await live.setProps({ open: true })
+
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="photo-choose"]')).toBeNull()
+    expect(document.querySelector('[data-testid="photo-file"]')).toBeNull()
+    live.unmount()
+
+    installCamera(null)
+    const refused = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', liveOnly: true, open: false } })
+    await refused.setProps({ open: true })
+
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-testid="photo-message"]')?.textContent).toContain('braucht q2 die Kamera'))
+    expect(document.querySelector('[data-testid="photo-choose"]')).toBeNull()
+    refused.unmount()
+  })
+
+  /**
    * A refused permission is the person's answer, not a defect: no issue, just
    * the other route, and a sentence saying why.
    */

@@ -31,7 +31,7 @@ so the reasoning at the time stays readable.
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
 | [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted, amended by [0033](0033-invite-links-for-new-and-existing-accounts.md) |
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
-| [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md) and [0031](0031-todos-tab-and-a-bell-you-can-empty.md) |
+| [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md) and [0038](0038-spot-checks.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
 | [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md) |
@@ -44,4 +44,5 @@ so the reasoning at the time stays readable.
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
 | [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted |
 | [0036](0036-live-or-screenshot.md) | Live or screenshot: every proof says which it is | Accepted |
-| [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted |
+| [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted, amended by [0038](0038-spot-checks.md) |
+| [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |

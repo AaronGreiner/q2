@@ -48,6 +48,7 @@ const votesDue = toggle('votesDue')
 const proofResults = toggle('proofResults')
 const goalUpdates = toggle('goalUpdates')
 const friendsAtRisk = toggle('friendsAtRisk')
+const spotChecks = toggle('spotChecks')
 const reactions = toggle('reactions')
 const challenge = toggle('challenge')
 
@@ -161,6 +162,13 @@ useHead({ title: () => t.value.notificationSettings.heading })
           v-model="friendsAtRisk"
           icon="i-lucide-clock-alert"
           :label="t.notificationSettings.friendsAtRisk"
+        />
+        <!-- On by default: a check nobody hears about is a check that is
+             missed (docs/adr/0038-spot-checks.md). -->
+        <SettingsToggleRow
+          v-model="spotChecks"
+          icon="i-lucide-camera"
+          :label="t.notificationSettings.spotChecks"
         />
       </SettingsSection>
 

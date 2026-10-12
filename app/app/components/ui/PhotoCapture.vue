@@ -75,10 +75,17 @@ const props = withDefaults(defineProps<{
    * the preview shows the label friends will see on the photograph.
    */
   labelsSource?: boolean
+  /**
+   * The camera and nothing else: no picker, no file input. For a spot check,
+   * which asks what somebody is doing right now — a picture that already
+   * existed would answer a different question (docs/adr/0038-spot-checks.md).
+   */
+  liveOnly?: boolean
 }>(), {
   maxEdge: undefined,
   handIn: undefined,
   labelsSource: false,
+  liveOnly: false,
 })
 
 const emit = defineEmits<{ uploaded: [image: Image, origin: PhotoOrigin] }>()
@@ -180,9 +187,9 @@ async function startCamera() {
   }
   catch {
     // A refused permission is the person's answer, not a defect: no Sentry
-    // issue, just the other route.
+    // issue, just the other route — or, where there is none, why not.
     cameraReady.value = false
-    message.value = t.value.photo.cameraBlocked
+    message.value = props.liveOnly ? t.value.photo.cameraRequired : t.value.photo.cameraBlocked
   }
 }
 
@@ -335,7 +342,7 @@ function reset() {
     v-model:open="open"
     fullscreen
     :title="t.photo.heading"
-    :description="cameraReady ? t.photo.cameraHint : t.photo.fileHint"
+    :description="cameraReady ? t.photo.cameraHint : liveOnly ? t.photo.cameraRequired : t.photo.fileHint"
     :ui="{ content: 'bg-(--ui-bg) divide-y-0' }"
   >
     <template #content>
@@ -444,7 +451,7 @@ function reset() {
           class="shrink-0 px-5 pt-3 text-center text-[13px] text-(--ui-text-muted)"
           aria-hidden="true"
         >
-          {{ cameraReady ? t.photo.cameraHint : t.photo.fileHint }}
+          {{ cameraReady ? t.photo.cameraHint : liveOnly ? t.photo.cameraRequired : t.photo.fileHint }}
         </p>
 
         <!--
@@ -453,6 +460,7 @@ function reset() {
           picker at all.
         -->
         <input
+          v-if="!liveOnly"
           ref="fileInput"
           type="file"
           accept="image/*"
@@ -470,7 +478,14 @@ function reset() {
           v-if="stage === 'camera' && cameraReady"
           class="grid shrink-0 grid-cols-3 items-center px-6 pt-4 pb-2"
         >
-          <div class="flex flex-col items-center gap-1 justify-self-start">
+          <span
+            v-if="liveOnly"
+            aria-hidden="true"
+          />
+          <div
+            v-else
+            class="flex flex-col items-center gap-1 justify-self-start"
+          >
             <UButton
               color="neutral"
               variant="soft"
@@ -514,7 +529,7 @@ function reset() {
         </div>
 
         <div
-          v-else-if="stage === 'camera'"
+          v-else-if="stage === 'camera' && !liveOnly"
           class="shrink-0 px-4 pt-4 pb-2"
         >
           <UButton
@@ -528,7 +543,7 @@ function reset() {
         </div>
 
         <div
-          v-else
+          v-else-if="stage !== 'camera'"
           class="grid shrink-0 grid-cols-2 gap-2 px-4 pt-4 pb-2"
         >
           <UButton
