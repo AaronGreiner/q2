@@ -241,6 +241,64 @@ public class MigrationTests
         Assert.Equal(0, await ScalarAsync(context, "SELECT COUNT(*) FROM pragma_table_info('ProofPhotos') WHERE name = 'CapturedInApp'"));
     }
 
+    /// <summary>
+    /// Every goal from before Don'ts is a Do (#62): its kind defaults to Do,
+    /// it has no limit and no proof mode, its windows have no limit — and so a
+    /// window that runs out is still missed, exactly as before.
+    /// </summary>
+    [Fact]
+    public async Task ExistingGoalsBecomeDosThatBehaveAsBefore()
+    {
+        const string beforeDonts = "20261009080524_ProofSource";
+
+        await using var database = SqliteTestDatabase.TemporaryFile();
+
+        var goalId = Guid.CreateVersion7();
+        var windowId = Guid.CreateVersion7();
+
+        // Upper case, the way EF writes a GUID into SQLite and compares it.
+        var goal = goalId.ToString().ToUpperInvariant();
+        var window = windowId.ToString().ToUpperInvariant();
+
+        await using (var context = database.CreateContext())
+        {
+            await context.GetService<IMigrator>().MigrateAsync(beforeDonts, TestContext.Current.CancellationToken);
+
+            // The goal and its window only; foreign keys are off for these
+            // inserts alone, and back on before the migration runs.
+            await ExecuteAsync(context, $"""
+                PRAGMA foreign_keys = OFF;
+                INSERT INTO Goals (Id, OwnerPersonId, Title, Icon, Status, IsGroup, CreatedAt, ScheduleKind, ScheduleWeekdays, ScheduleEveryDays)
+                VALUES ('{goal}', '{Guid.CreateVersion7().ToString().ToUpperInvariant()}', 'Altes Ziel', 'target', 'Active', 0, '2026-06-01 09:00:00', 'Interval', '', 1);
+                INSERT INTO GoalInstances (Id, GoalId, StartsOn, DueOn, StartsAt, DueAt, RequiredProofs, ConfirmedProofs, Status)
+                VALUES ('{window}', '{goal}', '2026-06-01', '2026-06-01', '2026-06-01 00:00:00', '2026-06-01 23:59:59', 1, 0, 'Open');
+                PRAGMA foreign_keys = ON;
+                """);
+
+            await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using (var context = database.CreateContext())
+        {
+            var stored = await context.Goals
+                .Include(candidate => candidate.Instances)
+                .SingleAsync(candidate => candidate.Id == goalId, TestContext.Current.CancellationToken);
+
+            Assert.Equal(GoalKind.Do, stored.Kind);
+            Assert.Null(stored.Limit);
+            Assert.Null(stored.ProofMode);
+
+            var storedWindow = Assert.Single(stored.Instances);
+            Assert.Equal(windowId, storedWindow.Id);
+            Assert.Null(storedWindow.Limit);
+            Assert.False(storedWindow.IsDont);
+
+            // Run out, and missed: a Do's window, not a Don't's.
+            Assert.True(storedWindow.Expire(new DateTimeOffset(2026, 6, 2, 9, 0, 0, TimeSpan.Zero)));
+            Assert.Equal(GoalInstanceStatus.Missed, storedWindow.Status);
+        }
+    }
+
     [Fact]
     public async Task MigrationSqlNeverDisablesForeignKeys()
     {

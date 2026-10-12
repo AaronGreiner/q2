@@ -73,4 +73,12 @@ test('a Don\'t is made, a use is logged, and the relapse is asked about and then
   await expect(page.getByTestId('chat-event').filter({ hasText: 'Du hast eingetragen · 1 von 1' })).toBeVisible()
   await expect(page.locator('[data-testid="chat-event"][data-kind="WindowRelapse"]')).toContainText('Rückfall')
   await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('chat.png') })
+
+  // The profile counts relapses on their own — the seeded one and this one —
+  // and never among the misses.
+  await page.goto('/profile')
+  const balance = page.getByTestId('balance-card')
+  await expect(balance.getByTestId('balance-relapsed')).toHaveText(/\d+ Rückfälle?/)
+  await balance.scrollIntoViewIfNeeded()
+  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('profile.png') })
 })
