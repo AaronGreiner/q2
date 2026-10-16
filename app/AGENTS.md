@@ -107,6 +107,7 @@ Current components, by folder:
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the Dos & Don'ts ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md), [0035](../docs/adr/0035-dos-and-donts.md)) |
+| `AppBackLink` | a pushed screen's arrow: back to wherever the screen was opened from, and to its parent (`to`) only when nothing in q2 came before it. `AppContentPanel` and the search boxes hand back how a screen was left through `useReturnState` ([0040](../docs/adr/0040-back-goes-where-you-came-from.md)) |
 | `AppTour` | the one-time tour over the tab bar after the introduction, shown while the address carries `?tour=1` ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `OnboardingFrame` and the `Onboarding*` steps | the first-run introduction: the frame with progress, back and "Später", and one component per step — welcome with its illustrations, profile, appearance, first Do, invite, notifications, done. The page `/onboarding` owns every read and write ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |

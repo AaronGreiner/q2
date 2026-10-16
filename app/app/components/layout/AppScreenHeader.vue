@@ -8,7 +8,11 @@
  */
 withDefaults(defineProps<{
   title: string
-  /** Where the back arrow goes. Omit it and no arrow is drawn. */
+  /**
+   * Where the back arrow goes when there is nothing to go back to — otherwise
+   * it goes back to wherever this screen was opened from (AppBackLink). Omit
+   * it and no arrow is drawn.
+   */
   backTo?: string
   backLabel?: string
   /** Small line above the title, e.g. the greeting on the start screen. */
@@ -32,19 +36,11 @@ withDefaults(defineProps<{
     class="flex shrink-0 items-center gap-2 px-[22px] pt-3 pb-5"
     :class="backTo ? 'min-h-16' : 'items-start justify-between'"
   >
-    <NuxtLink
+    <AppBackLink
       v-if="backTo"
       :to="backTo"
-      class="-ms-3 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-      :aria-label="backLabel"
-      data-testid="back-link"
-    >
-      <UIcon
-        name="i-lucide-chevron-left"
-        class="size-6"
-        aria-hidden="true"
-      />
-    </NuxtLink>
+      :label="backLabel"
+    />
 
     <div class="min-w-0 flex-1">
       <p

@@ -553,7 +553,7 @@ describe('chat composables', () => {
 
   it('sends an uploaded photograph, and deletes it again when the message fails', async () => {
     const api = chatsApi()
-    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    vi.stubGlobal('useGoBack', () => vi.fn())
     const { report } = installFeatureGlobals(api)
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
@@ -579,7 +579,7 @@ describe('chat composables', () => {
   it('votes from a goal\'s thread and reads it again, with the vote screen and the badges', async () => {
     const api = chatsApi()
     api.chats.get.mockResolvedValue(chat({ pinnedGoal: { id: 'goal-1' }, events: [] }))
-    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    vi.stubGlobal('useGoBack', () => vi.fn())
     const { refreshNuxtData, report } = installFeatureGlobals(api)
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
@@ -604,7 +604,7 @@ describe('chat composables', () => {
   it('reads a goal\'s thread again when its goal changes, and not for another goal', async () => {
     const api = chatsApi()
     api.chats.get.mockResolvedValue(chat({ pinnedGoal: { id: 'goal-1' }, events: [] }))
-    vi.stubGlobal('useRouter', () => ({ push: vi.fn() }))
+    vi.stubGlobal('useGoBack', () => vi.fn())
     const { hooks } = installFeatureGlobals(api)
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
@@ -632,8 +632,8 @@ describe('chat composables', () => {
 
   it('sends, cheers, reacts and leaves from one authoritative thread', async () => {
     const api = chatsApi()
-    const push = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('useRouter', () => ({ push }))
+    const goBack = vi.fn()
+    vi.stubGlobal('useGoBack', () => goBack)
     const { show, refreshNuxtData } = installFeatureGlobals(api)
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
@@ -656,7 +656,8 @@ describe('chat composables', () => {
     await state.leave()
     expect(refreshNuxtData).toHaveBeenCalledWith('chats')
     expect(refreshNuxtData).toHaveBeenCalledWith('counts')
-    expect(push).toHaveBeenCalledWith('/chats')
+    // Back to where the thread was opened from, with the list as the fallback.
+    expect(goBack).toHaveBeenCalledWith('/chats')
 
     // The one of these that leaves nothing on screen to show it worked.
     expect(show).toHaveBeenCalledTimes(1)
@@ -665,8 +666,7 @@ describe('chat composables', () => {
 
   it('reports failed thread actions and distinguishes missing threads', async () => {
     const api = chatsApi()
-    const push = vi.fn()
-    vi.stubGlobal('useRouter', () => ({ push }))
+    vi.stubGlobal('useGoBack', () => vi.fn())
     const { report } = installFeatureGlobals(api)
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())

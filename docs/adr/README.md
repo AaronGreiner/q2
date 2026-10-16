@@ -47,3 +47,4 @@ so the reasoning at the time stays readable.
 | [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted, amended by [0038](0038-spot-checks.md) |
 | [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |
 | [0039](0039-first-run-onboarding.md) | A first-run introduction, once, and a first Do that waits for a friend | Accepted |
+| [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |

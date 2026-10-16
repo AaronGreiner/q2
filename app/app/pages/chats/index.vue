@@ -20,6 +20,17 @@ const { report } = useErrorReporter()
 const input = ref('')
 const search = ref('')
 
+/*
+ * What was typed is still there when this screen is gone back to from one of
+ * its results (#118) — kept with the visit, not in the address
+ * (useReturnState).
+ */
+const typed = useReturnState('chatSearch', () => input.value.trim() ? input.value : undefined)
+if (typed) {
+  input.value = typed
+  search.value = typed
+}
+
 let debounce: ReturnType<typeof setTimeout> | undefined
 watch(input, (value) => {
   clearTimeout(debounce)

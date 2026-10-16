@@ -25,6 +25,18 @@ const { report } = useErrorReporter()
 const input = ref('')
 const search = ref('')
 
+/*
+ * What was typed is still there when this screen is gone back to (#118):
+ * somebody who looked for a person, opened them and came back expects the same
+ * results, not an empty box. It is kept with the visit, not in the address —
+ * a name typed in here has no business in one (useReturnState).
+ */
+const typed = useReturnState('friendSearch', () => input.value.trim() ? input.value : undefined)
+if (typed) {
+  input.value = typed
+  search.value = typed
+}
+
 let debounce: ReturnType<typeof setTimeout> | undefined
 watch(input, (value) => {
   clearTimeout(debounce)
@@ -57,6 +69,10 @@ const {
   error: searchError,
   search: runSearch,
 } = usePersonSearch(search)
+
+// A term handed back on return was never typed here, so nothing has searched
+// for it yet: the search runs when the term changes, and this one did not.
+if (typed) void runSearch()
 
 /** Whether the typed-in box is showing results instead of the usual sections. */
 const isSearchMode = computed(() => search.value.trim().length > 0)

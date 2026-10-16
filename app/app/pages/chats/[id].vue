@@ -151,8 +151,15 @@ const status = computed(() => {
  */
 const isLeaveOpen = ref(false)
 
-/** Who is in it, and the way to its goal — behind a tap on the header. */
+/**
+ * Who is in it, and the way to its goal — behind a tap on the header.
+ *
+ * Open again when the thread is gone back to from a member or the goal it led
+ * to (#118): that is where the person was, and the sheet is what they were
+ * reading.
+ */
 const isInfoOpen = ref(false)
+isInfoOpen.value = useReturnState('chatInfo', () => isInfoOpen.value || undefined) ?? false
 
 function askToLeave() {
   isInfoOpen.value = false
@@ -174,21 +181,9 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       v-if="chat"
       class="flex shrink-0 items-center gap-2.5 border-b border-(--ui-border) bg-(--q2-surface) px-[18px] py-2 pt-[calc(0.5rem+env(safe-area-inset-top))]"
     >
-      <!-- `-ms-2` for the same reason as in AppScreenHeader: the arrow's box is
-           bigger than the arrow, and lining up the box would leave the glyph
-           looking indented against every other screen's title. -->
-      <NuxtLink
-        to="/chats"
-        class="-ms-3 flex size-11 shrink-0 items-center justify-center rounded-full text-(--ui-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="t.common.back"
-        data-testid="back-link"
-      >
-        <UIcon
-          name="i-lucide-chevron-left"
-          class="size-6"
-          aria-hidden="true"
-        />
-      </NuxtLink>
+      <!-- Back to wherever the thread was opened from — a goal, a profile, the
+           Friends tab — and to the list only when there is nothing before it. -->
+      <AppBackLink to="/chats" />
 
       <!-- The name is the way in to who is here and what it is about. The
            avatar does not open full screen from here: a second target inside

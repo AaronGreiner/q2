@@ -68,7 +68,10 @@ function askToBlock() {
 async function onBlock() {
   // Straight out of the screen: a blocked person has no profile any more, so
   // staying here would leave somebody looking at a page that is now a 404.
-  if (await block(id.value)) await navigateTo('/search')
+  // Replaced rather than pushed, so going back does not land on it either; and
+  // to Friends rather than back, because what came before may have been the
+  // conversation with them, which is gone too (docs/adr/0022).
+  if (await block(id.value)) await navigateTo('/search', { replace: true })
 }
 
 useHead({ title: () => person.value?.person.displayName ?? t.value.person.heading })

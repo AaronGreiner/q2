@@ -55,7 +55,7 @@ export function useChats(search: Ref<string>) {
  */
 export function useChatThread(id: Ref<string>) {
   const api = useQ2Api()
-  const router = useRouter()
+  const goBack = useGoBack()
   const { report } = useErrorReporter()
   const toast = useToastMessage()
   const t = useMessages()
@@ -205,7 +205,9 @@ export function useChatThread(id: Ref<string>) {
   }
 
   /**
-   * Leaves a group and goes back to the list.
+   * Leaves a group and goes back to where the thread was opened from — the
+   * list, usually — rather than pushing the list on top of a conversation that
+   * no longer exists for this person (#118).
    *
    * The list is refreshed rather than filtered in place: this conversation is
    * gone from it, and so is the unread count the tab bar drew from it.
@@ -214,7 +216,7 @@ export function useChatThread(id: Ref<string>) {
     try {
       await api.chats.leave(id.value)
       await Promise.all([refreshNuxtData('chats'), refreshNuxtData('counts')])
-      await router.push('/chats')
+      goBack('/chats')
       toast.show(t.value.toast.groupLeft)
     }
     catch (caught) {
