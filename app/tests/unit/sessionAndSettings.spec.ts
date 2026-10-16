@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de, en } from '~/i18n/messages'
 import { ApiError } from '~/api/errors'
 import { useAppSettings, useTheme } from '~/composables/useAppSettings'
-import { useLanguage, useMessages } from '~/composables/useMessages'
+import { rememberLanguage, useLanguage, useLanguageCookie, useMessages } from '~/composables/useMessages'
 import { useNow, useTimeZoneOffset } from '~/composables/useNow'
 import { useQ2Api } from '~/composables/useQ2Api'
 import { signInMessage, useSession } from '~/composables/useSession'
@@ -52,11 +52,26 @@ function installAsyncData() {
   })
 }
 
+/** Cookies by name, as `useCookie` hands them out: one ref per name. */
+function installCookies() {
+  const cookies = new Map<string, ReturnType<typeof ref<string | null>>>()
+
+  vi.stubGlobal('useCookie', (name: string, options: { default?: () => string | null } = {}) => {
+    if (!cookies.has(name)) cookies.set(name, ref(options.default?.() ?? null))
+    return cookies.get(name)
+  })
+  vi.stubGlobal('useLanguageCookie', useLanguageCookie)
+  vi.stubGlobal('rememberLanguage', rememberLanguage)
+
+  return cookies
+}
+
 beforeEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   installVueGlobals()
   installState()
+  installCookies()
   vi.stubGlobal('useNuxtApp', () => ({
     runWithContext: <T>(callback: () => T) => callback(),
   }))
@@ -73,6 +88,21 @@ describe('language and time state', () => {
     language.value = 'English'
     await nextTick()
     expect(messages.value).toBe(en)
+  })
+
+  /**
+   * The server renders before any settings have been asked for, so it starts
+   * from what this device last showed (#85) — and from German for anything it
+   * does not recognise.
+   */
+  it('starts from the language this device remembers', () => {
+    installState()
+    installCookies().set('q2-language', ref('English'))
+    expect(useLanguage().value).toBe('English')
+
+    installState()
+    installCookies().set('q2-language', ref('Klingonisch'))
+    expect(useLanguage().value).toBe('German')
   })
 
   it('shares one serialisable now value', () => {
@@ -136,14 +166,19 @@ describe('theme and settings', () => {
     vi.stubGlobal('useQ2Api', () => api)
     vi.stubGlobal('useErrorReporter', () => ({ report }))
 
+    const cookies = installCookies()
     const state = useAppSettings()
     await vi.waitFor(() => expect(state.settings.value).not.toBeNull())
     expect(colorMode.preference).toBe('dark')
     expect(language.value).toBe('English')
 
+    // Remembered for the next first paint, which the server renders (#85).
+    expect(cookies.get('q2-language')?.value).toBe('English')
+
     await state.update({ theme: 'Light', language: 'German' })
     expect(colorMode.preference).toBe('light')
     expect(language.value).toBe('German')
+    expect(cookies.get('q2-language')?.value).toBe('German')
     expect(state.settings.value).toMatchObject({ theme: 'Light' })
     expect(state.isSaving.value).toBe(false)
   })
@@ -393,7 +428,21 @@ describe('configured API and toast adapters', () => {
       icon: 'i-lucide-link',
       color: 'primary',
       duration: 2200,
+      actions: undefined,
       ui: { root: 'rounded-(--q2-radius-lg)' },
     })
+  })
+
+  /** The one action a toast offers is taking back what it confirms (#110). */
+  it('stays a little longer when it offers to take something back', () => {
+    const add = vi.fn()
+    vi.stubGlobal('useToast', () => ({ add }))
+    const onClick = vi.fn()
+
+    useToastMessage().show({ icon: 'i-lucide-check', text: 'Eingetragen' }, { label: 'Rückgängig', onClick })
+
+    const shown = add.mock.calls[0]![0]
+    expect(shown.duration).toBe(5000)
+    expect(shown.actions).toEqual([expect.objectContaining({ label: 'Rückgängig', onClick })])
   })
 })

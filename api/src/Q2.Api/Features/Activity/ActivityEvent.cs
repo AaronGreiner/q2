@@ -10,7 +10,10 @@ namespace Q2.Api.Features.Activity;
 /// </summary>
 public enum ActivityKind
 {
-    /// <summary>Ticked a task off. <c>Subject</c> is the task title.</summary>
+    /// <summary>
+    /// A proof for one of a Do's windows was believed. <c>Subject</c> is the
+    /// goal's title. The name is older than windows; nothing is ticked off.
+    /// </summary>
     TaskCompleted,
 
     /// <summary>Reached a streak. <c>Amount</c> is the number of days.</summary>

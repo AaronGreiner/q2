@@ -103,6 +103,7 @@ Current components, by folder:
 | `AppAvatar` | initials on a colour, or a group's icon on a neutral tile, with an optional presence dot; `expandTitle` lets a photograph open full screen |
 | `AppProgressBar` `AppProgressRing` | the two shapes progress is drawn in |
 | `AppSearchField` | the box under a screen's title — one height, one shape |
+| `AppPasswordInput` | every password field: what was typed can be shown and hidden again, by one button with `aria-pressed` |
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
@@ -131,12 +132,13 @@ Current components, by folder:
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
 | `ChatInfoSheet` | behind a conversation's header: its members, the way to its goal, and leaving a group |
-| `ChatMissedRun` | a run of missed windows as one dated line |
+| `ChatMissedRun` `ChatKeptRun` | a run of missed windows, or of kept ones, as one dated line; photographs stay in place inside a kept run (#100) |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
 | `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
+| `ProfileEditor` `ProfileEditSheet` | editing your own name and picture, from the profile's pencil and from settings: the sheet, and the camera it hands over to, never both at once |
 | `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `SettingsSection` `SettingsToggleRow` | the settings list |
@@ -458,7 +460,9 @@ nothing while it is not:
   around them means nothing: a drawer stays behind the keyboard with its submit
   button under the number row. `body > [role="dialog"]` pulls the bottom edge up
   by `--q2-keyboard-inset`, which covers UModal and UDrawer as Nuxt UI renders
-  them today. Something that positions itself differently needs the inset
+  them today. A *centred* UModal (`AppConfirmDialog`) is the exception: it is
+  placed from the middle, so a bottom edge would stretch it, and it is
+  re-centred above the keyboard instead (#84). Something that positions itself differently needs the inset
   applied by hand — and needs its own scroll region, because the fix only works
   if the field can come into view without the *page* moving.
 - **Verify it with a real keyboard**, not a hardware one. A simulator defaults
@@ -578,6 +582,12 @@ remains part of the work.
 The product speaks German by default; the settings screen switches it, and the
 choice is remembered on the server
 ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
+The device also keeps the last language it showed, in the `q2-language` cookie
+(and local storage in the iOS app), so the server renders the chosen language
+from the first frame instead of German that turns English after hydration —
+the same reason the accent is a cookie. `useAppSettings` applies the stored
+preference inside its read, which the server awaits before rendering; a watcher
+alone never runs again during server rendering.
 
 Three rules keep it working:
 

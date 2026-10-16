@@ -196,6 +196,12 @@ public sealed class GoalService(
         var me = await currentPerson.GetAsync(cancellationToken);
         var kind = request.Kind ?? GoalKind.Do;
         var schedule = CreateGoalRequestValidator.ToSchedule(request.Schedule, kind);
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        if (CreateGoalRequestValidator.ValidateTargetDate(request.TargetDate, schedule, calendar.Today(now)) is { } problem)
+        {
+            throw new DomainValidationException(nameof(request.TargetDate), problem);
+        }
 
         var goal = Goal.Create(
             idGenerator.NewId(),
@@ -240,7 +246,7 @@ public sealed class GoalService(
 
         // Its first window, its conversation, the feed and the invitations —
         // the same for a goal made here as for a waiting Do that starts.
-        await launcher.LaunchAsync(goal, timeZones.For(me.TimeZoneId), now, cancellationToken);
+        await launcher.LaunchAsync(goal, calendar, now, cancellationToken);
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
@@ -252,7 +258,7 @@ public sealed class GoalService(
             goal.Schedule.Kind,
             goal.Participants.Count);
 
-        return await DescribeAsync(goal, me.Id, timeZones.For(me.TimeZoneId), now, cancellationToken);
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }
 
     /// <summary>
@@ -516,6 +522,39 @@ public sealed class GoalService(
         // Never what was logged: a use of a Don't is about as personal as
         // anything in this app.
         logger.LogInformation("A use was logged on goal {GoalId}", goal.Id);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes back the use of your own Don't you have just logged (#110).
+    /// </summary>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">
+    /// Not the newest use of a period still running, too long ago, or the use
+    /// that made the period a relapse.
+    /// </exception>
+    public async Task<GoalResponse> UndoUseAsync(Guid id, Guid useId, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        var use = goal.UndoUse(useId, now)
+            ?? throw new DomainValidationException("Use", "This use can no longer be taken back.");
+
+        database.Remove(use);
+        await database.SaveChangesAsync(cancellationToken);
+
+        notifier.Touch(
+            goal.Participants.Select(participant => participant.PersonId).Append(me.Id),
+            LiveArea.Goals,
+            goal.Id);
+        notifier.Touch(goal.Participants.Select(participant => participant.PersonId).Append(me.Id), LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
+        logger.LogInformation("A use was taken back on goal {GoalId}", goal.Id);
 
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
     }

@@ -135,15 +135,30 @@ public class GoalScheduleTests
         Assert.Equal(new DateOnly(2028, 3, 31), march.Value.End);
     }
 
+    /// <summary>
+    /// "Once, by that day" (ADR 0016): open from the day it is made to the day
+    /// it is due, so it can be done before then (#94). A window on the due day
+    /// alone took no proof until that day came.
+    /// </summary>
     [Fact]
-    public void AOneOffUsesTheChosenDayAndHasNothingAfterIt()
+    public void AOneOffRunsFromTodayToTheChosenDayAndHasNothingAfterIt()
     {
         var due = Monday.AddDays(10);
         var window = GoalSchedule.Once().FirstWindow(Monday, due);
 
-        Assert.Equal(due, window.Start);
+        Assert.Equal(Monday, window.Start);
         Assert.Equal(due, window.End);
+        Assert.Equal(1, window.RequiredProofs);
         Assert.Null(GoalSchedule.Once().NextWindow(due));
+    }
+
+    [Fact]
+    public void AOneOffDueTodayIsTodayAlone()
+    {
+        var window = GoalSchedule.Once().FirstWindow(Monday, Monday);
+
+        Assert.Equal(Monday, window.Start);
+        Assert.Equal(Monday, window.End);
     }
 
     [Fact]

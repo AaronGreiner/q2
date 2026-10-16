@@ -12,6 +12,16 @@ namespace Q2.Api.Features.Goals;
 /// </remarks>
 public sealed class DontUse
 {
+    /// <summary>
+    /// How long after logging a use its owner may take it back (#110).
+    /// </summary>
+    /// <remarks>
+    /// For a slipped thumb, not for second thoughts: long enough for the
+    /// "Rückgängig" the app shows for a few seconds to reach the server over a
+    /// slow connection, short enough that the count stays an honest record.
+    /// </remarks>
+    public static readonly TimeSpan UndoPeriod = TimeSpan.FromSeconds(30);
+
     // EF Core materialisation only.
     private DontUse()
     {

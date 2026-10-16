@@ -31,7 +31,13 @@ const edgeToEdge = computed(() => route.meta.edgeToEdge === true)
 </script>
 
 <template>
-  <div class="mx-auto flex h-[var(--q2-viewport-height,100dvh)] w-full max-w-[430px] flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text)">
+  <!--
+    `relative` is what makes `overflow-hidden` clip everything inside: an
+    absolutely positioned descendant — every `sr-only` text is one — is
+    otherwise laid out against the page itself, pokes out below the viewport
+    and lets the whole shell be scrolled as one piece (#83).
+  -->
+  <div class="relative mx-auto flex h-[var(--q2-viewport-height,100dvh)] w-full max-w-[430px] flex-col overflow-hidden bg-(--ui-bg) text-(--ui-text)">
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:rounded-(--q2-radius-lg) focus:bg-(--ui-bg-elevated) focus:px-4 focus:py-2 focus:ring-2 focus:ring-(--ui-primary)"

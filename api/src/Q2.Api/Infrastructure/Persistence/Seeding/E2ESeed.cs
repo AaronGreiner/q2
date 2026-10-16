@@ -191,7 +191,7 @@ public sealed class E2ESeed : ISeedDataSource
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "E2E morning run", null, 7, minutesAgo: 15);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 4, 2, minutesAgo: 90);
-        build.AddActivity(me, ActivityKind.GoalProgress, shared.Title, 1, 1, minutesAgo: 300);
+        build.AddActivity(me, ActivityKind.GoalProgress, shared.Title, 1, 1, minutesAgo: 300, source: shared);
 
         build.AddDirectChat(
             jonas,

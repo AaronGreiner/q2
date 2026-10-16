@@ -53,6 +53,10 @@ public sealed record GoalScheduleResponse(
 /// </param>
 /// <param name="Limit">For a Don't's window: how many uses it allows. Null for a Do.</param>
 /// <param name="Uses">For a Don't's window: how many were logged. 0 for a Do.</param>
+/// <param name="LatestUseId">
+/// For a Don't's window: the use logged last, which its owner may take back for
+/// a short while (<see cref="DontUse.UndoPeriod"/>, #110). Null without uses.
+/// </param>
 public sealed record GoalInstanceResponse(
     Guid Id,
     DateOnly StartsOn,
@@ -65,7 +69,8 @@ public sealed record GoalInstanceResponse(
     Guid? PendingProofId,
     bool AcceptsProof,
     int? Limit,
-    int Uses)
+    int Uses,
+    Guid? LatestUseId)
 {
     public static GoalInstanceResponse From(GoalInstance instance) => new(
         instance.Id,
@@ -79,7 +84,8 @@ public sealed record GoalInstanceResponse(
         instance.PendingProof?.Id,
         instance.AcceptsProof,
         instance.Limit,
-        instance.Uses);
+        instance.Uses,
+        instance.LatestUseId);
 }
 
 /// <summary>

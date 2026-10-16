@@ -26,7 +26,8 @@ public class DontsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int RequiredProofs,
         GoalInstanceStatus Status,
         int? Limit,
-        int Uses);
+        int Uses,
+        Guid? LatestUseId);
 
     private sealed record GoalDocument(
         Guid Id,
@@ -76,6 +77,83 @@ public class DontsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
     private async Task<HttpResponseMessage> LogUseAsync(HttpClient client, Guid goalId, Guid? imageId = null) =>
         await client.PostJsonAsync($"/api/goals/{goalId}/uses", new { imageId });
+
+    private async Task<HttpResponseMessage> UndoUseAsync(HttpClient client, Guid goalId, Guid useId) =>
+        await client.DeleteAsync($"/api/goals/{goalId}/uses/{useId}", TestContext.Current.CancellationToken);
+
+    /// <summary>
+    /// A slipped thumb can be taken back for a moment (#110): the count goes
+    /// back, and the line in the conversation goes with it.
+    /// </summary>
+    [Fact]
+    public async Task TheOwnerCanTakeBackAUseJustLogged()
+    {
+        var created = await CreatedDontAsync(limit: 3, period: "Week");
+        var first = await (await LogUseAsync(Client, created.Id)).ReadAsync<GoalDocument>();
+
+        var later = Q2ApiFactory.Now.AddMinutes(5);
+        Clock.Set(later);
+        var logged = await (await LogUseAsync(Client, created.Id)).ReadAsync<GoalDocument>();
+
+        Assert.Equal(2, logged.Current!.Uses);
+        Assert.NotNull(logged.Current.LatestUseId);
+        Assert.NotEqual(first.Current!.LatestUseId, logged.Current.LatestUseId);
+
+        Clock.Set(later.Add(DontUse.UndoPeriod - TimeSpan.FromSeconds(1)));
+        var response = await UndoUseAsync(Client, created.Id, logged.Current.LatestUseId.Value);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var undone = await response.ReadAsync<GoalDocument>();
+        Assert.Equal(1, undone.Current!.Uses);
+        Assert.Equal(GoalInstanceStatus.Open, undone.Current.Status);
+
+        // Once: the one before it was logged minutes ago and is not "just logged".
+        Assert.Equal(first.Current.LatestUseId, undone.Current.LatestUseId);
+        Assert.Equal(HttpStatusCode.BadRequest, (await UndoUseAsync(Client, created.Id, undone.Current.LatestUseId!.Value)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AUseCannotBeTakenBackOnceTheMomentHasPassed()
+    {
+        var created = await CreatedDontAsync(limit: 3, period: "Week");
+        var logged = await (await LogUseAsync(Client, created.Id)).ReadAsync<GoalDocument>();
+
+        Clock.Set(Q2ApiFactory.Now.Add(DontUse.UndoPeriod + TimeSpan.FromSeconds(1)));
+        var response = await UndoUseAsync(Client, created.Id, logged.Current!.LatestUseId!.Value);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Use", (await response.ReadAsync<ValidationDocument>()).Errors.Keys);
+    }
+
+    [Fact]
+    public async Task NobodyButTheOwnerTakesAUseBack()
+    {
+        var created = await CreatedDontAsync(limit: 3, period: "Week");
+        var logged = await (await LogUseAsync(Client, created.Id)).ReadAsync<GoalDocument>();
+
+        // The friend checking it sees the goal, and is still told it is not there.
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var response = await UndoUseAsync(friend, created.Id, logged.Current!.LatestUseId!.Value);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The use that goes over the limit decided the period (ADR 0037): the app
+    /// asks before that tap, and nothing takes it back afterwards.
+    /// </summary>
+    [Fact]
+    public async Task ARelapseIsNotTakenBack()
+    {
+        var created = await CreatedDontAsync(limit: 0);
+        var relapsed = await (await LogUseAsync(Client, created.Id)).ReadAsync<GoalDocument>();
+
+        Assert.Equal(GoalInstanceStatus.Relapse, relapsed.Current!.Status);
+
+        var response = await UndoUseAsync(Client, created.Id, relapsed.Current.LatestUseId!.Value);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 
     [Fact]
     public async Task ADontOpensItsPeriodWithItsLimitAndNothingToPhotograph()

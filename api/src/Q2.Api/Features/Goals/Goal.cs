@@ -27,6 +27,12 @@ public sealed class Goal
     /// <summary>The most uses a Don't may allow per period. Beyond it, it is not a limit.</summary>
     public const int MaxLimit = 100;
 
+    /// <summary>
+    /// How far ahead a one-off's day may lie, in days. A year: further than that
+    /// is not a commitment somebody can be checked on, it is a note to self.
+    /// </summary>
+    public const int MaxTargetDaysAhead = 365;
+
     /// <summary>How many relapses in a row a streak survives; the next one ends it.</summary>
     public const int RelapsesBeforeStreakEnds = 3;
 
@@ -281,6 +287,13 @@ public sealed class Goal
         var window = CurrentInstance ?? RelapsedInstanceAt(now);
         return window?.LogUse(id, imageId, now);
     }
+
+    /// <summary>
+    /// Takes back the use just logged into the window running now, or returns
+    /// null when it may not be — see <see cref="GoalInstance.UndoUse"/>.
+    /// </summary>
+    public DontUse? UndoUse(Guid useId, DateTimeOffset now) =>
+        IsDont && Status == GoalStatus.Active ? CurrentInstance?.UndoUse(useId, now) : null;
 
     /// <summary>True for a running Don't that is checked by spot checks.</summary>
     public bool TakesSpotChecks => IsDont && ProofMode == DontProofMode.SpotCheck && Status == GoalStatus.Active;

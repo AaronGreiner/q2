@@ -11,9 +11,10 @@ import { addDays } from './display'
  * - every n days starts today;
  * - chosen weekdays start on the next chosen day, today included;
  * - a quota runs to the end of its week (Sunday) or month;
- * - once is due today, because the sheet has no date for it.
+ * - once is due on the day it was given (`targetDate`), today without one —
+ *   the server's `FirstWindow(today, dueOn)` does the same.
  */
-export function firstWindowEnd(schedule: GoalScheduleRequest, today: string): string {
+export function firstWindowEnd(schedule: GoalScheduleRequest, today: string, targetDate: string | null = null): string {
   switch (schedule.kind) {
     case 'Weekdays':
       return nextMatchingDay(today, schedule.weekdays ?? []) ?? today
@@ -25,8 +26,10 @@ export function firstWindowEnd(schedule: GoalScheduleRequest, today: string): st
     case 'Limit':
       return schedule.period === 'Month' ? lastOfMonth(today) : schedule.period === 'Week' ? sundayOf(today) : today
 
-    case 'Interval':
     case 'Once':
+      return targetDate ?? today
+
+    case 'Interval':
     default:
       return today
   }

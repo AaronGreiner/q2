@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
 import ChatInfoSheet from '~/components/chats/ChatInfoSheet.vue'
 import ChatListRow from '~/components/chats/ChatListRow.vue'
+import ChatKeptRun from '~/components/chats/ChatKeptRun.vue'
 import ChatMissedRun from '~/components/chats/ChatMissedRun.vue'
 import GoalReminderSheet from '~/components/goals/GoalReminderSheet.vue'
 import NextUpCard from '~/components/home/NextUpCard.vue'
@@ -129,6 +130,18 @@ describe('ChatMissedRun', () => {
 
     expect(wrapper.text()).toBe('7.9.–23.9. · 15 Fenster verpasst')
     expect(wrapper.get('[data-q2-private]').exists()).toBe(true)
+  })
+})
+
+describe('ChatKeptRun', () => {
+  it('says the days, the count and the streak it ends on, once (#100)', async () => {
+    const done = await mountSuspended(ChatKeptRun, { props: { from: '22.9.', to: '12.10.', count: 21, streak: 21, held: false } })
+
+    expect(done.text()).toBe('22.9.–12.10. · 21 Fenster geschafft · Streak 21')
+    expect(done.get('[data-q2-private]').exists()).toBe(true)
+
+    const held = await mountSuspended(ChatKeptRun, { props: { from: '1.10.', to: '7.10.', count: 7, streak: 7, held: true } })
+    expect(held.text()).toBe('1.10.–7.10. · 7-mal durchgehalten · Streak 7')
   })
 })
 

@@ -108,10 +108,66 @@ test.describe('phone geometry', () => {
     })
   }
 
+  /**
+   * The shell is exactly one viewport tall, and nothing may make the document
+   * taller: a screen-reader text laid out against the page used to poke out
+   * below it, so the header, the list and the tab bar could be dragged up as
+   * one piece (#83). Checked again with the list scrolled to its end, because
+   * that is where the stray text followed it.
+   */
+  for (const path of ['/', '/goals', '/goals?tab=donts', '/chats', '/search', '/profile'] as const) {
+    test(`${path} never makes the document taller than the screen`, async ({ page }) => {
+      await page.goto(path)
+      await waitForMotion(page)
+
+      const height = () => page.evaluate(() => ({
+        viewport: window.innerHeight,
+        document: document.documentElement.scrollHeight,
+      }))
+
+      let geometry = await height()
+      expect(geometry.document).toBeLessThanOrEqual(geometry.viewport)
+
+      await page.getByTestId('content-panel').locator('[data-slot="body"]').first().evaluate((area) => {
+        area.scrollTop = area.scrollHeight
+      })
+
+      geometry = await height()
+      expect(geometry.document).toBeLessThanOrEqual(geometry.viewport)
+      expect(await page.evaluate(() => window.scrollY)).toBe(0)
+    })
+  }
+
+  /**
+   * A centred question box is as tall as its title and its two buttons. The
+   * keyboard rule for sheets used to give it a bottom edge too, which made it
+   * half the screen tall with an empty block under the buttons (#84).
+   */
+  test('a confirm dialog is as tall as its content, and centred', async ({ page }) => {
+    await page.goto('/settings')
+    await page.getByTestId('invite-replace-setting').click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByTestId('confirm-accept')).toBeVisible()
+    await waitForMotion(page)
+
+    const geometry = await dialog.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const content = Array.from(element.children).reduce((sum, child) => sum + child.getBoundingClientRect().height, 0)
+      return { top: box.top, bottom: window.innerHeight - box.bottom, height: box.height, content }
+    })
+
+    expect(geometry.height).toBeLessThanOrEqual(geometry.content + 2)
+    expect(Math.abs(geometry.top - geometry.bottom)).toBeLessThanOrEqual(2)
+
+    await dialog.getByTestId('confirm-cancel').click()
+    await expect(dialog).toBeHidden()
+  })
+
   test('visible controls meet the 44px touch-target rule', async ({ page }) => {
     const undersized: string[] = []
 
-    for (const path of ['/', '/goals', '/goals?tab=donts', '/goals/archive', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
+    for (const path of ['/', '/goals', '/goals?tab=donts', '/goals/archive', '/search', '/notifications', '/settings/notifications', '/diagnostics'] as const) {
       await page.goto(path)
       await waitForMotion(page)
 

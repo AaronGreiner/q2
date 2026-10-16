@@ -9,6 +9,7 @@ import { usePersonProfile, useProfile } from '~/composables/useFriends'
 import { useActivityOverview } from '~/composables/useHome'
 import { usePendingProofs, useProofDelivery } from '~/composables/useProofs'
 import { useBlockedPeople, useSafety } from '~/composables/useSafety'
+import { useDontUse } from '~/composables/useDontUse'
 
 /**
  * The composables behind stages 7 to 9.
@@ -105,7 +106,15 @@ function installFeatureGlobals(api: object) {
   vi.stubGlobal('useMessages', () => ref(de))
   vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: '' } }))
 
-  return { report, show }
+  // Signed out unless a test says otherwise; `useProfile` keeps the session's
+  // name in step with a rename.
+  const session = ref<Record<string, unknown> | null>(null)
+  const adopt = vi.fn((value: Record<string, unknown> | null) => {
+    session.value = value
+  })
+  vi.stubGlobal('useSession', () => ({ session, adopt }))
+
+  return { report, show, session }
 }
 
 beforeEach(() => {
@@ -1225,7 +1234,8 @@ describe('the profile paths that were left over', () => {
 
   it('renames, chooses a picture, and saves one thing at a time', async () => {
     const api = profileApi()
-    const { show } = installFeatureGlobals(api)
+    const { show, session } = installFeatureGlobals(api)
+    session.value = { person: person({ displayName: 'Mara' }), email: 'mara@kudos.example', isOnboarded: true }
     const profile = useProfile()
 
     await vi.waitFor(() => expect(profile.profile.value).not.toBeNull())
@@ -1233,6 +1243,9 @@ describe('the profile paths that were left over', () => {
     await profile.rename('Mara K.')
     expect(api.profile.update).toHaveBeenCalledWith({ displayName: 'Mara K.' })
     expect(show).not.toHaveBeenCalled()
+
+    // Settings says "Angemeldet als …" under the row that renames: it follows.
+    expect(session.value).toMatchObject({ person: { displayName: 'Mara K.' }, email: 'mara@kudos.example' })
 
     await profile.chooseAvatar('image-1')
     expect(api.profile.update).toHaveBeenCalledWith({ avatarImageId: 'image-1' })
@@ -1277,5 +1290,65 @@ describe('the profile paths that were left over', () => {
 
     await vi.waitFor(() => expect(missing.isMissing.value).toBe(true))
     expect(missing.error.value).toBeNull()
+  })
+})
+
+/**
+ * A use logged by a slipped thumb can be taken back for a moment (#110); a
+ * relapse cannot, and is never offered it.
+ */
+describe('useDontUse', () => {
+  function window(overrides: Record<string, unknown> = {}) {
+    return { status: 'Open', limit: 3, uses: 1, latestUseId: 'use-1', ...overrides }
+  }
+
+  function useApi(current: Record<string, unknown>) {
+    return {
+      goals: {
+        logUse: vi.fn().mockResolvedValue({ id: 'goal-1', current }),
+        undoUse: vi.fn().mockResolvedValue({ id: 'goal-1', current: window({ uses: 0, latestUseId: null }) }),
+      },
+    }
+  }
+
+  it('confirms a use with a way to take it back, and reads the screen again after', async () => {
+    const api = useApi(window())
+    const { show } = installFeatureGlobals(api)
+    const onUndone = vi.fn()
+    const dontUse = useDontUse(onUndone)
+
+    await dontUse.logUse('goal-1')
+
+    expect(show).toHaveBeenCalledWith(de.toast.useLogged, expect.objectContaining({ label: 'Rückgängig' }))
+    const action = (show.mock.calls[0] as unknown[])[1] as { onClick: () => void }
+
+    action.onClick()
+    await vi.waitFor(() => expect(onUndone).toHaveBeenCalledOnce())
+
+    expect(api.goals.undoUse).toHaveBeenCalledWith('goal-1', 'use-1')
+    expect(show).toHaveBeenLastCalledWith(de.toast.useUndone)
+  })
+
+  it('offers nothing to take back after a relapse', async () => {
+    const api = useApi(window({ status: 'Relapse', uses: 4 }))
+    const { show } = installFeatureGlobals(api)
+
+    await useDontUse().logUse('goal-1')
+
+    expect(show).toHaveBeenCalledWith(de.toast.relapseLogged)
+    expect((show.mock.calls[0] as unknown[])[1]).toBeUndefined()
+  })
+
+  it('says it is too late when the server no longer takes it back', async () => {
+    const api = useApi(window())
+    api.goals.undoUse.mockRejectedValueOnce(new Error('too late'))
+    const { show } = installFeatureGlobals(api)
+    vi.stubGlobal('useErrorReporter', () => ({ report: vi.fn(() => ({ ...failure, kind: 'validation' as const })) }))
+    const onUndone = vi.fn()
+
+    await expect(useDontUse(onUndone).undo('goal-1', 'use-1')).resolves.toBe(false)
+
+    expect(show).toHaveBeenCalledWith(de.toast.undoTooLate)
+    expect(onUndone).toHaveBeenCalledOnce()
   })
 })

@@ -1,4 +1,4 @@
-import type { Settings, ThemePreference, UpdateSettingsRequest } from '~/api/types'
+import type { LanguagePreference, Settings, ThemePreference, UpdateSettingsRequest } from '~/api/types'
 
 /**
  * Light or dark, and how to change it.
@@ -40,18 +40,33 @@ export function useTheme() {
  *
  * Loaded under a shared `useAsyncData` key, so the settings screen and the
  * layout share one request rather than making two.
+ *
+ * The language is applied inside the read as well as by the watcher: during
+ * server rendering a watcher never fires again, and the read is awaited before
+ * the page renders (it is prefetched from app.vue). That is what makes the
+ * server paint English for an English account on a device that has no
+ * remembered language yet (#85). Every language applied is remembered on the
+ * device for the next first paint (`rememberLanguage`).
  */
 export function useAppSettings() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
   const theme = useTheme()
   const language = useLanguage()
+  const remembered = useLanguageCookie()
+
+  function applyLanguage(value: LanguagePreference) {
+    language.value = value
+    rememberLanguage(remembered, value)
+  }
 
   const { data, refresh } = useAsyncData<Settings | null>(
     'settings',
     async () => {
       try {
-        return await api.settings.get()
+        const settings = await api.settings.get()
+        if (settings.language) applyLanguage(settings.language)
+        return settings
       }
       catch (caught) {
         // Preferences are not worth an error screen: without them the app runs
@@ -68,7 +83,7 @@ export function useAppSettings() {
     if (!settings) return
     // Never null from here; the generated union carries the null of a push's
     // language, which is optional (see `LanguagePreference` in api/types.ts).
-    if (settings.language) language.value = settings.language
+    if (settings.language) applyLanguage(settings.language)
     theme.preference.value = settings.theme
   }, { immediate: true })
 
@@ -76,7 +91,7 @@ export function useAppSettings() {
 
   async function update(change: UpdateSettingsRequest) {
     if (change.theme) theme.preference.value = change.theme
-    if (change.language) language.value = change.language
+    if (change.language) applyLanguage(change.language)
 
     isSaving.value = true
     try {

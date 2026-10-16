@@ -203,7 +203,7 @@ internal static class KudosWorld
             owner: jonas,
             participants: [me, lena]);
 
-        build.AddGoal(
+        var climbing = build.AddGoal(
             "Klettern lernen",
             "Zweimal die Woche in die Halle.",
             "trophy",
@@ -212,18 +212,18 @@ internal static class KudosWorld
             owner: tom,
             participants: [me]);
 
-        build.AddActivity(jonas, ActivityKind.TaskCompleted, "Joggen 5 km", null, kudosCount: 8, minutesAgo: 12);
+        build.AddActivity(jonas, ActivityKind.TaskCompleted, morningRun.Title, null, kudosCount: 8, minutesAgo: 12, source: morningRun);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 7, kudosCount: 13, minutesAgo: 40, kudosFromMe: true);
-        build.AddActivity(lena, ActivityKind.GoalProgress, earlyBirds.Title, 1, kudosCount: 5, minutesAgo: 62);
-        build.AddActivity(tom, ActivityKind.GoalCreated, "Klettern lernen", null, kudosCount: 3, minutesAgo: 190);
-        build.AddActivity(sarah, ActivityKind.TaskCompleted, "Vor 7 aufstehen", null, kudosCount: 6, minutesAgo: 320);
+        build.AddActivity(lena, ActivityKind.GoalProgress, earlyBirds.Title, 1, kudosCount: 5, minutesAgo: 62, source: earlyBirds);
+        build.AddActivity(tom, ActivityKind.GoalCreated, climbing.Title, null, kudosCount: 3, minutesAgo: 190, source: climbing);
+        build.AddActivity(sarah, ActivityKind.TaskCompleted, earlyBirds.Title, null, kudosCount: 6, minutesAgo: 320, source: earlyBirds);
         build.AddActivity(david, ActivityKind.StreakReached, null, 2, kudosCount: 1, minutesAgo: 700);
 
         // The signed-in person's own history, which is what the profile screen
         // shows and the feed deliberately leaves out.
-        var pages = build.AddActivity(me, ActivityKind.TaskCompleted, "30 Seiten lesen", null, kudosCount: 4, minutesAgo: 90);
+        var pages = build.AddActivity(me, ActivityKind.TaskCompleted, reading.Title, null, kudosCount: 4, minutesAgo: 90, source: reading);
         build.AddActivity(me, ActivityKind.StreakReached, null, 12, kudosCount: 11, minutesAgo: 400);
-        build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 1, kudosCount: 2, minutesAgo: 1500);
+        build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 1, kudosCount: 2, minutesAgo: 1500, source: reading);
 
         build.AddDirectChat(
             jonas,

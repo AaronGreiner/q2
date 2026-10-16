@@ -72,6 +72,13 @@ public static class GoalEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        goals.MapDelete("/{id:guid}/uses/{useId:guid}", UndoUse)
+            .WithName("UndoDontUse")
+            .WithSummary("Takes back the use of your own Don't you logged last, within seconds of logging it. Never a relapse.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         goals.MapPost("/{id:guid}/pause", PauseGoal)
             .WithName("PauseGoal")
             .WithSummary("Sets a goal aside for whole days, with a reason its friends read.")
@@ -241,6 +248,13 @@ public static class GoalEndpoints
         LogUseRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await goals.LogUseAsync(id, request, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> UndoUse(
+        GoalService goals,
+        Guid id,
+        Guid useId,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.UndoUseAsync(id, useId, cancellationToken));
 
     private static async Task<NoContent> DeleteGoal(
         GoalService goals,

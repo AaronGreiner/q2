@@ -1119,6 +1119,67 @@
         }
       }
     },
+    "/api/goals/{id}/uses/{useId}": {
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Takes back the use of your own Don't you logged last, within seconds of logging it. Never a relapse.",
+        "operationId": "UndoDontUse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "useId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals/{id}/pause": {
       "post": {
         "tags": [
@@ -3294,7 +3355,8 @@
           "amount",
           "kudosCount",
           "hasMyKudos",
-          "occurredAt"
+          "occurredAt",
+          "goalId"
         ],
         "type": "object",
         "properties": {
@@ -3327,6 +3389,11 @@
           "occurredAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "goalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -4431,7 +4498,8 @@
           "pendingProofId",
           "acceptsProof",
           "limit",
-          "uses"
+          "uses",
+          "latestUseId"
         ],
         "type": "object",
         "properties": {
@@ -4482,6 +4550,11 @@
           "uses": {
             "type": "integer",
             "format": "int32"
+          },
+          "latestUseId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },

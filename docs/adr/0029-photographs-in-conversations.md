@@ -19,6 +19,9 @@ only pictures a thread could hold were proofs, which are votes, not messages.
 **The ready-made replies are gone.** What somebody sends a friend is what they
 typed. Kudos on a message stay: they are a reaction, not a reply. The pinned
 goal's "Anfeuern" stays too — it is one button with one meaning, on the goal.
+It is offered to the people checking the goal, never to its owner, who would
+only be cheering themselves on; the owner is offered "Beweis liefern" in its
+place while a proof is due (#88).
 
 **A message is words, a photograph, or both.** `ChatMessage.ImageId` points at
 an image uploaded beforehand under the new `ImagePurpose.ChatPhoto`, the same

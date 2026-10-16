@@ -172,6 +172,35 @@ public static class CreateGoalRequestValidator
     }
 
     /// <summary>
+    /// What is wrong with a one-off's day, or null when nothing is.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Validate(CreateGoalRequest)"/> because it needs
+    /// a clock: the day is checked against the owner's today, in the owner's
+    /// time zone, which only the service knows (#94). No day at all is fine —
+    /// the one-off is then due today, as before.
+    /// </remarks>
+    public static string? ValidateTargetDate(DateOnly? targetDate, GoalSchedule schedule, DateOnly today)
+    {
+        if (schedule.Kind != ScheduleKind.Once || targetDate is not { } day)
+        {
+            return null;
+        }
+
+        if (day < today)
+        {
+            return "A one-off cannot be due on a day that has already passed.";
+        }
+
+        if (day > today.AddDays(Goal.MaxTargetDaysAhead))
+        {
+            return $"A one-off may be due at most {Goal.MaxTargetDaysAhead} days ahead.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The domain schedule a validated request asks for.
     /// </summary>
     /// <remarks>

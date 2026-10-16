@@ -243,9 +243,15 @@ export function scheduleLabel(schedule: GoalSchedule, t: Messages): string {
 
 /**
  * How often a goal is due, or for a Don't how often it is allowed: "Jeden
- * Tag", "3× pro Woche", "Höchstens 3× pro Woche", "Nie".
+ * Tag", "3× pro Woche", "Höchstens 3× pro Woche", "Nie" — and for a one-off,
+ * by when: "Einmalig · bis 31.10.".
  */
-export function goalScheduleLabel(goal: Pick<Goal, 'kind' | 'limit' | 'schedule'>, t: Messages): string {
+export function goalScheduleLabel(
+  goal: Pick<Goal, 'kind' | 'limit' | 'schedule'> & Partial<Pick<Goal, 'targetDate'>>,
+  t: Messages,
+): string {
+  // A one-off says by when, which is the only thing about it that varies (#94).
+  if (goal.schedule.kind === 'Once' && goal.targetDate) return t.schedule.onceBy(formatDay(goal.targetDate))
   if (goal.kind !== 'Dont') return scheduleLabel(goal.schedule, t)
 
   return t.dont.limit(goal.limit ?? 0, t.schedule.period[goal.schedule.period ?? 'Day'])
@@ -547,6 +553,14 @@ export function formatWeekdayDay(day: string, t: Messages): string {
 /** The local day an instant falls on, as `YYYY-MM-DD`, in the reader's zone. */
 export function localDay(instant: number, offsetMinutes = 0): string {
   return new Date(instant + offsetMinutes * 60_000).toISOString().slice(0, 10)
+}
+
+/**
+ * The hour of the reader's clock at an instant, 0–23. What the start screen
+ * greets by (#81): read off UTC it said "Guten Morgen" in Berlin past noon.
+ */
+export function localHour(instant: number, offsetMinutes = 0): number {
+  return new Date(instant + offsetMinutes * 60_000).getUTCHours()
 }
 
 /** `YYYY-MM-DD` moved by whole days. */

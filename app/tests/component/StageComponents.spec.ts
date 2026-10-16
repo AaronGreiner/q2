@@ -98,6 +98,21 @@ describe('InviteCard', () => {
     // The other half of the answer, and the reason this stage came after the
     // challenge: there is something to do today even with nobody watching.
     expect(wrapper.text()).toContain('Challenge des Tages')
+
+    // Only the friends tab has a search box above the card to point to.
+    expect(wrapper.find('[data-testid="invite-search-hint"]').exists()).toBe(false)
+  })
+
+  /**
+   * On the friends tab the card is the only "Noch keine Freunde" (#113), so it
+   * carries the second way in too: the link first, the search second.
+   */
+  it('points to the search above it on the friends tab, after the link', async () => {
+    const wrapper = await mountSuspended(InviteCard, { props: { withSearch: true } })
+
+    const html = wrapper.html()
+    expect(wrapper.get('[data-testid="invite-search-hint"]').text()).toContain('such oben')
+    expect(html.indexOf('data-testid="invite-share"')).toBeLessThan(html.indexOf('data-testid="invite-search-hint"'))
   })
 
   /**

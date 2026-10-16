@@ -20,24 +20,34 @@ const t = useMessages()
     class="q2-card flex items-center gap-3 px-3 py-3"
     data-testid="friend-suggestion"
   >
-    <AppAvatar
-      :initials="suggestion.person.initials"
-      :color="suggestion.person.avatarColor"
-      :image-id="suggestion.person.avatarImageId"
-      :size="42"
-    />
-
-    <div
-      class="min-w-0 flex-1"
-      data-q2-private
+    <!--
+      Somebody you might know is somebody to look at first: the person opens
+      their profile (#87), and asking stays a target of its own.
+    -->
+    <NuxtLink
+      :to="`/people/${suggestion.person.id}`"
+      class="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-(--q2-radius-md) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      data-testid="suggestion-person"
     >
-      <p class="truncate text-sm font-bold">
-        {{ suggestion.person.displayName }}
-      </p>
-      <p class="mt-0.5 truncate text-[11px] font-semibold text-(--ui-text-muted)">
-        {{ t.friends.mutual(suggestion.mutualFriends) }}
-      </p>
-    </div>
+      <AppAvatar
+        :initials="suggestion.person.initials"
+        :color="suggestion.person.avatarColor"
+        :image-id="suggestion.person.avatarImageId"
+        :size="42"
+      />
+
+      <div
+        class="min-w-0 flex-1"
+        data-q2-private
+      >
+        <p class="truncate text-sm font-bold">
+          {{ suggestion.person.displayName }}
+        </p>
+        <p class="mt-0.5 truncate text-[11px] font-semibold text-(--ui-text-muted)">
+          {{ t.friends.mutual(suggestion.mutualFriends) }}
+        </p>
+      </div>
+    </NuxtLink>
 
     <button
       type="button"

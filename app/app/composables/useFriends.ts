@@ -152,6 +152,7 @@ function empty(): Friends {
 export function useProfile() {
   const api = useQ2Api()
   const { report } = useErrorReporter()
+  const { session, adopt } = useSession()
 
   const { data, status, refresh } = useAsyncData(
     'profile',
@@ -177,6 +178,10 @@ export function useProfile() {
    */
   function put(profile: Profile) {
     data.value = { profile, failure: null }
+
+    // The session names the same person — "Angemeldet als …" in settings,
+    // right under the row that renames them — and must not keep the old name.
+    if (session.value) adopt({ ...session.value, person: profile.person })
   }
 
   async function update(request: UpdateProfileRequest) {

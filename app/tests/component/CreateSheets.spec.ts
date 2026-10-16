@@ -4,6 +4,7 @@ import ChatCreateSheet from '~/components/chats/ChatCreateSheet.vue'
 import GoalCreateSheet from '~/components/goals/GoalCreateSheet.vue'
 import type { ApiFailure } from '~/api/errors'
 import type { Friend, Person } from '~/api/types'
+import { addDays, formatDay } from '~/utils/display'
 
 function person(overrides: Partial<Person> = {}): Person {
   return {
@@ -103,6 +104,53 @@ describe('GoalCreateSheet', () => {
       reminderAt: '07:15:00',
       participantIds: ['person-1'],
     }])
+    wrapper.unmount()
+  })
+
+  /**
+   * "Einmalig" used to say "bis zum gewählten Tag" with nothing to choose a
+   * day with, and was due the day it was made (#94).
+   */
+  it('gives a one-off its day, says it in the summary and sends it', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Steuererklärung abgeben')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    element<HTMLButtonElement>('[data-testid="schedule-kind-Once"]').click()
+    await wrapper.vm.$nextTick()
+
+    // From today, a year ahead at most, and today until somebody changes it.
+    const day = element<HTMLInputElement>('input[data-testid="schedule-target-date"], [data-testid="schedule-target-date"] input')
+    const today = day.getAttribute('min')!
+    expect(day.type).toBe('date')
+    expect(day.value).toBe(today)
+    expect(day.getAttribute('max')).toBe(addDays(today, 365))
+
+    const later = addDays(today, 10)
+    type(day, later)
+    await wrapper.vm.$nextTick()
+    expect(element('[data-testid="schedule-preview"]').textContent).toContain(`Einmalig · bis ${formatDay(later)}`)
+
+    await next(wrapper)
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    expect(element('[data-testid="goal-create-review"]').textContent).toContain(`bis ${formatDay(later)}`)
+    expect(element('[data-testid="goal-first-window"]').textContent).toContain(`${formatDay(later)} um Mitternacht`)
+
+    element<HTMLButtonElement>('[data-testid="goal-submit"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      schedule: { kind: 'Once' },
+      targetDate: later,
+    })
     wrapper.unmount()
   })
 

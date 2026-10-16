@@ -79,7 +79,7 @@ const sections = computed(() => {
 // is the server's rule too.
 const { friends, isLoading: friendsLoading } = useFriends()
 const { isDelivering, deliver, maxEdge } = useProofDelivery()
-const { isLogging, logUse } = useDontUse()
+const { isLogging, logUse } = useDontUse(() => refresh())
 
 /** One tap from the row; the row has changed either way, so read it again. */
 async function onLog(goalId: string) {

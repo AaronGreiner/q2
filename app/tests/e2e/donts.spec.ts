@@ -53,7 +53,19 @@ test('a Don\'t is made, a use is logged, and the relapse is asked about and then
   await expect(page.getByTestId('dont-run')).toHaveText('Ab heute')
   await expect(page.getByTestId('dont-period')).toHaveText(/^\s*0 von 1 genutzt$/)
 
-  // Within the limit: one tap, no question.
+  // One counter — the run — and no reminder to set: no streak card beside the
+  // run to disagree with it, and nothing to be reminded to do (#89).
+  await expect(page.getByTestId('goal-balance')).toBeVisible()
+  await expect(page.getByTestId('goal-streak')).toHaveCount(0)
+  await expect(page.getByTestId('goal-reminder')).toHaveCount(0)
+
+  // Within the limit: one tap, no question — and a moment to take it back,
+  // for the thumb that only meant to scroll (#110).
+  await page.getByTestId('dont-log').click()
+  await expect(page.getByTestId('dont-period')).toHaveText(/^\s*1 von 1 genutzt$/)
+  await page.getByRole('button', { name: 'Rückgängig' }).click()
+  await expect(page.getByTestId('dont-period')).toHaveText(/^\s*0 von 1 genutzt$/)
+
   await page.getByTestId('dont-log').click()
   await expect(page.getByTestId('dont-period')).toHaveText(/^\s*1 von 1 genutzt$/)
 
@@ -64,6 +76,10 @@ test('a Don\'t is made, a use is logged, and the relapse is asked about and then
   await page.getByTestId('confirm-accept').click()
 
   await expect(page.getByTestId('dont-period')).toHaveText(/^\s*Rückfall$/)
+
+  // A relapse is not offered back: it was asked about before.
+  await expect(page.getByText('Als Rückfall eingetragen').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Rückgängig' })).toHaveCount(0)
   await expect(page.getByTestId('goal-relapses')).toHaveText('1 Rückfall')
   await expect(page.getByTestId('dont-run')).toHaveText('Ab morgen')
   await expect(page.getByTestId('goal-balance')).toContainText('0 · 0')

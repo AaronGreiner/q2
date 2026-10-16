@@ -447,6 +447,42 @@ public sealed class GoalInstance
     }
 
     /// <summary>
+    /// Takes back the use just logged, and returns it so it can be deleted —
+    /// or null when it may not be taken back (#110).
+    /// </summary>
+    /// <remarks>
+    /// Only the newest use of a window that is still open, and only within
+    /// <see cref="DontUse.UndoPeriod"/> of logging it. A relapse is not undone:
+    /// the use that went over the limit decided the period, and ADR 0037 is
+    /// clear that it cannot be taken back — which is why the app asks before
+    /// that tap and not after it.
+    /// </remarks>
+    public DontUse? UndoUse(Guid useId, DateTimeOffset now)
+    {
+        var newest = NewestUse;
+
+        if (!IsDont
+            || Status != GoalInstanceStatus.Open
+            || newest is null
+            || newest.Id != useId
+            || now > DueAt
+            || now - newest.LoggedAt > DontUse.UndoPeriod)
+        {
+            return null;
+        }
+
+        _useLog.Remove(newest);
+        return newest;
+    }
+
+    /// <summary>The use logged last in this window, if any — what "Rückgängig" names.</summary>
+    public Guid? LatestUseId => NewestUse?.Id;
+
+    // By time, then by id, so two uses in the same instant still have one
+    // answer — the order a collection is loaded in is not one.
+    private DontUse? NewestUse => _useLog.OrderBy(use => use.LoggedAt).ThenBy(use => use.Id).LastOrDefault();
+
+    /// <summary>
     /// Settles a window whose deadline has passed. Returns false when it was
     /// not over, already settled, or still waiting for a vote.
     /// </summary>

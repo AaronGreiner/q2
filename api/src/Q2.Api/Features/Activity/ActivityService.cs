@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Errors;
@@ -50,12 +51,13 @@ public sealed class ActivityService(
             .ToListAsync(cancellationToken);
 
         var actors = await LoadActorsAsync(events, cancellationToken);
+        var goals = await VisibleGoalIdsAsync(events, me.Id, cancellationToken);
 
         return
         [
             .. events
                 .Where(e => actors.ContainsKey(e.ActorPersonId))
-                .Select(e => ActivityResponse.From(e, actors[e.ActorPersonId], me.Id, now)),
+                .Select(e => ActivityResponse.From(e, actors[e.ActorPersonId], me.Id, now, goals)),
         ];
     }
 
@@ -74,7 +76,9 @@ public sealed class ActivityService(
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        return [.. events.Select(e => ActivityResponse.From(e, me, me.Id, now))];
+        var goals = await VisibleGoalIdsAsync(events, me.Id, cancellationToken);
+
+        return [.. events.Select(e => ActivityResponse.From(e, me, me.Id, now, goals))];
     }
 
     /// <summary>
@@ -138,7 +142,43 @@ public sealed class ActivityService(
             activity.Id,
             activity.KudosCount);
 
-        return ActivityResponse.From(activity, actor, me.Id, now);
+        var goals = await VisibleGoalIdsAsync([activity], me.Id, cancellationToken);
+
+        return ActivityResponse.From(activity, actor, me.Id, now, goals);
+    }
+
+    /// <summary>
+    /// Which of the goals these lines came from the viewer may open — the same
+    /// rule as <see cref="Goal.IsVisibleTo"/>, asked of the database in one go.
+    /// </summary>
+    /// <remarks>
+    /// A source is not a foreign key (see <see cref="ActivityEvent.SourceId"/>),
+    /// so a deleted goal is simply not found and its line opens the person.
+    /// </remarks>
+    private async Task<IReadOnlySet<Guid>> VisibleGoalIdsAsync(
+        IReadOnlyCollection<ActivityEvent> events,
+        Guid viewerId,
+        CancellationToken cancellationToken)
+    {
+        var sources = events
+            .Select(e => e.SourceId)
+            .OfType<Guid>()
+            .Distinct()
+            .ToList();
+
+        if (sources.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var visible = await database.Goals
+            .AsNoTracking()
+            .Where(goal => sources.Contains(goal.Id)
+                && (goal.OwnerPersonId == viewerId || goal.Participants.Any(p => p.PersonId == viewerId)))
+            .Select(goal => goal.Id)
+            .ToListAsync(cancellationToken);
+
+        return visible.ToHashSet();
     }
 
     private async Task<IReadOnlyDictionary<Guid, Person>> LoadActorsAsync(

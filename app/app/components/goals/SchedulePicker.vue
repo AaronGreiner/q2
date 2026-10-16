@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GoalScheduleRequest, QuotaPeriod, ScheduleKind, Weekday } from '~/api/types'
-import { intervalChoices, quotaPeriods, scheduleKinds, weekdays } from '~/api/types'
+import { intervalChoices, maxTargetDaysAhead, quotaPeriods, scheduleKinds, weekdays } from '~/api/types'
 
 /**
  * How often a goal is due: the kind first, then whatever that kind needs.
@@ -13,6 +13,10 @@ import { intervalChoices, quotaPeriods, scheduleKinds, weekdays } from '~/api/ty
  * The sentence under it is not decoration. "3× pro Woche" is ambiguous until
  * somebody is told when the week ends and what happens if they only manage two
  * — so the picker says it, in the same words the goal will use afterwards.
+ *
+ * A one-off asks for its day (#94): from today, in the reader's zone, to a year
+ * ahead — the bounds the server checks in the owner's. Without one it was due
+ * the day it was made, and missed the next morning.
  */
 const props = withDefaults(defineProps<{
   /**
@@ -26,7 +30,21 @@ const props = withDefaults(defineProps<{
 
 const model = defineModel<GoalScheduleRequest>({ required: true })
 
+/** A one-off's day, `YYYY-MM-DD`; it belongs to the request, not the schedule. */
+const targetDate = defineModel<string | null>('targetDate', { default: null })
+
 const t = useMessages()
+const now = useNow()
+const zone = useTimeZoneOffset()
+
+const today = computed(() => localDay(now.value, zone.value))
+const latestDay = computed(() => addDays(today.value, maxTargetDaysAhead))
+
+/** The date field speaks `undefined` for empty; the request speaks `null`. */
+const dateField = computed<string | undefined>({
+  get: () => targetDate.value ?? undefined,
+  set: (value) => { targetDate.value = value || null },
+})
 
 const kind = computed(() => model.value.kind ?? 'Interval')
 
@@ -39,6 +57,9 @@ function choose(next: ScheduleKind) {
       : next === 'Times'
         ? { kind: next, times: model.value.times ?? 3, period: model.value.period ?? 'Week' }
         : { kind: next }
+
+  // A one-off starts out due today, as it always was, and can be moved on.
+  if (next === 'Once' && !targetDate.value) targetDate.value = today.value
 }
 
 function toggleWeekday(day: Weekday) {
@@ -68,13 +89,15 @@ function setPeriod(period: QuotaPeriod) {
  * The preview, in exactly the words the goal card will use — composed from the
  * same helpers, so the two cannot drift apart.
  */
-const preview = computed(() => scheduleLabel({
-  kind: kind.value,
-  everyDays: model.value.everyDays ?? null,
-  weekdays: model.value.weekdays ?? [],
-  times: model.value.times ?? null,
-  period: model.value.period ?? null,
-}, t.value))
+const preview = computed(() => (kind.value === 'Once' && targetDate.value
+  ? t.value.schedule.onceBy(formatDay(targetDate.value))
+  : scheduleLabel({
+      kind: kind.value,
+      everyDays: model.value.everyDays ?? null,
+      weekdays: model.value.weekdays ?? [],
+      times: model.value.times ?? null,
+      period: model.value.period ?? null,
+    }, t.value)))
 
 const explanation = computed(() => scheduleExplanation({
   kind: kind.value,
@@ -233,6 +256,29 @@ const timesChoices = computed(() => (model.value.period === 'Month' ? [1, 2, 3, 
           {{ t.schedule.period[period] }}
         </button>
       </div>
+    </div>
+
+    <!-- Once, by a day. -->
+    <div
+      v-else-if="kind === 'Once'"
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        for="schedule-target-date"
+        class="q2-eyebrow"
+      >
+        {{ t.create.targetDateLabel }}
+      </label>
+      <UInput
+        id="schedule-target-date"
+        v-model="dateField"
+        type="date"
+        :min="today"
+        :max="latestDay"
+        size="xl"
+        class="w-full"
+        data-testid="schedule-target-date"
+      />
     </div>
 
     <p

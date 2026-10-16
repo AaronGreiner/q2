@@ -245,7 +245,12 @@ public sealed class GoalSchedule
     /// </param>
     public GoalWindow FirstWindow(DateOnly today, DateOnly? dueOn) => Kind switch
     {
-        ScheduleKind.Once => Day(dueOn ?? today),
+        // Open from today to the day it is due by: "by Friday" can be done on
+        // Wednesday. A window on the due day alone could not take a proof
+        // before it, and one without a day is due today (#94).
+        ScheduleKind.Once => dueOn is { } due && due > today
+            ? new GoalWindow(today, due, RequiredProofs)
+            : Day(dueOn ?? today),
 
         // Starts today. Somebody who commits to something today means today.
         ScheduleKind.Interval => Day(today),

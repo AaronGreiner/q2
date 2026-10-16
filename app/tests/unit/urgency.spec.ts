@@ -163,6 +163,13 @@ describe('firstWindowEnd', () => {
     expect(firstWindowEnd({ kind: 'Once' }, today)).toBe(today)
   })
 
+  // The day a one-off is given is the day its only window ends (#94); every
+  // other kind derives its own and ignores it.
+  it('ends a one-off on the day it was given', () => {
+    expect(firstWindowEnd({ kind: 'Once' }, today, '2026-10-31')).toBe('2026-10-31')
+    expect(firstWindowEnd({ kind: 'Interval', everyDays: 1 }, today, '2026-10-31')).toBe(today)
+  })
+
   it('waits for the next chosen weekday, today included', () => {
     expect(firstWindowEnd({ kind: 'Weekdays', weekdays: ['Thursday'] }, today)).toBe(today)
     expect(firstWindowEnd({ kind: 'Weekdays', weekdays: ['Monday'] }, today)).toBe('2026-09-28')

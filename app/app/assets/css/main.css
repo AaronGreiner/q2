@@ -192,6 +192,24 @@ body > [role="dialog"] {
   bottom: var(--q2-keyboard-inset, 0px);
 }
 
+/*
+ * Except a centred modal (AppConfirmDialog). It is not anchored to an edge but
+ * placed from the middle — Nuxt UI's `top-1/2` and a translate — so a bottom
+ * edge as well stretched it from the middle of the screen to the bottom, and
+ * the translate pulled that up: half the screen tall, with an empty block
+ * under its two buttons (#84). It re-centres in what is above the keyboard
+ * instead, and is as tall as its content.
+ *
+ * Matched on Nuxt UI's own class rather than one of ours, so a centred modal
+ * added later is covered without anybody remembering; quality.spec.ts measures
+ * a real one and fails if an upgrade renames the class.
+ */
+body > [role="dialog"][class~="top-1/2"] {
+  top: calc(50% - var(--q2-keyboard-inset, 0px) / 2);
+  bottom: auto;
+  max-height: calc(100dvh - 2rem - var(--q2-keyboard-inset, 0px));
+}
+
 [data-vaul-drawer][data-vaul-drawer-direction="bottom"] {
   max-height: calc(96% - var(--q2-keyboard-inset, 0px));
 }

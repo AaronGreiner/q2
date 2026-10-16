@@ -13,6 +13,7 @@ import ChatGoalBanner from '~/components/chats/ChatGoalBanner.vue'
 import ChatListRow from '~/components/chats/ChatListRow.vue'
 import FriendRequestRow from '~/components/friends/FriendRequestRow.vue'
 import FriendSuggestionRow from '~/components/friends/FriendSuggestionRow.vue'
+import SentRequestRow from '~/components/friends/SentRequestRow.vue'
 import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
@@ -24,6 +25,7 @@ import type {
   FriendSuggestion,
   Goal,
   Person,
+  SentRequest,
 } from '~/api/types'
 
 vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
@@ -318,6 +320,31 @@ describe('chat presentation', () => {
     expect(wrapper.text()).toContain('Noch 2 von 3')
     await wrapper.get('[data-testid="chat-cheer"]').trigger('click')
     expect(wrapper.emitted('cheer')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="chat-banner-deliver"]').exists()).toBe(false)
+  })
+
+  /**
+   * The owner is the one person in their goal's thread who can deliver, and
+   * the banner used to offer them "Anfeuern" — a cheer from themselves (#88).
+   */
+  it('offers the owner a proof while one is due, and never a cheer', async () => {
+    const mine = {
+      id: 'goal-1',
+      title: 'Halbmarathon',
+      current: goal().current,
+      streak: 2,
+      isMine: true,
+    } as ChatPinnedGoal
+
+    const due = await mountSuspended(ChatGoalBanner, { props: { goal: mine, canDeliver: true } })
+    expect(due.find('[data-testid="chat-cheer"]').exists()).toBe(false)
+    await due.get('[data-testid="chat-banner-deliver"]').trigger('click')
+    expect(due.emitted('deliver')).toHaveLength(1)
+
+    // Nothing due (a vote is pending, or the window is full): nothing to press.
+    const waiting = await mountSuspended(ChatGoalBanner, { props: { goal: mine, canDeliver: false } })
+    expect(waiting.find('[data-testid="chat-cheer"]').exists()).toBe(false)
+    expect(waiting.find('[data-testid="chat-banner-deliver"]').exists()).toBe(false)
   })
 
   it('renders unread state and an honest empty preview in chat rows', async () => {
@@ -369,6 +396,39 @@ describe('feature cards and rows', () => {
     const suggestionRow = await mountSuspended(FriendSuggestionRow, { props: { suggestion } })
     await suggestionRow.get('[data-testid="suggestion-request"]').trigger('click')
     expect(suggestionRow.emitted('request')?.[0]).toEqual(['suggestion-1'])
+  })
+
+  /**
+   * Accepting lets somebody see your goals and photographs, so the person in
+   * a request, a sent request and a suggestion opens their profile — and says
+   * their handle, which nobody else can take (#87). The buttons stay apart.
+   */
+  it('opens the person behind a request, a sent request and a suggestion', async () => {
+    const request = {
+      person: person({ id: 'request-1', displayName: 'Emma', handle: '@emma.r' }),
+      requestedAt: '2026-07-31T09:00:00Z',
+      mutualFriends: 1,
+    } as FriendRequest
+    const requestRow = await mountSuspended(FriendRequestRow, { props: { request } })
+    const requester = requestRow.get('[data-testid="request-person"]')
+    expect(requester.attributes('href')).toBe('/people/request-1')
+    expect(requester.text().replace(/\s+/g, ' ')).toContain('@emma.r · 1 gemeinsamer Freund')
+    expect(requester.find('[data-testid="request-accept"]').exists()).toBe(false)
+
+    const lonely = await mountSuspended(FriendRequestRow, { props: { request: { ...request, mutualFriends: 0 } } })
+    expect(lonely.get('[data-testid="request-person"]').text()).not.toContain('gemeinsam')
+
+    const sentRow = await mountSuspended(SentRequestRow, {
+      props: { request: { person: person({ id: 'sent-1' }), requestedAt: '2026-07-31T09:00:00Z' } as SentRequest },
+    })
+    expect(sentRow.get('[data-testid="sent-request-person"]').attributes('href')).toBe('/people/sent-1')
+
+    const suggestionRow = await mountSuspended(FriendSuggestionRow, {
+      props: { suggestion: { person: person({ id: 'suggestion-1' }), mutualFriends: 3 } as FriendSuggestion },
+    })
+    const suggested = suggestionRow.get('[data-testid="suggestion-person"]')
+    expect(suggested.attributes('href')).toBe('/people/suggestion-1')
+    expect(suggested.find('[data-testid="suggestion-request"]').exists()).toBe(false)
   })
 
   it('renders settings semantics and forwards switch changes', async () => {

@@ -26,11 +26,12 @@ function activity(overrides: Partial<Activity> = {}): Activity {
       isOnline: true,
     },
     kind: 'TaskCompleted',
-    subject: 'Joggen 5 km',
+    subject: 'Jeden Morgen joggen',
     amount: null,
     kudosCount: 8,
     hasMyKudos: false,
     occurredAt: '2026-06-17T08:48:00+00:00',
+    goalId: null,
     ...overrides,
   }
 }
@@ -40,7 +41,7 @@ describe('ActivityRow', () => {
     const wrapper = await mountSuspended(ActivityRow, { props: { activity: activity(), now } })
 
     expect(wrapper.text()).toContain('Jonas Weber')
-    expect(wrapper.text()).toContain('hat „Joggen 5 km“ abgeschlossen')
+    expect(wrapper.text()).toContain('hat bei „Jeden Morgen joggen“ geliefert')
     expect(wrapper.text()).toContain('vor 12 Min')
   })
 
@@ -57,8 +58,49 @@ describe('ActivityRow', () => {
     const button = wrapper.find('[data-testid="kudos-button"]')
 
     expect(button.attributes('aria-pressed')).toBe('false')
-    expect(button.attributes('aria-label')).toBe('Kudos geben')
+    expect(button.attributes('aria-label')).toBe('Kudos geben: Jonas Weber hat bei „Jeden Morgen joggen“ geliefert')
     expect(button.text()).toContain('8')
+  })
+
+  /**
+   * Five buttons on /activity used to be five times "Kudos geben" (#103):
+   * each one is named after its own line.
+   */
+  it('names every kudos button after its own line', async () => {
+    const streak = await mountSuspended(ActivityRow, {
+      props: { activity: activity({ kind: 'StreakReached', subject: null, amount: 7, actor: { ...activity().actor, displayName: 'Lena Schulz' } }), now },
+    })
+
+    expect(streak.get('[data-testid="kudos-button"]').attributes('aria-label'))
+      .toBe('Kudos geben: Lena Schulz hat einen 7-Tage-Streak erreicht')
+  })
+
+  it('opens the goal from the line and the person from the avatar, when the reader is on the goal', async () => {
+    const wrapper = await mountSuspended(ActivityRow, {
+      props: { activity: activity({ goalId: 'goal-1' }), now },
+    })
+
+    expect(wrapper.get('[data-testid="activity-link"]').attributes('href')).toBe('/goals/goal-1')
+
+    // Two different places, so the avatar is a target of its own, with a name.
+    const person = wrapper.get('[data-testid="activity-person"]')
+    expect(person.attributes('href')).toBe('/people/019faece-5a81-7c67-8fa2-00a63d9e9200')
+    expect(person.attributes('aria-label')).toBe('Profil von Jonas Weber öffnen')
+    expect(person.attributes('tabindex')).toBeUndefined()
+
+    // The kudos button is not inside either link.
+    expect(wrapper.find('[data-testid="activity-link"] [data-testid="kudos-button"]').exists()).toBe(false)
+  })
+
+  it('opens the person from the line when the goal is not one the reader may open', async () => {
+    const wrapper = await mountSuspended(ActivityRow, { props: { activity: activity(), now } })
+
+    expect(wrapper.get('[data-testid="activity-link"]').attributes('href')).toBe('/people/019faece-5a81-7c67-8fa2-00a63d9e9200')
+
+    // The avatar goes to the same place: one target for a screen reader, not two.
+    const person = wrapper.get('[data-testid="activity-person"]')
+    expect(person.attributes('aria-hidden')).toBe('true')
+    expect(person.attributes('tabindex')).toBe('-1')
   })
 
   it('says so when you have already given kudos', async () => {
@@ -68,7 +110,7 @@ describe('ActivityRow', () => {
     const button = wrapper.find('[data-testid="kudos-button"]')
 
     expect(button.attributes('aria-pressed')).toBe('true')
-    expect(button.attributes('aria-label')).toBe('Kudos zurücknehmen')
+    expect(button.attributes('aria-label')).toBe('Kudos zurücknehmen: Jonas Weber hat bei „Jeden Morgen joggen“ geliefert')
   })
 
   it('emits the id rather than acting itself', async () => {
@@ -87,5 +129,14 @@ describe('ActivityRow', () => {
 
     expect(wrapper.find('[data-testid="kudos-button"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('8')
+
+    // Never a link to yourself; a line about one of your goals still opens it.
+    expect(wrapper.find('[data-testid="activity-person"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="activity-link"]').exists()).toBe(false)
+
+    const goal = await mountSuspended(ActivityRow, {
+      props: { activity: activity({ goalId: 'goal-1' }), now, readonly: true },
+    })
+    expect(goal.get('[data-testid="activity-link"]').attributes('href')).toBe('/goals/goal-1')
   })
 })

@@ -46,6 +46,12 @@ export interface GoalsApi {
   logUse: (id: string, request: LogUseRequest) => Promise<Goal>
 
   /**
+   * Takes back the use just logged — the window's `latestUseId` — within
+   * seconds of logging it, and never a relapse (#110).
+   */
+  undoUse: (id: string, useId: string) => Promise<Goal>
+
+  /**
    * The Do somebody without friends has waiting — null is the ordinary answer
    * — and whether they have a friend at all. It is not a goal: it starts by
    * itself when the first friendship does (docs/adr/0039-first-run-onboarding.md).
@@ -92,6 +98,8 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     setReminder: (id, request) => call<Goal>(`${goal(id)}/reminder`, { method: 'PUT', body: request }),
 
     logUse: (id, request) => call<Goal>(`${goal(id)}/uses`, { method: 'POST', body: request }),
+
+    undoUse: (id, useId) => call<Goal>(`${goal(id)}/uses/${useId}`, { method: 'DELETE' }),
 
     // 204 and no body: there is nothing left to describe.
     remove: async (id) => {

@@ -8,9 +8,11 @@ import {
   formatDay,
   formatRelativeTime,
   goalIconName,
+  goalScheduleLabel,
   goalStatusPresentation,
   groupByMonth,
   isNotificationOnScreen,
+  localHour,
   notificationIcon,
   notificationLink,
   notificationTag,
@@ -296,6 +298,32 @@ describe('formatClock', () => {
   })
 })
 
+describe('localHour', () => {
+  /**
+   * The start screen greets by this (#81). At 12:06 in Berlin in summer it is
+   * 10:06 UTC, which is where "Guten Morgen" came from past noon.
+   */
+  it('reads the reader\'s clock, not UTC, and greets by it', () => {
+    const summer = 120
+    const at = (utc: string) => localHour(Date.parse(utc), summer)
+
+    expect(at('2026-07-01T10:06:00Z')).toBe(12)
+    expect(de.home.greeting(at('2026-07-01T10:06:00Z'))).toBe('Hallo')
+
+    // The two edges, one minute either side, at the local hour.
+    expect(de.home.greeting(at('2026-07-01T08:59:00Z'))).toBe('Guten Morgen')
+    expect(de.home.greeting(at('2026-07-01T09:00:00Z'))).toBe('Hallo')
+    expect(de.home.greeting(at('2026-07-01T15:59:00Z'))).toBe('Hallo')
+    expect(de.home.greeting(at('2026-07-01T16:00:00Z'))).toBe('Guten Abend')
+  })
+
+  it('wraps across midnight in either direction', () => {
+    expect(localHour(Date.parse('2026-07-01T23:30:00Z'), 120)).toBe(1)
+    expect(localHour(Date.parse('2026-07-01T02:00:00Z'), -300)).toBe(21)
+    expect(localHour(Date.parse('2026-07-01T02:00:00Z'))).toBe(2)
+  })
+})
+
 describe('formatRelativeTime', () => {
   it.each([
     ['2026-06-17T09:00:00Z', 'gerade eben'],
@@ -372,6 +400,14 @@ describe('scheduleLabel', () => {
   it('says every day rather than every one day', () => {
     expect(scheduleLabel(schedule(), de)).toBe('Jeden Tag')
     expect(scheduleLabel(schedule(), en)).toBe('Every day')
+  })
+
+  it('says by when a one-off is due, when it has a day', () => {
+    const once = { kind: 'Do' as const, limit: null, schedule: schedule({ kind: 'Once', everyDays: null }) }
+
+    expect(goalScheduleLabel({ ...once, targetDate: '2026-10-31' }, de)).toBe('Einmalig · bis 31.10.')
+    expect(goalScheduleLabel({ ...once, targetDate: '2026-10-31' }, en)).toBe('Once · by 31.10.')
+    expect(goalScheduleLabel({ ...once, targetDate: null }, de)).toBe('Einmalig')
   })
 
   it('says a week rather than seven days', () => {
@@ -481,18 +517,19 @@ describe('activitySentence', () => {
         isOnline: true,
       },
       kind: 'TaskCompleted',
-      subject: 'Joggen 5 km',
+      subject: 'Jeden Morgen joggen',
       amount: null,
       kudosCount: 8,
       hasMyKudos: false,
       occurredAt: '2026-06-17T08:48:00+00:00',
+      goalId: null,
       ...overrides,
     }
   }
 
   it('composes the sentence from the parts the server sent', () => {
-    expect(activitySentence(activity({}), de)).toBe('hat „Joggen 5 km“ abgeschlossen')
-    expect(activitySentence(activity({}), en)).toBe('completed “Joggen 5 km”')
+    expect(activitySentence(activity({}), de)).toBe('hat bei „Jeden Morgen joggen“ geliefert')
+    expect(activitySentence(activity({}), en)).toBe('delivered for “Jeden Morgen joggen”')
   })
 
   it('uses the amount for a streak', () => {

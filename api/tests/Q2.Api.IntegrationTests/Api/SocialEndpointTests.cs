@@ -21,7 +21,10 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int? Amount,
         int KudosCount,
         bool HasMyKudos,
-        DateTimeOffset OccurredAt);
+        DateTimeOffset OccurredAt,
+        Guid? GoalId);
+
+    private sealed record CreatedGoalDocument(Guid Id);
 
     private sealed record FriendDocument(PersonDocument Person, int Streak, DateTimeOffset? LastSeenAt);
 
@@ -79,6 +82,37 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Null(streak.Subject);
         Assert.NotNull(streak.Amount);
+    }
+
+    /// <summary>
+    /// A line opens its goal (#103), but only for somebody who may open that
+    /// goal: a friend's goal you are not on is still news, and its id would only
+    /// lead to "not found".
+    /// </summary>
+    [Fact]
+    public async Task AFeedLineCarriesItsGoalOnlyForSomebodyOnThatGoal()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        var shared = await (await friend.PostJsonAsync("/api/goals", new
+        {
+            title = "Shared with the reader",
+            participantIds = new[] { AutomatedTestSeed.CurrentPersonId },
+        })).ReadAsync<CreatedGoalDocument>();
+
+        await friend.PostJsonAsync("/api/goals", new
+        {
+            title = "Shared with somebody else",
+            participantIds = new[] { AutomatedTestSeed.UnconnectedPersonId },
+        });
+
+        var feed = await FeedAsync();
+
+        Assert.Equal(shared.Id, feed.Single(entry => entry.Subject == "Shared with the reader").GoalId);
+        Assert.Null(feed.Single(entry => entry.Subject == "Shared with somebody else").GoalId);
+
+        // Lines that are about no goal at all have none either.
+        Assert.All(feed.Where(entry => entry.Kind == ActivityKind.StreakReached), entry => Assert.Null(entry.GoalId));
     }
 
     [Fact]

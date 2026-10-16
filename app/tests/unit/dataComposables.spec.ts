@@ -124,6 +124,7 @@ function installFeatureGlobals(api: object) {
   vi.stubGlobal('useToastMessage', () => ({ show }))
   vi.stubGlobal('useMessages', () => ref(de))
   vi.stubGlobal('refreshNuxtData', refreshNuxtData)
+  vi.stubGlobal('useSession', () => ({ session: ref(null), adopt: vi.fn() }))
 
   return { report, show, refreshNuxtData, hooks }
 }

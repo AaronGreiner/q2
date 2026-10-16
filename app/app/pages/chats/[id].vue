@@ -79,7 +79,7 @@ const canDeliver = computed(() =>
   Boolean(chat.value?.pinnedGoal?.isMine && chat.value.pinnedGoal.current?.acceptsProof) && !isDelivering.value)
 
 /** A Don't's use, logged from its conversation; the line it makes arrives in the thread. */
-const dontUse = useDontUse()
+const dontUse = useDontUse(() => refresh())
 
 async function onLog() {
   const goalId = chat.value?.pinnedGoal?.id
@@ -281,8 +281,10 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           v-if="chat.pinnedGoal"
           :goal="chat.pinnedGoal"
           :logging="dontUse.isLogging.value"
+          :can-deliver="canDeliver"
           @log="onLog"
           @cheer="cheer()"
+          @deliver="isCameraOpen = true"
         />
 
         <!-- Always rendered, so the first message animates in rather than
@@ -310,6 +312,15 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
               :from="item.from"
               :to="item.to"
               :count="item.count"
+            />
+
+            <ChatKeptRun
+              v-else-if="item.kind === 'keptRun'"
+              :from="item.from"
+              :to="item.to"
+              :count="item.count"
+              :streak="item.streak"
+              :held="item.held"
             />
 
             <ChatBubble

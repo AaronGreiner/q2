@@ -42,7 +42,7 @@ const t = useMessages()
     -->
     <NuxtLink
       :to="`/people/${result.person.id}`"
-      class="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex min-h-11 min-w-0 flex-1 flex-col justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       data-q2-private
       data-testid="person-link"
     >

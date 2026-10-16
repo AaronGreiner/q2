@@ -123,11 +123,11 @@ useHead({ title: () => t.value.auth.signInHeading })
         :error="fieldError('password')"
         name="password"
       >
-        <UInput
+        <!-- No placeholder: the length rule is for choosing a password, and
+             here it read as if somebody's own one had to meet it (#114). -->
+        <AppPasswordInput
           v-model="password"
-          type="password"
           autocomplete="current-password"
-          :placeholder="t.auth.passwordPlaceholder"
           size="xl"
           class="w-full"
           data-testid="login-password"

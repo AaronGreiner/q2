@@ -14,7 +14,7 @@ const now = useNow()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, answerSpotCheck, maxEdge } = useProofDelivery()
-const { isLogging, logUse } = useDontUse()
+const { isLogging, logUse } = useDontUse(() => refresh())
 
 /*
  * An open spot check is the first thing on this screen (docs/adr/0038-spot-checks.md):
@@ -97,7 +97,10 @@ const dontsToday = computed(() => due.value.filter(goal => goal.kind === 'Dont')
 // Your own goals are not repeated here at all — they have the Dos tab.
 const recentFeed = computed(() => feed.value.slice(0, 3))
 
-const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
+// By the reader's clock, not UTC (#81). Zero offset on the server and in the
+// first client render, corrected once mounted — see `useTimeZoneOffset`.
+const zone = useTimeZoneOffset()
+const greeting = computed(() => t.value.home.greeting(localHour(now.value, zone.value)))
 
 /*
  * Somebody with nobody to make a goal in front of has one next step, and it is

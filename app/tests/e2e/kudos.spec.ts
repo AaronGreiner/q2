@@ -128,6 +128,21 @@ test.describe('the start screen', () => {
     await button.click()
     await expect(button).toHaveAttribute('aria-pressed', 'false')
     await expect(button).toContainText(String(before))
+
+    // Named after its line, not "Kudos geben" five times over (#103).
+    await expect(button).toHaveAttribute('aria-label', new RegExp(`^Kudos geben: ${seeded.friend} `))
+  })
+
+  test('a feed line opens what it is about', async ({ page }) => {
+    await page.goto('/activity')
+
+    // A friend's run on no goal the reader is on opens the friend (#103); the
+    // kudos button beside it stays a target of its own.
+    const row = page.getByTestId('activity-row').filter({ hasText: seeded.friend }).first()
+    await row.getByTestId('activity-link').click()
+
+    await expect(page).toHaveURL(/\/people\//)
+    await expect(page.getByTestId('content-panel')).toContainText(seeded.friend)
   })
 
   test('the header leads to your own profile', async ({ page }) => {
@@ -260,6 +275,10 @@ test.describe('goals', () => {
     await page.goto(`/goals/${seeded.sharedGoalId}`)
 
     await expect(page.getByTestId('progress-ring')).toHaveAttribute('aria-valuenow', '0')
+
+    // A Do keeps its streak and its reminder; only a Don't goes without (#89).
+    await expect(page.getByTestId('goal-streak')).toBeVisible()
+    await expect(page.getByTestId('goal-reminder')).toBeVisible()
 
     await page.getByTestId('goal-deliver-proof').click()
     await deliverPhoto(page)
@@ -517,6 +536,21 @@ test.describe('friends', () => {
     await expect(page.getByTestId('friend-list')).toContainText(seeded.friend)
   })
 
+  test('the person behind a request or a suggestion opens their profile', async ({ page }) => {
+    for (const [row, link, name] of [
+      ['friend-request', 'request-person', seeded.requester],
+      ['friend-suggestion', 'suggestion-person', seeded.suggested],
+    ] as const) {
+      await page.goto('/search')
+
+      // Somebody to look at before deciding about them (#87).
+      await page.getByTestId(row).filter({ hasText: name }).getByTestId(link).click()
+
+      await expect(page).toHaveURL(/\/people\//)
+      await expect(page.getByTestId('content-panel')).toContainText(name)
+    }
+  })
+
   test('asking a suggested person moves them into the sent requests', async ({ page }) => {
     await page.goto('/search')
 
@@ -611,6 +645,20 @@ test.describe('profile and settings', () => {
     await page.reload()
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
+    // The server paints English itself rather than German that turns English
+    // after hydration (#85) — on a screen that does not read the settings
+    // itself, which the settings screen does. From the language this device
+    // remembers…
+    const serverHtml = async () => await (await page.request.get('/goals/archive')).text()
+    let html = await serverHtml()
+    expect(html).toMatch(/<html[^>]*\slang="en"/)
+    expect(html).toContain('<title>Archive · Qdos</title>')
+
+    // …and from the account's own setting on a device that remembers nothing.
+    await page.context().clearCookies({ name: 'q2-language' })
+    html = await serverHtml()
+    expect(html).toMatch(/<html[^>]*\slang="en"/)
+
     // Put it back for whatever runs next.
     await page.getByTestId('segment-German').click()
     await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
@@ -623,6 +671,22 @@ test.describe('profile and settings', () => {
 
     await expect(page).toHaveURL('/settings/notifications')
     await expect(page.getByRole('heading', { name: 'Benachrichtigungen' })).toBeVisible()
+  })
+
+  test('the profile is edited from the settings too, in the same sheet as on the profile', async ({ page }) => {
+    await page.goto('/settings')
+
+    // A row that opens something now, not a greyed-out label (#92).
+    await page.getByTestId('settings-edit-profile').click()
+
+    const name = page.getByTestId('profile-name')
+    await expect(name).toBeVisible()
+    await expect(name).toHaveValue('E2E Mara')
+
+    // Closing it leaves you where you were.
+    await page.keyboard.press('Escape')
+    await expect(name).toBeHidden()
+    await expect(page).toHaveURL('/settings')
   })
 })
 

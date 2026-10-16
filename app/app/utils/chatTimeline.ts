@@ -52,6 +52,7 @@ export type ThreadRow
   = | ThreadItem
     | { kind: 'day', key: string, label: string }
     | { kind: 'missedRun', key: string, from: string, to: string, count: number }
+    | { kind: 'keptRun', key: string, from: string, to: string, count: number, streak: number, held: boolean }
 
 /**
  * The items as rows, with day separators and missed windows folded together.
@@ -68,6 +69,15 @@ export type ThreadRow
  * own day instead ("Geschafft · Streak 3 · 3.9."): a daily goal has one on
  * every day, and a separator above each would double the thread.
  *
+ * Kept windows are folded the same way (#100) — "22.9.–12.10. · 21 Fenster
+ * geschafft · Streak 21" — or a daily goal adds a line a day, about 365 a
+ * year. One difference, because a Do's kept window always follows the
+ * photograph that kept it: photographs do not break a run. They stay where
+ * they are, each with its own verdict, and the run's line comes after the
+ * last of them, where the last window of the run was kept. Anything else —
+ * a message, a miss, a use, a pause — breaks it, so what somebody said about
+ * a particular day still sits beside that day.
+ *
  * `offsetMinutes` is the reader's zone, zero until hydration — see
  * `useTimeZoneOffset`.
  */
@@ -80,6 +90,29 @@ export function threadRows(items: readonly ThreadItem[], now: number, t: Message
 
     if (isMissed(item)) {
       while (isMissed(items[end + 1])) end++
+    }
+
+    if (isKept(item)) {
+      const run = keptRun(items, index)
+
+      if (run) {
+        const kept = run.items.filter(isKept)
+        const last = kept.at(-1)!
+        const days = kept.map(entry => windowDay(entry, offsetMinutes)).sort()
+
+        folded.push(...run.items.filter(entry => entry.kind === 'proof'))
+        folded.push({
+          kind: 'keptRun',
+          key: `kept:${item.key}`,
+          from: formatDay(days[0]!),
+          to: formatDay(days.at(-1)!),
+          count: kept.length,
+          streak: last.kind === 'event' ? last.event.streak ?? 0 : 0,
+          held: last.kind === 'event' && last.event.limit !== null && last.event.limit !== undefined,
+        })
+        index = run.end
+        continue
+      }
     }
 
     if (end > index) {
@@ -122,6 +155,33 @@ export function threadRows(items: readonly ThreadItem[], now: number, t: Message
 
 function isMissed(item: ThreadItem | undefined): boolean {
   return item?.kind === 'event' && item.event.kind === 'WindowMissed'
+}
+
+function isKept(item: ThreadItem | undefined): boolean {
+  return item?.kind === 'event' && item.event.kind === 'WindowDone'
+}
+
+/**
+ * Two or more kept windows from `start` on, with nothing but photographs
+ * between them — or null. `end` is the last kept window's index: a photograph
+ * after it belongs to the next window and stays outside the run.
+ */
+function keptRun(items: readonly ThreadItem[], start: number): { items: ThreadItem[], end: number } | null {
+  let end = start
+  let count = 1
+
+  for (let index = start + 1; index < items.length; index++) {
+    const item = items[index]
+    if (isKept(item)) {
+      end = index
+      count++
+    }
+    else if (item?.kind !== 'proof') {
+      break
+    }
+  }
+
+  return count >= 2 ? { items: items.slice(start, end + 1), end } : null
 }
 
 function windowDay(item: ThreadItem, offsetMinutes: number): string {

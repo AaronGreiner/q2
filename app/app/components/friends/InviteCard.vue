@@ -13,7 +13,18 @@
  *
  * The link is built in the browser from the page's own origin — the server
  * hands back a code and does not know which host the app is served from.
+ *
+ * On the friends tab the search box above it is the second way in, and the
+ * card says so (`withSearch`) rather than leaving it to an empty "your friends"
+ * list underneath that said "Noch keine Freunde" a second time (#113).
  */
+withDefaults(defineProps<{
+  /** Whether the screen has a person search above the card to point to. */
+  withSearch?: boolean
+}>(), {
+  withSearch: false,
+})
+
 const t = useMessages()
 
 const { url, isLoading, isReplacing, share, replace } = useInvite()
@@ -80,6 +91,14 @@ const isConfirmingReplace = ref(false)
         @click="isConfirmingReplace = true"
       />
     </div>
+
+    <p
+      v-if="withSearch"
+      class="mt-3 text-[13px] leading-relaxed font-semibold text-(--ui-text-muted)"
+      data-testid="invite-search-hint"
+    >
+      {{ t.invite.orSearch }}
+    </p>
 
     <p class="mt-3 text-[12px] font-semibold text-(--ui-text-dimmed)">
       {{ t.invite.meanwhile }}

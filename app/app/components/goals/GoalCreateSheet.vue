@@ -80,6 +80,9 @@ const friendQuery = ref('')
  */
 const schedule = ref<GoalScheduleRequest>({ kind: 'Interval', everyDays: 1 })
 
+/** A one-off's day (#94), chosen in the picker; sent only with a one-off. */
+const targetDate = ref<string | null>(null)
+
 /** A Don't's half of the draft: never, per day, on the owner's word until changed. */
 const dontLimit = ref<DontLimit>({ limit: 0, period: 'Day', proofMode: 'HonestOnly' })
 
@@ -134,18 +137,22 @@ const chosenNames = computed(() => props.friends
 
 const scheduleText = computed(() => (isDont.value
   ? t.value.dont.limit(dontLimit.value.limit, t.value.schedule.period[dontLimit.value.period])
-  : scheduleLabel({
-      kind: schedule.value.kind ?? 'Interval',
-      everyDays: schedule.value.everyDays ?? null,
-      weekdays: schedule.value.weekdays ?? [],
-      times: schedule.value.times ?? null,
-      period: schedule.value.period ?? null,
-    }, t.value)))
+  : schedule.value.kind === 'Once' && targetDate.value
+    ? t.value.schedule.onceBy(formatDay(targetDate.value))
+    : scheduleLabel({
+        kind: schedule.value.kind ?? 'Interval',
+        everyDays: schedule.value.everyDays ?? null,
+        weekdays: schedule.value.weekdays ?? [],
+        times: schedule.value.times ?? null,
+        period: schedule.value.period ?? null,
+      }, t.value)))
 
 /** The sentence that says what happens the moment the goal exists. */
 const firstWindow = computed(() => {
   const today = localDay(now.value, zone.value)
-  const end = firstWindowEnd(isDont.value ? dontSchedule.value : schedule.value, today)
+  const end = isDont.value
+    ? firstWindowEnd(dontSchedule.value, today)
+    : firstWindowEnd(schedule.value, today, targetDate.value)
 
   if (end === today) return t.value.create.firstWindowToday
   if (end === addDays(today, 1)) return t.value.create.firstWindowTomorrow
@@ -166,7 +173,7 @@ function fieldError(field: string): string | undefined {
 watch(() => props.error, (failure) => {
   if (!failure) return
   if (fieldError('title') || fieldError('icon')) step.value = 0
-  else if (fieldError('schedule') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
+  else if (fieldError('schedule') || fieldError('targetDate') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
 
@@ -205,6 +212,7 @@ function onSubmit() {
     : {
         title: title.value.trim(),
         schedule: schedule.value,
+        ...(schedule.value.kind === 'Once' ? { targetDate: targetDate.value } : {}),
         icon: icon.value,
         reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
         participantIds: [...participantIds.value],
@@ -218,6 +226,7 @@ function reset() {
   title.value = ''
   icon.value = goalIcons[0]!
   schedule.value = { kind: 'Interval', everyDays: 1 }
+  targetDate.value = null
   dontLimit.value = { limit: 0, period: 'Day', proofMode: 'HonestOnly' }
   withReminder.value = true
   reminderTime.value = '09:00'
@@ -451,9 +460,12 @@ defineExpose({ reset })
           <UFormField
             :label="t.create.scheduleLabel"
             name="schedule"
-            :error="fieldError('schedule')"
+            :error="fieldError('schedule') || fieldError('targetDate')"
           >
-            <SchedulePicker v-model="schedule" />
+            <SchedulePicker
+              v-model="schedule"
+              v-model:target-date="targetDate"
+            />
           </UFormField>
 
           <div class="flex flex-col gap-3 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-4 py-3">

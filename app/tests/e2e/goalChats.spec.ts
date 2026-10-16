@@ -35,6 +35,10 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
   await expect(page.getByTestId('chat-event').first()).toContainText('Du hast es angelegt.')
 
+  // The banner offers the owner the proof, not a cheer from themselves (#88).
+  await expect(page.getByTestId('chat-banner-deliver')).toBeVisible()
+  await expect(page.getByTestId('chat-cheer')).toHaveCount(0)
+
   // The camera is in the thread, for the owner, while the window takes one.
   await page.getByTestId('chat-deliver').click()
   await deliverPhoto(page)
@@ -47,6 +51,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   await expect(mine.getByTestId('proof-source')).toHaveText('Screenshot')
   await expect(mine.getByTestId('proof-confirm')).toHaveCount(0)
   await expect(page.getByTestId('chat-deliver')).toHaveCount(0)
+  await expect(page.getByTestId('chat-banner-deliver')).toHaveCount(0)
 
   const chatUrl = page.url()
 
@@ -67,6 +72,10 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
 
     await row.click()
     await expect(friendPage).toHaveURL(chatUrl)
+
+    // A friend's view is as it was: they can cheer, and cannot deliver.
+    await expect(friendPage.getByTestId('chat-cheer')).toBeVisible()
+    await expect(friendPage.getByTestId('chat-banner-deliver')).toHaveCount(0)
 
     const proof = friendPage.getByTestId('chat-proof').last()
     await expect(proof.getByTestId('proof-source')).toHaveText('Screenshot')

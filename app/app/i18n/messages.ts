@@ -63,6 +63,7 @@ export const de = {
     password: 'Passwort',
     passwordPlaceholder: 'Mindestens 10 Zeichen',
     passwordHint: (minimum: number) => `Mindestens ${minimum} Zeichen. Länger ist besser als komplizierter.`,
+    showPassword: 'Passwort anzeigen',
     signIn: 'Anmelden',
     signUp: 'Registrieren',
     signOut: 'Abmelden',
@@ -219,6 +220,7 @@ export const de = {
     scheduleLabel: 'Fälligkeit',
     iconLabel: 'Symbol',
     intervalLabel: 'Alle wie viele Tage?',
+    targetDateLabel: 'Bis zu welchem Tag?',
     weekdaysLabel: 'An welchen Tagen?',
     timesLabel: 'Wie oft?',
     periodLabel: 'Pro',
@@ -263,6 +265,7 @@ export const de = {
    */
   schedule: {
     once: 'Einmalig',
+    onceBy: (day: string) => `Einmalig · bis ${day}`,
     everyDay: 'Jeden Tag',
     everyNDays: (days: number) => (days === 1 ? 'Jeden Tag' : days === 7 ? 'Jede Woche' : `Alle ${days} Tage`),
     timesPer: (times: number, period: string) => `${times}× pro ${period}`,
@@ -482,6 +485,9 @@ export const de = {
     onDay: (text: string, day: string) => `${text} · ${day}`,
     dayRange: (from: string, to: string) => `${from}–${to}`,
     missedRun: (count: number, range: string) => `${range} · ${count} Fenster verpasst`,
+    // The streak a run ends on is at least its length; that is the default.
+    keptRun: (count: number, range: string, streak = count) => `${range} · ${count} Fenster geschafft · Streak ${streak}`,
+    heldRun: (count: number, range: string, streak = count) => `${range} · ${count}-mal durchgehalten · Streak ${streak}`,
     nextStep: (label: string, left: string) => `${label} · ${left}`,
   },
 
@@ -523,7 +529,7 @@ export const de = {
     goals: 'Abgeschlossen',
     activity: 'Letzte Aktivität',
     noActivity: 'Noch nichts passiert.',
-    noActivityHint: 'Hak eine Aufgabe ab — sie steht dann hier.',
+    noActivityHint: 'Liefer einen Beweis, den deine Freunde glauben — er steht dann hier.',
     openSettings: 'Einstellungen öffnen',
   },
 
@@ -743,6 +749,7 @@ export const de = {
     replaceHeading: 'Link ersetzen?',
     replaceBody: 'Der alte Link funktioniert danach nicht mehr. Wer ihn schon benutzt hat, bleibt dein Freund.',
     replaceConfirm: 'Ersetzen',
+    orSearch: 'Ist schon jemand hier? Dann such oben nach dem Namen.',
     meanwhile: 'Bis dahin: Bei der Challenge des Tages kannst du auch allein mitmachen.',
     open: 'Freunde einladen',
     sheetBody: 'Wer über deinen Link kommt, ist sofort mit dir befreundet — auch ohne Konto.',
@@ -1204,12 +1211,14 @@ export const de = {
   },
 
   activity: {
-    taskCompleted: (subject: string) => `hat „${subject}“ abgeschlossen`,
+    taskCompleted: (subject: string) => `hat bei „${subject}“ geliefert`,
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht`,
     goalProgress: (subject: string, percent: number) => `ist bei „${subject}“ auf ${percent}\u00A0%`,
     goalCreated: (subject: string) => `hat sich etwas vorgenommen: ${subject}`,
-    giveKudos: 'Kudos geben',
-    takeBackKudos: 'Kudos zurücknehmen',
+    /** Named after the line, so five buttons on one screen are five different buttons (#103). */
+    giveKudos: (line: string) => `Kudos geben: ${line}`,
+    takeBackKudos: (line: string) => `Kudos zurücknehmen: ${line}`,
+    openPerson: (name: string) => `Profil von ${name} öffnen`,
   },
 
   /**
@@ -1290,6 +1299,9 @@ export const de = {
     proofCounted: { icon: 'i-lucide-check', text: 'Beweis gezählt' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Beweis abgegeben — deine Freunde prüfen ihn' },
     useLogged: { icon: 'i-lucide-check', text: 'Eingetragen' },
+    useUndone: { icon: 'i-lucide-undo-2', text: 'Zurückgenommen' },
+    undoTooLate: { icon: 'i-lucide-clock', text: 'Zu spät — der Eintrag bleibt' },
+    undo: 'Rückgängig',
     spotCheckAnswered: { icon: 'i-lucide-hourglass', text: 'Stichprobe abgegeben — deine Freunde prüfen sie' },
     relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Als Rückfall eingetragen' },
     draftSaved: { icon: 'i-lucide-hourglass', text: 'Vorgemerkt — startet mit deinem ersten Freund' },
@@ -1340,6 +1352,7 @@ export const en: Messages = {
     password: 'Password',
     passwordPlaceholder: 'At least 10 characters',
     passwordHint: (minimum: number) => `At least ${minimum} characters. Longer beats complicated.`,
+    showPassword: 'Show password',
     signIn: 'Sign in',
     signUp: 'Sign up',
     signOut: 'Sign out',
@@ -1489,6 +1502,7 @@ export const en: Messages = {
     scheduleLabel: 'Due',
     iconLabel: 'Icon',
     intervalLabel: 'Every how many days?',
+    targetDateLabel: 'By which day?',
     weekdaysLabel: 'On which days?',
     timesLabel: 'How often?',
     periodLabel: 'Per',
@@ -1526,6 +1540,7 @@ export const en: Messages = {
 
   schedule: {
     once: 'Once',
+    onceBy: (day: string) => `Once · by ${day}`,
     everyDay: 'Every day',
     everyNDays: (days: number) => (days === 1 ? 'Every day' : days === 7 ? 'Every week' : `Every ${days} days`),
     timesPer: (times: number, period: string) => `${times}× per ${period}`,
@@ -1723,6 +1738,8 @@ export const en: Messages = {
     onDay: (text: string, day: string) => `${text} · ${day}`,
     dayRange: (from: string, to: string) => `${from}–${to}`,
     missedRun: (count: number, range: string) => `${range} · ${count} windows missed`,
+    keptRun: (count: number, range: string, streak = count) => `${range} · ${count} windows done · streak ${streak}`,
+    heldRun: (count: number, range: string, streak = count) => `${range} · held ${count} times · streak ${streak}`,
     nextStep: (label: string, left: string) => `${label} · ${left}`,
   },
 
@@ -1761,7 +1778,7 @@ export const en: Messages = {
     goals: 'Completed',
     activity: 'Recent activity',
     noActivity: 'Nothing has happened yet.',
-    noActivityHint: 'Tick a task off and it will show up here.',
+    noActivityHint: 'Deliver a proof your friends believe, and it shows up here.',
     openSettings: 'Open settings',
   },
 
@@ -1929,6 +1946,7 @@ export const en: Messages = {
     replaceHeading: 'Replace the link?',
     replaceBody: 'The old link stops working. Whoever already used it stays your friend.',
     replaceConfirm: 'Replace',
+    orSearch: 'Somebody already here? Then search above for their name.',
     meanwhile: 'Until then: the challenge of the day is something you can do on your own.',
     open: 'Invite friends',
     sheetBody: 'Whoever comes through your link is your friend straight away — even without an account yet.',
@@ -2334,12 +2352,13 @@ export const en: Messages = {
   },
 
   activity: {
-    taskCompleted: (subject: string) => `completed “${subject}”`,
+    taskCompleted: (subject: string) => `delivered for “${subject}”`,
     streakReached: (days: number) => `reached a ${days}-day streak`,
     goalProgress: (subject: string, percent: number) => `is at ${percent}% on “${subject}”`,
     goalCreated: (subject: string) => `made a new commitment: ${subject}`,
-    giveKudos: 'Give kudos',
-    takeBackKudos: 'Take kudos back',
+    giveKudos: (line: string) => `Give kudos: ${line}`,
+    takeBackKudos: (line: string) => `Take kudos back: ${line}`,
+    openPerson: (name: string) => `Open ${name}'s profile`,
   },
 
   kudos: {
@@ -2401,6 +2420,9 @@ export const en: Messages = {
     proofCounted: { icon: 'i-lucide-check', text: 'Proof counted' },
     proofWaiting: { icon: 'i-lucide-hourglass', text: 'Proof delivered — your friends are checking it' },
     useLogged: { icon: 'i-lucide-check', text: 'Logged' },
+    useUndone: { icon: 'i-lucide-undo-2', text: 'Taken back' },
+    undoTooLate: { icon: 'i-lucide-clock', text: 'Too late — the use stays' },
+    undo: 'Undo',
     spotCheckAnswered: { icon: 'i-lucide-hourglass', text: 'Spot check delivered — your friends are checking it' },
     relapseLogged: { icon: 'i-lucide-rotate-ccw', text: 'Logged as a relapse' },
     draftSaved: { icon: 'i-lucide-hourglass', text: 'Saved — it starts with your first friend' },

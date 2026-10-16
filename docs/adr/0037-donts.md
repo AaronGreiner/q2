@@ -52,6 +52,12 @@ The app asks before the tap that would be the relapse. One question with the
 honest cost stated, because a relapse cannot be taken back and a slipped thumb
 should not cost a week. It does not try to talk anybody out of it.
 
+A use within the limit is not asked about, so it can be taken back instead: the
+newest use of a period still open, by its owner, within 30 seconds of logging
+it (`DontUse.UndoPeriod`, `DELETE /api/goals/{id}/uses/{useId}`). The app
+offers that as "Rückgängig" on the toast that confirms the use. The relapse is
+never offered back — it was the one tap that was asked about (#110).
+
 ### What a relapse costs, and what it does not
 
 - **The streak holds.** It neither grows nor ends: owning up costs less than

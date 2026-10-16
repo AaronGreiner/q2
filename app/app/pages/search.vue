@@ -77,6 +77,9 @@ if (typed) void runSearch()
 /** Whether the typed-in box is showing results instead of the usual sections. */
 const isSearchMode = computed(() => search.value.trim().length > 0)
 
+/** Nobody to show and nobody asking: the invite card stands in for the lists. */
+const isInviting = computed(() => friends.value.length === 0 && requests.value.length === 0)
+
 /*
  * The invite link, for somebody who already has friends. With none, the
  * `InviteCard` further down says the same thing more loudly.
@@ -242,10 +245,16 @@ useHead({ title: () => t.value.friends.pageHeading })
             new account both of those are empty and the screen would otherwise
             open on nothing at all. It disappears the moment there is a single
             friend: an invite card on a full screen is furniture.
+
+            While it is shown it is also the empty state of "your friends",
+            which is therefore left out: one "Noch keine Freunde" with the link
+            first and the search second, not two of them with different
+            advice (#113).
           -->
           <InviteCard
-            v-if="friends.length === 0 && requests.length === 0"
+            v-if="isInviting"
             class="mb-6"
+            with-search
           />
 
           <section
@@ -327,7 +336,10 @@ useHead({ title: () => t.value.friends.pageHeading })
             </ul>
           </section>
 
-          <section aria-labelledby="friends-heading">
+          <section
+            v-if="!isInviting"
+            aria-labelledby="friends-heading"
+          >
             <h2
               id="friends-heading"
               class="q2-eyebrow mb-3 px-0.5"

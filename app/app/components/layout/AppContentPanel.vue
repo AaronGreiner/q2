@@ -13,6 +13,10 @@ import type { ComponentPublicInstance } from 'vue'
  * back to (#118). The window never scrolls in q2 — both layouts are one
  * viewport tall — so the router's own scroll restoration, which saves the
  * window's, has nothing to restore.
+ *
+ * The scroll area is `relative` so that a screen-reader text inside it is
+ * placed among the rows it belongs to and scrolls with them, rather than
+ * against the shell (#83).
  */
 const card = useTemplateRef<ComponentPublicInstance>('card')
 
@@ -38,7 +42,7 @@ onBeforeUnmount(() => abandon?.())
     class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-(--q2-radius-panel) rounded-b-none bg-(--q2-surface) shadow-none ring-0"
     :ui="{
       header: 'shrink-0 border-0 px-5 pt-4 pb-2 sm:px-5',
-      body: ['q2-content-arrival q2-scroll min-h-0 flex-1 overflow-x-hidden px-5 pt-4 pb-8 sm:p-5', $slots.toolbar ? 'pt-0 sm:pt-0' : ''],
+      body: ['q2-content-arrival q2-scroll relative min-h-0 flex-1 overflow-x-hidden px-5 pt-4 pb-8 sm:p-5', $slots.toolbar ? 'pt-0 sm:pt-0' : ''],
     }"
     data-testid="content-panel"
   >

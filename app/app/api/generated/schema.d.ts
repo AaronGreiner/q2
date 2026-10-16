@@ -400,6 +400,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/{id}/uses/{useId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Takes back the use of your own Don't you logged last, within seconds of logging it. Never a relapse. */
+        delete: operations["UndoDontUse"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/{id}/pause": {
         parameters: {
             query?: never;
@@ -1210,6 +1227,8 @@ export interface components {
             hasMyKudos: boolean;
             /** Format: date-time */
             occurredAt: string;
+            /** Format: uuid */
+            goalId: string | null;
         };
         AnswerSpotCheckRequest: {
             /** Format: uuid */
@@ -1502,6 +1521,8 @@ export interface components {
             limit: number | null;
             /** Format: int32 */
             uses: number;
+            /** Format: uuid */
+            latestUseId: string | null;
         };
         /** @enum {unknown} */
         GoalInstanceStatus: "Open" | "Done" | "Missed" | "Paused" | "Relapse";
@@ -2854,6 +2875,47 @@ export interface operations {
                 "application/json": components["schemas"]["LogUseRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    UndoDontUse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                useId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

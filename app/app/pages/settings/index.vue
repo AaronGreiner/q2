@@ -12,8 +12,10 @@ import type { LanguagePreference, ThemePreference } from '~/api/types'
  * kind, this device, and the quiet hours are three questions, and together
  * they would bury appearance and account under a dozen toggles.
  *
- * The three greyed-out account rows are still settings for features that do not
- * exist, and saying so is better than a row that quietly does nothing.
+ * The two greyed-out account rows are still settings for features that do not
+ * exist, and saying so is better than a row that quietly does nothing. Editing
+ * the profile does exist, and opens the same sheet as the pencil on the profile
+ * (#92) — this is where most apps put it, and where people look first.
  */
 definePageMeta({ layout: 'plain' })
 
@@ -28,6 +30,13 @@ const { person, logout } = useSession()
 
 const isDeleting = ref(false)
 const feedback = useFeedback()
+
+const { profile, isSaving, rename, chooseAvatar, removeAvatar } = useProfile()
+const isEditingProfile = ref(false)
+
+async function onSaveProfile(value: { displayName: string }) {
+  if (await rename(value.displayName)) isEditingProfile.value = false
+}
 
 const isSigningOut = ref(false)
 
@@ -78,8 +87,7 @@ const selectedLanguage = computed<LanguagePreference>({
   set: value => update({ language: value }),
 })
 
-const accountRows = computed(() => [
-  { icon: 'i-lucide-user', label: t.value.settings.editProfile },
+const unavailableAccountRows = computed(() => [
   { icon: 'i-lucide-lock', label: t.value.settings.privacy },
   { icon: 'i-lucide-circle-help', label: t.value.settings.help },
 ])
@@ -146,13 +154,21 @@ useHead({ title: () => t.value.settings.heading })
         :title="t.settings.account"
         :note="t.settings.accountNote"
       >
+        <SettingsActionRow
+          icon="i-lucide-user"
+          :label="t.settings.editProfile"
+          :busy="!profile"
+          data-testid="settings-edit-profile"
+          @activate="isEditingProfile = true"
+        />
+
         <!--
           Not buttons: there is nothing behind them yet, and a control that
           reacts to a tap by doing nothing is worse than one that is visibly
           unavailable.
         -->
         <div
-          v-for="row in accountRows"
+          v-for="row in unavailableAccountRows"
           :key="row.label"
           class="flex items-center gap-3 border-b border-(--ui-border) px-4 py-3 text-(--ui-text-muted) last:border-b-0"
         >
@@ -269,5 +285,15 @@ useHead({ title: () => t.value.settings.heading })
     </AppContentPanel>
 
     <DeleteAccountSheet v-model:open="isDeleting" />
+
+    <ProfileEditor
+      v-if="profile"
+      v-model:open="isEditingProfile"
+      :person="profile.person"
+      :submitting="isSaving"
+      @save="onSaveProfile"
+      @photo="image => chooseAvatar(image.id)"
+      @remove="profile.person.avatarImageId && removeAvatar(profile.person.avatarImageId)"
+    />
   </div>
 </template>

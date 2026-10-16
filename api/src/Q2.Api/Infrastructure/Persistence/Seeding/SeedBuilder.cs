@@ -418,6 +418,10 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// Whether the signed-in person has already cheered this. It is what makes
     /// the "you already gave kudos" state visible without anybody tapping.
     /// </param>
+    /// <param name="source">
+    /// The goal the line is about, as the real publishers record it — what lets
+    /// a feed line open its goal (#103).
+    /// </param>
     public ActivityEvent AddActivity(
         Person actor,
         ActivityKind kind,
@@ -425,7 +429,8 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         int? amount,
         int kudosCount,
         int minutesAgo,
-        bool kudosFromMe = false)
+        bool kudosFromMe = false,
+        Goal? source = null)
     {
         var activity = ActivityEvent.Create(
             NextId(SeedEntity.Activity),
@@ -434,7 +439,8 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             subject,
             amount,
             kudosCount,
-            Context.MinutesAgo(minutesAgo));
+            Context.MinutesAgo(minutesAgo),
+            source?.Id);
 
         if (kudosFromMe)
         {

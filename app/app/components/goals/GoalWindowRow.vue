@@ -142,7 +142,7 @@ const left = computed(() => {
             class="size-3"
             aria-hidden="true"
           />
-          {{ scheduleLabel(goal.schedule, t) }}
+          {{ goalScheduleLabel(goal, t) }}
         </span>
 
         <!-- "Heute fällig" says nothing the countdown beside it does not, so

@@ -15,7 +15,7 @@ public class ActivityEventTests
     private readonly Guid _viewer = Guid.CreateVersion7();
 
     private ActivityEvent Build(int kudos = 0) => ActivityEvent.Create(
-        Guid.CreateVersion7(), _actor, ActivityKind.TaskCompleted, "Joggen 5 km", null, kudos, Now);
+        Guid.CreateVersion7(), _actor, ActivityKind.TaskCompleted, "Jeden Morgen joggen", null, kudos, Now);
 
     [Fact]
     public void AnEntryThatNeedsASubjectIsRejectedWithoutOne()

@@ -319,6 +319,50 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Contains("ParticipantIds", problem.Errors.Keys);
     }
 
+    /// <summary>
+    /// A one-off is due on the day it was given (#94), not on the day it was
+    /// made — which used to close it at midnight and miss it the next morning.
+    /// </summary>
+    [Fact]
+    public async Task AOneOffIsDueOnTheDayItWasGiven()
+    {
+        var day = Q2ApiFactory.Today.AddDays(16);
+
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Steuererklärung abgeben",
+            schedule = new { kind = "Once" },
+            targetDate = day,
+            participantIds = Friend,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.ReadAsync<GoalDocument>();
+
+        Assert.Equal(day, created.TargetDate);
+        Assert.NotNull(created.Current);
+        Assert.Equal(day, created.Current.DueOn);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(Goal.MaxTargetDaysAhead + 1)]
+    public async Task AOneOffsDayIsTodayOrLaterAndAtMostAYearAhead(int daysFromToday)
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Zu früh oder zu spät",
+            schedule = new { kind = "Once" },
+            targetDate = Q2ApiFactory.Today.AddDays(daysFromToday),
+            participantIds = Friend,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("TargetDate", problem.Errors.Keys);
+    }
+
     [Fact]
     public async Task ANewGoalComesWithItsConversation()
     {

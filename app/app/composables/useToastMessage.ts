@@ -21,15 +21,28 @@ export interface ToastMessage {
   text: string
 }
 
+/** The one thing a toast may offer: taking back what it confirms (#110). */
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export function useToastMessage() {
   const toast = useToast()
 
-  function show(message: ToastMessage) {
+  /**
+   * With an action the toast stays a few seconds longer — long enough to read
+   * it and reach for the button, which is the whole point of offering one.
+   */
+  function show(message: ToastMessage, action?: ToastAction) {
     toast.add({
       title: message.text,
       icon: message.icon,
       color: 'primary',
-      duration: 2200,
+      duration: action ? 5000 : 2200,
+      actions: action
+        ? [{ label: action.label, color: 'neutral', variant: 'outline', class: 'min-h-11', onClick: action.onClick }]
+        : undefined,
       ui: { root: 'rounded-(--q2-radius-lg)' },
     })
   }

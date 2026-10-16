@@ -18,7 +18,7 @@ const id = computed(() => String(route.params.id))
 const { detail, error, isMissing, isLoading, refresh } = useGoalDetail(id)
 const { isDelivering, deliver, answerSpotCheck, maxEdge } = useProofDelivery()
 const lifecycle = useGoalLifecycle()
-const dontUse = useDontUse()
+const dontUse = useDontUse(() => refresh())
 const now = useNow()
 const zone = useTimeZoneOffset()
 
@@ -84,8 +84,13 @@ const canPause = computed(() =>
 
 const canClose = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
 
-/** Only the owner is reminded, so only the owner moves it — and only while it runs. */
-const canEditReminder = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
+/**
+ * Only the owner is reminded, so only the owner moves it — and only while it
+ * runs. A Don't has no daily reminder at all (docs/adr/0037-donts.md): there
+ * is nothing to be reminded to do (#89).
+ */
+const canEditReminder = computed(() =>
+  Boolean(goal.value?.isMine) && goal.value?.status === 'Active' && goal.value?.kind !== 'Dont')
 
 /**
  * The exits, behind the ellipsis in the header. They were two buttons as large
@@ -448,7 +453,14 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
         </section>
 
         <div class="mt-3.5 flex gap-2.5">
-          <div class="q2-card flex-1 p-3.5">
+          <!-- A Do's streak. A Don't has its run at the top instead, and the
+               streak — which holds through a relapse — beside it read as a
+               second counter that disagreed with the first (#89, ADR 0037). -->
+          <div
+            v-if="goal.kind !== 'Dont'"
+            class="q2-card flex-1 p-3.5"
+            data-testid="goal-streak"
+          >
             <p class="flex items-center gap-1.5 text-xs font-extrabold text-(--q2-flame-text)">
               <UIcon
                 name="i-lucide-flame"

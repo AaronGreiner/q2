@@ -20,24 +20,34 @@ const t = useMessages()
     class="q2-card flex items-center gap-3 px-3 py-3"
     data-testid="sent-request"
   >
-    <AppAvatar
-      :initials="request.person.initials"
-      :color="request.person.avatarColor"
-      :image-id="request.person.avatarImageId"
-      :size="42"
-    />
-
-    <div
-      class="min-w-0 flex-1"
-      data-q2-private
+    <!--
+      The person opens their profile, as everywhere else they are named (#87);
+      taking the request back stays a target of its own.
+    -->
+    <NuxtLink
+      :to="`/people/${request.person.id}`"
+      class="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-(--q2-radius-md) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      data-testid="sent-request-person"
     >
-      <p class="truncate text-sm font-bold">
-        {{ request.person.displayName }}
-      </p>
-      <p class="mt-0.5 truncate text-[11px] font-semibold text-(--ui-text-muted)">
-        {{ request.person.handle }}
-      </p>
-    </div>
+      <AppAvatar
+        :initials="request.person.initials"
+        :color="request.person.avatarColor"
+        :image-id="request.person.avatarImageId"
+        :size="42"
+      />
+
+      <div
+        class="min-w-0 flex-1"
+        data-q2-private
+      >
+        <p class="truncate text-sm font-bold">
+          {{ request.person.displayName }}
+        </p>
+        <p class="mt-0.5 truncate text-[11px] font-semibold text-(--ui-text-muted)">
+          {{ request.person.handle }}
+        </p>
+      </div>
+    </NuxtLink>
 
     <button
       type="button"

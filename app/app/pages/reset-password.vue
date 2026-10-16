@@ -159,9 +159,8 @@ useHead({
         :help="t.auth.passwordHint(minimumPasswordLength)"
         name="password"
       >
-        <UInput
+        <AppPasswordInput
           v-model="password"
-          type="password"
           autocomplete="new-password"
           :placeholder="t.auth.passwordPlaceholder"
           size="xl"

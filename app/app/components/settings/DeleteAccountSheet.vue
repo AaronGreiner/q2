@@ -85,9 +85,8 @@ async function confirm() {
           :label="t.deleteAccount.password"
           :hint="t.deleteAccount.passwordHint"
         >
-          <UInput
+          <AppPasswordInput
             v-model="password"
-            type="password"
             autocomplete="current-password"
             class="w-full"
             data-testid="delete-account-password"

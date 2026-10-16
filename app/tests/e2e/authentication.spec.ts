@@ -41,7 +41,19 @@ test.describe('signed out', () => {
     await page.goto('/login')
 
     await page.getByTestId('login-email').fill(e2eAccount.email)
-    await page.getByTestId('login-password').fill(e2eAccount.password)
+
+    // The field makes no claim about length — that rule is for choosing a
+    // password — and what was typed can be looked at before it is sent (#114).
+    const password = page.getByTestId('login-password')
+    await expect(password).not.toHaveAttribute('placeholder')
+    await password.fill(e2eAccount.password)
+    await expect(password).toHaveAttribute('type', 'password')
+    await page.getByTestId('login-form').getByTestId('password-reveal').click()
+    await expect(password).toHaveAttribute('type', 'text')
+    await expect(password).toHaveValue(e2eAccount.password)
+    await page.getByTestId('login-form').getByTestId('password-reveal').click()
+    await expect(password).toHaveAttribute('type', 'password')
+
     await page.getByTestId('login-submit').click()
 
     await expect(page).toHaveURL('/')
@@ -97,6 +109,14 @@ test.describe('signed out', () => {
     await page.goto('/goals')
     await expect(page.getByTestId('goals-empty')).toBeVisible()
     await expect(page.getByTestId('goal-list')).toHaveCount(0)
+
+    // The friends tab says there are none once, with the link first and the
+    // search second, not a second empty list under the card (#113).
+    await page.goto('/search')
+    await expect(page.getByTestId('invite-card')).toBeVisible()
+    await expect(page.getByTestId('invite-search-hint')).toBeVisible()
+    await expect(page.getByText('Noch keine Freunde', { exact: true })).toHaveCount(1)
+    await expect(page.getByTestId('friends-empty')).toHaveCount(0)
   })
 
   test('a password that is too short is refused at the field', async ({ page }) => {

@@ -11,11 +11,18 @@ const props = withDefaults(defineProps<{
   goal: ChatPinnedGoal
   /** While a use is being logged, so the button cannot be pressed twice. */
   logging?: boolean
+  /**
+   * The owner may deliver a proof into the open window now — decided by the
+   * screen from the server's `acceptsProof`, the same answer as the composer's
+   * camera.
+   */
+  canDeliver?: boolean
 }>(), {
   logging: false,
+  canDeliver: false,
 })
 
-const emit = defineEmits<{ cheer: [], log: [] }>()
+const emit = defineEmits<{ cheer: [], log: [], deliver: [] }>()
 
 /**
  * A Don't's owner can log a use from its conversation too — one of the three
@@ -101,10 +108,28 @@ const t = useMessages()
       />
     </div>
 
-    <!-- An outline, not a filled accent: the one filled control on this screen
-         is the send button, and two of them would make neither loud. -->
+    <!--
+      The owner is the one person here who can deliver, so that is what they
+      are offered while a proof is due — and never "Anfeuern", which posted a
+      cheer from them into their own goal's thread (#88). Outlines, not a
+      filled accent: the one filled control on this screen is the send button,
+      and two of them would make neither loud.
+    -->
     <UButton
-      v-if="!canLog"
+      v-if="!canLog && goal.isMine && canDeliver"
+      class="mt-3 min-h-11 w-full justify-center font-extrabold"
+      icon="i-lucide-camera"
+      size="lg"
+      color="primary"
+      variant="outline"
+      data-testid="chat-banner-deliver"
+      @click="emit('deliver')"
+    >
+      {{ t.proof.deliver }}
+    </UButton>
+
+    <UButton
+      v-if="!goal.isMine"
       class="mt-3 min-h-11 w-full justify-center font-extrabold"
       icon="i-lucide-megaphone"
       size="lg"

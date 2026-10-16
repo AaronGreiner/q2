@@ -155,10 +155,81 @@ describe('threadRows', () => {
 
   it('puts no separator between lines about the goal', () => {
     const items = threadItems([], [
-      event('a', '2026-09-22T21:00:00Z', { day: '2026-09-22' }),
-      event('b', '2026-09-23T21:00:00Z', { day: '2026-09-23' }),
+      event('a', '2026-09-22T21:00:00Z', { kind: 'Created' }),
+      event('b', '2026-09-23T21:00:00Z', { kind: 'PauseEnded' }),
     ])
 
     expect(threadRows(items, now, de).map(row => row.kind)).toEqual(['event', 'event'])
+  })
+})
+
+/**
+ * A daily goal used to add a "Geschafft" line a day (#100). Kept windows fold
+ * like missed ones; photographs stay where they are, everything else breaks
+ * the run.
+ */
+describe('threadRows, kept windows', () => {
+  const now = Date.parse('2026-10-12T12:00:00Z')
+
+  function kept(key: string, day: string, streak: number, overrides: Partial<GoalEvent> = {}) {
+    return event(key, `${day}T20:00:00Z`, { day, streak, ...overrides })
+  }
+
+  function photo(key: string, at: string) {
+    return event(key, at, { kind: 'ProofDelivered', proof: { id: key } as Proof })
+  }
+
+  it('folds a run of kept windows into one line that ends on the streak', () => {
+    const rows = threadRows(threadItems([], [
+      kept('a', '2026-09-22', 1),
+      kept('b', '2026-09-23', 2),
+      kept('c', '2026-09-24', 3),
+    ]), now, de)
+
+    expect(rows).toEqual([expect.objectContaining({ kind: 'keptRun', from: '22.9.', to: '24.9.', count: 3, streak: 3, held: false })])
+    expect(de.chats.keptRun(21, de.chats.dayRange('22.9.', '12.10.'), 21)).toBe('22.9.–12.10. · 21 Fenster geschafft · Streak 21')
+  })
+
+  it('keeps the photographs, in order, and puts the run after the last of them', () => {
+    const rows = threadRows(threadItems([], [
+      photo('p1', '2026-10-10T08:00:00Z'),
+      kept('a', '2026-10-10', 1),
+      photo('p2', '2026-10-11T08:00:00Z'),
+      kept('b', '2026-10-11', 2),
+      // Today's photograph belongs to today's window, which is not kept yet.
+      photo('p3', '2026-10-12T08:00:00Z'),
+    ]), now, de)
+
+    expect(rows.map(row => row.kind === 'day' ? `day:${row.label}` : row.kind === 'proof' ? row.proof.id : row.kind))
+      .toEqual(['day:Sa, 10.10.', 'p1', 'day:Gestern', 'p2', 'keptRun', 'day:Heute', 'p3'])
+  })
+
+  it('breaks the run where somebody said something, so it stays beside its day', () => {
+    const items = threadItems(
+      [message('m1', '2026-09-23T21:00:00Z')],
+      [kept('a', '2026-09-22', 1), kept('b', '2026-09-23', 2), kept('c', '2026-09-24', 3), kept('d', '2026-09-25', 4)],
+    )
+
+    expect(threadRows(items, now, de).map(row => row.kind)).toEqual(['keptRun', 'day', 'message', 'keptRun'])
+  })
+
+  it('leaves a single kept window as its own line, and a miss breaks a run', () => {
+    const rows = threadRows(threadItems([], [
+      kept('a', '2026-09-22', 1),
+      event('m', '2026-09-23T20:00:00Z', { kind: 'WindowMissed', day: '2026-09-23', streak: null }),
+      kept('b', '2026-09-24', 1),
+    ]), now, de)
+
+    expect(rows.map(row => row.kind)).toEqual(['event', 'event', 'event'])
+  })
+
+  it('says a Don\'t\'s run was held, not done', () => {
+    const rows = threadRows(threadItems([], [
+      kept('a', '2026-09-22', 1, { limit: 0 }),
+      kept('b', '2026-09-23', 2, { limit: 0 }),
+    ]), now, de)
+
+    expect(rows[0]).toMatchObject({ kind: 'keptRun', held: true, count: 2 })
+    expect(de.chats.heldRun(2, de.chats.dayRange('22.9.', '23.9.'), 2)).toBe('22.9.–23.9. · 2-mal durchgehalten · Streak 2')
   })
 })

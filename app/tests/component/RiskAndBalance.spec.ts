@@ -69,11 +69,12 @@ function activity(overrides: Partial<Activity> = {}): Activity {
       avatarImageId: null,
     },
     kind: 'TaskCompleted',
-    subject: 'Joggen 5 km',
+    subject: 'Jeden Morgen joggen',
     amount: null,
     kudosCount: 3,
     hasMyKudos: false,
     occurredAt: '2026-06-15T08:00:00+00:00',
+    goalId: null,
     ...overrides,
   }
 }

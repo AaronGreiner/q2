@@ -240,6 +240,9 @@ export const dontProofModes: readonly DontProofMode[] = ['SpotCheck', 'ProofAtEn
 /** The most uses per period a Don't may allow. Mirrors `Goal.MaxLimit`. */
 export const maxLimit = 100
 
+/** How far ahead a one-off's day may be, in days. Mirrors `Goal.MaxTargetDaysAhead`. */
+export const maxTargetDaysAhead = 365
+
 /**
  * The intervals the create sheet offers, in days.
  *

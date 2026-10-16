@@ -49,7 +49,7 @@ const subtitle = computed(() => {
     <!-- The way to their record with you, which is the point of a friend. -->
     <NuxtLink
       :to="`/people/${friend.person.id}`"
-      class="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+      class="flex min-h-11 min-w-0 flex-1 flex-col justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       data-q2-private
       data-testid="friend-link"
     >
