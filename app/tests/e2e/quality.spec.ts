@@ -38,11 +38,18 @@ test.describe('server-rendered HTML', () => {
     const html = await response.text()
     expect(html).toContain('E2E shared goal with participants')
     expect(html).toContain('E2E goal three times a week')
-    expect(html).toContain('3× pro Woche')
 
     // Nuxt Icon renders SVG on the server. Client-side hydration used to hide
     // that these were all missing from the first paint.
     expect((html.match(/<svg/g) ?? []).length).toBeGreaterThan(5)
+
+    // A rhythm is printed by a goal's row, and from 20:00 the start screen
+    // trades its rows for the evening's risk cards (ADR 0019), which print
+    // none — so it is read on the Dos screen, whose rows are there at any hour
+    // (#115).
+    const goals = await page.request.get('/goals')
+    expect(goals.ok()).toBe(true)
+    expect(await goals.text()).toContain('3× pro Woche')
   })
 })
 
