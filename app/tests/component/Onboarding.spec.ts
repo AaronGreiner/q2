@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import AppTour from '~/components/layout/AppTour.vue'
 import GoalDraftCard from '~/components/goals/GoalDraftCard.vue'
 import GoalDraftForm from '~/components/goals/GoalDraftForm.vue'
@@ -746,7 +746,13 @@ describe('AppTour', () => {
   }
 
   // Mounted on an open route: the guard would otherwise send a test without a
-  // session to the sign-in screen, taking the parameter with it.
+  // session to the sign-in screen, taking the parameter with it. Even there it
+  // asks the server who is signed in, so the answer — nobody — is given here;
+  // without it the tests pass only while an API happens to be running on 5080.
+  beforeEach(() => {
+    useSession().adopt(null)
+  })
+
   it('walks over the five tabs once the introduction hands over, and ends by taking the parameter away', async () => {
     tabBar()
     const wrapper = await mountSuspended(AppTour, { route: '/diagnostics?tour=1', attachTo: document.body })
