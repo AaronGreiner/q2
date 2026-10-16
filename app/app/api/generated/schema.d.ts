@@ -1482,6 +1482,7 @@ export interface components {
             /** Format: date-time */
             closedAt: string | null;
             participants: components["schemas"]["PersonSummary"][];
+            owner: components["schemas"]["PersonSummary"];
             isOverdue: boolean;
             isMine: boolean;
             risk: null | components["schemas"]["RiskResponse"];

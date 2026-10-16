@@ -247,8 +247,9 @@ same viewport remains necessary.
   exceptions stay as configured — `sendDefaultPii` on and replay recording
   every session ([privacy.md](privacy.md) section 4). Those assertions exist so
   the switches cannot be flipped back silently in either direction.
-- **Components** — `GoalCard` (content, link, progress semantics, overdue,
-  absent optional fields, heading level), `GoalList` (the four states, mutually
+- **Components** — `GoalCard` (content, link, window state in words, streak
+  only when there is one, overdue, absent optional fields, a friend's goal
+  naming its owner with nothing to press, heading level), `GoalList` (the four states, mutually
   exclusive, retry), `GoalCreateForm` (emitted payload, trimming, participant
   parsing, server field errors, double-submit prevention, reset).
 

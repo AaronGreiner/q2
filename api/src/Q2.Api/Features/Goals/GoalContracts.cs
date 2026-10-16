@@ -118,6 +118,11 @@ public sealed record GoalInstanceResponse(
 /// why it is on the response at all rather than worked out by the client: the
 /// hour the rule turns on is a fact about the person who made the promise.
 /// </param>
+/// <param name="Owner">
+/// Who made this goal and delivers into it. Carried on every goal rather than
+/// only on a friend's, so a list can say whose a row is without a second read;
+/// the participants are the people checking, and never include the owner.
+/// </param>
 /// <param name="IsMine">
 /// Whether the reader owns this goal. The one thing a client cannot work out
 /// for itself here, and what decides whether it offers the camera, the pause
@@ -164,6 +169,7 @@ public sealed record GoalResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt,
     IReadOnlyList<PersonSummary> Participants,
+    PersonSummary Owner,
     bool IsOverdue,
     bool IsMine,
     RiskResponse? Risk,
@@ -215,6 +221,10 @@ public sealed record GoalResponse(
                 .Where(p => people.ContainsKey(p.PersonId))
                 .Select(p => PersonSummary.From(people[p.PersonId], now))
                 .OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)],
+
+            // The loader puts every owner into `people`; an owner leaves only
+            // together with their goals, so a missing one is a bug, not a case.
+            PersonSummary.From(people[goal.OwnerPersonId], now),
             goal.IsOverdueAt(now),
             isMine,
 

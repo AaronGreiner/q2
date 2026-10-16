@@ -55,7 +55,7 @@ public sealed class GoalService(
             ? goals.Where(goal => goal.Status == wanted).ToList()
             : goals;
 
-        var people = await LoadParticipantsAsync(visible, cancellationToken);
+        var people = await LoadPeopleAsync(visible, cancellationToken);
         var calendars = await LoadOwnerCalendarsAsync(visible, me, cancellationToken);
 
         return [.. visible.Select(goal => GoalResponse.From(goal, people, me.Id, now, calendars[goal.OwnerPersonId]))];
@@ -86,7 +86,7 @@ public sealed class GoalService(
             .Where(goal => (goal.CurrentInstance ?? goal.RelapsedInstanceAt(now)) is { } instance && Covers(instance, today))
             .ToList();
 
-        var people = await LoadParticipantsAsync(due, cancellationToken);
+        var people = await LoadPeopleAsync(due, cancellationToken);
         var calendars = await LoadOwnerCalendarsAsync(due, me, cancellationToken);
 
         return [.. due.Select(goal => GoalResponse.From(goal, people, me.Id, now, calendars[goal.OwnerPersonId]))];
@@ -121,7 +121,7 @@ public sealed class GoalService(
                 && GoalRisk.Assess(open, calendar, now) is not null)
             .ToList();
 
-        var people = await LoadParticipantsAsync(mine, cancellationToken);
+        var people = await LoadPeopleAsync(mine, cancellationToken);
 
         return [.. mine.Select(goal => GoalResponse.From(goal, people, me.Id, now, calendar))];
     }
@@ -173,7 +173,7 @@ public sealed class GoalService(
         await AdvanceAsync([goal], owner, now, cancellationToken);
 
         var today = timeZones.For(me.TimeZoneId).Today(now);
-        var people = await LoadParticipantsAsync([goal], cancellationToken);
+        var people = await LoadPeopleAsync([goal], cancellationToken);
 
         // Each team member's own streak, which is the number the detail screen
         // shows next to them — not the goal's.
@@ -326,7 +326,7 @@ public sealed class GoalService(
             .ThenBy(goal => goal.Id)
             .ToList();
 
-        var people = await LoadParticipantsAsync(closed, cancellationToken);
+        var people = await LoadPeopleAsync(closed, cancellationToken);
         var calendars = await LoadOwnerCalendarsAsync(closed, me, cancellationToken);
 
         return [.. closed.Select(goal => GoalResponse.From(goal, people, me.Id, now, calendars[goal.OwnerPersonId]))];
@@ -849,20 +849,24 @@ public sealed class GoalService(
         CancellationToken cancellationToken) =>
         GoalResponse.From(
             goal,
-            await LoadParticipantsAsync([goal], cancellationToken),
+            await LoadPeopleAsync([goal], cancellationToken),
             viewerId,
             now,
             ownerCalendar);
 
     /// <summary>
-    /// Loads every person mentioned by these goals in one query, rather than
-    /// letting the mapper pull them in one at a time.
+    /// Loads every person mentioned by these goals — their owners and their
+    /// participants — in one query, rather than letting the mapper pull them in
+    /// one at a time.
     /// </summary>
-    private async Task<IReadOnlyDictionary<Guid, Person>> LoadParticipantsAsync(
+    private async Task<IReadOnlyDictionary<Guid, Person>> LoadPeopleAsync(
         IReadOnlyCollection<Goal> goals,
         CancellationToken cancellationToken)
     {
-        var ids = goals.SelectMany(g => g.Participants).Select(p => p.PersonId).Distinct().ToList();
+        var ids = goals
+            .SelectMany(g => g.Participants.Select(p => p.PersonId).Append(g.OwnerPersonId))
+            .Distinct()
+            .ToList();
 
         if (ids.Count == 0)
         {

@@ -111,7 +111,7 @@ Current components, by folder:
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |
 | `StreakHero` | the streak once, today as a ring beside it, and a week that says what was kept |
-| `GoalCard` | one goal in the list |
+| `GoalCard` | one goal in a list, as a row you open rather than act on: yours led by its icon, a friend's by its owner, with no control on either |
 | `GoalWindowRow` | one goal that is due, with the control that delivers into its window, the countdown to its end and the reminder under a bell |
 | `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
 | `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |

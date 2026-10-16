@@ -3,24 +3,27 @@ import type { CreateGoalRequest, Image } from '~/api/types'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
- * The Dos tab — "Dos & Don'ts" on the screen: what is on today, and all of
- * them, under two tabs.
+ * The Dos tab — "Dos & Don'ts" on the screen: the Dos under one segment, the
+ * Don'ts under the other (#77).
  *
  * The plus in the header is the one way a goal is made. It lives here rather
  * than in the tab bar, because a plus in the tab bar was the only visible way
  * to reach this screen at all, and people read it as "this is where my goals
  * are" rather than "make a new one".
  *
- * The tab lives in the URL rather than in component state, so a view can be
- * shared and survives a reload. `replace`, not `push`: switching tabs is
- * looking at the same screen from another angle, and it should not take four
- * presses of the back button to leave the page.
+ * The segment lives in the URL rather than in component state, so a view can
+ * be shared and survives a reload. `replace`, not `push`: switching is looking
+ * at the same screen from another angle, and it should not take four presses
+ * of the back button to leave the page. Dos are the default and write nothing;
+ * the addresses of the tabs this screen had before — `?tab=all`, and
+ * `?tab=goals` from when it said "Ziele" (#60) — therefore still land.
  *
- * The second tab was `?tab=goals` while it was labelled "Ziele" (#60). That
- * address is still read, so a bookmark from before keeps working, but nothing
- * writes it any more.
+ * Each segment is split the way the chat list is (docs/adr/0027): yours, where
+ * you deliver, and your friends', which you only check. Yours start with what
+ * is due today, carrying its camera or log button, because there is no "Heute"
+ * tab any more to put them under (`goalListSections`).
  */
-type Tab = 'today' | 'all'
+type Tab = 'dos' | 'donts'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,8 +35,8 @@ const zone = useTimeZoneOffset()
 const today = computed(() => localDay(now.value, zone.value))
 
 const tab = computed<Tab>({
-  get: () => (route.query.tab === 'all' || route.query.tab === 'goals' ? 'all' : 'today'),
-  set: value => router.replace({ query: value === 'all' ? { tab: 'all' } : {} }),
+  get: () => (route.query.tab === 'donts' ? 'donts' : 'dos'),
+  set: value => router.replace({ query: value === 'donts' ? { tab: 'donts' } : {} }),
 })
 
 /**
@@ -53,8 +56,15 @@ const isSheetOpen = computed({
 
 const { goals, due, error, isLoading, refresh, create, isCreating, createError } = useGoals()
 
-/** What still wants a photograph first, each group by the deadline closest to now. */
-const dueSorted = computed(() => byDeadline(due.value))
+/** The segment's goals, yours and your friends' apart. An empty half is not shown. */
+const sections = computed(() => {
+  const { mine, friends } = goalListSections(goals.value, due.value, tab.value === 'donts' ? 'Dont' : 'Do')
+
+  return [
+    { key: 'mine', title: t.value.goals.sectionMine, hint: t.value.goals.sectionMineHint, rows: mine },
+    { key: 'friends', title: t.value.goals.sectionFriends, hint: t.value.goals.sectionFriendsHint, rows: friends },
+  ].filter(section => section.rows.length > 0)
+})
 
 // Who can be asked to check a new goal. The sheet only offers friends, which
 // is the server's rule too.
@@ -84,16 +94,17 @@ async function handIn(image: Image, origin: PhotoOrigin) {
 const sheet = useTemplateRef('sheet')
 
 const tabs = computed(() => [
-  { value: 'today' as const, label: t.value.goals.tabToday },
-  { value: 'all' as const, label: t.value.goals.tabAll },
+  { value: 'dos' as const, label: t.value.goals.tabDos },
+  { value: 'donts' as const, label: t.value.goals.tabDonts },
 ])
 
+/** Lands on the segment the new one is in, which is where it is looked for next. */
 async function onCreate(request: CreateGoalRequest) {
   const created = await create(request)
   if (!created) return
 
   sheet.value?.reset()
-  await router.replace({ query: { tab: 'all' } })
+  await router.replace({ query: created.kind === 'Dont' ? { tab: 'donts' } : {} })
 }
 
 useHead({ title: () => t.value.goals.heading })
@@ -146,102 +157,78 @@ useHead({ title: () => t.value.goals.heading })
       />
 
       <template v-else>
-        <section
-          v-if="tab === 'today'"
-          aria-labelledby="due-heading"
+        <div
+          v-if="sections.length > 0"
+          class="flex flex-col gap-5"
+          data-testid="goal-list"
         >
-          <h2
-            id="due-heading"
-            class="sr-only"
+          <section
+            v-for="section in sections"
+            :key="section.key"
+            :aria-labelledby="`goal-section-${section.key}`"
+            :data-testid="`goal-section-${section.key}`"
           >
-            {{ t.goals.tabToday }}
-          </h2>
-
-          <div
-            v-if="dueSorted.length > 0"
-            class="flex flex-col gap-2.5"
-            data-testid="due-list"
-          >
-            <template
-              v-for="goal in dueSorted"
-              :key="goal.id"
+            <h2
+              :id="`goal-section-${section.key}`"
+              class="flex items-baseline justify-between gap-2 px-0.5 pb-1.5"
             >
-              <DontWindowRow
-                v-if="goal.kind === 'Dont'"
-                :goal="goal"
-                :busy="isDelivering || isLogging"
-                @deliver="deliveringFor = $event"
-                @log="onLog"
-              />
-              <GoalWindowRow
-                v-else
-                :goal="goal"
-                :now="now"
-                :busy="isDelivering"
-                @deliver="deliveringFor = $event"
-              />
-            </template>
-          </div>
+              <span class="q2-eyebrow">{{ section.title }}</span>
+              <span class="text-[11px] font-semibold text-(--ui-text-dimmed)">{{ section.hint }}</span>
+            </h2>
 
-          <AppStateMessage
-            v-else
-            icon="i-lucide-circle-check"
-            :title="t.goals.nothingDueToday"
-            :description="t.goals.nothingDueTodayHint"
-            data-testid="due-empty"
-          />
-        </section>
+            <ul class="flex list-none flex-col gap-2.5 p-0">
+              <li
+                v-for="{ goal, isDue } in section.rows"
+                :key="goal.id"
+              >
+                <!-- Your own window that covers today carries the one thing to
+                     do now; everything else is a row you open. -->
+                <DontWindowRow
+                  v-if="isDue && goal.isMine && goal.kind === 'Dont'"
+                  :goal="goal"
+                  :busy="isDelivering || isLogging"
+                  @deliver="deliveringFor = $event"
+                  @log="onLog"
+                />
+                <GoalWindowRow
+                  v-else-if="isDue && goal.isMine"
+                  :goal="goal"
+                  :now="now"
+                  :busy="isDelivering"
+                  @deliver="deliveringFor = $event"
+                />
+                <GoalCard
+                  v-else
+                  :goal="goal"
+                  :today="today"
+                />
+              </li>
+            </ul>
+          </section>
+        </div>
 
-        <section
+        <AppStateMessage
           v-else
-          aria-labelledby="goals-heading"
-        >
-          <h2
-            id="goals-heading"
-            class="sr-only"
-          >
-            {{ t.goals.tabAll }}
-          </h2>
+          :icon="tab === 'donts' ? 'i-lucide-ban' : 'i-lucide-target'"
+          :title="tab === 'donts' ? t.goals.noDonts : t.goals.noDos"
+          :description="tab === 'donts' ? t.goals.noDontsHint : t.goals.noDosHint"
+          data-testid="goals-empty"
+        />
 
-          <ul
-            v-if="goals.length > 0"
-            class="flex list-none flex-col gap-3 p-0"
-            data-testid="goal-list"
-          >
-            <li
-              v-for="goal in goals"
-              :key="goal.id"
-            >
-              <GoalCard
-                :goal="goal"
-                :today="today"
-              />
-            </li>
-          </ul>
-
-          <AppStateMessage
-            v-else
-            icon="i-lucide-target"
-            :title="t.goals.noGoals"
-            :description="t.goals.noGoalsHint"
-            data-testid="goals-empty"
-          />
-
-          <!-- The way to what has stopped. At the foot of the screen rather
-               than in the header: the archive is somewhere you go looking, not
-               somewhere you are sent. It stays here with no goals left, because
-               that is exactly when everything is in it. -->
-          <UButton
-            to="/goals/archive"
-            class="mt-4 min-h-11 w-full justify-center"
-            size="lg"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-archive"
-            :label="t.goals.archive"
-            data-testid="goals-archive-link"
-          />
-        </section>
+        <!-- The way to what has stopped. At the foot of the screen rather
+             than in the header: the archive is somewhere you go looking, not
+             somewhere you are sent. It stays here with no goals left, because
+             that is exactly when everything is in it. -->
+        <UButton
+          to="/goals/archive"
+          class="mt-4 min-h-11 w-full justify-center"
+          size="lg"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-archive"
+          :label="t.goals.archive"
+          data-testid="goals-archive-link"
+        />
       </template>
     </AppContentPanel>
 

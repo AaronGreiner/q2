@@ -95,6 +95,19 @@ describe('GoalWindowRow', () => {
   })
 
   /**
+   * `acceptsProof` describes the window, not the reader. A friend's window can
+   * want a photograph that only its owner may hand in, and a camera here would
+   * upload one the server refuses (#77).
+   */
+  it('offers no camera on somebody else\'s goal, even while its window wants one', async () => {
+    const wrapper = await mountSuspended(GoalWindowRow, {
+      props: { now, goal: goal({ isMine: false }) },
+    })
+
+    expect(wrapper.find('[data-testid="window-deliver"]').exists()).toBe(false)
+  })
+
+  /**
    * A delivered window is a fact about the past, and there is nothing left to
    * hand in — so there is nothing to press.
    */

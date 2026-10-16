@@ -31,6 +31,10 @@ function window(overrides: Partial<GoalWindow> = {}): GoalWindow {
     confirmedProofs: 1,
     remainingProofs: 2,
     status: 'Open',
+    pendingProofId: null,
+    acceptsProof: true,
+    limit: null,
+    uses: 0,
     ...overrides,
   }
 }
@@ -41,6 +45,7 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     title: 'Halbmarathon im Mai',
     description: 'Drei Läufe pro Woche.',
     icon: 'medal',
+    kind: 'Do',
     schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     status: 'Active',
     isGroup: false,
@@ -52,6 +57,7 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     targetDate: null,
     createdAt: '2026-05-15T09:00:00+00:00',
     participants: [],
+    owner: person({ id: 'me', displayName: 'Mara Klein', handle: '@mara.k', initials: 'MK' }),
     isOverdue: false,
     isMine: true,
     closedAt: null,
@@ -86,41 +92,41 @@ describe('GoalCard', () => {
       .toBe('/goals/019faece-5a81-7c67-8fa2-00a63d9e9127')
   })
 
-  it('renders the window as an accessible progress bar', async () => {
+  it('says how much of the window is left in words rather than in a bar', async () => {
+    // A row has no room for a bar, and "Noch 2 von 3" is all the bar said —
+    // in the words the row under "Heute" uses for it.
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
-    const progressbar = wrapper.find('[role="progressbar"]')
-
-    expect(progressbar.exists()).toBe(true)
-
-    // One of three delivered.
-    expect(progressbar.attributes('aria-valuenow')).toBe('33')
-    expect(progressbar.attributes('aria-valuemin')).toBe('0')
-    expect(progressbar.attributes('aria-valuemax')).toBe('100')
-    expect(progressbar.attributes()).toHaveProperty('data-q2-block')
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="goal-window"]').text()).toBe('Noch 2 von 3')
   })
 
-  it('draws no bar when the window wants exactly one proof', async () => {
-    // "1 von 1" is a bar that is either empty or full, which says nothing the
-    // line beside it has not already said.
-    const wrapper = await mountSuspended(GoalCard, {
-      props: {
-        goal: goal({
-          schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
-          current: window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1, startsOn: '2026-05-31' }),
-        }),
-      },
+  it('says a photograph is being looked at, and when the window is kept', async () => {
+    const waiting = await mountSuspended(GoalCard, {
+      props: { goal: goal({ current: window({ pendingProofId: 'proof-1', acceptsProof: false }) }) },
     })
+    expect(waiting.get('[data-testid="goal-window"]').text()).toBe('Wird geprüft')
 
-    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Heute fällig')
+    const kept = await mountSuspended(GoalCard, {
+      props: { goal: goal({ current: window({ confirmedProofs: 3, remainingProofs: 0, acceptsProof: false }) }) },
+    })
+    expect(kept.get('[data-testid="goal-window"]').text()).toBe('Geschafft')
   })
 
   it('shows the streak and the reminder', async () => {
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
-    expect(wrapper.text()).toContain('12 Fenster')
-    expect(wrapper.text()).toContain('18:00')
+    expect(wrapper.get('[data-testid="goal-streak"]').text()).toBe('12 Fenster')
+    expect(wrapper.get('[data-testid="goal-reminder"]').text()).toContain('18:00')
+  })
+
+  it('spends no flame on a streak that has not started', async () => {
+    // The flame gradient means a streak (docs/adr/0015); "0 Fenster" in it was
+    // the colour spent on nothing.
+    const wrapper = await mountSuspended(GoalCard, { props: { goal: goal({ streak: 0 }) } })
+
+    expect(wrapper.find('[data-testid="goal-streak"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Fenster')
   })
 
   it('leaves the reminder out when there is none', async () => {
@@ -141,7 +147,7 @@ describe('GoalCard', () => {
     expect(wrapper.find('[data-testid="goal-overdue"]').text()).toBe('Überfällig')
   })
 
-  it('draws one avatar per participant', async () => {
+  it('leads your own goal with its icon, not with the people checking it', async () => {
     const wrapper = await mountSuspended(GoalCard, {
       props: {
         goal: goal({
@@ -153,7 +159,35 @@ describe('GoalCard', () => {
       },
     })
 
-    expect(wrapper.findAll('[data-testid="avatar"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="avatar"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="goal-owner"]').exists()).toBe(false)
+  })
+
+  /**
+   * A friend's goal sits on the same screen as your own (#77), so the row has
+   * to say whose it is — and offer nothing, because only its owner delivers.
+   */
+  it('leads a friend\'s goal with the friend, and offers nothing to press', async () => {
+    const wrapper = await mountSuspended(GoalCard, {
+      props: {
+        goal: goal({
+          isMine: false,
+          owner: person(),
+          participants: [person({ id: 'me', displayName: 'Mara Klein', initials: 'MK' })],
+        }),
+      },
+    })
+
+    const avatars = wrapper.findAll('[data-testid="avatar"]')
+    expect(avatars).toHaveLength(1)
+    expect(avatars[0]!.text()).toBe('JW')
+
+    expect(wrapper.get('[data-testid="goal-owner"]').text()).toBe('Jonas Weber')
+    expect(wrapper.get('[data-testid="goal-owner"]').attributes()).toHaveProperty('data-q2-private')
+    expect(wrapper.find('button').exists()).toBe(false)
+
+    // Their reminder is a note to themselves, not a deadline for you.
+    expect(wrapper.find('[data-testid="goal-reminder"]').exists()).toBe(false)
   })
 
   it('is a heading at the level a list under an h2 needs', async () => {

@@ -48,7 +48,9 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         DateOnly? TargetDate,
         DateTimeOffset CreatedAt,
         IReadOnlyList<PersonDocument> Participants,
-        bool IsOverdue);
+        PersonDocument Owner,
+        bool IsOverdue,
+        bool IsMine);
 
     private sealed record PersonDocument(
         Guid Id,
@@ -539,6 +541,31 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.DoesNotContain(due, goal => goal.Id == AutomatedTestSeed.ActiveGoalId);
     }
 
+    /// <summary>
+    /// A list holds the reader's own goals and the ones friends invited them to
+    /// check, and a row has to be able to say whose it is. The participants
+    /// are the people checking, so the owner is the one name they never hold.
+    /// </summary>
+    [Fact]
+    public async Task EveryGoalSaysWhoseItIs()
+    {
+        var mine = Assert.Single(await ListAsync(), goal => goal.Id == AutomatedTestSeed.ActiveGoalId);
+
+        Assert.True(mine.IsMine);
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, mine.Owner.Id);
+        Assert.DoesNotContain(mine.Participants, person => person.Id == mine.Owner.Id);
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var theirs = Assert.Single(
+            await (await friend.GetAsync("/api/goals", TestContext.Current.CancellationToken))
+                .ReadAsync<IReadOnlyList<GoalDocument>>(),
+            goal => goal.Id == AutomatedTestSeed.ActiveGoalId);
+
+        Assert.False(theirs.IsMine);
+        Assert.Equal(AutomatedTestSeed.CurrentPersonId, theirs.Owner.Id);
+        Assert.Contains(theirs.Participants, person => person.Id == AutomatedTestSeed.FriendPersonId);
+    }
+
     [Fact]
     public async Task NothingAboutAPersonIsInventedByTheContract()
     {
@@ -547,7 +574,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var goals = await ListAsync();
 
         Assert.All(
-            goals.SelectMany(goal => goal.Participants),
+            goals.SelectMany(goal => goal.Participants.Append(goal.Owner)),
             person => Assert.Contains(person.AvatarColor, AvatarColors.All));
     }
 

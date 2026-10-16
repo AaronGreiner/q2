@@ -38,7 +38,9 @@ const reminder = computed(() => formatClock(props.goal.reminderAt))
 
 const isDelivered = computed(() => !currentWindow.value || currentWindow.value.remainingProofs === 0)
 const isWaiting = computed(() => Boolean(currentWindow.value?.pendingProofId))
-const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && !props.busy)
+// `acceptsProof` is about the window, not the reader: a friend's goal can
+// want a photograph that only its owner may hand in (#77).
+const canDeliver = computed(() => Boolean(currentWindow.value?.acceptsProof) && props.goal.isMine && !props.busy)
 
 /** Only within the last day, and only while something is still owed. */
 const left = computed(() => {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
 
@@ -128,6 +129,47 @@ test.describe('goals', () => {
 
     await page.getByTestId('goals-archive-link').click()
     await expect(page.getByTestId('archive-row')).toContainText([seeded.completedGoal])
+  })
+
+  /**
+   * The same goal from both ends (#77): its owner finds it under "Deine" with
+   * the camera, the friend checking it under "Von Freunden", with the owner's
+   * name and nothing to press — only the owner may hand in a photograph.
+   */
+  test('your own goals and your friends\' are listed apart, in both tabs', async ({ page, browser }, testInfo) => {
+    await page.goto('/goals')
+
+    const mine = page.getByTestId('goal-section-mine')
+    await expect(mine.getByRole('heading', { level: 2 })).toContainText('Deine')
+    await expect(mine.getByTestId('window-row').filter({ hasText: seeded.sharedGoal })).toBeVisible()
+
+    const theirs = await browser.newContext({ ...testInfo.project.use, storageState: { cookies: [], origins: [] } })
+
+    try {
+      const signIn = await theirs.request.post(`${apiBaseUrl}/api/auth/login`, {
+        data: { email: 'e2e.jonas@kudos.example', password: e2eAccount.password },
+      })
+      expect(signIn.ok(), 'signing in as the friend').toBe(true)
+
+      const friendPage = await theirs.newPage()
+      await friendPage.goto('/goals')
+
+      const friends = friendPage.getByTestId('goal-section-friends')
+      await expect(friends.getByRole('heading', { level: 2 })).toContainText('Von Freunden')
+
+      const row = friends.getByTestId('goal-card').filter({ hasText: seeded.sharedGoal })
+      await expect(row.getByTestId('goal-owner')).toHaveText(seeded.me)
+      await expect(friends.getByTestId('window-deliver')).toHaveCount(0)
+      await expect(friendPage.getByTestId('goal-section-mine').getByText(seeded.sharedGoal)).toHaveCount(0)
+
+      await friendPage.getByTestId('segment-all').click()
+
+      await expect(friendPage.getByTestId('goal-section-friends').getByTestId('goal-card').filter({ hasText: seeded.sharedGoal }))
+        .toBeVisible()
+    }
+    finally {
+      await theirs.close()
+    }
   })
 
   /**

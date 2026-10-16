@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, Goal, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
+import type { Activity, Goal, GoalKind, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
 
 /**
  * Presentation logic.
@@ -486,6 +486,40 @@ export function byDeadline(goals: readonly Goal[]): Goal[] {
   const due = (goal: Goal) => (goal.current ? Date.parse(goal.current.dueAt) : Number.POSITIVE_INFINITY)
 
   return [...goals].sort((a, b) => rank(a) - rank(b) || due(a) - due(b))
+}
+
+/** One row of the Dos & Don'ts list, and whether today's window is its to act on. */
+export interface GoalListRow {
+  goal: Goal
+  /** Its window covers today: the only rows that may carry a camera or a log button. */
+  isDue: boolean
+}
+
+/**
+ * One kind's goals as the Dos & Don'ts screen lists them (#77): yours and the
+ * ones friends asked you to check apart, and in each what is due today first —
+ * in {@link byDeadline}'s order — then the rest in the server's.
+ *
+ * Two lists go in because they answer two questions. `goals` is everything
+ * running; `due` is what covers today, and only a row from it is due. A window
+ * that has not started yet is open on the server and takes a photograph, so
+ * deciding from `goals` alone would put a camera on Sunday's run on a Monday.
+ */
+export function goalListSections(
+  goals: readonly Goal[],
+  due: readonly Goal[],
+  kind: GoalKind,
+): { mine: GoalListRow[], friends: GoalListRow[] } {
+  const dueIds = new Set(due.map(goal => goal.id))
+  const rows: GoalListRow[] = [
+    ...byDeadline(due.filter(goal => goal.kind === kind)).map(goal => ({ goal, isDue: true })),
+    ...goals.filter(goal => goal.kind === kind && !dueIds.has(goal.id)).map(goal => ({ goal, isDue: false })),
+  ]
+
+  return {
+    mine: rows.filter(row => row.goal.isMine),
+    friends: rows.filter(row => !row.goal.isMine),
+  }
 }
 
 /**
