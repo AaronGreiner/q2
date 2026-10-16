@@ -139,7 +139,7 @@ public sealed class AccountService(
         logger.LogInformation("Account created for person {PersonId}", person.Id);
         metrics.CountAccountRegistered();
 
-        return new SessionResponse(PersonSummary.From(person, now), email);
+        return SessionResponse.For(person, email, now);
     }
 
     /// <summary>Signs in with the session cookie — the browser's way.</summary>
@@ -270,7 +270,7 @@ public sealed class AccountService(
         logger.LogInformation("Signed in as person {PersonId}", person.Id);
         metrics.CountAccountSignedIn();
 
-        return new SessionResponse(PersonSummary.From(person, now), account.Email ?? email);
+        return SessionResponse.For(person, account.Email ?? email, now);
     }
 
     /// <summary>
@@ -517,7 +517,7 @@ public sealed class AccountService(
             .Select(u => u.Email)
             .SingleOrDefaultAsync(cancellationToken);
 
-        return new SessionResponse(PersonSummary.From(person, now), email ?? string.Empty);
+        return SessionResponse.For(person, email ?? string.Empty, now);
     }
 
     private static AuthenticationRequiredException InvalidCredentials() =>

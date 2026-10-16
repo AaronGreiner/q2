@@ -7,6 +7,7 @@ import { ApiError } from '~/api/errors'
 import { createGoalsApi } from '~/api/goals'
 import { createImagesApi, imageUrl, uploadContentType } from '~/api/images'
 import { createNotificationsApi } from '~/api/notifications'
+import { createOnboardingApi } from '~/api/onboarding'
 import { createProofsApi } from '~/api/proofs'
 import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/social'
 
@@ -147,6 +148,35 @@ describe('the API modules', () => {
       ['/api/goals/goal%2Fone/pause/veto', { method: 'POST' }],
       ['/api/goals/goal%2Fone/close', { method: 'POST', body: { completed: true } }],
       ['/api/goals/goal%2Fone', { method: 'DELETE' }],
+    ])
+  })
+
+  it('maps the waiting Do to its one route, which is never an id (docs/adr/0039)', async () => {
+    const goals = createGoalsApi(caller)
+    const draft = { title: 'Lesen', icon: 'book-open', schedule: { kind: 'Interval' as const, everyDays: 1 }, reminderAt: null }
+
+    await goals.draft()
+    await goals.saveDraft(draft)
+    await goals.discardDraft()
+
+    expect(call.mock.calls).toEqual([
+      ['/api/goals/draft', { method: 'GET' }],
+      ['/api/goals/draft', { method: 'PUT', body: draft }],
+      ['/api/goals/draft', { method: 'DELETE' }],
+    ])
+  })
+
+  it('maps the introduction, with the handle in a body rather than the address', async () => {
+    const api = createOnboardingApi(caller)
+
+    await api.checkHandle('nora')
+    await api.chooseHandle('@nora')
+    await api.complete()
+
+    expect(call.mock.calls).toEqual([
+      ['/api/onboarding/handle/check', { method: 'POST', body: { handle: 'nora' } }],
+      ['/api/onboarding/handle', { method: 'PUT', body: { handle: '@nora' } }],
+      ['/api/onboarding/complete', { method: 'POST' }],
     ])
   })
 

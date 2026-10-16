@@ -187,15 +187,57 @@ describe('GoalCreateSheet', () => {
     wrapper.unmount()
   })
 
-  it('offers the invite link instead of a form nobody could check', async () => {
+  it('lets somebody without friends keep a Do waiting rather than refusing them (#93)', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
       props: { open: true, friends: [] },
       attachTo: document.body,
     })
 
-    expect(element('[data-testid="goal-create-no-friends"]').textContent).toContain('Lade zuerst einen Freund ein')
-    expect(element('[data-testid="invite-card"]')).toBeTruthy()
+    expect(element('[data-testid="goal-create-draft"]').textContent).toContain('Merk dein Do schon vor')
     expect(document.querySelector('[data-testid="goal-create-form"]')).toBeNull()
+
+    // Nothing to keep waiting until there is a title.
+    expect(element<HTMLButtonElement>('[data-testid="goal-draft-submit"]').disabled).toBe(true)
+
+    element<HTMLButtonElement>('[data-testid="draft-idea-read"]').click()
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    const submit = element<HTMLButtonElement>('[data-testid="goal-draft-submit"]')
+    expect(submit.disabled).toBe(false)
+    submit.click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('draft')).toEqual([[{
+      title: 'Jeden Tag lesen',
+      icon: 'book-open',
+      schedule: { kind: 'Interval', everyDays: 1 },
+      reminderAt: '19:00:00',
+    }]])
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('offers the invite link once a Do is already waiting', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: {
+        open: true,
+        friends: [],
+        draft: {
+          id: 'draft-1',
+          title: 'Jeden Tag lesen',
+          icon: 'book-open',
+          schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
+          reminderAt: null,
+          createdAt: '2026-10-12T09:00:00Z',
+        },
+      },
+      attachTo: document.body,
+    })
+
+    expect(element('[data-testid="goal-create-no-friends"]').textContent).toContain('Du hast schon ein Do vorgemerkt')
+    expect(element('[data-testid="invite-card"]')).toBeTruthy()
+    expect(document.querySelector('[data-testid="goal-draft-form"]')).toBeNull()
     wrapper.unmount()
   })
 

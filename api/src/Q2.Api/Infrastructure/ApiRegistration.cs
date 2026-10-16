@@ -10,6 +10,7 @@ using Q2.Api.Features.Goals;
 using Q2.Api.Features.Images;
 using Q2.Api.Features.Moderation;
 using Q2.Api.Features.Notifications;
+using Q2.Api.Features.Onboarding;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Profile;
 using Q2.Api.Features.Proofs;
@@ -110,6 +111,10 @@ public static class ApiRegistration
         builder.Services.AddScoped<PasswordResetMailer>();
         builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();
+        builder.Services.AddScoped<GoalLauncher>();
+        builder.Services.AddScoped<GoalDraftService>();
+        builder.Services.AddScoped<GoalDraftStarter>();
+        builder.Services.AddScoped<OnboardingService>();
         builder.Services.AddScoped<ImageService>();
         builder.Services.AddScoped<ProofService>();
         builder.Services.AddScoped<ChallengeService>();

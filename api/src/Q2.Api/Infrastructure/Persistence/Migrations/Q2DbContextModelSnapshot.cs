@@ -503,6 +503,38 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("Goals", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("OwnerPersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<TimeOnly?>("ReminderAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerPersonId")
+                        .IsUnique();
+
+                    b.ToTable("GoalDrafts", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -968,6 +1000,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("NotificationsSeenAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("OnboardedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TimeZoneId")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
@@ -1368,6 +1403,56 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("GoalId");
+                        });
+
+                    b.Navigation("Schedule")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalDraft", b =>
+                {
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerPersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("Q2.Api.Features.Goals.GoalSchedule", "Schedule", b1 =>
+                        {
+                            b1.Property<Guid>("GoalDraftId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("EveryDays")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleEveryDays");
+
+                            b1.Property<string>("Kind")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleKind");
+
+                            b1.Property<string>("Period")
+                                .HasMaxLength(16)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("SchedulePeriod");
+
+                            b1.Property<int?>("Times")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleTimes");
+
+                            b1.Property<string>("WeekdayList")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleWeekdays");
+
+                            b1.HasKey("GoalDraftId");
+
+                            b1.ToTable("GoalDrafts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoalDraftId");
                         });
 
                     b.Navigation("Schedule")

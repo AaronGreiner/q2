@@ -5,13 +5,22 @@ namespace Q2.Api.Features.Accounts;
 /// <summary>
 /// Who is signed in.
 /// </summary>
+/// <param name="IsOnboarded">
+/// Whether the first-run introduction is behind them. On the session rather
+/// than read separately, because the route guard asks on every navigation and
+/// already has this answer in hand (docs/adr/0039-first-run-onboarding.md).
+/// </param>
 /// <remarks>
 /// The person, plus the one thing about the account itself that its owner may
 /// want to see. No password state, no security stamp, no lockout counter:
 /// nothing about how the session was established is any of the client's
 /// business.
 /// </remarks>
-public sealed record SessionResponse(PersonSummary Person, string Email);
+public sealed record SessionResponse(PersonSummary Person, string Email, bool IsOnboarded)
+{
+    public static SessionResponse For(Person person, string email, DateTimeOffset now) =>
+        new(PersonSummary.From(person, now), email, person.IsOnboarded);
+}
 
 /// <summary>Request body for creating an account.</summary>
 /// <remarks>

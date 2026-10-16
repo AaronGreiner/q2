@@ -46,6 +46,8 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
 
     public DbSet<Goal> Goals => Set<Goal>();
 
+    public DbSet<GoalDraft> GoalDrafts => Set<GoalDraft>();
+
     public DbSet<GoalParticipant> GoalParticipants => Set<GoalParticipant>();
 
     public DbSet<GoalInstance> GoalInstances => Set<GoalInstance>();

@@ -14,6 +14,16 @@ import { intervalChoices, quotaPeriods, scheduleKinds, weekdays } from '~/api/ty
  * somebody is told when the week ends and what happens if they only manage two
  * — so the picker says it, in the same words the goal will use afterwards.
  */
+const props = withDefaults(defineProps<{
+  /**
+   * The kinds on offer. All four by default; a waiting Do leaves out the
+   * one-off, whose day could pass before anybody arrives (docs/adr/0039).
+   */
+  kinds?: readonly ScheduleKind[]
+}>(), {
+  kinds: () => scheduleKinds,
+})
+
 const model = defineModel<GoalScheduleRequest>({ required: true })
 
 const t = useMessages()
@@ -84,12 +94,13 @@ const timesChoices = computed(() => (model.value.period === 'Month' ? [1, 2, 3, 
     data-testid="schedule-picker"
   >
     <div
-      class="grid grid-cols-4 gap-1.5"
+      class="grid gap-1.5"
+      :class="props.kinds.length === 3 ? 'grid-cols-3' : 'grid-cols-4'"
       role="radiogroup"
       :aria-label="t.create.scheduleLabel"
     >
       <button
-        v-for="option in scheduleKinds"
+        v-for="option in props.kinds"
         :key="option"
         type="button"
         role="radio"

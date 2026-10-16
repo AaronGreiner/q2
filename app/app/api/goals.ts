@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalStatus, LogUseRequest, RequestPauseRequest, SetReminderRequest } from './types'
+import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalDraft, GoalDraftState, GoalStatus, LogUseRequest, RequestPauseRequest, SaveGoalDraftRequest, SetReminderRequest } from './types'
 
 /**
  * The only place the frontend talks HTTP about goals.
@@ -45,6 +45,19 @@ export interface GoalsApi {
    */
   logUse: (id: string, request: LogUseRequest) => Promise<Goal>
 
+  /**
+   * The Do somebody without friends has waiting — null is the ordinary answer
+   * — and whether they have a friend at all. It is not a goal: it starts by
+   * itself when the first friendship does (docs/adr/0039-first-run-onboarding.md).
+   */
+  draft: () => Promise<GoalDraftState>
+
+  /** Writes the waiting Do. Refused once there is a friend to make it in front of. */
+  saveDraft: (request: SaveGoalDraftRequest) => Promise<GoalDraft>
+
+  /** Throws the waiting Do away. Succeeds when there is none. */
+  discardDraft: () => Promise<void>
+
   /*
    * Delivering a proof is deliberately not here. It is a photograph and a vote,
    * which is `~/api/proofs.ts` — the route still reads `/api/goals/{id}/proof`
@@ -83,6 +96,15 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     // 204 and no body: there is nothing left to describe.
     remove: async (id) => {
       await call<unknown>(goal(id), { method: 'DELETE' })
+    },
+
+    // Wrapped by the server, so "none" is an answer rather than a 404.
+    draft: () => call<GoalDraftState>('/api/goals/draft', { method: 'GET' }),
+
+    saveDraft: request => call<GoalDraft>('/api/goals/draft', { method: 'PUT', body: request }),
+
+    discardDraft: async () => {
+      await call<unknown>('/api/goals/draft', { method: 'DELETE' })
     },
   }
 }

@@ -5,6 +5,7 @@ import { useChatThread, useChats } from '~/composables/useChats'
 import type { Image } from '~/api/types'
 import { useFriends, usePersonProfile, usePersonSearch, useProfile } from '~/composables/useFriends'
 import { useGoalArchive, useGoalLifecycle } from '~/composables/useGoalLifecycle'
+import { useGoalDraft } from '~/composables/useGoalDraft'
 import { useGoalDetail, useGoals } from '~/composables/useGoals'
 import { useHome } from '~/composables/useHome'
 import { usePendingProofs, useProofDelivery } from '~/composables/useProofs'
@@ -243,6 +244,73 @@ describe('goal composables', () => {
     const missing = useGoalDetail(ref('missing'))
     await vi.waitFor(() => expect(missing.isMissing.value).toBe(true))
     expect(missing.error.value).toBeNull()
+  })
+})
+
+describe('the waiting Do', () => {
+  const waiting = {
+    id: 'draft-1',
+    title: 'Lesen',
+    icon: 'book-open',
+    schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
+    reminderAt: null,
+    createdAt: '2026-10-12T09:00:00Z',
+  }
+
+  function draftApi(state: { draft: unknown, hasFriends: boolean } = { draft: null, hasFriends: false }) {
+    return {
+      goals: {
+        draft: vi.fn().mockResolvedValue(state),
+        saveDraft: vi.fn().mockResolvedValue(waiting),
+        discardDraft: vi.fn().mockResolvedValue(undefined),
+      },
+    }
+  }
+
+  it('reads whether there is one and whether there is anybody, and keeps one waiting', async () => {
+    const api = draftApi()
+    installFeatureGlobals(api)
+    const state = useGoalDraft()
+    await vi.waitFor(() => expect(state.hasFriends.value).toBe(false))
+
+    expect(state.draft.value).toBeNull()
+
+    const request = { title: 'Lesen', icon: 'book-open', schedule: { kind: 'Interval' as const, everyDays: 1 }, reminderAt: null }
+    await expect(state.save(request)).resolves.toEqual(waiting)
+    expect(api.goals.saveDraft).toHaveBeenCalledWith(request)
+    expect(state.draft.value).toEqual(waiting)
+    expect(state.isSaving.value).toBe(false)
+
+    await expect(state.discard()).resolves.toBe(true)
+    expect(state.draft.value).toBeNull()
+    expect(state.hasFriends.value).toBe(false)
+  })
+
+  it('keeps a refused save visible, and a failed discard in place', async () => {
+    const api = draftApi({ draft: waiting, hasFriends: false })
+    const { report } = installFeatureGlobals(api)
+    const state = useGoalDraft()
+    await vi.waitFor(() => expect(state.draft.value).toEqual(waiting))
+
+    api.goals.saveDraft.mockRejectedValueOnce(new Error('refused'))
+    await expect(state.save({ title: 'Nope' })).resolves.toBeNull()
+    expect(state.saveError.value).toEqual(failure)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'goals', action: 'saveDraft' })
+
+    api.goals.discardDraft.mockRejectedValueOnce(new Error('offline'))
+    await expect(state.discard()).resolves.toBe(false)
+    expect(state.draft.value).toEqual(waiting)
+  })
+
+  it('assumes a friend when it cannot tell, so nobody is offered to wait by mistake', async () => {
+    const api = draftApi()
+    api.goals.draft.mockRejectedValueOnce(new Error('offline'))
+    installFeatureGlobals(api)
+    const state = useGoalDraft()
+    await vi.waitFor(() => expect(state.error.value).toEqual(failure))
+
+    expect(state.hasFriends.value).toBe(true)
+    expect(state.draft.value).toBeNull()
   })
 })
 

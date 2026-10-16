@@ -24,7 +24,11 @@ interface Account {
   context: BrowserContext
 }
 
-/** A new account, signed in inside a browser context of its own. */
+/**
+ * A new account, signed in inside a browser context of its own — and past the
+ * introduction, because these accounts stand for people who have been using
+ * q2 for a while. onboarding.spec.ts is about the introduction itself.
+ */
 async function register(browser: Browser, testInfo: TestInfo, label: string): Promise<Account> {
   const unique = `${Date.now()}${Math.floor(Math.random() * 1000)}`
   const name = `E2E ${label} ${unique}`
@@ -33,6 +37,7 @@ async function register(browser: Browser, testInfo: TestInfo, label: string): Pr
   const context = await browser.newContext({ ...testInfo.project.use, storageState: { cookies: [], origins: [] } })
   const response = await context.request.post(`${apiBaseUrl}/api/auth/register`, { data: { name, email, password } })
   expect(response.ok(), `registering ${email}`).toBe(true)
+  expect((await context.request.post(`${apiBaseUrl}/api/onboarding/complete`)).ok()).toBe(true)
 
   return { name, email, context }
 }
@@ -76,7 +81,8 @@ test('somebody without an account follows a link, signs up, and is friends', asy
     await page.getByTestId('register-password').fill(password)
     await page.getByTestId('register-submit').click()
 
-    await expect(page).toHaveURL('/')
+    // Into the introduction, with the friendship already made and said.
+    await expect(page).toHaveURL('/onboarding')
     await expect(page.getByText('Ihr seid jetzt befreundet', { exact: true })).toBeVisible()
 
     expect(await friendNamesOf(sender)).toContain(newcomer)

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { e2eAccount } from './support/e2eEnvironment'
+import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 
 /**
  * Getting in, and being kept out.
@@ -73,7 +73,7 @@ test.describe('signed out', () => {
     await expect(page.getByTestId('login-error')).toHaveText('E-Mail-Adresse oder Passwort stimmt nicht.')
   })
 
-  test('registering creates an account, signs it in, and starts it empty', async ({ page }) => {
+  test('registering creates an account, signs it in, introduces the app, and starts it empty', async ({ page }) => {
     await page.goto('/login')
     await page.getByTestId('to-register').click()
 
@@ -85,7 +85,12 @@ test.describe('signed out', () => {
     await page.getByTestId('register-password').fill('ein-langes-passwort')
     await page.getByTestId('register-submit').click()
 
-    await expect(page).toHaveURL('/')
+    // The first thing a new account sees is the introduction (docs/adr/0039);
+    // onboarding.spec.ts walks through it. Ended here through the API, because
+    // what this test is about comes after it.
+    await expect(page).toHaveURL('/onboarding')
+    await expect(page.getByTestId('onboarding-welcome-next')).toBeVisible()
+    expect((await page.request.post(`${apiBaseUrl}/api/onboarding/complete`)).ok()).toBe(true)
 
     // A new account sees none of the seeded person's world — which is the whole
     // reason ownership arrived together with accounts.

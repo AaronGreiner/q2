@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, Friend, GoalKind, GoalScheduleRequest } from '~/api/types'
+import type { CreateGoalRequest, Friend, GoalDraft, GoalKind, GoalScheduleRequest, SaveGoalDraftRequest } from '~/api/types'
 import { goalIcons } from '~/api/types'
 import type { DontLimit } from '~/components/donts/DontLimitPicker.vue'
 import type { DontTemplate, GoalTemplate } from '~/utils/goalTemplates'
@@ -22,8 +22,9 @@ import type { DontTemplate, GoalTemplate } from '~/utils/goalTemplates'
  * **Somebody has to check it.** A goal is made in front of friends, and they
  * are chosen here: the goal's conversation is opened with exactly them, and
  * they are who votes on its photographs. Without a friend there is nothing to
- * choose, so the sheet offers the invite link instead of a form that could
- * only be refused (docs/adr/0027-goal-conversations.md).
+ * choose, so the sheet offers to keep a Do waiting instead — it starts by
+ * itself when the first friend arrives — and, once one is waiting, the invite
+ * link (docs/adr/0027-goal-conversations.md, docs/adr/0039-first-run-onboarding.md).
  *
  * **A Do or a Don't, decided first.** "Ich will …" or "Ich will nicht mehr …"
  * at the top of the first step. A Don't swaps the rhythm for a limit and a way
@@ -35,13 +36,25 @@ const props = withDefaults(defineProps<{
   friendsLoading?: boolean
   submitting?: boolean
   error?: ApiFailure | null
+  /** The Do already waiting for a first friend, if there is one. */
+  draft?: GoalDraft | null
+  draftError?: ApiFailure | null
 }>(), {
   friendsLoading: false,
   submitting: false,
   error: null,
+  draft: null,
+  draftError: null,
 })
 
-const emit = defineEmits<{ submit: [request: CreateGoalRequest] }>()
+const emit = defineEmits<{
+  submit: [request: CreateGoalRequest]
+  /** Keep a Do waiting, for somebody with nobody to check it yet. */
+  draft: [request: SaveGoalDraftRequest]
+}>()
+
+const draftFormId = useId()
+const draftValid = ref(false)
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -235,15 +248,46 @@ defineExpose({ reset })
       </div>
 
       <div
-        v-else-if="friends.length === 0"
+        v-else-if="friends.length === 0 && draft"
         class="flex flex-col gap-3 pb-2"
         data-testid="goal-create-no-friends"
       >
         <p class="text-[13px] leading-relaxed font-semibold text-(--ui-text-muted)">
-          {{ t.create.noFriendsHint }}
+          {{ t.draft.createHasDraft }}
         </p>
 
         <InviteCard />
+      </div>
+
+      <div
+        v-else-if="friends.length === 0"
+        class="flex flex-col gap-4 pb-2"
+        data-testid="goal-create-draft"
+      >
+        <p class="text-[13px] leading-relaxed font-semibold text-(--ui-text-muted)">
+          {{ t.draft.createHint }}
+        </p>
+
+        <GoalDraftForm
+          v-model:valid="draftValid"
+          :form-id="draftFormId"
+          :error="draftError"
+          @submit="value => emit('draft', { title: value.title, icon: value.icon, schedule: value.schedule, reminderAt: value.reminderAt })"
+        />
+
+        <UButton
+          type="submit"
+          :form="draftFormId"
+          block
+          size="xl"
+          icon="i-lucide-hourglass"
+          class="justify-center"
+          :loading="submitting"
+          :disabled="!draftValid || submitting"
+          data-testid="goal-draft-submit"
+        >
+          {{ t.onboarding.firstDo.submitWaiting }}
+        </UButton>
       </div>
 
       <form

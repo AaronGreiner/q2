@@ -34,13 +34,12 @@ public sealed class GoalService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     FriendsService friends,
-    ActivityRecorder activity,
+    GoalLauncher launcher,
     ImageService images,
     Notifier notifier,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
-    Q2Metrics metrics,
     ILogger<GoalService> logger)
 {
     public async Task<IReadOnlyList<GoalResponse>> ListAsync(GoalStatus? status, CancellationToken cancellationToken)
@@ -265,30 +264,9 @@ public sealed class GoalService(
                 "Invite at least one friend to check this goal.");
         }
 
-        // The first window opens now, through the same code that opens every
-        // later one — so "created today" and "rolled over overnight" cannot
-        // disagree about where a window starts.
-        GoalMaintenance.Advance(goal, timeZones.For(me.TimeZoneId), now, idGenerator);
-
-        database.Goals.Add(goal);
-
-        // Its conversation opens with it, in the same save: there is no moment
-        // at which the goal exists and the place its friends check it does not
-        // (docs/adr/0027-goal-conversations.md).
-        var conversation = GoalConversations.Open(goal, idGenerator.NewId(), idGenerator.NewId, now);
-        database.Conversations.Add(conversation);
-
-        activity.Publish(me.Id, ActivityKind.GoalCreated, goal.Title, null, now, goal.Id);
-
-        // Being put on a goal is being made one of the people who decide it,
-        // which is worth knowing before the first photograph arrives.
-        await notifier.StageAsync(
-            new NotificationEvent(NotificationKind.GoalInvitation, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
-            goal.Participants.Select(participant => participant.PersonId),
-            cancellationToken);
-
-        // A new row in everybody's chat list, the owner's other devices too.
-        notifier.Touch(conversation.Participants.Select(participant => participant.PersonId), LiveArea.Chats);
+        // Its first window, its conversation, the feed and the invitations —
+        // the same for a goal made here as for a waiting Do that starts.
+        await launcher.LaunchAsync(goal, timeZones.For(me.TimeZoneId), now, cancellationToken);
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
@@ -299,9 +277,6 @@ public sealed class GoalService(
             goal.Id,
             goal.Schedule.Kind,
             goal.Participants.Count);
-
-        // How often, and of which kind. Never which goal, and never whose.
-        metrics.CountGoalCreated(goal.Schedule.Kind, goal.IsGroup);
 
         return await DescribeAsync(goal, me.Id, timeZones.For(me.TimeZoneId), now, cancellationToken);
     }

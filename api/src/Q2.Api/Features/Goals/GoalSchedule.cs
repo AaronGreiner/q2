@@ -159,6 +159,16 @@ public sealed class GoalSchedule
 
     public static GoalSchedule Once() => new(ScheduleKind.Once, null, string.Empty, null, null);
 
+    /// <summary>
+    /// The same schedule as a separate instance.
+    /// </summary>
+    /// <remarks>
+    /// EF Core owns a schedule through exactly one row, so a waiting Do that
+    /// becomes a goal hands the goal a copy rather than its own
+    /// (<see cref="GoalDraft.Start"/>).
+    /// </remarks>
+    public GoalSchedule Copy() => new(Kind, EveryDays, WeekdayList, Times, Period);
+
     /// <exception cref="DomainValidationException">The interval is out of range.</exception>
     public static GoalSchedule EveryNDays(int everyDays)
     {

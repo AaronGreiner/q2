@@ -89,6 +89,12 @@ describe('keysFor', () => {
     expect(keysFor({ area: 'Feed', id: null })).toEqual(expect.arrayContaining(['home', 'activity-overview']))
   })
 
+  it('swaps a waiting Do for the goal it became, wherever either is shown', () => {
+    // The server starts a waiting Do when a friend arrives and says "Goals";
+    // the card that showed the draft has to read again with the list.
+    expect(keysFor({ area: 'Goals', id: null })).toEqual(expect.arrayContaining(['goals', 'goal-draft', 'home']))
+  })
+
   it('reads the chat list again when a goal or its photographs move, and a goal\'s thread by its goal', () => {
     // The list sorts by what last happened in a goal's conversation and marks
     // what waits for a vote; an open thread of that goal follows `goal:<id>`.

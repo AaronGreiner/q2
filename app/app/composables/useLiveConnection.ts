@@ -50,10 +50,12 @@ export function keysFor(change: LiveChange): string[] {
       return change.id
         ? ['proofs-pending', 'proofs-mine', 'chats', `goal:${change.id}`]
         : ['proofs-pending', 'proofs-mine', 'chats']
+    // A waiting Do starts when a friend arrives (docs/adr/0039), so its card
+    // reads again with the goals it turns into.
     case 'Goals':
       return change.id
-        ? ['goals', 'goals-archive', 'home', 'chats', `goal:${change.id}`]
-        : ['goals', 'goals-archive', 'home', 'chats']
+        ? ['goals', 'goals-archive', 'goal-draft', 'home', 'chats', `goal:${change.id}`]
+        : ['goals', 'goals-archive', 'goal-draft', 'home', 'chats']
     case 'Challenge':
       return ['challenge-today']
     case 'Feed':

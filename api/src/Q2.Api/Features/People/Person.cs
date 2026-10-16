@@ -152,6 +152,26 @@ public sealed class Person
     /// </remarks>
     public DateTimeOffset? NotificationsSeenAt { get; private set; }
 
+    /// <summary>
+    /// When this person finished the first-run introduction. Null while it is
+    /// still ahead of them.
+    /// </summary>
+    /// <remarks>
+    /// On the person rather than in a cookie, because "only the first time" has
+    /// to mean the first time on any device: somebody who went through it in
+    /// the browser must not meet it again in the iOS app.
+    ///
+    /// Null for every account that existed before the introduction did, on
+    /// purpose — the author decided that everybody goes through it once.
+    /// Seeded people are marked as done instead, because a seeded world stands
+    /// for people who have been using q2 for months
+    /// (docs/adr/0039-first-run-onboarding.md).
+    /// </remarks>
+    public DateTimeOffset? OnboardedAt { get; private set; }
+
+    /// <summary>True once the first-run introduction is behind this person.</summary>
+    public bool IsOnboarded => OnboardedAt is not null;
+
     public IReadOnlyList<DailyCheckIn> CheckIns => _checkIns;
 
     public IReadOnlyList<PersonBadge> Badges => _badges;
@@ -245,6 +265,41 @@ public sealed class Person
         DisplayName = normalisedName;
         Initials = normalisedInitials;
     }
+
+    /// <summary>
+    /// Gives this person the handle they chose themselves.
+    /// </summary>
+    /// <remarks>
+    /// Only while the introduction is still open. A handle is what friends
+    /// search for and write down, which is why it never changes afterwards
+    /// (README section 2); but it was derived from the name in the background,
+    /// and the introduction is the one moment its owner gets to see it before
+    /// that matters (#108). Whether somebody else already has it is the
+    /// database's question, and the caller asks it first.
+    /// </remarks>
+    /// <exception cref="DomainValidationException">
+    /// The introduction is over, or the handle is not one a person may choose.
+    /// </exception>
+    public void ChooseHandle(string handle)
+    {
+        if (IsOnboarded)
+        {
+            throw new DomainValidationException(nameof(Handle), "Your handle is fixed now.");
+        }
+
+        if (!Handles.IsChoosable(handle))
+        {
+            throw new DomainValidationException(nameof(Handle), Handles.Rule);
+        }
+
+        Handle = handle;
+    }
+
+    /// <summary>
+    /// Records that the first-run introduction is behind this person. Keeps the
+    /// first moment if it is called again.
+    /// </summary>
+    public void CompleteOnboarding(DateTimeOffset completedAt) => OnboardedAt ??= completedAt;
 
     /// <summary>Sets the counters the profile screen shows. Seeding only.</summary>
     public void SetTotals(int kudosReceived, int goalsCompleted)

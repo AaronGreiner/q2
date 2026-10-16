@@ -102,6 +102,22 @@ const recentFeed = computed(() => feed.value.slice(0, 3))
 
 const greeting = computed(() => t.value.home.greeting(new Date(now.value).getUTCHours()))
 
+/*
+ * Somebody with nobody to make a goal in front of has one next step, and it is
+ * not "leave something under Dos" (#93): it is their waiting Do and the link
+ * that starts it, or the link alone. Shown above everything while nothing is
+ * due, in place of the empty "Heute".
+ */
+const drafts = useGoalDraft()
+const { share: shareInvite } = useInvite()
+const toast = useToastMessage()
+
+const showFirstStep = computed(() => !drafts.hasFriends.value && due.value.length === 0)
+
+async function onDiscardDraft() {
+  if (await drafts.discard()) toast.show(t.value.toast.draftDiscarded)
+}
+
 useHead({ title: () => t.value.nav.home })
 </script>
 
@@ -219,6 +235,29 @@ useHead({ title: () => t.value.nav.home })
           @deliver="deliveringFor = $event"
         />
 
+        <section
+          v-if="showFirstStep"
+          class="mb-3"
+          aria-labelledby="first-step-heading"
+          data-testid="home-first-step"
+        >
+          <h2
+            id="first-step-heading"
+            class="q2-eyebrow mb-3 px-0.5"
+          >
+            {{ t.draft.homeHeading }}
+          </h2>
+
+          <GoalDraftCard
+            v-if="drafts.draft.value"
+            :draft="drafts.draft.value"
+            :busy="drafts.isSaving.value"
+            @share="shareInvite()"
+            @discard="onDiscardDraft"
+          />
+          <InviteCard v-else />
+        </section>
+
         <StreakHero
           :streak="profile.streak"
           :week="profile.weekActivity"
@@ -280,7 +319,7 @@ useHead({ title: () => t.value.nav.home })
         <!-- Not drawn when the only thing due is already at the top: saying
              "nothing on today" under it would be wrong. -->
         <section
-          v-if="nextDue.length > 0 || dontsToday.length > 0 || due.length === 0"
+          v-if="nextDue.length > 0 || dontsToday.length > 0 || (due.length === 0 && !showFirstStep)"
           class="mt-6"
           aria-labelledby="today-heading"
         >

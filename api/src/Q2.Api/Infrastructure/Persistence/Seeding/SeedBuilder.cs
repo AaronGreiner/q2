@@ -109,6 +109,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         int goalsCompleted = 0,
         int streakDays = 0,
         int? lastSeenMinutesAgo = null,
+        bool onboarded = true,
         params BadgeKey[] badges)
     {
         var person = Person.Create(
@@ -119,6 +120,14 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             avatarColor);
 
         person.SetTotals(kudosReceived, goalsCompleted);
+
+        // A seeded world stands for people who have been using q2 for a while,
+        // and every suite signs in as one of them: met the introduction long
+        // ago. The one that has not is asked for by name (docs/adr/0039).
+        if (onboarded)
+        {
+            person.CompleteOnboarding(Context.DaysAgo(60));
+        }
 
         if (lastSeenMinutesAgo is { } minutes)
         {

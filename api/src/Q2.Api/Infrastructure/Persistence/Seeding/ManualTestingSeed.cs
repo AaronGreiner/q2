@@ -1,4 +1,5 @@
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.People;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
 
@@ -22,6 +23,12 @@ public sealed class ManualTestingSeed : ISeedDataSource
     {
         var build = new SeedBuilder(Profile, context);
         var cast = KudosWorld.Compose(build);
+
+        // Somebody who has just registered: no friend, nothing made, and the
+        // introduction still ahead of them (docs/adr/0039-first-run-onboarding.md).
+        // Signing in as nora.neu@kudos.example walks through it; afterwards it
+        // stays done until the next `test:manual:start`.
+        build.AddPerson("Nora Neu", "@nora.neu", "NN", AvatarColors.Teal, lastSeenMinutesAgo: 2, onboarded: false);
 
         build.AddGoal(
             "Zehn Kilometer am Stück",

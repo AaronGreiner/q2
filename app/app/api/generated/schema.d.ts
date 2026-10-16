@@ -260,6 +260,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/onboarding/handle/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Says whether a handle could be yours: available, taken, invalid or the one you have. */
+        post: operations["CheckHandle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onboarding/handle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Gives you the handle you chose. Only while the introduction is open. */
+        put: operations["ChooseHandle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/onboarding/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Records that the introduction is behind you. Idempotent. */
+        post: operations["CompleteOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals": {
         parameters: {
             query?: never;
@@ -290,6 +341,25 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns your waiting Do, or null when there is none. */
+        get: operations["GetGoalDraft"];
+        /** Writes your waiting Do, which starts by itself when your first friendship does. */
+        put: operations["SaveGoalDraft"];
+        post?: never;
+        /** Throws your waiting Do away. */
+        delete: operations["DiscardGoalDraft"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1375,6 +1445,21 @@ export interface components {
             /** Format: uuid */
             conversationId: string | null;
         };
+        GoalDraftResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            icon: string;
+            schedule: components["schemas"]["GoalScheduleResponse"];
+            /** Format: time */
+            reminderAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        GoalDraftStateResponse: {
+            draft: null | components["schemas"]["GoalDraftResponse"];
+            hasFriends: boolean;
+        };
         /** @enum {unknown} */
         GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | "UseLogged" | "WindowRelapse" | null;
         GoalEventResponse: {
@@ -1515,6 +1600,15 @@ export interface components {
             person: components["schemas"]["PersonSummary"];
             /** Format: int32 */
             streak: number;
+        };
+        /** @enum {unknown} */
+        HandleAvailability: "Available" | "Taken" | "Invalid" | "Current";
+        HandleCheckResponse: {
+            handle: string | null;
+            availability: components["schemas"]["HandleAvailability"];
+        };
+        HandleRequest: {
+            handle?: string | null;
         };
         HttpValidationProblemDetails: {
             type?: string | null;
@@ -1782,6 +1876,13 @@ export interface components {
             /** Format: int32 */
             remainingDays: number;
         };
+        SaveGoalDraftRequest: {
+            title?: string | null;
+            icon?: string | null;
+            schedule?: null | components["schemas"]["GoalScheduleRequest"];
+            /** Format: time */
+            reminderAt?: string | null;
+        };
         /** @enum {unknown} */
         ScheduleKind: "Once" | "Interval" | "Weekdays" | "Times" | "Limit";
         SendMessageRequest: {
@@ -1797,6 +1898,7 @@ export interface components {
         SessionResponse: {
             person: components["schemas"]["PersonSummary"];
             email: string;
+            isOnboarded: boolean;
         };
         SetReminderRequest: {
             /** Format: time */
@@ -2456,6 +2558,83 @@ export interface operations {
             };
         };
     };
+    CheckHandle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandleCheckResponse"];
+                };
+            };
+        };
+    };
+    ChooseHandle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    CompleteOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+        };
+    };
     ListGoals: {
         parameters: {
             query?: {
@@ -2528,6 +2707,77 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GoalResponse"][];
                 };
+            };
+        };
+    };
+    GetGoalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalDraftStateResponse"];
+                };
+            };
+        };
+    };
+    SaveGoalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGoalDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalDraftResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+        };
+    };
+    DiscardGoalDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

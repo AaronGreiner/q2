@@ -34,6 +34,25 @@ public static class GoalEndpoints
             .WithSummary("Lists the goals that have stopped, most recently stopped first.")
             .Produces<IReadOnlyList<GoalResponse>>();
 
+        // The Do somebody without friends has waiting (docs/adr/0039). Not a
+        // goal, so not under an id: there is at most one, and it is the
+        // caller's.
+        goals.MapGet("/draft", GetDraft)
+            .WithName("GetGoalDraft")
+            .WithSummary("Returns your waiting Do, or null when there is none.")
+            .Produces<GoalDraftStateResponse>();
+
+        goals.MapPut("/draft", SaveDraft)
+            .WithName("SaveGoalDraft")
+            .WithSummary("Writes your waiting Do, which starts by itself when your first friendship does.")
+            .Produces<GoalDraftResponse>()
+            .ProducesValidationProblem();
+
+        goals.MapDelete("/draft", DiscardDraft)
+            .WithName("DiscardGoalDraft")
+            .WithSummary("Throws your waiting Do away.")
+            .Produces(StatusCodes.Status204NoContent);
+
         goals.MapGet("/{id:guid}", GetGoal)
             .WithName("GetGoal")
             .WithSummary("Returns one goal with its team and its resolved windows.")
@@ -139,6 +158,34 @@ public static class GoalEndpoints
 
         var created = await goals.CreateAsync(request, cancellationToken);
         return TypedResults.Created($"/api/goals/{created.Id}", created);
+    }
+
+    private static async Task<Ok<GoalDraftStateResponse>> GetDraft(
+        GoalDraftService drafts,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await drafts.GetAsync(cancellationToken));
+
+    private static async Task<Results<Ok<GoalDraftResponse>, ValidationProblem>> SaveDraft(
+        GoalDraftService drafts,
+        SaveGoalDraftRequest request,
+        CancellationToken cancellationToken)
+    {
+        var errors = SaveGoalDraftRequestValidator.Validate(request);
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        return TypedResults.Ok(await drafts.SaveAsync(request, cancellationToken));
+    }
+
+    private static async Task<NoContent> DiscardDraft(
+        GoalDraftService drafts,
+        CancellationToken cancellationToken)
+    {
+        await drafts.DiscardAsync(cancellationToken);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Ok<IReadOnlyList<GoalResponse>>> ListArchive(

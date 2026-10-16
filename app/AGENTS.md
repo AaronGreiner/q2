@@ -107,6 +107,8 @@ Current components, by folder:
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
 | `AppErrorState` | renders an `ApiFailure` for a person |
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the Dos & Don'ts ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md), [0035](../docs/adr/0035-dos-and-donts.md)) |
+| `AppTour` | the one-time tour over the tab bar after the introduction, shown while the address carries `?tour=1` ([0039](../docs/adr/0039-first-run-onboarding.md)) |
+| `OnboardingFrame` and the `Onboarding*` steps | the first-run introduction: the frame with progress, back and "Später", and one component per step — welcome with its illustrations, profile, appearance, first Do, invite, notifications, done. The page `/onboarding` owns every read and write ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
 | `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |
@@ -116,7 +118,8 @@ Current components, by folder:
 | `SchedulePicker` | how often a goal is due: the kind, then what that kind needs |
 | `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |
 | `GoalReminderSheet` | moving or removing a goal's daily reminder |
-| `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't |
+| `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't; without a friend it keeps a Do waiting instead |
+| `GoalDraftCard` `GoalDraftForm` | a Do that waits for its owner's first friend, and the short form a first Do is made in — a waiting Do without friends, a goal with them ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `SpotCheckCard` | an open spot check: its countdown in seconds and the live-only camera, first on the start screen and on the Don't's screen ([0038](../docs/adr/0038-spot-checks.md)) |
 | `DontWindowRow` `DontHero` `DontLogButton` `DontLimitPicker` | a Don't: its row on today's list, the top of its own screen with the run, the one tap that logs a use (and asks first when it would be the relapse), and its limit, period and proof mode in the create sheet ([0037](../docs/adr/0037-donts.md)) |
 | `ActivityRow` | one line of the friends' feed, with its kudos button |
@@ -200,6 +203,14 @@ needed it. `/login`, `/register` and `/forgot-password` opt out and send
 somebody who is signed in home; `/diagnostics` and `/reset-password` opt out
 without sending anybody anywhere, because a reset link is opened on whatever
 device its mail was read on. Both lists are explicit and visible.
+
+**The first-run introduction is a guard too.** Somebody signed in whose session
+says `isOnboarded: false` is taken to `/onboarding` from every screen except the
+open routes and invite links, and somebody who has finished it is taken away
+from it. The answer comes from the server, so it holds on every device
+([../docs/adr/0039-first-run-onboarding.md](../docs/adr/0039-first-run-onboarding.md)).
+A test that registers a fresh account standing for somebody who has used q2
+before finishes it through `POST /api/onboarding/complete`.
 
 **A reset token is never in the address bar when anything could record it.** It
 arrives as `/reset-password#token=…`, and an inline script in that page's

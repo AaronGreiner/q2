@@ -33,6 +33,13 @@ export function useSession() {
   const person = computed(() => session.value?.person ?? null)
   const isSignedIn = computed(() => session.value !== null)
 
+  /**
+   * Whether the first-run introduction is behind this person — on any device,
+   * because the server remembers it (docs/adr/0039-first-run-onboarding.md).
+   * True while signed out: there is nobody to introduce.
+   */
+  const isOnboarded = computed(() => session.value?.isOnboarded ?? true)
+
   // `resolve` also runs during SSR middleware. After awaiting the API request,
   // Nuxt's implicit composable context is no longer guaranteed to be active,
   // so cache cleanup must re-enter the context captured at setup time.
@@ -144,7 +151,38 @@ export function useSession() {
     await tokens?.clear()
   }
 
-  return { session, person, isSignedIn, isResolved, resolve, adopt, login, logout, forget, register }
+  /**
+   * Says the introduction is over, and takes the answer as the session — so
+   * the route guard lets the next navigation through without asking again.
+   */
+  async function completeOnboarding(): Promise<Session> {
+    const result = await api.onboarding.complete()
+    adopt(result)
+    return result
+  }
+
+  /** Takes the chosen handle, and the session that now carries it. */
+  async function chooseHandle(handle: string): Promise<Session> {
+    const result = await api.onboarding.chooseHandle(handle)
+    adopt(result)
+    return result
+  }
+
+  return {
+    session,
+    person,
+    isSignedIn,
+    isOnboarded,
+    isResolved,
+    resolve,
+    adopt,
+    login,
+    logout,
+    forget,
+    register,
+    completeOnboarding,
+    chooseHandle,
+  }
 }
 
 /**

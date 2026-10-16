@@ -431,10 +431,34 @@ describe('useInvite', () => {
     }
   }
 
+  /** A browser with the screen already mounted, which is where a link exists. */
   function installBrowser(overrides: Record<string, unknown> = {}) {
     vi.stubGlobal('window', { location: { origin: 'https://q2.example' } })
     vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) }, ...overrides })
+    vi.stubGlobal('onMounted', (callback: () => void) => callback())
   }
+
+  /**
+   * The server has no origin to build a link from, and the browser's first
+   * render has to match it: a link that turned up during hydration left the
+   * share button disabled for good, because Vue does not correct an attribute
+   * while hydrating.
+   */
+  it('has no link until the screen is mounted', async () => {
+    installBrowser()
+    let mount = () => {}
+    vi.stubGlobal('onMounted', (callback: () => void) => {
+      mount = callback
+    })
+    installFeatureGlobals(inviteApi())
+
+    const invite = useInvite()
+    await vi.waitFor(() => expect(invite.code.value).toBe('abc123'))
+    expect(invite.url.value).toBe('')
+
+    mount()
+    expect(invite.url.value).toBe('https://q2.example/join/abc123')
+  })
 
   /**
    * The server hands back a code and nothing else: it does not know which host

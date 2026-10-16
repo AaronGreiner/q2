@@ -30,17 +30,32 @@ export function useInvite() {
     { default: () => placeholder({ code: '', failure: null as ApiFailure | null }) },
   )
 
+  /*
+   * Whether this copy of the screen is mounted in a browser.
+   *
+   * The link only exists there, and it has to appear *after* hydration rather
+   * than during it: the first render in the browser must match the server's,
+   * which had no link. Built straight away, the link turned up mid-hydration,
+   * and Vue does not correct an attribute while hydrating — the share and copy
+   * buttons, rendered disabled on the server, stayed disabled for good on any
+   * screen that was loaded directly.
+   */
+  const isMounted = ref(false)
+  onMounted(() => {
+    isMounted.value = true
+  })
+
   /**
    * The link itself.
    *
-   * Empty during server rendering, because there is no origin to build it from
-   * there — the button that uses it is disabled until hydration rather than
-   * rendering a link to nowhere.
+   * Empty during server rendering and hydration, because there is no origin
+   * to build it from there — the button that uses it is disabled until the
+   * screen is mounted rather than rendering a link to nowhere.
    */
   const url = computed(() => {
     const code = data.value?.code
 
-    if (!code || !import.meta.client) return ''
+    if (!code || !isMounted.value) return ''
 
     const origin = config.siteUrl ? config.siteUrl.replace(/\/$/, '') : window.location.origin
 

@@ -28,11 +28,12 @@ and [docs/adr/0028-ruhe-design-system.md](docs/adr/0028-ruhe-design-system.md).
 
 ## 1. What is already implemented
 
-Fifteen screens, and everything behind them:
+Sixteen screens, and everything behind them:
 
 | Screen | What it does |
 | --- | --- |
 | **Anmeldung** | Sign in, or create an account with a name, an email address and a password — or ask for a link that sets a new one |
+| **Einführung** | Once per account, on whichever device it signs in first: what Qdos is in three slides, the profile picture, the name and the handle (the one moment it can be chosen), light or dark with the accent and the language, the first Do, the invite link, the notification permission where push can work, and a short tour over the tab bar. Every optional step can be put off. Without a friend the first Do waits and starts by itself when somebody arrives through the link — or, for somebody who does not want to invite anybody yet, lapses with "Erstmal ohne Freunde", which ends the introduction there — see [docs/adr/0039](docs/adr/0039-first-run-onboarding.md) |
 | **Start** | The one window to deliver next, with how long it has left and the camera; the streak with today as a ring and a week that shows what was kept; the photographs waiting for your verdict, an open spot check first, with its countdown and a live-only camera ([docs/adr/0038](docs/adr/0038-spot-checks.md)), the next three due by deadline and every Don't with what its period has used, the three newest things friends did, a bell that counts what concerns you, and your picture as the way to your profile — see [docs/adr/0032](docs/adr/0032-the-next-step-first.md) |
 | **Dos & Don'ts** | The middle of the tab bar, labelled "Dos": what is due today under "Heute", all of them under "Alle" ([docs/adr/0035](docs/adr/0035-dos-and-donts.md)), each split into your own and the ones friends asked you to check — a friend's row names its owner and has nothing to press. The route is still `/goals`; every open window counts down to its end once it is less than a day away; the plus in its header opens a bottom sheet, the only place that creates a goal — in four steps: a Do or a Don't and what (or one of the ideas), how often and when to be reminded — or for a Don't how often at most per day, week or month and how friends check it — which friends check it, and a summary of when the first window ends — or offers the invite link to somebody who has none yet. A Don't's uses are logged in one tap, the one over the limit is a relapse, and its screen counts the days without one ([docs/adr/0037](docs/adr/0037-donts.md)) |
 | **Archiv** | The goals that have stopped, kept with their history and photographs — and the only place one can be deleted for good |
@@ -62,7 +63,7 @@ Fifteen screens, and everything behind them:
 | Safety | Somebody can be reported and blocked. A block ends the friendship, works in both directions and is never announced — search, profiles, requests and direct chats behave as though the other person were not there, and it is reversible. A report reaches a recipient rather than a table, carrying ids and a reason but never the note or the reporter — see [docs/adr/0022](docs/adr/0022-blocking-reporting-and-erasure.md) |
 | Leaving | An account can be deleted: the person, their goals and windows with the conversation of each, their pictures and their direct chats go, their messages leave the groups and friends' goals they were in, and the password is asked for again. It is the only irreversible action in q2 |
 | Notifications | One pipeline for everything a person is told: messages, friend requests, a photograph waiting for their verdict, the verdict on their own, kudos and reactions, invitations and pauses, a friend about to miss, the daily challenge. Each has one place — its own screen with a count, or the bell. An open app hears about it over a WebSocket, reads again what changed, and shows what concerns the person as a banner at the top — never over the screen it is about; a closed one gets Web Push with VAPID, written against RFC 8291/8292 rather than pulled in as a dependency, so a push service carries bytes it cannot read. The server sends parts and the device writes the sentence, in the language the person chose in q2, which every push names. One switch per kind decides what may interrupt — a push or a banner — not what the bell keeps; a conversation can be muted; quiet hours default to 22:00–07:00 and drop rather than hold; empty VAPID keys turn push off, which is the default — see [docs/adr/0024](docs/adr/0024-one-notification-pipeline.md) and [docs/adr/0023](docs/adr/0023-web-push.md) |
-| Arriving | An invite link — 96 random bits, replaceable, never the handle — opens a page naming its sender and makes whoever follows it a friend: at registration, or with one tap for somebody who already has an account ([ADR 0033](docs/adr/0033-invite-links-for-new-and-existing-accounts.md)). That plus the daily challenge is what a new account has on its first day |
+| Arriving | An invite link — 96 random bits, replaceable, never the handle — opens a page naming its sender and makes whoever follows it a friend: at registration, or with one tap for somebody who already has an account ([ADR 0033](docs/adr/0033-invite-links-for-new-and-existing-accounts.md)). A new account without a friend keeps its first Do waiting, and the friend who arrives through the link starts it ([ADR 0039](docs/adr/0039-first-run-onboarding.md)) |
 | Daily challenge | One prompt a day, the same for everybody, published from a queue that is written a week ahead — there is no daily editorial shift. It pays into no streak and knows no "missed", so nobody votes on it. Everybody sees a room made of their own friends, covered until they have contributed themselves; the archive keeps your own contributions and nobody else's — see [docs/adr/0021-daily-challenge.md](docs/adr/0021-daily-challenge.md) |
 | Frontend | Sign-in, registration and password reset, the six screens plus goal detail, chat thread and settings; a global route guard; loading, empty, error and not-found states; German and English; light and dark with four device-local accent palettes ([ADR 0028](docs/adr/0028-ruhe-design-system.md)); mobile-first, developed and tested at phone width, keyboard accessible |
 | Installable | A web app manifest, the Q icon set and a service worker make q2 installable from the browser: its own window, an icon on the home screen, and the build already on the device. The worker caches the build output and nothing else — see [docs/adr/0012-installable-pwa.md](docs/adr/0012-installable-pwa.md) |
@@ -98,7 +99,8 @@ issue; the others are decisions and say why:
   a view of your goals beyond sharing one.
 - **Changing your handle.** The display name and the profile picture can be
   changed; the handle cannot, on purpose — it is the string somebody's friends
-  searched for and wrote down.
+  searched for and wrote down. The one exception is the first-run introduction,
+  the moment its owner first sees it ([ADR 0039](docs/adr/0039-first-run-onboarding.md)).
 - **Native push.** A phone is reached through Web Push, which on iOS means an
   installed home-screen app, and a deployment with no VAPID keys sends no push
   at all — the default, what the screen says, and so far the state of Staging
@@ -406,6 +408,12 @@ The address is the handle at a reserved domain, so `@mara.k` signs in as
 | `Development`, `ManualTesting` | `mara.k@kudos.example` |
 | `AutomatedTest` | `test.one@kudos.example` |
 | `E2E` | `e2e.mara@kudos.example` |
+
+Every seeded person has been through the first-run introduction already.
+ManualTesting adds one who has not, `nora.neu@kudos.example`: no friend,
+nothing made, and the introduction still ahead
+([ADR 0039](docs/adr/0039-first-run-onboarding.md)). It stays done after one
+walk-through until the next `bun run test:manual:start`.
 
 Being able to sign in as *anybody* in a seeded world is the point: a friend
 request and a group chat look different from each end, and only a test that can

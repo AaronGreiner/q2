@@ -81,8 +81,9 @@ async function onSubmit() {
       toast.show(t.value.toast.befriended)
     }
 
-    // Registering signs you in, so there is no second form to fill in.
-    await navigateTo('/', { replace: true })
+    // Registering signs you in, so there is no second form to fill in — and
+    // the first thing a new account sees is the introduction (docs/adr/0039).
+    await navigateTo('/onboarding', { replace: true })
   }
   catch (caught) {
     failure.value = isApiError(caught) ? toApiFailure(caught) : null

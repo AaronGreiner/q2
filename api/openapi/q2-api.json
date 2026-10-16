@@ -711,6 +711,99 @@
         }
       }
     },
+    "/api/onboarding/handle/check": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "Says whether a handle could be yours: available, taken, invalid or the one you have.",
+        "operationId": "CheckHandle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandleCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboarding/handle": {
+      "put": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "Gives you the handle you chose. Only while the introduction is open.",
+        "operationId": "ChooseHandle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboarding/complete": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "Records that the introduction is behind you. Idempotent.",
+        "operationId": "CompleteOnboarding",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals": {
       "get": {
         "tags": [
@@ -803,6 +896,78 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/goals/draft": {
+      "get": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Returns your waiting Do, or null when there is none.",
+        "operationId": "GetGoalDraft",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalDraftStateResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Writes your waiting Do, which starts by itself when your first friendship does.",
+        "operationId": "SaveGoalDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveGoalDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalDraftResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Throws your waiting Do away.",
+        "operationId": "DiscardGoalDraft",
+        "responses": {
+          "204": {
+            "description": "No Content"
           }
         }
       }
@@ -4095,6 +4260,65 @@
           }
         }
       },
+      "GoalDraftResponse": {
+        "required": [
+          "id",
+          "title",
+          "icon",
+          "schedule",
+          "reminderAt",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/GoalScheduleResponse"
+          },
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GoalDraftStateResponse": {
+        "required": [
+          "draft",
+          "hasFriends"
+        ],
+        "type": "object",
+        "properties": {
+          "draft": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalDraftResponse"
+              }
+            ]
+          },
+          "hasFriends": {
+            "type": "boolean"
+          }
+        }
+      },
       "GoalEventKind": {
         "enum": [
           "Created",
@@ -4632,6 +4856,39 @@
           "streak": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "HandleAvailability": {
+        "enum": [
+          "Available",
+          "Taken",
+          "Invalid",
+          "Current"
+        ]
+      },
+      "HandleCheckResponse": {
+        "required": [
+          "handle",
+          "availability"
+        ],
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "nullable": true
+          },
+          "availability": {
+            "$ref": "#/components/schemas/HandleAvailability"
+          }
+        }
+      },
+      "HandleRequest": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -5563,6 +5820,36 @@
           }
         }
       },
+      "SaveGoalDraftRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/GoalScheduleRequest"
+              }
+            ]
+          },
+          "reminderAt": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
+          }
+        }
+      },
       "ScheduleKind": {
         "enum": [
           "Once",
@@ -5605,7 +5892,8 @@
       "SessionResponse": {
         "required": [
           "person",
-          "email"
+          "email",
+          "isOnboarded"
         ],
         "type": "object",
         "properties": {
@@ -5614,6 +5902,9 @@
           },
           "email": {
             "type": "string"
+          },
+          "isOnboarded": {
+            "type": "boolean"
           }
         }
       },
@@ -5936,6 +6227,9 @@
     },
     {
       "name": "Accounts"
+    },
+    {
+      "name": "Onboarding"
     },
     {
       "name": "Images"

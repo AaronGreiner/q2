@@ -43,6 +43,13 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.NotificationsSeenAt)
             .HasConversion(InstantConversion.Optional);
 
+        // Null for every account that existed before the introduction, which
+        // is the point: they go through it once too (Person.OnboardedAt).
+        builder.Property(p => p.OnboardedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Ignore(p => p.IsOnboarded);
+
         // Long enough for any IANA identifier ("America/Argentina/Buenos_Aires"
         // is the longest at 32).
         builder.Property(p => p.TimeZoneId)

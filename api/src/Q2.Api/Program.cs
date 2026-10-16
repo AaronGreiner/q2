@@ -7,6 +7,7 @@ using Q2.Api.Features.Goals;
 using Q2.Api.Features.Images;
 using Q2.Api.Features.Moderation;
 using Q2.Api.Features.Notifications;
+using Q2.Api.Features.Onboarding;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Profile;
 using Q2.Api.Features.Proofs;
@@ -35,6 +36,7 @@ app.UseQ2Pipeline();
 
 app.MapAccountEndpoints();
 app.MapProfileEndpoints();
+app.MapOnboardingEndpoints();
 app.MapGoalEndpoints();
 app.MapImageEndpoints();
 app.MapProofEndpoints();

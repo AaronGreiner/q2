@@ -213,6 +213,34 @@ describe('session state', () => {
     expect(clearNuxtData).toHaveBeenCalledTimes(2)
   })
 
+  it('knows whether the introduction is behind somebody, and ends it on the server (docs/adr/0039)', async () => {
+    const { api, session } = sessionApi()
+    const fresh = { ...session, isOnboarded: false }
+    const done = { ...session, person: { ...session.person, handle: '@nora' }, isOnboarded: true }
+    api.accounts.session.mockResolvedValue(fresh)
+    const onboarding = {
+      complete: vi.fn().mockResolvedValue(done),
+      chooseHandle: vi.fn().mockResolvedValue({ ...fresh, person: { ...fresh.person, handle: '@nora' } }),
+    }
+    vi.stubGlobal('useQ2Api', () => ({ ...api, onboarding }))
+    vi.stubGlobal('clearNuxtData', vi.fn())
+    const state = useSession()
+
+    // Signed out, there is nobody to introduce.
+    expect(state.isOnboarded.value).toBe(true)
+
+    await state.resolve()
+    expect(state.isOnboarded.value).toBe(false)
+
+    await state.chooseHandle('@nora')
+    expect(onboarding.chooseHandle).toHaveBeenCalledWith('@nora')
+    expect(state.person.value).toMatchObject({ handle: '@nora' })
+    expect(state.isOnboarded.value).toBe(false)
+
+    await expect(state.completeOnboarding()).resolves.toEqual(done)
+    expect(state.isOnboarded.value).toBe(true)
+  })
+
   it('treats an unauthorized resolution as signed out and clears cached personal data', async () => {
     const { api } = sessionApi()
     api.accounts.session.mockRejectedValueOnce(new ApiError({ kind: 'unauthorized', status: 401 }))

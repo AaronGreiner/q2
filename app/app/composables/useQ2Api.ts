@@ -6,6 +6,7 @@ import { createGoalsApi } from '~/api/goals'
 import { createImagesApi } from '~/api/images'
 import { createInviteApi, createModerationApi } from '~/api/moderation'
 import { createNotificationsApi } from '~/api/notifications'
+import { createOnboardingApi } from '~/api/onboarding'
 import { createProofsApi } from '~/api/proofs'
 import { createActivityApi, createFriendsApi, createProfileApi } from '~/api/social'
 
@@ -66,6 +67,7 @@ export function useQ2Api() {
   return {
     accounts: createAccountsApi(call),
     goals: createGoalsApi(call),
+    onboarding: createOnboardingApi(call),
     images: createImagesApi(call),
     proofs: createProofsApi(call),
     challenges: createChallengesApi(call),

@@ -33,6 +33,17 @@ const openRoutes = new Set(['/diagnostics', '/reset-password'])
  */
 const publicPrefixes = ['/join/']
 
+/**
+ * The first-run introduction (docs/adr/0039-first-run-onboarding.md).
+ *
+ * Somebody signed in who has not been through it is taken there from every
+ * other screen, and somebody who has is taken away from it — it happens once,
+ * on any device. The open routes and invite links stay reachable either way:
+ * a reset link has to work, and a link somebody was sent is the reason they
+ * are here.
+ */
+const onboardingRoute = '/onboarding'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   if (publicPrefixes.some(prefix => to.path.startsWith(prefix))) {
     // Resolved first, because the page behind an invite link offers a
@@ -50,10 +61,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return isSignedIn.value && publicRoutes.has(to.path) ? navigateTo('/') : undefined
   }
 
-  const { isSignedIn, resolve } = useSession()
+  const { isSignedIn, isOnboarded, resolve } = useSession()
   await resolve()
 
   if (isSignedIn.value) {
+    if (!isOnboarded.value && to.path !== onboardingRoute) {
+      return navigateTo(onboardingRoute)
+    }
+
+    if (isOnboarded.value && to.path === onboardingRoute) {
+      return navigateTo('/')
+    }
+
     return
   }
 

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
@@ -70,6 +71,7 @@ public sealed class InviteService(
     BlockList blockList,
     FriendsService friends,
     Notifier notifier,
+    GoalDraftStarter drafts,
     TimeProvider timeProvider,
     IIdGenerator idGenerator,
     ILogger<InviteService> logger)
@@ -261,6 +263,10 @@ public sealed class InviteService(
 
         // Whoever sent the link hears that it worked.
         await notifier.StageAsync(FriendsService.FriendshipStartedBy(guestId), [hostId], cancellationToken);
+
+        // Usually what the link was sent for: the sender's first Do, waiting
+        // for somebody to check it (docs/adr/0039-first-run-onboarding.md).
+        await drafts.StartAsync(hostId, guestId, now, cancellationToken);
 
         return true;
     }

@@ -136,7 +136,10 @@ with the viewport pinned to 390 × 844. There is deliberately no desktop project
 The quality spec additionally checks horizontal overflow on every signed-in
 screen and measures representative touch targets. Those checks guard basic
 geometry, not visual hierarchy or spacing quality; manual inspection at the
-same viewport remains necessary.
+same viewport remains necessary. Its account has long been through the
+first-run introduction, so `onboarding.spec.ts` runs the same overflow, WCAG
+A/AA and touch-target checks on every step of it with a fresh account; both
+measure targets through `support/touchTargets.ts`.
 
 ## Parallelism
 
@@ -218,6 +221,17 @@ same viewport remains necessary.
   friendship, a block making the code mean nothing, and no route that takes a
   code in its path. `invite.spec.ts` follows a link through a real browser for
   a new and an existing account.
+- **The first-run introduction** — a new account starting with it ahead and a
+  seeded one long past it, finishing it once and keeping the first moment,
+  the handle checked while typing (available, taken, invalid, current), chosen
+  while it is open and fixed afterwards; a waiting Do saved, replaced and
+  discarded, refused once there is a friend and as a one-off, started by every
+  way a friendship begins (a link at registration, a link for an existing
+  account, an accepted request) with the friend on it, its first window open
+  and its conversation there, and gone with its owner. `onboarding.spec.ts`
+  walks through it in a browser, without and with a friend, checks it is never
+  shown again on another device, and holds every step to the phone geometry
+  and WCAG checks ([adr/0039](adr/0039-first-run-onboarding.md)).
 - **The daily challenge** — one contribution per person and a second replacing
   the first, the reciprocity rule from both ends (a friend's picture and its
   bytes are both refused until the viewer has contributed, and covered again

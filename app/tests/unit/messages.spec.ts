@@ -113,6 +113,9 @@ describe('the catalogue', () => {
 describe('one and many', () => {
   const counting: Array<[string, () => string, () => string]> = [
     ['home.streakDays', () => de.home.streakDays(1), () => de.home.streakDays(2)],
+    ['onboarding.firstDo.runningIntro', () => de.onboarding.firstDo.runningIntro(1), () => de.onboarding.firstDo.runningIntro(2)],
+    ['onboarding.invite.others', () => de.onboarding.invite.others(1), () => de.onboarding.invite.others(2)],
+    ['onboarding.done.friendsCount', () => de.onboarding.done.friendsCount(1), () => de.onboarding.done.friendsCount(2)],
     ['vote.remaining', () => de.vote.remaining(1), () => de.vote.remaining(2)],
     ['vote.banner', () => de.vote.banner(1), () => de.vote.banner(2)],
     ['proof.doubtCount', () => de.proof.doubtCount(1), () => de.proof.doubtCount(2)],

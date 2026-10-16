@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Streaks;
 using Q2.Api.Infrastructure.Errors;
@@ -21,6 +22,7 @@ public sealed class FriendsService(
     CurrentPerson currentPerson,
     BlockList blockList,
     Notifier notifier,
+    GoalDraftStarter drafts,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<FriendsService> logger)
@@ -240,6 +242,7 @@ public sealed class FriendsService(
             case not null when existing.IsIncomingFor(me.Id):
                 existing.Accept(me.Id, now);
                 await notifier.StageAsync(FriendshipStartedBy(me.Id), [personId], cancellationToken);
+                await drafts.StartAsync(me.Id, personId, now, cancellationToken);
                 break;
 
             case not null:
@@ -280,6 +283,10 @@ public sealed class FriendsService(
 
         friendship.Accept(me.Id, now);
         await notifier.StageAsync(FriendshipStartedBy(me.Id), [personId], cancellationToken);
+
+        // Either of them may have had a Do waiting for exactly this.
+        await drafts.StartAsync(me.Id, personId, now, cancellationToken);
+
         await database.SaveChangesAsync(cancellationToken);
 
         notifier.Touch([me.Id], LiveArea.Friends);

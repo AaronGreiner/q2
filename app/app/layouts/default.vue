@@ -42,5 +42,8 @@ const { counts } = useCounts()
       :unread-chats="counts.unreadChats"
       :pending-requests="counts.pendingFriendRequests"
     />
+
+    <!-- Over the tab bar, once, after the introduction (docs/adr/0039). -->
+    <AppTour />
   </div>
 </template>

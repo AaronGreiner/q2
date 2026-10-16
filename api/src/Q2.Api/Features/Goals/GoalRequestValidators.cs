@@ -120,7 +120,7 @@ public static class CreateGoalRequestValidator
     /// Everything wrong with the schedule half of the request, under the field
     /// name the client sent it as.
     /// </summary>
-    private static Dictionary<string, string[]> ValidateSchedule(GoalScheduleRequest? schedule)
+    internal static Dictionary<string, string[]> ValidateSchedule(GoalScheduleRequest? schedule)
     {
         var errors = new Dictionary<string, string[]>();
         const string field = nameof(CreateGoalRequest.Schedule);
@@ -188,6 +188,53 @@ public static class CreateGoalRequestValidator
             ScheduleKind.Times => GoalSchedule.TimesPer(request.Times ?? 1, request.Period ?? QuotaPeriod.Week),
             _ => GoalSchedule.EveryNDays(1),
         };
+}
+
+/// <summary>
+/// Validates a request to write the waiting Do.
+/// </summary>
+/// <remarks>
+/// The "what" and "how often" halves of <see cref="CreateGoalRequestValidator"/>,
+/// without friends — a waiting Do is what somebody makes when they have none —
+/// and with one rule of its own: it repeats, because a one-off has a day, and
+/// nobody knows on which day the first friend arrives.
+/// <see cref="GoalDraft.Describe"/> still enforces all of it itself.
+/// </remarks>
+public static class SaveGoalDraftRequestValidator
+{
+    public static Dictionary<string, string[]> Validate(SaveGoalDraftRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var errors = new Dictionary<string, string[]>();
+
+        var title = request.Title?.Trim();
+        if (string.IsNullOrEmpty(title))
+        {
+            errors[nameof(request.Title)] = ["A title is required."];
+        }
+        else if (title.Length > Goal.MaxTitleLength)
+        {
+            errors[nameof(request.Title)] = [$"A title may be at most {Goal.MaxTitleLength} characters long."];
+        }
+
+        if (request.Icon is { } icon && !string.IsNullOrWhiteSpace(icon) && !GoalIcons.IsValid(icon.Trim()))
+        {
+            errors[nameof(request.Icon)] = ["That icon is not one of the available goal icons."];
+        }
+
+        foreach (var (field, messages) in CreateGoalRequestValidator.ValidateSchedule(request.Schedule))
+        {
+            errors[field] = messages;
+        }
+
+        if (request.Schedule?.Kind == ScheduleKind.Once)
+        {
+            errors[nameof(request.Schedule)] = ["A waiting Do has to repeat."];
+        }
+
+        return errors;
+    }
 }
 
 /// <summary>

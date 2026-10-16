@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CreateGoalRequest, Image } from '~/api/types'
+import type { CreateGoalRequest, Image, SaveGoalDraftRequest } from '~/api/types'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
@@ -56,6 +56,15 @@ const isSheetOpen = computed({
 
 const { goals, due, error, isLoading, refresh, create, isCreating, createError } = useGoals()
 
+/*
+ * The Do somebody without friends keeps waiting (docs/adr/0039). Shown above
+ * the list until the first friend arrives and the server turns it into the
+ * goal that then appears in it.
+ */
+const drafts = useGoalDraft()
+const { share: shareInvite } = useInvite()
+const toast = useToastMessage()
+
 /** The segment's goals, yours and your friends' apart. An empty half is not shown. */
 const sections = computed(() => {
   const { mine, friends } = goalListSections(goals.value, due.value, tab.value === 'donts' ? 'Dont' : 'Do')
@@ -97,6 +106,20 @@ const tabs = computed(() => [
   { value: 'dos' as const, label: t.value.goals.tabDos },
   { value: 'donts' as const, label: t.value.goals.tabDonts },
 ])
+
+/** Keeps a Do waiting, and shows it where the list will have it once it starts. */
+async function onDraft(request: SaveGoalDraftRequest) {
+  if (!(await drafts.save(request))) return
+
+  toast.show(t.value.toast.draftSaved)
+
+  // Closes the sheet and lands on Dos, where the waiting card is.
+  await router.replace({ query: {} })
+}
+
+async function onDiscardDraft() {
+  if (await drafts.discard()) toast.show(t.value.toast.draftDiscarded)
+}
 
 /** Lands on the segment the new one is in, which is where it is looked for next. */
 async function onCreate(request: CreateGoalRequest) {
@@ -157,6 +180,15 @@ useHead({ title: () => t.value.goals.heading })
       />
 
       <template v-else>
+        <GoalDraftCard
+          v-if="drafts.draft.value && tab === 'dos'"
+          class="mb-5"
+          :draft="drafts.draft.value"
+          :busy="drafts.isSaving.value"
+          @share="shareInvite()"
+          @discard="onDiscardDraft"
+        />
+
         <div
           v-if="sections.length > 0"
           class="flex flex-col gap-5"
@@ -208,7 +240,7 @@ useHead({ title: () => t.value.goals.heading })
         </div>
 
         <AppStateMessage
-          v-else
+          v-else-if="!(drafts.draft.value && tab === 'dos')"
           :icon="tab === 'donts' ? 'i-lucide-ban' : 'i-lucide-target'"
           :title="tab === 'donts' ? t.goals.noDonts : t.goals.noDos"
           :description="tab === 'donts' ? t.goals.noDontsHint : t.goals.noDosHint"
@@ -237,9 +269,12 @@ useHead({ title: () => t.value.goals.heading })
       v-model:open="isSheetOpen"
       :friends="friends"
       :friends-loading="friendsLoading"
-      :submitting="isCreating"
+      :submitting="isCreating || drafts.isSaving.value"
       :error="createError"
+      :draft="drafts.draft.value"
+      :draft-error="drafts.saveError.value"
       @submit="onCreate"
+      @draft="onDraft"
     />
 
     <PhotoCapture

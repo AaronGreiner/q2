@@ -21,6 +21,11 @@ export type CreateGoalRequest = Schemas['CreateGoalRequest']
 
 export type GoalSchedule = Schemas['GoalScheduleResponse']
 export type GoalScheduleRequest = Schemas['GoalScheduleRequest']
+
+/** A Do that waits for its owner's first friend (docs/adr/0039-first-run-onboarding.md). */
+export type GoalDraft = Schemas['GoalDraftResponse']
+export type GoalDraftState = Schemas['GoalDraftStateResponse']
+export type SaveGoalDraftRequest = Schemas['SaveGoalDraftRequest']
 export type ScheduleKind = Schemas['ScheduleKind']
 /*
  * `NonNullable`, because the generated union carries the `null` that the
@@ -120,6 +125,10 @@ export type StartDirectChatRequest = Schemas['StartDirectChatRequest']
 export type CreateGroupChatRequest = Schemas['CreateGroupChatRequest']
 
 export type Session = Schemas['SessionResponse']
+
+/** What a typed handle would be, asked while the introduction is open. */
+export type HandleCheck = Schemas['HandleCheckResponse']
+export type HandleAvailability = Schemas['HandleAvailability']
 export type AccountDeletion = Schemas['AccountDeletionResponse']
 export type RegisterRequest = Schemas['RegisterRequest']
 export type LoginRequest = Schemas['LoginRequest']
