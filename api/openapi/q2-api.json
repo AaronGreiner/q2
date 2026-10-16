@@ -3401,7 +3401,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/VoteValue"
@@ -3511,7 +3512,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ChallengeEntryResponse"
@@ -3544,7 +3546,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ChallengeRoomResponse"
@@ -3615,7 +3618,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ChatPinnedGoalResponse"
@@ -3678,7 +3682,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ImageResponse"
@@ -3723,7 +3728,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalInstanceResponse"
@@ -3828,7 +3834,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalEventKind"
@@ -3851,7 +3858,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalInstanceResponse"
@@ -3923,7 +3931,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalScheduleRequest"
@@ -3957,7 +3966,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalKind"
@@ -3974,7 +3984,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/DontProofMode"
@@ -4012,7 +4023,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ReportTargetKind"
@@ -4029,7 +4041,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ReportReason"
@@ -4307,7 +4320,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalDraftResponse"
@@ -4396,7 +4410,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ProofResponse"
@@ -4630,7 +4645,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/DontProofMode"
@@ -4642,7 +4658,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalInstanceResponse"
@@ -4709,7 +4726,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/RiskResponse"
@@ -4721,7 +4739,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalPauseResponse"
@@ -4738,7 +4757,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/OpenSpotCheckResponse"
@@ -4755,7 +4775,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ScheduleKind"
@@ -4784,7 +4805,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/QuotaPeriod"
@@ -4827,7 +4849,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/QuotaPeriod"
@@ -5033,7 +5056,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/FriendshipState"
@@ -5164,7 +5188,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/PersonSummary"
@@ -5204,7 +5229,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/LanguagePreference"
@@ -5650,7 +5676,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/KudosKind"
@@ -5667,7 +5694,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/KudosKind"
@@ -5836,7 +5864,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/GoalScheduleRequest"
@@ -5960,7 +5989,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ProofSource"
@@ -5982,7 +6012,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ProofSource"
@@ -6023,7 +6054,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/KudosKind"
@@ -6118,7 +6150,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/ThemePreference"
@@ -6130,7 +6163,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/LanguagePreference"
@@ -6142,7 +6176,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/UpdateNotificationSettingsRequest"
@@ -6180,7 +6215,8 @@
               {
                 "enum": [
                   null
-                ]
+                ],
+                "nullable": true
               },
               {
                 "$ref": "#/components/schemas/VoteValue"

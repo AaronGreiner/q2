@@ -1232,7 +1232,7 @@ export interface components {
             relapsed: number;
         };
         CastVoteRequest: {
-            value?: null | components["schemas"]["VoteValue"];
+            value?: (null) | components["schemas"]["VoteValue"];
         };
         ChallengeArchiveEntryResponse: {
             challenge: components["schemas"]["ChallengeResponse"];
@@ -1261,14 +1261,14 @@ export interface components {
         };
         ChallengeRoomResponse: {
             challenge: components["schemas"]["ChallengeResponse"];
-            ownEntry: null | components["schemas"]["ChallengeEntryResponse"];
+            ownEntry: (null) | components["schemas"]["ChallengeEntryResponse"];
             entries: components["schemas"]["ChallengeEntryResponse"][];
             /** Format: int32 */
             friendCount: number;
             isRevealed: boolean;
         };
         ChallengeTodayResponse: {
-            room: null | components["schemas"]["ChallengeRoomResponse"];
+            room: (null) | components["schemas"]["ChallengeRoomResponse"];
         };
         ChatDetailResponse: {
             /** Format: uuid */
@@ -1285,7 +1285,7 @@ export interface components {
             memberCount: number;
             /** Format: date-time */
             otherLastSeenAt: string | null;
-            pinnedGoal: null | components["schemas"]["ChatPinnedGoalResponse"];
+            pinnedGoal: (null) | components["schemas"]["ChatPinnedGoalResponse"];
             messages: components["schemas"]["ChatMessageResponse"][];
             isMuted: boolean;
             events: components["schemas"]["GoalEventResponse"][];
@@ -1298,7 +1298,7 @@ export interface components {
             senderId: string;
             senderName: string | null;
             text: string;
-            image: null | components["schemas"]["ImageResponse"];
+            image: (null) | components["schemas"]["ImageResponse"];
             isMine: boolean;
             /** Format: date-time */
             sentAt: string;
@@ -1308,7 +1308,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
-            current: null | components["schemas"]["GoalInstanceResponse"];
+            current: (null) | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
             streak: number;
             /** Format: date */
@@ -1335,12 +1335,12 @@ export interface components {
             /** Format: int32 */
             unreadCount: number;
             isMuted: boolean;
-            lastEvent: null | components["schemas"]["GoalEventKind"];
+            lastEvent: (null) | components["schemas"]["GoalEventKind"];
             /** Format: uuid */
             goalId: string | null;
             isMyGoal: boolean;
             awaitingMyVote: boolean;
-            goalCurrent: null | components["schemas"]["GoalInstanceResponse"];
+            goalCurrent: (null) | components["schemas"]["GoalInstanceResponse"];
         };
         CloseGoalRequest: {
             completed?: boolean | null;
@@ -1361,17 +1361,17 @@ export interface components {
             title?: string | null;
             description?: string | null;
             icon?: string | null;
-            schedule?: null | components["schemas"]["GoalScheduleRequest"];
+            schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
             isGroup?: boolean | null;
             /** Format: time */
             reminderAt?: string | null;
             /** Format: date */
             targetDate?: string | null;
             participantIds?: string[] | null;
-            kind?: null | components["schemas"]["GoalKind"];
+            kind?: (null) | components["schemas"]["GoalKind"];
             /** Format: int32 */
             limit?: number | null;
-            proofMode?: null | components["schemas"]["DontProofMode"];
+            proofMode?: (null) | components["schemas"]["DontProofMode"];
         };
         CreateGroupChatRequest: {
             title?: string | null;
@@ -1379,10 +1379,10 @@ export interface components {
             memberIds?: string[] | null;
         };
         CreateReportRequest: {
-            targetKind?: null | components["schemas"]["ReportTargetKind"];
+            targetKind?: (null) | components["schemas"]["ReportTargetKind"];
             /** Format: uuid */
             targetId?: string | null;
-            reason?: null | components["schemas"]["ReportReason"];
+            reason?: (null) | components["schemas"]["ReportReason"];
             note?: string | null;
         };
         DaySummaryResponse: {
@@ -1457,7 +1457,7 @@ export interface components {
             createdAt: string;
         };
         GoalDraftStateResponse: {
-            draft: null | components["schemas"]["GoalDraftResponse"];
+            draft: (null) | components["schemas"]["GoalDraftResponse"];
             hasFriends: boolean;
         };
         /** @enum {unknown} */
@@ -1477,7 +1477,7 @@ export interface components {
             requiredProofs: number | null;
             /** Format: date */
             until: string | null;
-            proof: null | components["schemas"]["ProofResponse"];
+            proof: (null) | components["schemas"]["ProofResponse"];
             /** Format: date */
             day: string | null;
             /** Format: int32 */
@@ -1546,8 +1546,8 @@ export interface components {
             kind: components["schemas"]["GoalKind"];
             /** Format: int32 */
             limit: number | null;
-            proofMode: null | components["schemas"]["DontProofMode"];
-            current: null | components["schemas"]["GoalInstanceResponse"];
+            proofMode: (null) | components["schemas"]["DontProofMode"];
+            current: (null) | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
             streak: number;
             /** Format: int32 */
@@ -1570,20 +1570,20 @@ export interface components {
             owner: components["schemas"]["PersonSummary"];
             isOverdue: boolean;
             isMine: boolean;
-            risk: null | components["schemas"]["RiskResponse"];
-            pause: null | components["schemas"]["GoalPauseResponse"];
+            risk: (null) | components["schemas"]["RiskResponse"];
+            pause: (null) | components["schemas"]["GoalPauseResponse"];
             /** Format: int32 */
             remainingPauses: number | null;
-            spotCheck: null | components["schemas"]["OpenSpotCheckResponse"];
+            spotCheck: (null) | components["schemas"]["OpenSpotCheckResponse"];
         };
         GoalScheduleRequest: {
-            kind?: null | components["schemas"]["ScheduleKind"];
+            kind?: (null) | components["schemas"]["ScheduleKind"];
             /** Format: int32 */
             everyDays?: number | null;
             weekdays?: components["schemas"]["Weekday"][] | null;
             /** Format: int32 */
             times?: number | null;
-            period?: null | components["schemas"]["QuotaPeriod"];
+            period?: (null) | components["schemas"]["QuotaPeriod"];
         };
         GoalScheduleResponse: {
             kind: components["schemas"]["ScheduleKind"];
@@ -1592,7 +1592,7 @@ export interface components {
             weekdays: components["schemas"]["Weekday"][];
             /** Format: int32 */
             times: number | null;
-            period: null | components["schemas"]["QuotaPeriod"];
+            period: (null) | components["schemas"]["QuotaPeriod"];
         };
         /** @enum {unknown} */
         GoalStatus: "Active" | "Completed" | "Archived";
@@ -1654,7 +1654,7 @@ export interface components {
             displayName: string;
             initials: string;
             avatarColor: string;
-            relation: null | components["schemas"]["FriendshipState"];
+            relation: (null) | components["schemas"]["FriendshipState"];
         };
         InviteResponse: {
             code: string;
@@ -1686,7 +1686,7 @@ export interface components {
             /** Format: uuid */
             id: string | null;
             kind: components["schemas"]["NotificationKind"];
-            actor: null | components["schemas"]["PersonSummary"];
+            actor: (null) | components["schemas"]["PersonSummary"];
             subject: string | null;
             excerpt: string | null;
             /** Format: int32 */
@@ -1697,7 +1697,7 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
             isNew: boolean;
-            language?: null | components["schemas"]["LanguagePreference"];
+            language?: (null) | components["schemas"]["LanguagePreference"];
         };
         NotificationSettingsResponse: {
             messages: boolean;
@@ -1826,10 +1826,10 @@ export interface components {
         /** @enum {unknown} */
         QuotaPeriod: "Week" | "Month" | "Day" | null;
         ReactToChallengeEntryRequest: {
-            kind?: null | components["schemas"]["KudosKind"];
+            kind?: (null) | components["schemas"]["KudosKind"];
         };
         ReactToProofRequest: {
-            kind?: null | components["schemas"]["KudosKind"];
+            kind?: (null) | components["schemas"]["KudosKind"];
         };
         ReactionSummaryResponse: {
             kind: components["schemas"]["KudosKind"];
@@ -1879,7 +1879,7 @@ export interface components {
         SaveGoalDraftRequest: {
             title?: string | null;
             icon?: string | null;
-            schedule?: null | components["schemas"]["GoalScheduleRequest"];
+            schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
             /** Format: time */
             reminderAt?: string | null;
         };
@@ -1916,12 +1916,12 @@ export interface components {
         SubmitChallengeEntryRequest: {
             /** Format: uuid */
             imageId?: string | null;
-            source?: null | components["schemas"]["ProofSource"];
+            source?: (null) | components["schemas"]["ProofSource"];
         };
         SubmitProofRequest: {
             /** Format: uuid */
             imageId?: string | null;
-            source?: null | components["schemas"]["ProofSource"];
+            source?: (null) | components["schemas"]["ProofSource"];
         };
         SubscribeRequest: {
             endpoint?: string | null;
@@ -1931,7 +1931,7 @@ export interface components {
         /** @enum {unknown} */
         ThemePreference: "System" | "Light" | "Dark";
         ToggleReactionRequest: {
-            kind?: null | components["schemas"]["KudosKind"];
+            kind?: (null) | components["schemas"]["KudosKind"];
         };
         UnsubscribeRequest: {
             endpoint?: string | null;
@@ -1958,9 +1958,9 @@ export interface components {
             avatarImageId?: string | null;
         };
         UpdateSettingsRequest: {
-            theme?: null | components["schemas"]["ThemePreference"];
-            language?: null | components["schemas"]["LanguagePreference"];
-            notifications?: null | components["schemas"]["UpdateNotificationSettingsRequest"];
+            theme?: (null) | components["schemas"]["ThemePreference"];
+            language?: (null) | components["schemas"]["LanguagePreference"];
+            notifications?: (null) | components["schemas"]["UpdateNotificationSettingsRequest"];
         };
         VoteSummaryResponse: {
             /** Format: int32 */
@@ -1968,7 +1968,7 @@ export interface components {
             /** Format: int32 */
             doubtCount: number;
             confirmedBy: components["schemas"]["PersonSummary"][];
-            myVote: null | components["schemas"]["VoteValue"];
+            myVote: (null) | components["schemas"]["VoteValue"];
             canIVote: boolean;
         };
         /** @enum {unknown} */
