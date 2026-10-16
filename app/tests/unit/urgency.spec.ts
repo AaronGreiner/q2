@@ -4,6 +4,7 @@ import {
   byDeadline,
   deadlineLeft,
   formatWeekdayDay,
+  goalListSections,
   isStillOpen,
   localDay,
   nextUp,
@@ -85,6 +86,52 @@ describe('byDeadline and nextUp', () => {
   it('picks the open window that closes first and takes a photograph now', () => {
     expect(nextUp([done, waiting, late, early])?.id).toBe('early')
     expect(nextUp([done, waiting])).toBeNull()
+  })
+})
+
+/**
+ * The Dos screen's two segments and their two sections (#77): yours apart from
+ * the ones you only check, and in each what is due today first.
+ */
+describe('goalListSections', () => {
+  function listed(id: string, overrides: Partial<Goal> = {}): Goal {
+    return { ...goal(id, window()), kind: 'Do', isMine: true, ...overrides } as Goal
+  }
+
+  const ownLate = listed('own-late', { current: window({ dueAt: '2026-09-24T22:00:00Z' }) })
+  const ownEarly = listed('own-early', { current: window({ dueAt: '2026-09-24T18:00:00Z' }) })
+  const ownLater = listed('own-later')
+  const friends = listed('friends', { isMine: false })
+  const friendsLater = listed('friends-later', { isMine: false })
+  const ownDont = listed('own-dont', { kind: 'Dont' })
+
+  const goals = [ownLater, ownLate, friendsLater, friends, ownEarly, ownDont]
+  const due = [ownLate, friends, ownEarly, ownDont]
+
+  it('keeps yours apart from your friends\', and one kind from the other', () => {
+    const { mine, friends: checked } = goalListSections(goals, due, 'Do')
+
+    expect(mine.map(row => row.goal.id)).toEqual(['own-early', 'own-late', 'own-later'])
+    expect(checked.map(row => row.goal.id)).toEqual(['friends', 'friends-later'])
+
+    const donts = goalListSections(goals, due, 'Dont')
+    expect(donts.mine.map(row => row.goal.id)).toEqual(['own-dont'])
+    expect(donts.friends).toEqual([])
+  })
+
+  it('puts what covers today first, by deadline, and marks only those as due', () => {
+    const { mine, friends: checked } = goalListSections(goals, due, 'Do')
+
+    expect(mine.map(row => row.isDue)).toEqual([true, true, false])
+    expect(checked.map(row => row.isDue)).toEqual([true, false])
+  })
+
+  it('does not take a goal for due because its window is open', () => {
+    // A window that has not started yet is open on the server and takes a
+    // photograph; only the server's list of what covers today says it is due.
+    const { mine } = goalListSections([ownLater], [], 'Do')
+
+    expect(mine).toEqual([{ goal: ownLater, isDue: false }])
   })
 })
 

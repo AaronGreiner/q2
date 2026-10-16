@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
+import { goalLink } from './support/goalList'
 
 /**
  * The flows q2 exists for, through a real browser at phone width.
@@ -26,6 +27,7 @@ const seeded = {
   zeroProgressGoal: 'E2E goal without any progress',
   overdueGoal: 'E2E overdue goal',
   quotaGoal: 'E2E goal three times a week',
+  dont: 'E2E don\'t with a weekly limit',
   groupChat: 'E2E group chat',
   sharedGoalId: 'e2e00000-0000-4000-8000-000000000001',
 }
@@ -106,21 +108,21 @@ test.describe('the start screen', () => {
 })
 
 test.describe('goals', () => {
-  test('the two tabs show today and the goals themselves', async ({ page }) => {
+  test('the Dos list what is due today first, with its camera, and then the rest', async ({ page }) => {
     await page.goto('/goals')
 
-    await expect(page.getByTestId('due-list')).toContainText(seeded.sharedGoal)
-    await expect(page.getByTestId('due-list')).toContainText(seeded.quotaGoal)
-
-    // The one delivered on the start screen is not on it any more.
-    await expect(page.getByTestId('due-list')).not.toContainText(seeded.zeroProgressGoal)
-
-    await page.getByTestId('segment-all').click()
+    // Your own goals that are due today carry the camera (#77).
+    const mine = page.getByTestId('goal-section-mine')
+    await expect(mine.getByTestId('window-row').filter({ hasText: seeded.sharedGoal })).toBeVisible()
+    await expect(mine.getByTestId('window-row').filter({ hasText: seeded.quotaGoal })).toBeVisible()
 
     const list = page.getByTestId('goal-list')
     await expect(list).toContainText(seeded.sharedGoal)
     await expect(list).toContainText(seeded.zeroProgressGoal)
     await expect(list).toContainText(seeded.overdueGoal)
+
+    // A Don't is under its own segment, never among the Dos.
+    await expect(list).not.toContainText(seeded.dont)
 
     // What has stopped is not here any more. A finished goal has no deadline
     // and nothing to deliver into, so it lives in the archive
@@ -131,12 +133,24 @@ test.describe('goals', () => {
     await expect(page.getByTestId('archive-row')).toContainText([seeded.completedGoal])
   })
 
+  test('the Don\'ts are a segment of their own, kept in the address', async ({ page }) => {
+    await page.goto('/goals')
+    await page.getByTestId('segment-donts').click()
+
+    await expect(page).toHaveURL('/goals?tab=donts')
+    await expect(page.getByTestId('goal-list')).toContainText(seeded.dont)
+    await expect(page.getByTestId('goal-list')).not.toContainText(seeded.sharedGoal)
+
+    await page.reload()
+    await expect(page.getByRole('radio', { name: 'Don’ts', exact: true })).toBeChecked()
+  })
+
   /**
    * The same goal from both ends (#77): its owner finds it under "Deine" with
    * the camera, the friend checking it under "Von Freunden", with the owner's
    * name and nothing to press — only the owner may hand in a photograph.
    */
-  test('your own goals and your friends\' are listed apart, in both tabs', async ({ page, browser }, testInfo) => {
+  test('your own goals and your friends\' are listed apart', async ({ page, browser }, testInfo) => {
     await page.goto('/goals')
 
     const mine = page.getByTestId('goal-section-mine')
@@ -161,11 +175,6 @@ test.describe('goals', () => {
       await expect(row.getByTestId('goal-owner')).toHaveText(seeded.me)
       await expect(friends.getByTestId('window-deliver')).toHaveCount(0)
       await expect(friendPage.getByTestId('goal-section-mine').getByText(seeded.sharedGoal)).toHaveCount(0)
-
-      await friendPage.getByTestId('segment-all').click()
-
-      await expect(friendPage.getByTestId('goal-section-friends').getByTestId('goal-card').filter({ hasText: seeded.sharedGoal }))
-        .toBeVisible()
     }
     finally {
       await theirs.close()
@@ -177,27 +186,27 @@ test.describe('goals', () => {
    * all, so it gets its own assertion on the card people actually read.
    */
   test('a quota goal says how much of its window is left', async ({ page }) => {
-    await page.goto('/goals?tab=all')
+    await page.goto('/goals')
 
-    const card = page.getByTestId('goal-card').filter({ hasText: seeded.quotaGoal })
+    const row = goalLink(page, seeded.quotaGoal)
 
-    await expect(card).toContainText('3× pro Woche')
-    await expect(card.getByTestId('goal-window')).toContainText('Noch 2 von 3')
+    await expect(row).toContainText('3× pro Woche')
+    await expect(row.getByTestId('window-remaining')).toContainText('Noch 2 von 3')
   })
 
   test('a goal whose chain has broken shows the miss in its record', async ({ page }) => {
-    await page.goto('/goals?tab=all')
+    await page.goto('/goals')
 
-    await page.getByTestId('goal-card').filter({ hasText: seeded.overdueGoal }).click()
+    await goalLink(page, seeded.overdueGoal).click()
 
     await expect(page.getByTestId('goal-balance')).toContainText('verpasst')
     await expect(page.getByTestId('history-grid')).toContainText('Verpasst')
   })
 
   test('opening a goal shows its window, its team and its history', async ({ page }) => {
-    await page.goto('/goals?tab=all')
+    await page.goto('/goals')
 
-    await page.getByTestId('goal-card').filter({ hasText: seeded.sharedGoal }).click()
+    await goalLink(page, seeded.sharedGoal).click()
 
     await expect(page).toHaveURL(`/goals/${seeded.sharedGoalId}`)
     await expect(page.getByRole('heading', { name: seeded.sharedGoal })).toBeVisible()
@@ -265,9 +274,10 @@ test.describe('goals', () => {
 
     await page.getByTestId('goal-submit').click()
 
-    const created = page.getByTestId('goal-card').filter({ hasText: title })
+    // Due this week, so it is among your own with its camera (#77).
+    const created = goalLink(page, title)
     await expect(created).toContainText('3× pro Woche')
-    await expect(created.getByTestId('goal-window')).toContainText('Noch 3 von 3')
+    await expect(created.getByTestId('window-remaining')).toContainText('Noch 3 von 3')
   })
 
   test('a goal can be due on named weekdays, which the old model could not say', async ({ page }) => {
@@ -608,10 +618,10 @@ test.describe('the shell', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Dos & Don’ts' })).toBeVisible()
     // Reached through the tab bar, not `page.goto`: a client-side navigation
     // builds the screen off-document, which is where the radios used to be
-    // named by their values, "today" and "all" (#65).
-    await expect(page.getByRole('radio', { name: 'Heute' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Alle' })).not.toBeChecked()
-    await expect(page.getByRole('radio', { name: 'today' })).toHaveCount(0)
+    // named by their values rather than their labels (#65).
+    await expect(page.getByRole('radio', { name: 'Dos', exact: true })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Don’ts', exact: true })).not.toBeChecked()
+    await expect(page.getByRole('radio', { name: 'donts' })).toHaveCount(0)
 
     await page.getByTestId('open-create-goal').click()
 
@@ -621,12 +631,15 @@ test.describe('the shell', () => {
     await expect(page.getByTestId('goal-create-form')).toBeVisible()
   })
 
-  test('the address of the list from before the rename still opens it', async ({ page }) => {
-    // `?tab=goals` was the list while it was called "Ziele" (#60).
-    await page.goto('/goals?tab=goals')
+  test('the addresses of the lists from before still open it', async ({ page }) => {
+    // `?tab=goals` was the list while it was called "Ziele" (#60), and
+    // `?tab=all` while it had a "Heute" beside it; both land on the Dos (#77).
+    for (const address of ['/goals?tab=goals', '/goals?tab=all']) {
+      await page.goto(address)
 
-    await expect(page.getByRole('radio', { name: 'Alle', exact: true })).toBeChecked()
-    await expect(page.getByTestId('goal-list')).toBeVisible()
+      await expect(page.getByRole('radio', { name: 'Dos', exact: true })).toBeChecked()
+      await expect(page.getByTestId('goal-list')).toBeVisible()
+    }
   })
 
   test('the current screen is marked for assistive technology', async ({ page }) => {

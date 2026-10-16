@@ -1,6 +1,6 @@
 # 0035 — Dos & Don'ts: one name for what you commit to
 
-**Status:** Accepted
+**Status:** Accepted, the segments revised on 2026-10-16 ([#77](https://github.com/AaronGreiner/q2/issues/77))
 **Date:** 2026-10-09
 **Amends:** [0031 — A To-Dos tab, a shorter start screen](0031-todos-tab-and-a-bell-you-can-empty.md),
 which named the middle tab "To-Dos".
@@ -23,15 +23,28 @@ q2 is also about to support commitments *not* to do something
   typographic one (`Don’ts`), like every other apostrophe in the catalogue.
 - **The tab bar says "Dos".** Five labels at 390 px leave no room for more. The
   screen's heading says "Dos & Don’ts", and its segmented control is
-  **"Heute | Alle"**. The icon stays.
+  **"Dos | Don’ts"** (`?tab=donts`; Dos write nothing). The icon stays.
+- **Each segment has two sections, "Deine" and "Von Freunden"**, headed like
+  the chat list ([0027](0027-goal-conversations.md)); an empty one is not
+  shown. Your own section starts with what is due today, carrying its camera
+  (`GoalWindowRow`) or its log button (`DontWindowRow`), sorted by deadline,
+  and then the rest as `GoalCard` rows with the window's state in words. A
+  friend's row names its owner (`GoalResponse.Owner`) and has nothing to press:
+  only the owner hands in a photograph. Whether a row is due comes from the
+  server's list of what covers today, not from an open window
+  (`goalListSections`).
+
+  This replaced **"Heute | Alle"**, which were two different-looking screens
+  over one undivided list in which nothing said whose a goal was, and where a
+  friend's Do offered a camera the server always refused (#77).
 - **One entry is "ein Do" or "ein Don’t"** ("a Do" / "a Don’t"). Where both
   are meant (creating one, the archive, a profile, a notification, an empty
   state), the copy either says "Dos & Don’ts" or is worded so that it covers
   both ("Was du beendest …", "Du hast es angelegt.").
 - **The rename stops at the interface.** It covers every user-facing string,
-  the catalogue keys that named the old label (`nav.todos` → `nav.dos`,
-  `goals.tabGoals` → `goals.tabAll`), the tab bar's test id and the tab's
-  query value (`?tab=all`). **What stays `Goal`, on purpose:** the domain term
+  the catalogue keys that named the old label (`nav.todos` → `nav.dos`; the
+  segments are `goals.tabDos` and `goals.tabDonts` since #77), the tab bar's
+  test id and the tab's query value. **What stays `Goal`, on purpose:** the domain term
   and everything built on it — `/api/goals`, the `/goals` route, the tables,
   `ConversationKind.Goal`, the OpenAPI contract, and the `goals` section of the
   catalogue, which is named after the domain and not after a label. A Do and a
@@ -39,8 +52,9 @@ q2 is also about to support commitments *not* to do something
 
   This follows `/search`, which stayed `/search` when its tab became "Freunde"
   ([0032](0032-the-next-step-first.md)). Existing links, push payloads and
-  installed iOS builds keep working. `?tab=goals` is still read as the "Alle"
-  tab, so a bookmark from before still lands, but nothing writes it any more.
+  installed iOS builds keep working. `?tab=goals` and `?tab=all`, the
+  addresses of the lists from before, are still read and land on the Dos, so
+  a bookmark from before still works, but nothing writes them any more.
 
 ## Consequences
 

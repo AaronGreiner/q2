@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl } from './support/e2eEnvironment'
+import { goalLink } from './support/goalList'
 
 /**
  * A spot check, end to end at phone width (docs/adr/0038-spot-checks.md): the
@@ -35,7 +36,7 @@ test('an open check comes first, opens a live-only camera and goes to its friend
   await page.getByTestId('goal-next').click()
   await page.getByTestId('goal-submit').click()
 
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await goalLink(page, title).click()
   await page.waitForURL(/\/goals\/[0-9a-f-]{36}$/)
   const goalId = page.url().split('/goals/')[1]!
 

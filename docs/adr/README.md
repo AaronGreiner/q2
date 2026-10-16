@@ -42,7 +42,7 @@ so the reasoning at the time stays readable.
 | [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted |
 | [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted, amended by [0034](0034-bearer-tokens-for-the-native-app.md) |
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
-| [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted |
+| [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted, segments revised by [#77](https://github.com/AaronGreiner/q2/issues/77) |
 | [0036](0036-live-or-screenshot.md) | Live or screenshot: every proof says which it is | Accepted |
 | [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted, amended by [0038](0038-spot-checks.md) |
 | [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |

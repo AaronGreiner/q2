@@ -29,7 +29,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await expect(page.getByTestId('bottom-nav')).toBeVisible()
 
     await page.goto('/goals')
-    const goalsTab = page.getByRole('radio', { name: 'Alle', exact: true })
+    const goalsTab = page.getByRole('radio', { name: 'Don’ts', exact: true })
     await goalsTab.focus()
     await page.keyboard.press('Space')
     await expect(goalsTab).toBeChecked()

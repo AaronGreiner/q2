@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { goalLink } from './support/goalList'
 
 /**
  * A Don't, end to end at phone width (docs/adr/0037-donts.md): made in the
@@ -48,7 +49,7 @@ test('a Don\'t is made, a use is logged, and the relapse is asked about and then
   await expect(page.getByTestId('goal-create-review')).toContainText('Höchstens 1× pro Tag')
   await page.getByTestId('goal-submit').click()
 
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await goalLink(page, title).click()
   await expect(page.getByTestId('dont-run')).toHaveText('Ab heute')
   await expect(page.getByTestId('dont-period')).toHaveText(/^\s*0 von 1 genutzt$/)
 

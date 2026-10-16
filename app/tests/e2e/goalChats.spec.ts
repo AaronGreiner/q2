@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
+import { goalLink } from './support/goalList'
 
 /**
  * A goal and its conversation, as one thing: made in front of a friend, the
@@ -28,7 +29,7 @@ test('a goal is made in front of a friend, delivered in its chat and checked the
   await createGoal(page, { title, friend: friend.name })
 
   // Its conversation exists the moment it does, one tap from the goal.
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await goalLink(page, title).click()
   await page.getByTestId('goal-open-chat').click()
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
@@ -120,8 +121,7 @@ test('a refused photograph stays on the sheet, and a delivered one is followed t
     })
   })
 
-  // Creating lands on the list of every goal; the camera is on today's.
-  await page.getByTestId('segment-today').click()
+  // Creating lands on the Dos, where your own goal due today carries the camera.
   await page.getByTestId('window-row').filter({ hasText: title }).getByTestId('window-deliver').click()
   await deliverPhoto(page)
 

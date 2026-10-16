@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { deliverPhoto, pngBytes } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
+import { goalLink } from './support/goalList'
 
 /**
  * Live or screenshot, end to end (#61): both routes are offered for every
@@ -22,7 +23,7 @@ const friend = 'E2E Lena'
 
 async function openGoalChat(page: import('@playwright/test').Page, title: string) {
   await createGoal(page, { title, friend })
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await goalLink(page, title).click()
   await page.getByTestId('goal-open-chat').click()
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
 }

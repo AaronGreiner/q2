@@ -94,7 +94,7 @@ test.describe('signed out', () => {
 
     // A new account sees none of the seeded person's world — which is the whole
     // reason ownership arrived together with accounts.
-    await page.goto('/goals?tab=all')
+    await page.goto('/goals')
     await expect(page.getByTestId('goals-empty')).toBeVisible()
     await expect(page.getByTestId('goal-list')).toHaveCount(0)
   })

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
+import { goalLink } from './support/goalList'
 
 /**
  * A friend's photograph, decided on the start screen with a swipe.
@@ -18,7 +19,7 @@ test('a friend\'s photograph waits on the start screen, opens full screen and is
 
   await createGoal(page, { title, friend: friend.name })
 
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await goalLink(page, title).click()
   await page.getByTestId('goal-open-chat').click()
   await page.getByTestId('chat-deliver').click()
   await deliverPhoto(page)

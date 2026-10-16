@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createGoal as createGoalInSheet } from './support/createGoal'
+import { goalLink } from './support/goalList'
 
 /**
  * The exits, end to end: setting a goal aside, coming back, stopping it, and
@@ -20,14 +21,14 @@ async function createGoal(page: import('@playwright/test').Page, name: string): 
 
   await createGoalInSheet(page, { title, friend: 'E2E Jonas' })
 
-  await expect(page.getByTestId('goal-card').filter({ hasText: title })).toBeVisible()
+  await expect(goalLink(page, title)).toBeVisible()
 
   return title
 }
 
 async function openGoal(page: import('@playwright/test').Page, title: string) {
-  await page.goto('/goals?tab=all')
-  await page.getByTestId('goal-card').filter({ hasText: title }).click()
+  await page.goto('/goals')
+  await goalLink(page, title).click()
   await expect(page.getByTestId('goal-detail')).toBeVisible()
 }
 
@@ -63,10 +64,8 @@ test.describe('setting a goal aside', () => {
     await page.keyboard.press('Escape')
 
     // And it says so in the list as well, in grey rather than as a failure.
-    await page.goto('/goals?tab=all')
-    await expect(
-      page.getByTestId('goal-card').filter({ hasText: title }).getByTestId('goal-paused'),
-    ).toContainText('Ausgesetzt')
+    await page.goto('/goals')
+    await expect(goalLink(page, title).getByTestId('goal-paused')).toContainText('Ausgesetzt')
 
     await openGoal(page, title)
     await page.getByTestId('pause-end').click()
@@ -98,8 +97,8 @@ test.describe('the archive', () => {
     expect((await page.getByTestId('goal-balance').innerText()).trim()).toBe(balance)
 
     // Gone from the list of things still owed …
-    await page.goto('/goals?tab=all')
-    await expect(page.getByTestId('goal-card').filter({ hasText: title })).toHaveCount(0)
+    await page.goto('/goals')
+    await expect(goalLink(page, title)).toHaveCount(0)
 
     // … and present in the archive, with the day it ended.
     await page.getByTestId('goals-archive-link').click()
