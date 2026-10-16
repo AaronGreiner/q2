@@ -16,7 +16,6 @@ import FriendSuggestionRow from '~/components/friends/FriendSuggestionRow.vue'
 import SettingsActionRow from '~/components/settings/SettingsActionRow.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
 import SettingsToggleRow from '~/components/settings/SettingsToggleRow.vue'
-import StreakHero from '~/components/home/StreakHero.vue'
 import type {
   ChatMessage,
   ChatPinnedGoal,
@@ -354,15 +353,6 @@ describe('chat presentation', () => {
 })
 
 describe('feature cards and rows', () => {
-  it('renders the week and the day progress', async () => {
-    const streak = await mountSuspended(StreakHero, {
-      props: { streak: 5, week: [true, true, false, true, false, true, true], today: { done: 2, total: 4, percent: 50 }, todayIndex: 6 },
-    })
-    expect(streak.findAll('[data-testid="streak-week"] li')).toHaveLength(7)
-    expect(streak.text()).toContain('5')
-    expect(streak.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
-  })
-
   it('emits both answers to a friend request and a suggestion', async () => {
     const request = {
       person: person({ id: 'request-1', displayName: 'Emma' }),

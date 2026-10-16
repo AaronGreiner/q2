@@ -60,7 +60,14 @@ export function useHome() {
   }
 
   const profile = computed(() => data.value?.profile ?? null)
-  const due = computed(() => data.value?.due ?? [])
+
+  /*
+   * Your own goals only (#78). `/api/today` also carries the ones friends
+   * asked you to check — the Dos tab lists them under "Von Freunden" — but
+   * nothing on the start screen is theirs: not the next step, not today's
+   * list. Their photographs reach you here anyway, as the vote stack.
+   */
+  const due = computed(() => (data.value?.due ?? []).filter(goal => goal.isMine))
   const feed = computed(() => data.value?.feed ?? [])
   const error = computed(() => data.value?.failure ?? null)
   const isLoading = computed(() => isFirstLoad(status.value, data.value))

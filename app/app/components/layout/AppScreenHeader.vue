@@ -4,7 +4,9 @@
  *
  * Two shapes, because the app has exactly two: a main screen with a large
  * title, and a pushed screen with a back arrow and a small one. Anything else
- * a screen needs goes in the `actions` slot.
+ * a screen needs goes in the `actions` slot, on the right — or, when it belongs
+ * to the title rather than to the screen, in `title-trailing`, right after it
+ * (the start screen's streak beside the name, #121).
  */
 withDefaults(defineProps<{
   title: string
@@ -56,13 +58,18 @@ withDefaults(defineProps<{
         something under it. A pushed screen keeps a small one, because there the
         content is the point and the title is only saying where you are.
       -->
-      <h1
-        class="truncate"
-        :class="backTo ? 'text-[17px] font-extrabold tracking-tight' : 'q2-title'"
-        :data-q2-private="privateTitle ? '' : undefined"
-      >
-        {{ title }}
-      </h1>
+      <!-- The title gives way to what trails it: a long name is cut short
+           before the streak beside it is. -->
+      <div class="flex min-w-0 items-center gap-2.5">
+        <h1
+          class="min-w-0 truncate"
+          :class="backTo ? 'text-[17px] font-extrabold tracking-tight' : 'q2-title'"
+          :data-q2-private="privateTitle ? '' : undefined"
+        >
+          {{ title }}
+        </h1>
+        <slot name="title-trailing" />
+      </div>
     </div>
 
     <div class="flex shrink-0 items-center gap-2">

@@ -76,7 +76,7 @@ test('a screen opened by its address goes to its parent and leaves nothing behin
 test('a list scrolled down is where it was left when it is gone back to', async ({ page }) => {
   await page.goto('/')
   const area = panelScroll(page)
-  await expect(page.getByTestId('streak-hero')).toBeVisible()
+  await expect(page.getByTestId('home-feed')).toBeVisible()
 
   const top = await area.evaluate((element) => {
     element.scrollTop = Math.min(240, element.scrollHeight - element.clientHeight)

@@ -14,8 +14,6 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
 {
     private sealed record PersonDocument(Guid Id, string DisplayName, string Handle, string Initials);
 
-    private sealed record DaySummaryDocument(int Done, int Total, int Percent);
-
     private sealed record BadgeDocument(BadgeKey Key, bool IsEarned, DateOnly? EarnedOn);
 
     private sealed record ActivityDocument(Guid Id, PersonDocument Actor);
@@ -25,8 +23,6 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         int Streak,
         int KudosReceived,
         int GoalsCompleted,
-        IReadOnlyList<bool> WeekActivity,
-        DaySummaryDocument Today,
         IReadOnlyList<BadgeDocument> Badges,
         IReadOnlyList<ActivityDocument> RecentActivity);
 
@@ -78,50 +74,6 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
     public async Task TheStreakIsDerivedFromTheDaysTheSeedLaidDown()
     {
         Assert.Equal(3, (await ProfileAsync()).Streak);
-    }
-
-    [Fact]
-    public async Task TheWeekAlwaysHasSevenEntries()
-    {
-        // The client never has to work out which end of the array is Monday.
-        Assert.Equal(7, (await ProfileAsync()).WeekActivity.Count);
-    }
-
-    /// <summary>
-    /// Counted in windows that cover today, not in ticked-off tasks: a window is
-    /// the only unit here that can be finished, and it is the unit somebody's
-    /// friends can see.
-    /// </summary>
-    [Fact]
-    public async Task TodaysProgressCountsTheWindowsThatCoverToday()
-    {
-        var profile = await ProfileAsync();
-
-        // Three of the seeded goals have a window covering today; the delivered
-        // one-off is finished and no longer has one.
-        Assert.Equal(3, profile.Today.Total);
-        Assert.Equal(0, profile.Today.Done);
-        Assert.Equal(0, profile.Today.Percent);
-    }
-
-    [Fact]
-    public async Task TodaysProgressMovesWhenAWindowIsDelivered()
-    {
-        // The day moves when a friend believes the photograph, not when it is
-        // taken. That is the whole point of the change.
-        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
-
-        var waiting = await ProfileAsync();
-        Assert.Equal(0, waiting.Today.Done);
-
-        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
-        await friend.PostJsonAsync($"/api/proofs/{proof.Id}/vote", new { value = VoteValue.Confirm });
-
-        var profile = await ProfileAsync();
-
-        Assert.Equal(3, profile.Today.Total);
-        Assert.Equal(1, profile.Today.Done);
-        Assert.Equal(33, profile.Today.Percent);
     }
 
     [Fact]

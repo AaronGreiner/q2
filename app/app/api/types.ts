@@ -42,7 +42,6 @@ export type SetReminderRequest = Schemas['SetReminderRequest']
 
 export type GoalWindow = Schemas['GoalInstanceResponse']
 export type GoalWindowStatus = Schemas['GoalInstanceStatus']
-export type DaySummary = Schemas['DaySummaryResponse']
 
 export type Balance = Schemas['BalanceResponse']
 export type PersonProfile = Schemas['PersonProfileResponse']

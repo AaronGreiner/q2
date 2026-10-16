@@ -11,7 +11,6 @@ import type { PhotoOrigin } from '~/utils/proofSource'
  */
 const t = useMessages()
 const now = useNow()
-const zone = useTimeZoneOffset()
 
 const { profile, due, feed, error, isLoading, refresh, toggleKudos } = useHome()
 const { isDelivering, deliver, answerSpotCheck, maxEdge } = useProofDelivery()
@@ -94,8 +93,6 @@ const nextDue = computed(() => byDeadline(due.value)
 // what is being held today, and a relapse should never be what got cut off.
 const dontsToday = computed(() => due.value.filter(goal => goal.kind === 'Dont'))
 
-const todayIndex = computed(() => weekdayIndex(now.value, zone.value))
-
 // The same for friends: the newest three, and the rest under "Alle anzeigen".
 // Your own goals are not repeated here at all — they have the Dos tab.
 const recentFeed = computed(() => feed.value.slice(0, 3))
@@ -128,6 +125,18 @@ useHead({ title: () => t.value.nav.home })
       :title="profile ? profile.person.displayName : t.app.name"
       :private-title="Boolean(profile)"
     >
+      <!--
+        The streak, beside the name rather than as a card of its own (#121):
+        it is the one number people look for, and it no longer stands between
+        them and what there is to do.
+      -->
+      <template
+        v-if="profile"
+        #title-trailing
+      >
+        <StreakFlame :streak="profile.streak" />
+      </template>
+
       <template #actions>
         <!--
           The bell: what concerns you, with a count of what is new. The
@@ -179,6 +188,11 @@ useHead({ title: () => t.value.nav.home })
       />
 
       <template v-else-if="profile">
+        <!--
+          Whatever comes first sits flush under the panel's own padding, hence
+          `first:mt-0` on everything below that brings a top margin of its own:
+          which section is first depends on the day.
+        -->
         <div
           v-if="spotChecks.length > 0"
           class="mb-3 flex flex-col gap-2"
@@ -258,25 +272,18 @@ useHead({ title: () => t.value.nav.home })
           <InviteCard v-else />
         </section>
 
-        <StreakHero
-          :streak="profile.streak"
-          :week="profile.weekActivity"
-          :today="profile.today"
-          :today-index="todayIndex"
-        />
-
         <!--
-          The offer with nothing at stake, and it sits below the streak and
-          above everything with a deadline. It is not urgent and must not look
-          it; it is also the one thing on this screen that is simply nice, so
-          it comes before the list of what is owed.
+          The offer with nothing at stake, and it sits below the next step and
+          above everything else with a deadline. It is not urgent and must not
+          look it; it is also the one thing on this screen that is simply nice,
+          so it comes before the list of what is owed.
 
           Absent entirely on a day with no challenge running — a banner reading
           "nothing today" is furniture.
         -->
         <ChallengeBanner
           v-if="challenge"
-          class="mt-3"
+          class="mt-3 first:mt-0"
           :room="challenge"
         />
 
@@ -292,7 +299,7 @@ useHead({ title: () => t.value.nav.home })
         -->
         <section
           v-if="pending.length > 0"
-          class="mt-6"
+          class="mt-6 first:mt-0"
           aria-labelledby="vote-heading"
           data-testid="home-vote"
         >
@@ -320,7 +327,7 @@ useHead({ title: () => t.value.nav.home })
              "nothing on today" under it would be wrong. -->
         <section
           v-if="nextDue.length > 0 || dontsToday.length > 0 || (due.length === 0 && !showFirstStep)"
-          class="mt-6"
+          class="mt-6 first:mt-0"
           aria-labelledby="today-heading"
         >
           <div class="mb-3 flex items-center justify-between px-0.5">
@@ -371,7 +378,7 @@ useHead({ title: () => t.value.nav.home })
         </section>
 
         <section
-          class="mt-6"
+          class="mt-6 first:mt-0"
           aria-labelledby="feed-heading"
         >
           <div class="mb-3 flex items-center justify-between px-0.5">

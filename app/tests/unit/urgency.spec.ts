@@ -8,8 +8,6 @@ import {
   isStillOpen,
   localDay,
   nextUp,
-  weekdayIndex,
-  weekStates,
 } from '~/utils/display'
 import { firstWindowEnd } from '~/utils/firstWindow'
 import { goalTemplates } from '~/utils/goalTemplates'
@@ -19,8 +17,7 @@ import type { Goal, GoalWindow } from '~/api/types'
 
 /**
  * What the start screen and the Dos say about time: how long is left, what
- * comes first, where today is in the week, and when a new goal's first window
- * ends.
+ * comes first, and when a new goal's first window ends.
  */
 
 const noon = Date.parse('2026-09-24T12:00:00Z')
@@ -42,7 +39,7 @@ function window(overrides: Partial<GoalWindow> = {}): GoalWindow {
 }
 
 function goal(id: string, current: GoalWindow | null): Goal {
-  return { id, title: id, current } as Goal
+  return { id, title: id, current, isMine: true } as Goal
 }
 
 describe('deadlineLeft', () => {
@@ -86,6 +83,14 @@ describe('byDeadline and nextUp', () => {
   it('picks the open window that closes first and takes a photograph now', () => {
     expect(nextUp([done, waiting, late, early])?.id).toBe('early')
     expect(nextUp([done, waiting])).toBeNull()
+  })
+
+  it('never picks a friend\'s goal, even when its window closes first (#78)', () => {
+    // A friend's window takes a photograph too — only its owner may hand one in.
+    const friends = { ...goal('friends', window({ dueAt: '2026-09-24T13:00:00Z' })), isMine: false } as Goal
+
+    expect(nextUp([late, friends, early])?.id).toBe('early')
+    expect(nextUp([friends])).toBeNull()
   })
 })
 
@@ -132,24 +137,6 @@ describe('goalListSections', () => {
     const { mine } = goalListSections([ownLater], [], 'Do')
 
     expect(mine).toEqual([{ goal: ownLater, isDue: false }])
-  })
-})
-
-describe('the week under the streak', () => {
-  it('finds today Monday-first, in the reader\'s zone', () => {
-    // A Thursday at noon in UTC.
-    expect(weekdayIndex(noon)).toBe(3)
-
-    // Sunday late evening in UTC is already Monday two hours east.
-    const sundayNight = Date.parse('2026-09-27T23:00:00Z')
-    expect(weekdayIndex(sundayNight)).toBe(6)
-    expect(weekdayIndex(sundayNight, 120)).toBe(0)
-  })
-
-  it('marks what was kept, today, what was not, and what is still to come', () => {
-    expect(weekStates([true, false, true, false, false, false, false], 3))
-      .toEqual(['done', 'past', 'done', 'today', 'future', 'future', 'future'])
-    expect(weekStates([false, false, false, true, false, false, false], 3)[3]).toBe('todayDone')
   })
 })
 

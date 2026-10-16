@@ -57,34 +57,4 @@ public class StreakTests
 
         Assert.Equal(2, Streak.Count(days, Today));
     }
-
-    [Fact]
-    public void TheWeekAlwaysHasSevenEntriesStartingOnMonday()
-    {
-        var week = Streak.Week([Today], Today);
-
-        Assert.Equal(7, week.Count);
-
-        // Wednesday is the third entry when the week starts on Monday. Getting
-        // this wrong is silent: the squares still render, on the wrong days.
-        Assert.Equal([false, false, true, false, false, false, false], week);
-    }
-
-    [Fact]
-    public void TheWeekOfASundayIsTheWeekThatEndsOnIt()
-    {
-        var sunday = new DateOnly(2026, 6, 21);
-
-        var week = Streak.Week([sunday], sunday);
-
-        Assert.Equal([false, false, false, false, false, false, true], week);
-    }
-
-    [Fact]
-    public void DaysOutsideTheCurrentWeekAreNotShown()
-    {
-        var week = Streak.Week([Today.AddDays(-14)], Today);
-
-        Assert.DoesNotContain(true, week);
-    }
 }

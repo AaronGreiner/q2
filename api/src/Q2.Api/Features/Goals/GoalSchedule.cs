@@ -5,8 +5,8 @@ namespace Q2.Api.Features.Goals;
 /// <summary>A day of the week, numbered the way Europe numbers them.</summary>
 /// <remarks>
 /// Not <see cref="DayOfWeek"/>, which starts on Sunday at zero. Every week in
-/// this product starts on Monday — the week strip on the start screen, the
-/// "3× pro Woche" window, the history grid — and a numbering where Monday is 1
+/// this product starts on Monday — the "3× pro Woche" window, the history
+/// grid — and a numbering where Monday is 1
 /// is one less place for an off-by-one to hide.
 /// </remarks>
 public enum Weekday

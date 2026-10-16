@@ -39,7 +39,7 @@ so the reasoning at the time stays readable.
 | [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted, amended by [0036](0036-live-or-screenshot.md) |
 | [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) and [0035](0035-dos-and-donts.md) |
-| [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted |
+| [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted, amended by [0041](0041-the-streak-beside-the-name.md) |
 | [0033](0033-invite-links-for-new-and-existing-accounts.md) | Invite links that work, for new and existing accounts | Accepted, amended by [0034](0034-bearer-tokens-for-the-native-app.md) |
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
 | [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted, segments revised by [#77](https://github.com/AaronGreiner/q2/issues/77) |
@@ -48,3 +48,4 @@ so the reasoning at the time stays readable.
 | [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |
 | [0039](0039-first-run-onboarding.md) | A first-run introduction, once, and a first Do that waits for a friend | Accepted |
 | [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |
+| [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted |

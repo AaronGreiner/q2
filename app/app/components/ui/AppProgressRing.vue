@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * The percentage ring on the home screen and on a goal.
+ * The percentage ring on a goal, and beside a row whose window wants more than
+ * one photograph.
  *
  * A conic gradient rather than an SVG arc: it is one CSS property, it animates,
  * and it needs no viewBox arithmetic to stay round at two different sizes.

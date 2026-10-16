@@ -15,10 +15,6 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// Who you are and how you are doing — the home screen's header and the whole
 /// profile screen, in one read.
 /// </summary>
-/// <param name="WeekActivity">
-/// Monday to Sunday of the current week, seven entries. Always in that order,
-/// so the client never has to work out which end of the array is Monday.
-/// </param>
 /// <param name="Balance">
 /// Everything this person has delivered and everything they have missed, over
 /// all of their own goals. Unscoped, because it is their own profile — the
@@ -42,8 +38,6 @@ public sealed record ProfileResponse(
     int Streak,
     int KudosReceived,
     int GoalsCompleted,
-    IReadOnlyList<bool> WeekActivity,
-    DaySummaryResponse Today,
     IReadOnlyList<BadgeResponse> Badges,
     IReadOnlyList<ActivityResponse> RecentActivity,
     BalanceResponse Balance,

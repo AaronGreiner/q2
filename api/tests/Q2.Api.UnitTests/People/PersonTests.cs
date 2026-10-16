@@ -69,16 +69,6 @@ public class PersonTests
     }
 
     [Fact]
-    public void TheWeekShowsWhichDaysWereUsed()
-    {
-        var person = Build();
-        person.CheckIn(Guid.CreateVersion7(), Today);
-
-        Assert.Equal(7, person.WeekActivity(Today).Count);
-        Assert.Equal(1, person.WeekActivity(Today).Count(day => day));
-    }
-
-    [Fact]
     public void SomebodySeenAMinuteAgoIsOnline()
     {
         var person = Build();

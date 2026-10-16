@@ -529,34 +529,10 @@ export function goalListSections(
 export function nextUp(goals: readonly Goal[]): Goal | null {
   // Not a Don't: its photograph, if it takes one, belongs to the end of the
   // period, and a card saying "next" all day long would ask for it too early.
-  return byDeadline(goals).find(goal => goal.kind !== 'Dont' && goal.current?.acceptsProof && isStillOpen(goal)) ?? null
-}
-
-/**
- * Today's position in a Monday-first week, from the reader's clock.
- *
- * `offsetMinutes` is zero on the server and during hydration and corrected
- * afterwards — see `useTimeZoneOffset`.
- */
-export function weekdayIndex(now: number, offsetMinutes = 0): number {
-  const day = new Date(now + offsetMinutes * 60_000).getUTCDay()
-  return (day + 6) % 7
-}
-
-export type WeekDayState = 'done' | 'today' | 'todayDone' | 'past' | 'future'
-
-/**
- * The seven pills under the streak: what was kept, where today is, and what
- * has not happened yet — so the row answers a question rather than spelling
- * out the days of the week.
- */
-export function weekStates(week: readonly boolean[], todayIndex: number): WeekDayState[] {
-  return Array.from({ length: 7 }, (_, index) => {
-    const active = Boolean(week[index])
-    if (index === todayIndex) return active ? 'todayDone' : 'today'
-    if (index > todayIndex) return 'future'
-    return active ? 'done' : 'past'
-  })
+  //
+  // Not a friend's either: `acceptsProof` is about the window, not the reader,
+  // and the one thing to do next is never somebody else's to hand in (#78).
+  return byDeadline(goals).find(goal => goal.isMine && goal.kind !== 'Dont' && goal.current?.acceptsProof && isStillOpen(goal)) ?? null
 }
 
 /** "Fr, 26.9." — a local day with its weekday, for a separator or a preview. */

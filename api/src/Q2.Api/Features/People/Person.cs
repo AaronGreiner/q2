@@ -402,10 +402,6 @@ public sealed class Person
 
     /// <summary>Consecutive days of activity ending today, or yesterday.</summary>
     public int StreakOn(DateOnly today) => Streak.Count(_checkIns.Select(c => c.Date), today);
-
-    /// <summary>Monday-to-Sunday activity for the week containing <paramref name="today"/>.</summary>
-    public IReadOnlyList<bool> WeekActivity(DateOnly today) =>
-        Streak.Week(_checkIns.Select(c => c.Date), today);
 }
 
 /// <summary>One day on which a person did something towards a goal.</summary>

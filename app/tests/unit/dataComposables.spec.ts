@@ -146,7 +146,7 @@ describe('useHome', () => {
       profile: { get: vi.fn().mockResolvedValue({ displayName: 'Mara' }) },
       goals: {
         list: vi.fn().mockResolvedValue([goal()]),
-        today: vi.fn().mockResolvedValue([goal()]),
+        today: vi.fn().mockResolvedValue([goal({ isMine: true })]),
       },
       activity: {
         feed: vi.fn().mockResolvedValue([activity()]),
@@ -154,6 +154,24 @@ describe('useHome', () => {
       },
     }
   }
+
+  /**
+   * `/api/today` carries the goals friends asked you to check as well, for the
+   * Dos tab. On the start screen they were rows of yours — and "Als Nächstes",
+   * with a camera that could only fail (#78).
+   */
+  it('keeps the goals you only check off the start screen', async () => {
+    const api = homeApi()
+    api.goals.today.mockResolvedValue([
+      goal({ id: 'own', isMine: true }),
+      goal({ id: 'friends', isMine: false }),
+    ])
+    installFeatureGlobals(api)
+    const home = useHome()
+
+    await vi.waitFor(() => expect(home.profile.value).not.toBeNull())
+    expect(home.due.value.map(entry => entry.id)).toEqual(['own'])
+  })
 
   it('loads the complete dashboard and applies both actions', async () => {
     const api = homeApi()

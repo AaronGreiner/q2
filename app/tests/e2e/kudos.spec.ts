@@ -33,30 +33,30 @@ const seeded = {
 }
 
 test.describe('the start screen', () => {
-  test('opens on the streak, the day and what friends have been doing', async ({ page }) => {
+  test('opens on the streak beside the name and what friends have been doing', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByTestId('streak-hero')).toContainText('5')
-
-    // The streak is said once, with today beside it as a ring.
-    await expect(page.getByTestId('streak-hero')).not.toContainText('5-Tage-Streak')
-    await expect(page.getByTestId('today-progress').getByRole('progressbar', { name: /heute geliefert/ })).toBeVisible()
+    // The streak is a lit flame in the header, said once (#121): five days
+    // behind the seed, and no card of its own any more.
+    const flame = page.getByTestId('streak-flame')
+    await expect(flame).toHaveAttribute('data-lit', '')
+    await expect(flame).toContainText('5 Tage in Folge')
+    await expect(page.getByTestId('streak-count')).toHaveText('5')
 
     await expect(page.getByText(seeded.sharedGoal).first()).toBeVisible()
     await expect(page.getByTestId('activity-row').first()).toContainText(seeded.friend)
   })
 
   /**
-   * Delivering into a window is the one write on this screen, and it moves
-   * three things at once: the window closes, the day's ring fills and the
-   * streak grows.
+   * Delivering into a window is the one write on this screen: the window
+   * closes and leaves the list of what is still owed.
    *
    * It is deliberately one-way, so this uses the one goal nothing downstream
    * asserts on. A test that spent the shared goal's window would leave every
    * later test looking at a goal with nothing to deliver into — which is
    * exactly what "a window cannot be un-delivered" means.
    */
-  test('delivering a proof closes the window and moves the day', async ({ page }) => {
+  test('delivering a proof closes the window', async ({ page }) => {
     await page.goto('/')
 
     // Wherever it is on the screen: the card at the top if it closes first,
@@ -72,11 +72,45 @@ test.describe('the start screen', () => {
     // This goal has nobody on it, so there is nobody to convince: the
     // photograph is believed at once and the window closes.
     await expect(due.filter({ hasText: seeded.zeroProgressGoal })).toHaveCount(0)
+  })
 
-    // The ring is derived from the same windows, so it has to have moved. Read
-    // off its value rather than its text: "40%" contains "0%", and what else is
-    // due today depends on what earlier specs created.
-    await expect(page.getByTestId('today-progress').getByRole('progressbar')).not.toHaveAttribute('aria-valuenow', '0')
+  /**
+   * The friend's side of the same goals (#78, #79). `/api/today` carries the
+   * goals somebody was asked to check as well — the Dos tab needs them — and
+   * the start screen used to take them for the reader's own: a row under
+   * "Heute", sometimes "Als Nächstes" with a camera, and a goal screen that
+   * offered "Beweis liefern" to somebody who may not hand one in.
+   */
+  test('a friend\'s goals are not on the start screen, and their screen offers no camera', async ({ browser }, testInfo) => {
+    const theirs = await browser.newContext({ ...testInfo.project.use, storageState: { cookies: [], origins: [] } })
+
+    try {
+      const signIn = await theirs.request.post(`${apiBaseUrl}/api/auth/login`, {
+        data: { email: 'e2e.jonas@kudos.example', password: e2eAccount.password },
+      })
+      expect(signIn.ok(), 'signing in as the friend').toBe(true)
+
+      const friendPage = await theirs.newPage()
+      await friendPage.goto('/')
+      await expect(friendPage.getByTestId('streak-flame')).toBeVisible()
+
+      // Not by text on the whole screen: the feed and the vote stack may name
+      // the same goal, and both are rightly there.
+      const owed = friendPage.locator('[data-testid="window-row"], [data-testid="next-up"], [data-testid="dont-row"]')
+      await expect(owed.filter({ hasText: seeded.sharedGoal })).toHaveCount(0)
+      await expect(owed.filter({ hasText: seeded.dont })).toHaveCount(0)
+
+      await friendPage.goto(`/goals/${seeded.sharedGoalId}`)
+      await expect(friendPage.getByTestId('goal-owner')).toContainText(`Von ${seeded.me}`)
+      await expect(friendPage.getByTestId('goal-deliver-proof')).toHaveCount(0)
+
+      // Owed by its owner, or already being looked at — which one depends on
+      // whether an earlier spec delivered into today's window.
+      await expect(friendPage.locator('[data-testid="goal-proof-owed"], [data-testid="goal-proof-waiting"]')).toBeVisible()
+    }
+    finally {
+      await theirs.close()
+    }
   })
 
   test('giving kudos raises the count and can be taken back', async ({ page }) => {

@@ -3,13 +3,17 @@ import { expect, test } from '@playwright/test'
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`navigation, tab selection and sheets work with motion ${reducedMotion}`, async ({ page }, testInfo) => {
     await page.emulateMedia({ reducedMotion })
-    await page.goto('/')
-    await expect(page.getByTestId('streak-hero')).toBeVisible()
 
+    // A goal's own screen always has its window's ring; the start screen only
+    // has one when something due wants more than one photograph.
+    await page.goto('/goals/e2e00000-0000-4000-8000-000000000001')
     const ring = page.getByTestId('progress-ring').first()
     await expect(ring).toBeVisible()
     const duration = await ring.evaluate(element => Number.parseFloat(getComputedStyle(element).transitionDuration))
     expect(duration > 0.01).toBe(reducedMotion === 'no-preference')
+
+    await page.goto('/')
+    await expect(page.getByTestId('streak-flame')).toBeVisible()
 
     // Navigate within a layout and then across layouts: both must release the
     // outgoing view, keep the shell inside the phone and support browser back.

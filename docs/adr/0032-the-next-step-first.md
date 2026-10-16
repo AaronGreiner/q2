@@ -1,6 +1,9 @@
 # 0032 — The next step first: urgency, folded misses, and a goal made in steps
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0041](0041-the-streak-beside-the-name.md):
+the streak card is gone, the streak is a flame beside the name, and today's
+ring and the week of pills went with the card. Everything else stands as
+written.
 **Date:** 2026-09-24
 **Amends:** [0027 — Every goal is checked in its own conversation](0027-goal-conversations.md),
 where every missed window was its own line and the list showed the newest

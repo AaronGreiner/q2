@@ -4055,28 +4055,6 @@
           }
         }
       },
-      "DaySummaryResponse": {
-        "required": [
-          "done",
-          "total",
-          "percent"
-        ],
-        "type": "object",
-        "properties": {
-          "done": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "total": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "percent": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
       "DeleteAccountRequest": {
         "type": "object",
         "properties": {
@@ -5504,8 +5482,6 @@
           "streak",
           "kudosReceived",
           "goalsCompleted",
-          "weekActivity",
-          "today",
           "badges",
           "recentActivity",
           "balance",
@@ -5527,15 +5503,6 @@
           "goalsCompleted": {
             "type": "integer",
             "format": "int32"
-          },
-          "weekActivity": {
-            "type": "array",
-            "items": {
-              "type": "boolean"
-            }
-          },
-          "today": {
-            "$ref": "#/components/schemas/DaySummaryResponse"
           },
           "badges": {
             "type": "array",

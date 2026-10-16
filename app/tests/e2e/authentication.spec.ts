@@ -45,7 +45,7 @@ test.describe('signed out', () => {
     await page.getByTestId('login-submit').click()
 
     await expect(page).toHaveURL('/')
-    await expect(page.getByTestId('streak-hero')).toContainText('5')
+    await expect(page.getByTestId('streak-flame')).toContainText('5 Tage in Folge')
   })
 
   test('a wrong password says so without saying whether the account exists', async ({ page }) => {

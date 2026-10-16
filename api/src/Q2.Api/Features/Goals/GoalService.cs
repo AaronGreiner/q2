@@ -125,32 +125,6 @@ public sealed class GoalService(
         return [.. mine.Select(goal => GoalResponse.From(goal, people, me.Id, now, calendar))];
     }
 
-    /// <summary>How much of today is delivered, as the home screen's ring.</summary>
-    public async Task<DaySummaryResponse> SummariseTodayAsync(CancellationToken cancellationToken)
-    {
-        var me = await currentPerson.GetAsync(cancellationToken);
-        var now = timeProvider.GetUtcNow();
-        var today = timeZones.For(me.TimeZoneId).Today(now);
-
-        var goals = await MineAsync(me.Id, cancellationToken);
-        await AdvanceAsync(goals, me, now, cancellationToken);
-
-        // Every window that covers today, whatever became of it: one delivered
-        // this morning still counts towards the day it was delivered in.
-        //
-        // A Don't's window is not in it. It is kept by the period running out,
-        // so all day long it would be an open share of a ring nobody can fill
-        // — "geliefert" is a word about Dos (docs/adr/0037-donts.md).
-        var windows = goals
-            .SelectMany(goal => goal.Instances)
-            .Where(instance => !instance.IsDont && Covers(instance, today))
-            .ToList();
-
-        return DaySummaryResponse.From(
-            windows.Count(instance => instance.Status == GoalInstanceStatus.Done),
-            windows.Count);
-    }
-
     /// <exception cref="ResourceNotFoundException">
     /// No such goal, or not one this person may see. The same answer for both:
     /// confirming that a goal exists but belongs to somebody else already says

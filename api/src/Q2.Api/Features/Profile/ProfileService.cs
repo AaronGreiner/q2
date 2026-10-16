@@ -15,9 +15,9 @@ namespace Q2.Api.Features.Profile;
 /// </summary>
 /// <remarks>
 /// One read rather than five. Every screen in the app needs some of this — the
-/// home header needs the streak and the day's progress, the profile screen
-/// needs all of it — and a phone on a train should not spend five round trips
-/// drawing a header.
+/// home header needs the name and the streak, the profile screen needs all of
+/// it — and a phone on a train should not spend five round trips drawing a
+/// header.
 /// </remarks>
 public sealed class ProfileService(
     Q2DbContext database,
@@ -58,8 +58,6 @@ public sealed class ProfileService(
             me.StreakOn(today),
             me.KudosReceived,
             me.GoalsCompleted,
-            me.WeekActivity(today),
-            await goals.SummariseTodayAsync(cancellationToken),
             badges,
             await activity.ListOwnAsync(RecentActivityLimit, cancellationToken),
             await BalanceOfAsync(me.Id, cancellationToken),

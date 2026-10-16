@@ -1,19 +1,20 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import { h } from 'vue'
 import AppScreenHeader from '~/components/layout/AppScreenHeader.vue'
 import AppSegmented from '~/components/ui/AppSegmented.vue'
 import ChallengeBanner from '~/components/home/ChallengeBanner.vue'
 import HistoryGrid from '~/components/goals/HistoryGrid.vue'
 import RiskCard from '~/components/goals/RiskCard.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
-import StreakHero from '~/components/home/StreakHero.vue'
+import StreakFlame from '~/components/home/StreakFlame.vue'
 import type { Goal, GoalWindow } from '~/api/types'
 
 /**
  * The states these components have that nothing was rendering.
  *
  * Every one of them is a decision the design records somewhere — the streak
- * card is lit only once something has been earned, the history grid never uses
+ * flame is lit only once something has been earned, the history grid never uses
  * the accent, the challenge banner gives the accent up once you are in — and a
  * decision that no test renders is one a refactor can quietly reverse.
  */
@@ -50,66 +51,40 @@ function goal(overrides: Partial<Goal> = {}): Goal {
   } as Goal
 }
 
-describe('StreakHero', () => {
-  const today = { done: 2, total: 4, percent: 50 }
-
+describe('StreakFlame', () => {
   /**
-   * The flame is lit only for something that has been earned.
-   * Lighting it at zero would leave nothing to show somebody on the day they
-   * reach five.
+   * The flame is lit only for something that has been earned. Lighting it at
+   * zero would leave nothing to show somebody on the day they reach five.
    */
-  it('lights only the flame once there is an earned streak', async () => {
-    const started = await mountSuspended(StreakHero, {
-      props: { streak: 5, week: [true, true, false, false, false, false, false], today, todayIndex: 2 },
-    })
+  it('lights the flame and shows the number only once there is a streak', async () => {
+    const lit = await mountSuspended(StreakFlame, { props: { streak: 5 } })
 
-    expect(started.get('[data-testid="streak-hero"]').attributes()).toHaveProperty('data-lit')
-    expect(started.get('[data-testid="streak-flame"]').classes()).toContain('bg-linear-to-br')
-    expect(started.text()).toContain('5')
+    const flame = lit.get('[data-testid="streak-flame"]')
+    expect(flame.attributes()).toHaveProperty('data-lit')
+    expect(flame.find('.bg-linear-to-br').exists()).toBe(true)
+    expect(lit.get('[data-testid="streak-count"]').text()).toBe('5')
 
-    const empty = await mountSuspended(StreakHero, {
-      props: { streak: 0, week: [false, false, false, false, false, false, false], today, todayIndex: 2 },
-    })
+    const unlit = await mountSuspended(StreakFlame, { props: { streak: 0 } })
 
-    expect(empty.get('[data-testid="streak-hero"]').attributes()).not.toHaveProperty('data-lit')
-    expect(empty.get('[data-testid="streak-flame"]').classes()).not.toContain('bg-linear-to-br')
+    expect(unlit.get('[data-testid="streak-flame"]').attributes()).not.toHaveProperty('data-lit')
+    expect(unlit.find('.bg-linear-to-br').exists()).toBe(false)
+
+    // Grey says it; a "0" beside it would not add anything.
+    expect(unlit.find('[data-testid="streak-count"]').exists()).toBe(false)
   })
 
-  /** Seven letters read out one at a time tell a screen reader nothing. */
-  it('draws the week decoratively, and keeps it out of Session Replay', async () => {
-    const wrapper = await mountSuspended(StreakHero, {
-      props: { streak: 2, week: [true, false, true, false, false, false, false], today, todayIndex: 3 },
-    })
+  /** An icon and a digit read out separately tell a screen reader nothing. */
+  it('is read out as one sentence, and kept out of Session Replay', async () => {
+    const one = await mountSuspended(StreakFlame, { props: { streak: 1 } })
+    expect(one.get('.sr-only').text()).toBe('1 Tag in Folge')
 
-    const week = wrapper.get('[data-testid="streak-week"]')
+    const many = await mountSuspended(StreakFlame, { props: { streak: 12 } })
+    expect(many.get('.sr-only').text()).toBe('12 Tage in Folge')
+    expect(many.get('[data-testid="streak-count"]').attributes('aria-hidden')).toBe('true')
+    expect(many.get('[data-testid="streak-flame"]').attributes()).toHaveProperty('data-q2-private')
 
-    expect(week.attributes('aria-hidden')).toBe('true')
-    expect(week.attributes()).toHaveProperty('data-q2-block')
-    expect(week.findAll('li')).toHaveLength(7)
-
-    // Said once, as a sentence, instead.
-    expect(wrapper.text()).toContain('Diese Woche an 2 Tagen dabei')
-  })
-
-  /** Each pill answers something: kept, today, or still to come. */
-  it('marks what was kept, where today is, and what is still to come', async () => {
-    const wrapper = await mountSuspended(StreakHero, {
-      props: { streak: 2, week: [true, false, true, true, false, false, false], today, todayIndex: 3 },
-    })
-
-    const states = wrapper.findAll('[data-testid="streak-week"] li').map(pill => pill.attributes('data-state'))
-    expect(states).toEqual(['done', 'past', 'done', 'todayDone', 'future', 'future', 'future'])
-  })
-
-  /** The streak is said once; today sits beside it as a ring, not as a second card. */
-  it('says the streak once and today as a ring', async () => {
-    const wrapper = await mountSuspended(StreakHero, {
-      props: { streak: 5, week: [false, false, false, false, false, false, false], today, todayIndex: 0 },
-    })
-
-    expect(wrapper.text()).not.toContain('5-Tage-Streak')
-    expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('50')
-    expect(wrapper.get('[data-testid="today-progress"]').text()).toContain('2/4')
+    const none = await mountSuspended(StreakFlame, { props: { streak: 0 } })
+    expect(none.get('.sr-only').text()).toBe('Noch keine Serie')
   })
 })
 
@@ -272,6 +247,21 @@ describe('AppScreenHeader', () => {
     })
 
     expect(wrapper.text()).toContain('Guten Abend')
+  })
+
+  /** The start screen's streak belongs to the name, not among the actions on the right (#121). */
+  it('puts what trails the title right after it, and the actions apart', async () => {
+    const wrapper = await mountSuspended(AppScreenHeader, {
+      props: { title: 'Mara' },
+      slots: {
+        'title-trailing': () => h('span', { 'data-testid': 'trailing' }, '5'),
+        'actions': () => h('span', { 'data-testid': 'action' }, 'Glocke'),
+      },
+    })
+
+    const trailing = wrapper.get('[data-testid="trailing"]')
+    expect(trailing.element.previousElementSibling?.tagName).toBe('H1')
+    expect(trailing.element.parentElement?.contains(wrapper.get('[data-testid="action"]').element)).toBe(false)
   })
 })
 

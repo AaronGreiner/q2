@@ -237,6 +237,31 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           </div>
         </header>
 
+        <!--
+          Whose it is, on a friend's goal (#79). The team below lists who
+          checks it — for a friend's goal that is you — so without this line
+          the one person it is about appeared nowhere on the screen.
+        -->
+        <NuxtLink
+          v-if="!goal.isMine"
+          :to="`/people/${goal.owner.id}`"
+          class="mt-2 flex min-h-11 w-fit max-w-full items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+          data-testid="goal-owner"
+        >
+          <AppAvatar
+            :initials="goal.owner.initials"
+            :color="goal.owner.avatarColor"
+            :image-id="goal.owner.avatarImageId"
+            :size="24"
+          />
+          <span
+            class="min-w-0 truncate text-[13px] font-semibold text-(--ui-text-muted)"
+            data-q2-private
+          >
+            {{ t.goals.owner }} <span class="font-bold text-(--ui-text)">{{ goal.owner.displayName }}</span>
+          </span>
+        </NuxtLink>
+
         <p
           v-if="goal.description"
           class="mt-3 text-sm text-(--ui-text-muted)"
@@ -320,9 +345,13 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             The camera, or an explanation of why there is none. The middle state
             is the new one: a photograph is being looked at, and pressing
             anything would only deliver a second the server refuses.
+
+            Only on your own goal: `acceptsProof` is about the window, not the
+            reader, and only the owner hands a photograph in (#79). On a
+            friend's goal the same window says whose photograph is still owed.
           -->
           <UButton
-            v-if="currentWindow?.acceptsProof"
+            v-if="goal.isMine && currentWindow?.acceptsProof"
             class="mt-4 w-full justify-center"
             size="xl"
             icon="i-lucide-camera"
@@ -345,6 +374,15 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
               aria-hidden="true"
             />
             {{ t.proof.waiting }}
+          </p>
+
+          <p
+            v-else-if="currentWindow?.acceptsProof"
+            class="mt-4 text-center text-[13px] font-semibold text-(--ui-text-muted)"
+            data-testid="goal-proof-owed"
+            data-q2-private
+          >
+            {{ t.goals.proofOwedBy(goal.owner.displayName) }}
           </p>
 
           <p

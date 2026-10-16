@@ -155,7 +155,7 @@ test.describe('error handling', () => {
     await expect(error).toContainText('Seite nicht gefunden')
 
     await error.getByTestId('app-error-home').click()
-    await expect(page.getByTestId('streak-hero')).toBeVisible()
+    await expect(page.getByTestId('streak-flame')).toBeVisible()
   })
 })
 

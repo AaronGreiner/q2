@@ -40,23 +40,4 @@ public static class Streak
 
         return streak;
     }
-
-    /// <summary>
-    /// Monday-to-Sunday activity for the week containing
-    /// <paramref name="today"/>. Always seven entries, always in that order.
-    /// </summary>
-    /// <remarks>
-    /// Monday first because that is what the week looks like where q2 is used;
-    /// <see cref="DayOfWeek"/> starts on Sunday, which is why the offset is not
-    /// simply the enum value.
-    /// </remarks>
-    public static IReadOnlyList<bool> Week(IEnumerable<DateOnly> days, DateOnly today)
-    {
-        var set = days as IReadOnlySet<DateOnly> ?? days.ToHashSet();
-
-        var offset = ((int)today.DayOfWeek + 6) % 7;
-        var monday = today.AddDays(-offset);
-
-        return [.. Enumerable.Range(0, 7).Select(i => set.Contains(monday.AddDays(i)))];
-    }
 }

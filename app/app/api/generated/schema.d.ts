@@ -1385,14 +1385,6 @@ export interface components {
             reason?: (null) | components["schemas"]["ReportReason"];
             note?: string | null;
         };
-        DaySummaryResponse: {
-            /** Format: int32 */
-            done: number;
-            /** Format: int32 */
-            total: number;
-            /** Format: int32 */
-            percent: number;
-        };
         DeleteAccountRequest: {
             password?: string | null;
         };
@@ -1785,8 +1777,6 @@ export interface components {
             kudosReceived: number;
             /** Format: int32 */
             goalsCompleted: number;
-            weekActivity: boolean[];
-            today: components["schemas"]["DaySummaryResponse"];
             badges: components["schemas"]["BadgeResponse"][];
             recentActivity: components["schemas"]["ActivityResponse"][];
             balance: components["schemas"]["BalanceResponse"];

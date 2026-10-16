@@ -346,18 +346,6 @@ public sealed record GoalDetailResponse(
     IReadOnlyList<GoalInstanceResponse> History,
     Guid? ConversationId);
 
-/// <summary>How much of today is done. What the ring on the home screen shows.</summary>
-/// <remarks>
-/// Counted in windows due today rather than in ticked-off tasks: a window is the
-/// only unit in this product that can be finished, and it is the unit somebody's
-/// friends can see.
-/// </remarks>
-public sealed record DaySummaryResponse(int Done, int Total, int Percent)
-{
-    public static DaySummaryResponse From(int done, int total) =>
-        new(done, total, total == 0 ? 0 : (int)Math.Round(done * 100d / total));
-}
-
 /// <summary>
 /// The schedule, as a request states it.
 /// </summary>
