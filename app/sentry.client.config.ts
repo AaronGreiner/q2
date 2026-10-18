@@ -72,10 +72,12 @@ Sentry.init({
      *    content — a goal title, a message, an address, a password — so there
      *    is nothing to gain by making them readable, and `ui.input` breadcrumbs
      *    are dropped for the same reason.
-     *  - `blockAllMedia: false` — q2 has no user media at all. An avatar is
-     *    initials on a colour and every icon is inline SVG, which the media
-     *    selector also covers, so blocking it removed the interface and
-     *    protected nothing.
+     *  - `blockAllMedia: false` — every icon is inline SVG, which the media
+     *    selector also covers, so blocking all media removes the interface.
+     *    The photographs are kept out instead by `data-q2-block` on each
+     *    element that draws one — avatars, proofs, challenge contributions,
+     *    chat photographs and the full-screen viewers (docs/privacy.md
+     *    section 4).
      *  - `block: replayBlockSelectors` — personal state whose geometry leaks
      *    information (messages, progress, activity and avatars) is replaced as
      *    a whole rather than merely having its text masked.

@@ -31,23 +31,29 @@ aspirational.
 
 | Category | Field | Note |
 | --- | --- | --- |
-| Goal content | title, description | User-authored. Potentially health-related. |
-| Task content | title, measured amount and unit | User-authored. Same treatment. |
-| Progress | steps done, days worked on, task completion dates | A day-by-day record of somebody's habits. |
-| Time | creation timestamp, optional target date, reminder time | |
-| People | display name, handle, initials, avatar colour | Separate from the account, and the only thing other people ever see of somebody. |
+| Goals | title, description, icon, kind (a Do or a Don't), schedule, a Don't's limit and how friends check it, status, when it was created and closed, a one-off's day, the daily reminder time | Title and description are user-authored and potentially health-related. A goal is a schedule and a chain of windows, not a counter ([adr/0016](adr/0016-windows-instead-of-steps.md)). |
+| Goal participants | who was invited to check a goal | Part of the social graph: it says who watches whom keep which promise. |
+| Windows | per goal and period: its days and instants, how many proofs it needs and how many were believed, a Don't's limit, whether it was delivered or missed and when, and when its owner was warned it was at risk | **A day-by-day record of somebody's habits**, kept as long as the goal. A streak and a balance are counted from it, never stored as a number of their own. |
+| Proofs | which photograph was delivered for which window and by whom, its status, the attempt, the voting deadline, whether it was taken live or chosen from the phone, and when it was decided | The photograph itself is an image (below). |
+| Votes | who believed or doubted which proof, and when | A doubter is never named to anybody ([adr/0018](adr/0018-proof-and-vote.md)); the row is kept so a vote can be changed while the vote runs. |
+| Reactions | who reacted, with which kind, to a proof, a challenge contribution, a message or a feed line (kudos) | |
+| Don't uses and spot checks | when a use of a Don't was logged, with an optional photograph; when a spot check was planned, asked and answered | What a Don't records is a relapse, the most sensitive thing a habit can say ([adr/0037](adr/0037-donts.md), [adr/0038](adr/0038-spot-checks.md)). |
+| Pauses | who set a goal aside, for which days, why — a free-text reason of 10 to 280 characters — and who objected | **The reason is user-authored and often about health** ("Grippe"). It is shown on the goal's own screen, never in its conversation ([adr/0020](adr/0020-pause-and-archive.md)), and never logged. |
+| Check-ins and badges | which days somebody delivered something, and which badges they earned when | Derived from the windows; the streak beside a name is counted from the check-ins. |
+| People | display name, handle, initials, avatar colour, an optional profile picture, the time zone their days are counted in, two stored counters (kudos received, goals completed), and when they last opened the bell | Separate from the account, and the only thing other people see of somebody — their picture included. |
 | Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). A reset link's token is not stored at all — Identity derives it from the security stamp, which changes with the password — and which account was last mailed one is kept in memory for two minutes, never on disk ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)). |
 | Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
 | Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
-| Activity | what somebody did, when, and who cheered it | The subject is a goal or task title, so it inherits their treatment. |
-| Messages | text, sender, timestamp, reactions | Until images arrived, the most personal thing q2 stored. |
-| Images | the bytes of a picture somebody uploaded, plus its owner, purpose, media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
+| Activity | what somebody did, when, and who cheered it | The subject is a goal's title, so it inherits its treatment. |
+| Conversations | who is in which conversation, a group's name and icon, the goal a conversation belongs to, and each member's read marker and mute | Every goal has one, made of its owner and the friends invited to check it; it is removed with the goal and with its owner's account ([adr/0027](adr/0027-goal-conversations.md)). Nobody else can read it. |
+| Messages | text or a photograph, sender, timestamp, reactions | The words and pictures people send each other ([adr/0029](adr/0029-photographs-in-conversations.md)). |
+| Images | the bytes of a picture somebody uploaded, plus its owner, purpose (profile picture, proof, challenge contribution, chat photograph), media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
 | Challenge contributions | which prompt somebody answered, with which picture, and when | The prompt is authored by the deployment, never by a user. Who may see the picture depends on what the *viewer* has done — see [adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). |
 | Blocks | who blocked whom, and when | The direction is stored so only the person who set one can lift it; the effect is symmetric. Never shown to the person blocked. |
 | Reports | who reported what, why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
 | Invite codes | 96 random bits per person, created on first use | A credential in everything but name. Replaceable, and never derived from the handle. Whoever holds one sees its owner's display name, initials and avatar colour — nothing else — before signing up (ADR 0033). |
 | Push subscriptions | an endpoint, two browser keys, and when something last arrived | **A stable handle for one browser installation** — the most identifying thing q2 stores. Never logged, never sent to Sentry, and deleted with the account. See [adr/0023-web-push.md](adr/0023-web-push.md). |
-| Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title or a challenge prompt), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
+| Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title, or a challenge prompt in both languages), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
 | Preferences | theme, language, one switch per kind of notification, quiet hours, and which conversations are muted | |
 | First run | when somebody finished the introduction | One timestamp on the person, so the introduction is shown once on any device. See [adr/0039-first-run-onboarding.md](adr/0039-first-run-onboarding.md). |
 | Waiting Do | a title, an icon, a schedule and a reminder time, at most one per person | User-authored, so it is treated like a goal's title. Only exists while its owner has no friend; becomes a goal when the first friendship does, and is deleted with the account. Its title is never logged. See [adr/0039-first-run-onboarding.md](adr/0039-first-run-onboarding.md). |
@@ -121,9 +127,9 @@ Sentry ([#33](https://github.com/AaronGreiner/q2/issues/33)). The mail names
 nobody and carries nothing but the link
 ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)).
 
-Every name in the database is invented — but a goal description, a task title
-and a message all can identify somebody, so all three are treated as personal
-data throughout.
+Every name in the database is invented — but a goal's title and description,
+a pause's reason and a message all can identify somebody, so all of them are
+treated as personal data throughout.
 
 Chat messages, the social graph, the account itself and uploaded images are the
 categories that need a retention answer before real people are in the database
@@ -151,15 +157,17 @@ sign-out a data-deletion path, and that has to be designed before the cache is.
 
 ## 3. Logging rules
 
-**May be logged:** goal, task, conversation, activity and person *ids*,
-participant and step *counts*, status and rhythm values, progress numbers,
-durations, HTTP status codes, route templates, environment, release, migration
-and seed names, correlation ids.
+**May be logged:** goal, window, proof, conversation, activity, report and
+person *ids*; *counts* — participants, windows, goals, photographs, friends,
+devices, notifications; schedule kinds, statuses, notification kinds and a
+pause's length in days; durations, HTTP status codes, route templates,
+environment, release, migration and seed names, correlation ids.
 
-**Must never be logged:** goal titles and descriptions, task titles, message
-text, person names and handles, credentials or tokens, connection strings,
-cookies, request or response bodies, `Authorization` headers, email addresses,
-IP addresses, coordinates, developer or machine names.
+**Must never be logged:** goal titles and descriptions, a pause's reason,
+message text, challenge prompts, person names and handles, credentials or
+tokens, connection strings, cookies, request or response bodies,
+`Authorization` headers, email addresses, IP addresses, coordinates, developer
+or machine names.
 
 The services follow this literally: `ChatService` logs that a message was sent
 in a conversation and nothing about what it said.
@@ -208,11 +216,17 @@ What still limits the damage:
 
 - **Replay exposes application UI, not personal content.** Static headings,
   labels, navigation, empty states and error messages are readable. Elements
-  with `data-q2-private` mask names, handles, goal/task/chat text and personal
+  with `data-q2-private` mask names, handles, goal and chat text and personal
   values. Elements with `data-q2-block` replace messages, progress, activity
-  histories and avatars, because their shape or visual state reveals data even
-  after text masking. All inputs remain masked. `blockAllMedia` is off because
-  q2 has no user photographs or uploads; application icons stay visible.
+  histories, avatars and every photograph — profile pictures, proofs, challenge
+  contributions and chat photographs, each blocked where it is drawn
+  (`AppAvatar`, `PhotoCapture`, `ProofCard`, `ProofGalleryTile`,
+  `ChallengeEntryCard`, `ChallengeArchiveTile`, `ChatBubble`, the full-screen
+  viewers) — because their shape or picture reveals data even after text
+  masking. All inputs remain masked. `blockAllMedia` stays off so application
+  icons stay visible; that the photographs are blocked one element at a time
+  rather than all at once is the trade, and whether it should be the other way
+  round is part of [#31](https://github.com/AaronGreiner/q2/issues/31).
 - **`beforeSend` and `beforeBreadcrumb` still run on every event.** Everything
   in the "never sent" list above is still removed. Transactions, a replay's
   metadata and recorded navigations, and a feedback's page address go through
@@ -225,8 +239,8 @@ What still limits the damage:
   sides, and request bodies never leave the process.
 
 Logs and metrics use the same central filters. Metrics are an allow-list of
-business-action counters with closed attributes (`rhythm`, `shared`, `done`),
-never a user id or a value somebody typed. Browser profiles contain sampled
+business-action counters with closed attributes (`schedule`, `shared`,
+`outcome`, `source`), never a user id or a value somebody typed. Browser profiles contain sampled
 JavaScript stacks from the shipped application code and are active only during
 sampled traces; they do not contain DOM text or input values.
 
