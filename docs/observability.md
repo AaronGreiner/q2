@@ -94,6 +94,18 @@ a filter downstream. `sentry.feedback.ts` holds it and
 asserts the same thing against the envelope on the wire. See
 [adr/0014-user-feedback.md](adr/0014-user-feedback.md).
 
+## Traces
+
+A browser transaction is named after the screen's route, `/goals/:id()`, not
+its address, so performance data groups by screen and no name carries an id
+([#66](https://github.com/AaronGreiner/q2/issues/66)). That comes from the
+router-aware `browserTracingIntegration`, which the `@sentry/nuxt` module's
+client plugin adds once the router exists. `sentry.client.config.ts`
+deliberately lists none of its own: Sentry installs one integration per name,
+and a bare one there silently replaced the router-aware one, naming every
+transaction after the address. `tests/e2e/sentryTracing.spec.ts` asserts the
+names on the wire.
+
 ## Profiles
 
 Browser UI Profiling is enabled with `browserProfilingIntegration`,
@@ -231,8 +243,9 @@ carries a credential is blocked with `data-q2-block` instead.
 - the one path segment that is a credential: the invite code in `/join/<code>`,
   also percent-encoded inside a `?next=`, and `invite=<code>`
   ([adr/0033](adr/0033-invite-links-for-new-and-existing-accounts.md)). A
-  browser transaction is named after the address, so its name is redacted
-  too; the route template `/join/:code()` is left alone
+  transaction named after an address — a server request, or a page no route
+  matched — has its name redacted too; a browser transaction is named after
+  the route template `/join/:code()` ([Traces](#traces)), which is left alone
 - request and response bodies
 - user id, email and username — but **not the IP address**, on either side.
   `sendDefaultPii` is on, and removing the address in a scrubber would silently
@@ -342,8 +355,14 @@ than reconstructed from a stack trace.
 Two things are easy to get wrong here:
 
 - **The sample rates alone do nothing.** `Sentry.replayIntegration()` has to be
-  in the `integrations` array in `sentry.client.config.ts`. Without it the
-  configuration looks complete and records nothing.
+  added in `sentry.client.config.ts`. Without it the configuration looks
+  complete and records nothing.
+- **It is added when the app is created, not in `integrations`.** Replay puts
+  its id into a trace's header when it starts, into the trace running then. The
+  page load is traced by the module's plugin, after the configuration file
+  (see [Traces](#traces)), so a Replay listed in `integrations` starts first,
+  and the page load and every error inside it go out unlinked from their replay.
+  `tests/e2e/errorHandling.spec.ts` and `sentryTracing.spec.ts` assert the link.
 - **Selective privacy is part of the configuration.** `maskAllText` is false so
   headings, labels, navigation, empty states and error messages remain useful.
   `data-q2-private` masks personal text, while `data-q2-block` replaces messages,

@@ -17,6 +17,48 @@ import {
  */
 const { public: config } = useRuntimeConfig()
 
+/*
+ * Session Replay — added once the app is created, at the end of this file,
+ * rather than in `integrations`. The sample rates live in
+ * resolveSentryOptions; without this integration they would do nothing at
+ * all, which is the trap here — a replay rate of 1 and no integration looks
+ * configured and records nothing.
+ *
+ * What is masked, and why it is no longer everything:
+ *
+ *  - `maskAllText: false` — a replay in which every label, heading, empty
+ *    state and error message is a row of asterisks shows that something
+ *    went wrong somewhere, which is what a stack trace already said. The
+ *    interface itself is ours, not the user's, so it is recorded.
+ *  - `mask: replayMaskSelectors` — everything the user wrote is not.
+ *    `data-q2-private` sits on the elements rendering goal and task titles,
+ *    messages, names and handles; AGENTS.md section 9 has not changed, this
+ *    is how it is kept.
+ *  - `maskAllInputs` stays on. Every free-text field in q2 takes personal
+ *    content — a goal title, a message, an address, a password — so there
+ *    is nothing to gain by making them readable, and `ui.input` breadcrumbs
+ *    are dropped for the same reason.
+ *  - `blockAllMedia: false` — every icon is inline SVG, which the media
+ *    selector also covers, so blocking all media removes the interface.
+ *    The photographs are kept out instead by `data-q2-block` on each element
+ *    that draws one — avatars, proofs, challenge contributions, chat
+ *    photographs and the full-screen viewers (docs/privacy.md section 4).
+ *  - `block: replayBlockSelectors` — personal state whose geometry leaks
+ *    information (messages, progress, activity and avatars) is replaced as
+ *    a whole rather than merely having its text masked.
+ *  - `beforeAddRecordingEvent` — the addresses and breadcrumbs inside the
+ *    recording go through the same filters as everything else; an invite
+ *    code in the address is a credential (#47).
+ */
+const replay = Sentry.replayIntegration({
+  maskAllText: false,
+  mask: replayMaskSelectors,
+  block: replayBlockSelectors,
+  maskAllInputs: true,
+  blockAllMedia: false,
+  beforeAddRecordingEvent: scrubRecordingEvent,
+})
+
 Sentry.init({
   ...resolveSentryOptions({
     dsn: config.sentry.dsn,
@@ -34,9 +76,16 @@ Sentry.init({
   profileSessionSampleRate: Number(config.sentry.profileSessionSampleRate ?? 1),
   profileLifecycle: 'trace',
 
+  /*
+   * Deliberately no `browserTracingIntegration()` in here. The module's client
+   * plugin adds the router-aware one, which names a transaction after the
+   * route (`/goals/:id()`) rather than the address (`/goals/0193…`), and Sentry
+   * skips it if an integration of the same name is already installed — which
+   * a bare one listed here would be (#66). It still traces every page load and
+   * navigation, so `profileLifecycle: 'trace'` above has its root spans.
+   * tests/e2e/sentryTracing.spec.ts asserts the names on the wire.
+   */
   integrations: [
-    Sentry.browserTracingIntegration(),
-
     /*
      * Where the time went, per sampled transaction. Samples the JavaScript
      * stack of our own code — it carries no user data, and the redaction that
@@ -51,48 +100,6 @@ Sentry.init({
      * object at, and an object here usually contains a goal.
      */
     Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] }),
-
-    /*
-     * Session Replay. The sample rates live in resolveSentryOptions; without
-     * this integration they would do nothing at all, which is the trap here —
-     * a replay rate of 1 and no integration looks configured and records
-     * nothing.
-     *
-     * What is masked, and why it is no longer everything:
-     *
-     *  - `maskAllText: false` — a replay in which every label, heading, empty
-     *    state and error message is a row of asterisks shows that something
-     *    went wrong somewhere, which is what a stack trace already said. The
-     *    interface itself is ours, not the user's, so it is recorded.
-     *  - `mask: replayMaskSelectors` — everything the user wrote is not.
-     *    `data-q2-private` sits on the elements rendering goal and task titles,
-     *    messages, names and handles; AGENTS.md section 9 has not changed, this
-     *    is how it is kept.
-     *  - `maskAllInputs` stays on. Every free-text field in q2 takes personal
-     *    content — a goal title, a message, an address, a password — so there
-     *    is nothing to gain by making them readable, and `ui.input` breadcrumbs
-     *    are dropped for the same reason.
-     *  - `blockAllMedia: false` — every icon is inline SVG, which the media
-     *    selector also covers, so blocking all media removes the interface.
-     *    The photographs are kept out instead by `data-q2-block` on each
-     *    element that draws one — avatars, proofs, challenge contributions,
-     *    chat photographs and the full-screen viewers (docs/privacy.md
-     *    section 4).
-     *  - `block: replayBlockSelectors` — personal state whose geometry leaks
-     *    information (messages, progress, activity and avatars) is replaced as
-     *    a whole rather than merely having its text masked.
-     *  - `beforeAddRecordingEvent` — the addresses and breadcrumbs inside the
-     *    recording go through the same filters as everything else; an invite
-     *    code in the address is a credential (#47).
-     */
-    Sentry.replayIntegration({
-      maskAllText: false,
-      mask: replayMaskSelectors,
-      block: replayBlockSelectors,
-      maskAllInputs: true,
-      blockAllMedia: false,
-      beforeAddRecordingEvent: scrubRecordingEvent,
-    }),
 
     /*
      * The addresses on a replay and on a feedback, which no `beforeSend*`
@@ -122,3 +129,20 @@ Sentry.init({
     },
   },
 })
+
+/*
+ * Replay starts once every plugin has run: after the module's plugin has begun
+ * tracing the page load (#66), and still before the app hydrates.
+ *
+ * Replay writes its id into a trace's header only when it starts, and only
+ * into the trace that is running then. Listed in `integrations`, it would
+ * start before the page load is traced — the router-aware tracing comes from a
+ * plugin that runs after this file — and the page load's transaction and every
+ * error inside it would go out without `replay_id`, unlinked from their
+ * replay. Only with a client that sends: a disabled client sets up none of
+ * the integrations it was given, but one added later is set up regardless and
+ * would record for nobody.
+ */
+if (Sentry.isEnabled()) {
+  useNuxtApp().hook('app:created', () => Sentry.addIntegration(replay))
+}
