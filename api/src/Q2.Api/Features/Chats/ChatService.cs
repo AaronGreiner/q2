@@ -75,7 +75,16 @@ public sealed class ChatService(
         conversations = [.. conversations.Where(conversation => conversation.Kind != ConversationKind.Goal
             || (conversation.GoalId is { } goalId && goals.ContainsKey(goalId)))];
 
-        var people = await LoadPeopleAsync(conversations, [], cancellationToken);
+        // The one message each row shows and a count of the rest — never the
+        // rest themselves, which grow with every conversation somebody is in.
+        var lastMessages = await LastMessagesAsync(conversations, cancellationToken);
+        var unreadCounts = await UnreadCountsAsync(me.Id, cancellationToken);
+
+        var people = await LoadPeopleAsync(
+            conversations
+                .SelectMany(conversation => conversation.Participants.Select(participant => participant.PersonId))
+                .Concat(lastMessages.Values.Select(message => message.SenderPersonId)),
+            cancellationToken);
 
         // The one definition of "waiting for this person's verdict", shared
         // with the vote screen and its badge, so a row cannot say a photograph
@@ -91,7 +100,7 @@ public sealed class ChatService(
         {
             var goal = GoalOf(conversation, goals);
             var identity = ResolveIdentity(conversation, goal, people, me.Id, now);
-            var last = conversation.Messages.OrderBy(m => m.SentAt).ThenBy(m => m.Id).LastOrDefault();
+            var last = lastMessages.GetValueOrDefault(conversation.Id);
 
             if (!string.IsNullOrEmpty(term)
                 && !identity.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
@@ -139,7 +148,7 @@ public sealed class ChatService(
                 message?.ImageId is not null,
                 message?.SenderPersonId == me.Id,
                 eventIsNewest ? lastEvent!.At : last?.SentAt,
-                conversation.UnreadCountFor(me.Id),
+                unreadCounts.GetValueOrDefault(conversation.Id),
                 conversation.IsMutedFor(me.Id),
                 eventIsNewest ? lastEvent!.Kind : null,
                 goal?.Id,
@@ -162,12 +171,14 @@ public sealed class ChatService(
     }
 
     /// <summary>
-    /// One thread, and marking it read.
+    /// One thread with its newest page, and marking it read.
     /// </summary>
     /// <remarks>
     /// Opening a conversation <em>is</em> reading it, so the read marker moves
     /// here rather than through a separate call the client could forget to
-    /// make — leaving a badge on a chat somebody is looking at.
+    /// make — leaving a badge on a chat somebody is looking at. Everything
+    /// before the newest page is read on the way back up
+    /// (<see cref="GetOlderAsync"/>), however long the thread has grown.
     /// </remarks>
     /// <exception cref="ResourceNotFoundException">No conversation with that id exists.</exception>
     public async Task<ChatDetailResponse> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -188,6 +199,32 @@ public sealed class ChatService(
         await notifier.FlushAsync(cancellationToken);
 
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// The page of a thread before <paramref name="before"/>: a cursor that
+    /// <see cref="GetAsync"/> or an earlier call to this handed out.
+    /// </summary>
+    /// <remarks>
+    /// Not a read of the thread in the sense of the read marker: scrolling back
+    /// through what was said last week says nothing about what arrived today.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No conversation with that id exists.</exception>
+    /// <exception cref="DomainValidationException">The cursor is not one this API handed out.</exception>
+    public async Task<ChatPageResponse> GetOlderAsync(Guid id, string? before, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        var position = ThreadPosition.Parse(before, nameof(before));
+        var goal = GoalOf(conversation, await LoadGoalsAsync([conversation], me.Id, cancellationToken));
+        var page = await DescribePageAsync(conversation, goal, me.Id, now, position, cancellationToken);
+
+        return new ChatPageResponse(page.Messages, page.Events, page.OlderCursor);
     }
 
     /// <exception cref="ResourceNotFoundException">
@@ -268,22 +305,33 @@ public sealed class ChatService(
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
     }
 
+    /// <summary>
+    /// Adds a reaction to a message, or takes it back, and answers with that
+    /// message as it now is.
+    /// </summary>
+    /// <remarks>
+    /// The message rather than the thread: it may be a page or two back from
+    /// the newest, where an answer made of the newest page would not have it.
+    /// Anything else that changed meanwhile reaches the screen over the live
+    /// connection, which this touches as well.
+    /// </remarks>
     /// <exception cref="ResourceNotFoundException">No such conversation or message.</exception>
     /// <exception cref="DomainValidationException">That reaction is not available.</exception>
-    public async Task<ChatDetailResponse> ToggleReactionAsync(
+    public async Task<ChatMessageResponse> ToggleReactionAsync(
         Guid id,
         Guid messageId,
         ToggleReactionRequest request,
         CancellationToken cancellationToken)
     {
         var me = await currentPerson.GetAsync(cancellationToken);
-        var now = timeProvider.GetUtcNow();
 
         var conversation = await LoadOneAsync(id, cancellationToken);
         EnsureParticipant(conversation, me.Id);
         await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
-        var message = conversation.Messages.SingleOrDefault(m => m.Id == messageId)
+        var message = await database.ChatMessages
+            .Include(m => m.Reactions)
+            .SingleOrDefaultAsync(m => m.Id == messageId && m.ConversationId == conversation.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Message", messageId);
 
         var hadReacted = message.Reactions.Any(reaction => reaction.PersonId == me.Id);
@@ -318,7 +366,10 @@ public sealed class ChatService(
         notifier.Touch(conversation.Participants.Select(participant => participant.PersonId), LiveArea.Chats, conversation.Id);
         await notifier.FlushAsync(cancellationToken);
 
-        return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+        var people = await LoadPeopleAsync([message.SenderPersonId], cancellationToken);
+        var photos = await LoadPhotosAsync([message], cancellationToken);
+
+        return DescribeMessage(message, conversation, me.Id, people, photos);
     }
 
     /// <summary>
@@ -415,8 +466,6 @@ public sealed class ChatService(
 
         var existing = await database.Conversations
             .Include(c => c.Participants)
-            .Include(c => c.Messages)
-            .ThenInclude(m => m.Reactions)
             .Where(c => c.Kind == ConversationKind.Direct
                 && c.Participants.Any(p => p.PersonId == me.Id)
                 && c.Participants.Any(p => p.PersonId == personId))
@@ -546,9 +595,14 @@ public sealed class ChatService(
 
         if (remaining.Count == 0)
         {
-            removedPhotos = await images.RemoveChatPhotosAsync(
-                conversation.Messages.Select(message => message.ImageId),
-                cancellationToken);
+            // Only the photographs are needed: the messages and their
+            // reactions go with the conversation's row (ConversationConfiguration).
+            var photoIds = await database.ChatMessages
+                .Where(message => message.ConversationId == conversation.Id && message.ImageId != null)
+                .Select(message => message.ImageId)
+                .ToListAsync(cancellationToken);
+
+            removedPhotos = await images.RemoveChatPhotosAsync(photoIds, cancellationToken);
 
             database.Conversations.Remove(conversation);
         }
@@ -576,51 +630,9 @@ public sealed class ChatService(
         CancellationToken cancellationToken)
     {
         var goal = GoalOf(conversation, await LoadGoalsAsync([conversation], meId, cancellationToken));
-        var timeline = goal is null ? [] : GoalTimeline.For(goal, now);
-        var proofs = timeline.Select(entry => entry.Proof).OfType<ProofPhoto>().ToList();
-
-        var proofPeopleIds = goal is null ? [] : ProofService.PeopleShownWith(proofs, [goal]);
-        var people = await LoadPeopleAsync([conversation], proofPeopleIds, cancellationToken);
+        var page = await DescribePageAsync(conversation, goal, meId, now, before: null, cancellationToken);
+        var people = page.People;
         var identity = ResolveIdentity(conversation, goal, people, meId, now);
-
-        // The photographs are described from their own, narrower set of
-        // people: the uploader and whoever confirmed, never a doubter. Handing
-        // them everybody in the thread would put a doubter's name within reach
-        // of a mapping that only has to slip once (ProofService.PeopleShownWith).
-        var proofPeople = people
-            .Where(entry => proofPeopleIds.Contains(entry.Key))
-            .ToDictionary(entry => entry.Key, entry => entry.Value);
-
-        var photoIds = conversation.Messages.Select(m => m.ImageId).OfType<Guid>().ToList();
-        var photos = photoIds.Count == 0
-            ? []
-            : await database.Images
-                .AsNoTracking()
-                .Where(image => photoIds.Contains(image.Id))
-                .ToDictionaryAsync(image => image.Id, cancellationToken);
-
-        var messages = conversation.Messages
-            .OrderBy(m => m.SentAt)
-            .ThenBy(m => m.Id)
-            .Select(m => new ChatMessageResponse(
-                m.Id,
-                m.SenderPersonId,
-
-                // Only a conversation of more than two needs to say who is
-                // speaking; in a direct chat the header already does, and
-                // repeating it above every bubble is noise.
-                conversation.Kind != ConversationKind.Direct && m.SenderPersonId != meId
-                    ? people.GetValueOrDefault(m.SenderPersonId)?.DisplayName
-                    : null,
-                m.Text,
-                m.ImageId is { } imageId && photos.TryGetValue(imageId, out var photo)
-                    ? ImageResponse.From(photo)
-                    : null,
-                m.SenderPersonId == meId,
-                m.SentAt,
-                SummariseReactions(m, meId)))
-            .ToList();
-
         var other = conversation.Kind == ConversationKind.Direct ? OtherPerson(conversation, people, meId) : null;
 
         return new ChatDetailResponse(
@@ -644,12 +656,74 @@ public sealed class ChatService(
                     goal.Streak,
                     goal.ActivePauseAt(now)?.EndsOn,
                     goal.OwnerPersonId == meId),
-            messages,
+            page.Messages,
             conversation.IsMutedFor(meId),
+            page.Events,
+
+            // The reader first, then everybody else by name — the order a
+            // list of people is read in everywhere else.
+            [
+                .. conversation.Participants
+                    .Select(participant => people.GetValueOrDefault(participant.PersonId))
+                    .OfType<Person>()
+                    .OrderBy(person => person.Id != meId)
+                    .ThenBy(person => person.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .Select(person => PersonSummary.From(person, now)),
+            ],
+            page.OlderCursor);
+    }
+
+    /// <summary>
+    /// One page of a thread, described for the reader: the newest without
+    /// <paramref name="before"/>, the one before it with.
+    /// </summary>
+    /// <remarks>
+    /// Reads one more message than fits and nothing else of the thread, so the
+    /// cost of opening it does not grow with its length. The goal's own lines
+    /// are derived from the goal, which is read whole either way for the
+    /// banner and the streak; only the photographs on this page are described.
+    /// </remarks>
+    private async Task<DescribedPage> DescribePageAsync(
+        Conversation conversation,
+        Goal? goal,
+        Guid meId,
+        DateTimeOffset now,
+        ThreadPosition? before,
+        CancellationToken cancellationToken)
+    {
+        var newest = await MessagesBefore(conversation.Id, before)
+            .AsNoTracking()
+            .Include(m => m.Reactions)
+            .Take(ThreadPage.Size + 1)
+            .ToListAsync(cancellationToken);
+
+        var page = ThreadPage.Cut(newest, goal is null ? [] : GoalTimeline.For(goal, now), before);
+        var proofs = page.Events.Select(entry => entry.Proof).OfType<ProofPhoto>().ToList();
+
+        var proofPeopleIds = goal is null ? [] : ProofService.PeopleShownWith(proofs, [goal]);
+        var people = await LoadPeopleAsync(
+            conversation.Participants
+                .Select(participant => participant.PersonId)
+                .Concat(page.Messages.Select(message => message.SenderPersonId))
+                .Concat(proofPeopleIds),
+            cancellationToken);
+
+        // The photographs are described from their own, narrower set of
+        // people: the uploader and whoever confirmed, never a doubter. Handing
+        // them everybody in the thread would put a doubter's name within reach
+        // of a mapping that only has to slip once (ProofService.PeopleShownWith).
+        var proofPeople = people
+            .Where(entry => proofPeopleIds.Contains(entry.Key))
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        var photos = await LoadPhotosAsync(page.Messages, cancellationToken);
+
+        return new DescribedPage(
+            [.. page.Messages.Select(message => DescribeMessage(message, conversation, meId, people, photos))],
             goal is null
                 ? []
                 : [
-                    .. timeline.Select(entry => new GoalEventResponse(
+                    .. page.Events.Select(entry => new GoalEventResponse(
                         entry.Key,
                         entry.Kind,
                         entry.At,
@@ -667,17 +741,78 @@ public sealed class ChatService(
                         entry.Limit,
                         entry.ImageId)),
                 ],
+            page.Older?.ToCursor(),
+            people);
+    }
 
-            // The reader first, then everybody else by name — the order a
-            // list of people is read in everywhere else.
-            [
-                .. conversation.Participants
-                    .Select(participant => people.GetValueOrDefault(participant.PersonId))
-                    .OfType<Person>()
-                    .OrderBy(person => person.Id != meId)
-                    .ThenBy(person => person.DisplayName, StringComparer.OrdinalIgnoreCase)
-                    .Select(person => PersonSummary.From(person, now)),
-            ]);
+    /// <summary>A page as the reader is shown it, with the people it was described from.</summary>
+    private sealed record DescribedPage(
+        IReadOnlyList<ChatMessageResponse> Messages,
+        IReadOnlyList<GoalEventResponse> Events,
+        string? OlderCursor,
+        IReadOnlyDictionary<Guid, Person> People);
+
+    /// <summary>
+    /// A conversation's messages before <paramref name="before"/>, newest
+    /// first — the order <see cref="ThreadPosition"/> puts them in, in SQL.
+    /// </summary>
+    private IQueryable<ChatMessage> MessagesBefore(Guid conversationId, ThreadPosition? before)
+    {
+        var messages = database.ChatMessages.Where(message => message.ConversationId == conversationId);
+
+        if (before is { } end)
+        {
+            var at = end.At;
+            var id = end.Id;
+
+            // A line about the goal sorts before every message at its instant,
+            // so only a message's place splits an instant by id.
+            messages = end.IsMessage
+                ? messages.Where(message => message.SentAt < at || (message.SentAt == at && message.Id < id))
+                : messages.Where(message => message.SentAt < at);
+        }
+
+        return messages
+            .OrderByDescending(message => message.SentAt)
+            .ThenByDescending(message => message.Id);
+    }
+
+    private static ChatMessageResponse DescribeMessage(
+        ChatMessage message,
+        Conversation conversation,
+        Guid meId,
+        IReadOnlyDictionary<Guid, Person> people,
+        IReadOnlyDictionary<Guid, StoredImage> photos) =>
+        new(
+            message.Id,
+            message.SenderPersonId,
+
+            // Only a conversation of more than two needs to say who is
+            // speaking; in a direct chat the header already does, and
+            // repeating it above every bubble is noise.
+            conversation.Kind != ConversationKind.Direct && message.SenderPersonId != meId
+                ? people.GetValueOrDefault(message.SenderPersonId)?.DisplayName
+                : null,
+            message.Text,
+            message.ImageId is { } imageId && photos.TryGetValue(imageId, out var photo)
+                ? ImageResponse.From(photo)
+                : null,
+            message.SenderPersonId == meId,
+            message.SentAt,
+            SummariseReactions(message, meId));
+
+    private async Task<IReadOnlyDictionary<Guid, StoredImage>> LoadPhotosAsync(
+        IEnumerable<ChatMessage> messages,
+        CancellationToken cancellationToken)
+    {
+        var photoIds = messages.Select(m => m.ImageId).OfType<Guid>().ToList();
+
+        return photoIds.Count == 0
+            ? new Dictionary<Guid, StoredImage>()
+            : await database.Images
+                .AsNoTracking()
+                .Where(image => photoIds.Contains(image.Id))
+                .ToDictionaryAsync(image => image.Id, cancellationToken);
     }
 
     private static IReadOnlyList<MessageReactionResponse> SummariseReactions(ChatMessage message, Guid meId) =>
@@ -829,19 +964,74 @@ public sealed class ChatService(
             .ToDictionaryAsync(g => g.Id, cancellationToken);
     }
 
+    /// <remarks>
+    /// The participants only. What each row shows of the messages is read by
+    /// <see cref="LastMessagesAsync"/> and <see cref="UnreadCountsAsync"/>.
+    /// </remarks>
     private async Task<List<Conversation>> LoadMineAsync(Guid meId, CancellationToken cancellationToken) =>
         await database.Conversations
             .AsNoTracking()
             .Include(c => c.Participants)
-            .Include(c => c.Messages)
             .Where(c => c.Participants.Any(p => p.PersonId == meId))
             .ToListAsync(cancellationToken);
 
+    /// <summary>The newest message of each of these conversations that has one.</summary>
+    /// <remarks>
+    /// Picked in the query, one row per conversation, in the order the thread
+    /// itself is read in: <c>(SentAt, Id)</c>.
+    /// </remarks>
+    private async Task<Dictionary<Guid, ChatMessage>> LastMessagesAsync(
+        IReadOnlyCollection<Conversation> conversations,
+        CancellationToken cancellationToken)
+    {
+        var ids = conversations.Select(conversation => conversation.Id).ToList();
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await database.ChatMessages
+            .AsNoTracking()
+            .Where(message => ids.Contains(message.ConversationId))
+            .GroupBy(message => message.ConversationId)
+            .Select(thread => thread
+                .OrderByDescending(message => message.SentAt)
+                .ThenByDescending(message => message.Id)
+                .First())
+            .ToDictionaryAsync(message => message.ConversationId, cancellationToken);
+    }
+
+    /// <summary>
+    /// How many messages from other people this person has not seen, per
+    /// conversation — counted after their read marker, so the number can never
+    /// drift from the messages themselves.
+    /// </summary>
+    /// <remarks>
+    /// Counted by the database. Only conversations with something unread have
+    /// a row; the rest are zero.
+    /// </remarks>
+    private async Task<Dictionary<Guid, int>> UnreadCountsAsync(Guid meId, CancellationToken cancellationToken) =>
+        await database.ChatMessages
+            .AsNoTracking()
+            .Join(
+                database.ConversationParticipants.Where(participant => participant.PersonId == meId),
+                message => message.ConversationId,
+                reader => reader.ConversationId,
+                (message, reader) => new { message.ConversationId, message.SenderPersonId, message.SentAt, reader.LastReadAt })
+            .Where(row => row.SenderPersonId != meId && (row.LastReadAt == null || row.SentAt > row.LastReadAt))
+            .GroupBy(row => row.ConversationId)
+            .Select(thread => new { ConversationId = thread.Key, Count = thread.Count() })
+            .ToDictionaryAsync(row => row.ConversationId, row => row.Count, cancellationToken);
+
+    /// <remarks>
+    /// The participants and nothing of the thread: a page of it is read by
+    /// <see cref="DescribePageAsync"/>, and the one message a reaction is about
+    /// by itself.
+    /// </remarks>
     private async Task<Conversation> LoadOneAsync(Guid id, CancellationToken cancellationToken) =>
         await database.Conversations
             .Include(c => c.Participants)
-            .Include(c => c.Messages)
-            .ThenInclude(m => m.Reactions)
             .SingleOrDefaultAsync(c => c.Id == id, cancellationToken)
         ?? throw new ResourceNotFoundException("Conversation", id);
 
@@ -909,15 +1099,10 @@ public sealed class ChatService(
     }
 
     private async Task<IReadOnlyDictionary<Guid, Person>> LoadPeopleAsync(
-        IReadOnlyCollection<Conversation> conversations,
-        IEnumerable<Guid> alsoIds,
+        IEnumerable<Guid> personIds,
         CancellationToken cancellationToken)
     {
-        var ids = conversations
-            .SelectMany(c => c.Participants.Select(p => p.PersonId).Concat(c.Messages.Select(m => m.SenderPersonId)))
-            .Concat(alsoIds)
-            .Distinct()
-            .ToList();
+        var ids = personIds.Distinct().ToList();
 
         if (ids.Count == 0)
         {

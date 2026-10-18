@@ -1110,7 +1110,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Returns one thread and marks it as read. */
+        /** Returns one thread with its newest page, and marks it as read. */
         get: operations["GetChat"];
         put?: never;
         post?: never;
@@ -1127,7 +1127,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Returns the page of a thread before a cursor the thread handed out. */
+        get: operations["GetOlderChatMessages"];
         put?: never;
         /** Writes a message into a conversation. */
         post: operations["SendMessage"];
@@ -1146,7 +1147,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Adds a reaction to a message, or takes it back. */
+        /** Adds a reaction to a message, or takes it back, and returns the message. */
         post: operations["ToggleMessageReaction"];
         delete?: never;
         options?: never;
@@ -1309,6 +1310,7 @@ export interface components {
             isMuted: boolean;
             events: components["schemas"]["GoalEventResponse"][];
             members: components["schemas"]["PersonSummary"][];
+            olderCursor: string | null;
         };
         ChatMessageResponse: {
             /** Format: uuid */
@@ -1322,6 +1324,11 @@ export interface components {
             /** Format: date-time */
             sentAt: string;
             reactions: components["schemas"]["MessageReactionResponse"][];
+        };
+        ChatPageResponse: {
+            messages: components["schemas"]["ChatMessageResponse"][];
+            events: components["schemas"]["GoalEventResponse"][];
+            olderCursor: string | null;
         };
         ChatPinnedGoalResponse: {
             /** Format: uuid */
@@ -4412,6 +4419,48 @@ export interface operations {
             };
         };
     };
+    GetOlderChatMessages: {
+        parameters: {
+            query?: {
+                before?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatPageResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     SendMessage: {
         parameters: {
             query?: never;
@@ -4478,7 +4527,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatDetailResponse"];
+                    "application/json": components["schemas"]["ChatMessageResponse"];
                 };
             };
             /** @description Bad Request */

@@ -5,7 +5,7 @@ using Q2.Api.Infrastructure.Errors;
 namespace Q2.Api.UnitTests.Chats;
 
 /// <summary>
-/// What a conversation lets happen, and how "unread" is worked out.
+/// What a conversation lets happen, and how far somebody has read it.
 /// </summary>
 public class ConversationTests
 {
@@ -145,54 +145,30 @@ public class ConversationTests
     }
 
     [Fact]
-    public void EverythingFromTheOtherPersonIsUnreadUntilTheThreadIsOpened()
-    {
-        var conversation = BuildDirect();
-        conversation.AddMessage(Guid.CreateVersion7(), _friend, "Erste", Start);
-        conversation.AddMessage(Guid.CreateVersion7(), _friend, "Zweite", Start.AddMinutes(1));
-
-        Assert.Equal(2, conversation.UnreadCountFor(_me));
-    }
-
-    [Fact]
-    public void YourOwnMessagesAreNeverUnread()
-    {
-        var conversation = BuildDirect();
-        conversation.AddMessage(Guid.CreateVersion7(), _me, "Meine", Start);
-
-        Assert.Equal(0, conversation.UnreadCountFor(_me));
-    }
-
-    [Fact]
-    public void ReadingTheThreadClearsWhatCameBeforeIt()
-    {
-        var conversation = BuildDirect();
-        conversation.AddMessage(Guid.CreateVersion7(), _friend, "Alt", Start);
-        conversation.MarkRead(_me, Start.AddMinutes(1));
-        conversation.AddMessage(Guid.CreateVersion7(), _friend, "Neu", Start.AddMinutes(2));
-
-        Assert.Equal(1, conversation.UnreadCountFor(_me));
-    }
-
-    [Fact]
     public void TheReadMarkerNeverMovesBackwards()
     {
+        // What is unread is counted after this marker (ChatService), so a
+        // thread opened on two devices in the wrong order must not bring old
+        // messages back as unread.
         var conversation = BuildDirect();
         conversation.AddMessage(Guid.CreateVersion7(), _friend, "Alt", Start);
 
         conversation.MarkRead(_me, Start.AddMinutes(5));
         conversation.MarkRead(_me, Start.AddMinutes(1));
 
-        Assert.Equal(0, conversation.UnreadCountFor(_me));
+        Assert.Equal(Start.AddMinutes(5), conversation.Participants.Single(p => p.PersonId == _me).LastReadAt);
     }
 
     [Fact]
-    public void SomebodyOutsideTheConversationHasNothingUnreadInIt()
+    public void MarkingReadIsOnlyEverAboutTheReader()
     {
         var conversation = BuildDirect();
-        conversation.AddMessage(Guid.CreateVersion7(), _friend, "Hallo", Start);
 
-        Assert.Equal(0, conversation.UnreadCountFor(_stranger));
+        conversation.MarkRead(_me, Start);
+        conversation.MarkRead(_stranger, Start);
+
+        Assert.Equal(Start, conversation.Participants.Single(p => p.PersonId == _me).LastReadAt);
+        Assert.Null(conversation.Participants.Single(p => p.PersonId == _friend).LastReadAt);
     }
 
     [Fact]

@@ -182,13 +182,22 @@ public sealed record GoalEventResponse(
     int? Limit,
     Guid? ImageId);
 
-/// <summary>Everything the thread screen shows.</summary>
+/// <summary>Everything the thread screen shows, with the newest page of the thread.</summary>
 /// <param name="Members">
 /// Everybody in it, the reader included, for the sheet behind the header.
 /// </param>
+/// <param name="Messages">
+/// The messages on the newest page, oldest first — not the whole thread
+/// (<see cref="ThreadPage"/>).
+/// </param>
 /// <param name="Events">
-/// In a goal's conversation, what happened to the goal, oldest first — to be
-/// shown between the messages by time. Empty for every other conversation.
+/// In a goal's conversation, what happened to the goal on the same page,
+/// oldest first — to be shown between the messages by time. Empty for every
+/// other conversation.
+/// </param>
+/// <param name="OlderCursor">
+/// What to ask <c>GET /api/chats/{id}/messages?before=</c> with for the page
+/// before this one. Null when this page begins the thread.
 /// </param>
 public sealed record ChatDetailResponse(
     Guid Id,
@@ -205,7 +214,24 @@ public sealed record ChatDetailResponse(
     IReadOnlyList<ChatMessageResponse> Messages,
     bool IsMuted,
     IReadOnlyList<GoalEventResponse> Events,
-    IReadOnlyList<PersonSummary> Members);
+    IReadOnlyList<PersonSummary> Members,
+    string? OlderCursor);
+
+/// <summary>A page of a thread from before the one already shown.</summary>
+/// <remarks>
+/// Only the lines: who is in the thread, its goal and its name came with the
+/// newest page and do not change by scrolling back.
+/// </remarks>
+/// <param name="Messages">The messages on this page, oldest first.</param>
+/// <param name="Events">What happened to the goal on this page, oldest first.</param>
+/// <param name="OlderCursor">
+/// What to ask for the page before this one with. Null when this page begins
+/// the thread.
+/// </param>
+public sealed record ChatPageResponse(
+    IReadOnlyList<ChatMessageResponse> Messages,
+    IReadOnlyList<GoalEventResponse> Events,
+    string? OlderCursor);
 
 /// <summary>Request body for sending a message.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>

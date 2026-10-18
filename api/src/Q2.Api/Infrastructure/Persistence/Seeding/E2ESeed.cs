@@ -26,7 +26,7 @@ public sealed class E2ESeed : ISeedDataSource
 
     public SeedProfile Profile => Owner;
 
-    public string Description => "6 people, 5 goals with their windows, the shared goal's conversation and 2 free conversations with stable ids for Playwright.";
+    public string Description => "6 people, 5 goals with their windows, the shared goal's conversation and 3 free conversations — one of them long enough to page — with stable ids for Playwright.";
 
     /// <summary>Shared active goal — the row E2E tests open and assert on.</summary>
     public static Guid SharedGoalId => SeedIds.Goal(Owner, 1);
@@ -82,6 +82,21 @@ public sealed class E2ESeed : ISeedDataSource
     public const string DontTitle = "E2E don't with a weekly limit";
 
     public const string GroupChatTitle = "E2E group chat";
+
+    /// <summary>
+    /// A group far longer than one page of a thread, which the chat spec
+    /// scrolls back through to its first message (#44).
+    /// </summary>
+    public const string LongChatTitle = "E2E long thread";
+
+    /// <summary>The first thing said in <see cref="LongChatTitle"/>.</summary>
+    public const string LongChatFirstMessage = "E2E long thread begins here";
+
+    /// <summary>
+    /// How many messages it holds: two full pages and part of a third, so the
+    /// spec crosses two page boundaries on the way up.
+    /// </summary>
+    public const int LongChatMessages = (ThreadPage.Size * 2) + 15;
 
     public SeedData Create(SeedContext context)
     {
@@ -208,6 +223,23 @@ public sealed class E2ESeed : ISeedDataSource
             [jonas, lena],
             unread: 0,
             new SeedMessage(lena, "E2E group hello", 600));
+
+        // Read to the end, so it adds nothing to any badge, and last written
+        // by the signed-in person, so its row names nobody another spec
+        // filters the list by. The lines are numbered with two digits, so no
+        // line's text is contained in another's.
+        build.AddGroupChat(
+            LongChatTitle,
+            "book-open",
+            [jonas, lena],
+            unread: 0,
+            [
+                new SeedMessage(lena, LongChatFirstMessage, 3000),
+                .. Enumerable.Range(2, LongChatMessages - 1).Select(line => new SeedMessage(
+                    (LongChatMessages - line) % 3 == 0 ? me : line % 2 == 0 ? jonas : lena,
+                    $"E2E long thread line {line:00}",
+                    3000 - (line * 20))),
+            ]);
 
         build.AddChallenge(ChallengePrompt, ChallengePromptEnglish);
 

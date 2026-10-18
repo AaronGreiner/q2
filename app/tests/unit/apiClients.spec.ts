@@ -209,6 +209,7 @@ describe('the API modules', () => {
     await chats.list()
     await chats.list({ search: 'Mara' })
     await chats.get('chat/one')
+    await chats.older('chat/one', '638.Message.abc')
     await chats.send('chat/one', { text: 'Hello' })
     await chats.send('chat/one', { imageId: 'image-1' })
     await chats.react('chat/one', 'message/one', 'Applause')
@@ -223,6 +224,7 @@ describe('the API modules', () => {
       ['/api/chats', { method: 'GET', query: { search: undefined } }],
       ['/api/chats', { method: 'GET', query: { search: 'Mara' } }],
       ['/api/chats/chat%2Fone', { method: 'GET' }],
+      ['/api/chats/chat%2Fone/messages', { method: 'GET', query: { before: '638.Message.abc' } }],
       ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { text: 'Hello' } }],
       ['/api/chats/chat%2Fone/messages', { method: 'POST', body: { imageId: 'image-1' } }],
       ['/api/chats/chat%2Fone/messages/message%2Fone/reactions', { method: 'POST', body: { kind: 'Applause' } }],

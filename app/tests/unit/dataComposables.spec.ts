@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
 import { useChatThread, useChats } from '~/composables/useChats'
@@ -75,6 +75,7 @@ function installReactiveGlobals() {
   vi.stubGlobal('ref', ref)
   vi.stubGlobal('computed', computed)
   vi.stubGlobal('watch', watch)
+  vi.stubGlobal('shallowRef', shallowRef)
 }
 
 /** A small faithful stand-in for Nuxt's shallow async-data contract. */
@@ -548,7 +549,11 @@ describe('friend and profile composables', () => {
 
 describe('chat composables', () => {
   function chat(overrides: Record<string, unknown> = {}) {
-    return { id: 'chat-1', title: 'Jonas', messages: [], isGroup: true, ...overrides }
+    return { id: 'chat-1', title: 'Jonas', messages: [], events: [], olderCursor: null, isGroup: true, ...overrides }
+  }
+
+  function line(id: string, overrides: Record<string, unknown> = {}) {
+    return { id, text: id, reactions: [], ...overrides }
   }
 
   function chatsApi() {
@@ -557,7 +562,8 @@ describe('chat composables', () => {
         list: vi.fn().mockResolvedValue([chat()]),
         get: vi.fn().mockResolvedValue(chat()),
         send: vi.fn().mockResolvedValue(chat({ messages: [{ id: 'message-1', text: 'Hello' }] })),
-        react: vi.fn().mockResolvedValue(chat({ messages: [{ id: 'message-1', reactions: ['👏'] }] })),
+        react: vi.fn().mockResolvedValue(line('message-1', { reactions: ['👏'] })),
+        older: vi.fn().mockResolvedValue({ messages: [], events: [], olderCursor: null }),
         mute: vi.fn().mockResolvedValue(chat({ isMuted: true })),
         leave: vi.fn().mockResolvedValue(undefined),
       },
@@ -635,6 +641,79 @@ describe('chat composables', () => {
 
     await onRefresh(['proofs-pending', 'chats', 'goal:goal-1'])
     expect(api.chats.get.mock.calls.length).toBe(reads + 1)
+  })
+
+  it('reads further back a page at a time and keeps it while the newest page moves on', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ messages: [line('m3'), line('m4')], olderCursor: 'before-m3' }))
+    api.chats.older
+      .mockResolvedValueOnce({ messages: [line('m2')], events: [], olderCursor: 'before-m2' })
+      .mockResolvedValueOnce({ messages: [line('m1')], events: [], olderCursor: null })
+    vi.stubGlobal('useGoBack', () => vi.fn())
+    installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+
+    expect(state.hasOlder.value).toBe(true)
+    await expect(state.loadOlder()).resolves.toBe(true)
+    expect(api.chats.older).toHaveBeenLastCalledWith('chat-1', 'before-m3')
+    expect(state.messages.value.map(message => message.id)).toEqual(['m2', 'm3', 'm4'])
+
+    // A reply moves the newest page on by one; the line it pushed out stays.
+    api.chats.send.mockResolvedValueOnce(chat({ messages: [line('m4'), line('m5')], olderCursor: 'before-m4' }))
+    await state.send('m5')
+    expect(state.messages.value.map(message => message.id)).toEqual(['m2', 'm3', 'm4', 'm5'])
+
+    // And the next page is still the one before the oldest line loaded.
+    await expect(state.loadOlder()).resolves.toBe(true)
+    expect(api.chats.older).toHaveBeenLastCalledWith('chat-1', 'before-m2')
+    expect(state.messages.value.map(message => message.id)).toEqual(['m1', 'm2', 'm3', 'm4', 'm5'])
+    expect(state.hasOlder.value).toBe(false)
+    await expect(state.loadOlder()).resolves.toBe(false)
+  })
+
+  it('patches a reaction and a vote into a line pages back', async () => {
+    const api = chatsApi()
+    const proof = { id: 'proof-1', votes: { myVote: null } }
+    api.chats.get.mockResolvedValue(chat({ messages: [line('m2')], pinnedGoal: { id: 'goal-1' }, olderCursor: 'before-m2' }))
+    api.chats.older.mockResolvedValueOnce({
+      messages: [line('m1')],
+      events: [{ key: 'ProofDelivered-1', kind: 'ProofDelivered', proof }],
+      olderCursor: null,
+    })
+    api.chats.react.mockResolvedValueOnce(line('m1', { reactions: [{ kind: 'Fire', count: 1, isMine: true }] }))
+    api.proofs.vote.mockResolvedValueOnce({ ...proof, votes: { myVote: 'Confirm' } })
+    vi.stubGlobal('useGoBack', () => vi.fn())
+    installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    await state.loadOlder()
+
+    await state.react('m1', 'Fire')
+    expect(state.messages.value[0]).toMatchObject({ id: 'm1', reactions: [{ kind: 'Fire', isMine: true }] })
+
+    await state.vote('proof-1', 'Confirm')
+    expect(state.events.value[0]?.proof).toMatchObject({ votes: { myVote: 'Confirm' } })
+  })
+
+  it('reports a page that did not arrive and leaves what is loaded', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ messages: [line('m2')], olderCursor: 'before-m2' }))
+    api.chats.older.mockRejectedValueOnce(new Error('offline'))
+    vi.stubGlobal('useGoBack', () => vi.fn())
+    const { report } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+
+    await expect(state.loadOlder()).resolves.toBe(false)
+    expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'older' })
+    expect(state.olderFailed.value).toBe(true)
+    expect(state.isLoadingOlder.value).toBe(false)
+    expect(state.messages.value.map(message => message.id)).toEqual(['m2'])
+
+    // Asked again, it goes through.
+    await expect(state.loadOlder()).resolves.toBe(true)
+    expect(state.olderFailed.value).toBe(false)
   })
 
   it('loads and filters the conversation list', async () => {

@@ -77,7 +77,13 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         PinnedGoalDocument? PinnedGoal,
         IReadOnlyList<MessageDocument> Messages,
         IReadOnlyList<EventDocument> Events,
-        IReadOnlyList<MemberDocument> Members);
+        IReadOnlyList<MemberDocument> Members,
+        string? OlderCursor);
+
+    private sealed record PageDocument(
+        IReadOnlyList<MessageDocument> Messages,
+        IReadOnlyList<EventDocument> Events,
+        string? OlderCursor);
 
     private sealed record MemberDocument(Guid Id, string DisplayName);
 
@@ -98,6 +104,39 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
     private async Task<SummaryDocument> DirectRowAsync() =>
         (await ListAsync()).Single(chat => chat.Id == AutomatedTestSeed.DirectConversationId);
+
+    private static async Task<HttpResponseMessage> OlderAsync(HttpClient client, Guid id, string? before) =>
+        await client.GetAsync(
+            $"/api/chats/{id}/messages?before={Uri.EscapeDataString(before ?? string.Empty)}",
+            TestContext.Current.CancellationToken);
+
+    private static async Task SendManyAsync(HttpClient client, Guid id, int count, string prefix)
+    {
+        for (var index = 1; index <= count; index++)
+        {
+            (await client.PostJsonAsync($"/api/chats/{id}/messages", new { text = $"{prefix} {index}" }))
+                .EnsureSuccessStatusCode();
+        }
+    }
+
+    /// <summary>
+    /// Every page of a thread, oldest page first, from the newest one back
+    /// through each cursor until one says the thread begins there.
+    /// </summary>
+    private static async Task<List<PageDocument>> WalkBackAsync(HttpClient client, Guid id)
+    {
+        var newest = await ThreadAsync(client, id);
+        var pages = new List<PageDocument> { new(newest.Messages, newest.Events, newest.OlderCursor) };
+
+        while (pages[0].OlderCursor is { } before)
+        {
+            var response = await OlderAsync(client, id, before);
+            response.EnsureSuccessStatusCode();
+            pages.Insert(0, await response.ReadAsync<PageDocument>());
+        }
+
+        return pages;
+    }
 
     [Fact]
     public async Task TheListOnlyContainsConversationsYouAreIn()
@@ -450,7 +489,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task SendingAMessageReturnsTheWholeThread()
+    public async Task SendingAMessageAnswersWithTheNewestPage()
     {
         var response = await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages",
@@ -459,9 +498,132 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         response.EnsureSuccessStatusCode();
         var thread = await response.ReadAsync<ThreadDocument>();
 
+        // Three messages fit on one page, so this page is the whole thread.
         Assert.Equal(3, thread.Messages.Count);
+        Assert.Null(thread.OlderCursor);
         Assert.Equal("Bis gleich!", thread.Messages[^1].Text);
         Assert.True(thread.Messages[^1].IsMine);
+    }
+
+    [Fact]
+    public async Task ALongThreadOpensOnItsNewestPageAndIsReadBackPageByPage()
+    {
+        // Sent at one instant — the test clock stands still — so every page
+        // boundary falls between two messages with the same timestamp and is
+        // decided by their ids alone.
+        const int sent = (ThreadPage.Size * 2) + 5;
+        await SendManyAsync(Client, AutomatedTestSeed.DirectConversationId, sent, "Automated test: line");
+
+        var newest = await ThreadAsync(AutomatedTestSeed.DirectConversationId);
+
+        Assert.Equal(ThreadPage.Size, newest.Messages.Count);
+        Assert.Equal($"Automated test: line {sent}", newest.Messages[^1].Text);
+        Assert.NotNull(newest.OlderCursor);
+
+        var pages = await WalkBackAsync(Client, AutomatedTestSeed.DirectConversationId);
+        var messages = pages.SelectMany(page => page.Messages).ToList();
+
+        // Two seeded messages and everything sent: each exactly once, oldest
+        // first, and the first of them is where the thread begins.
+        Assert.Equal(3, pages.Count);
+        Assert.All(pages, page => Assert.InRange(page.Messages.Count, 1, ThreadPage.Size));
+        Assert.Equal(sent + 2, messages.Count);
+        Assert.Equal(messages.Count, messages.Select(message => message.Id).Distinct().Count());
+        Assert.Equal("Automated test: first message", messages[0].Text);
+        Assert.Equal(
+            Enumerable.Range(1, sent).Select(index => $"Automated test: line {index}"),
+            messages.Skip(2).Select(message => message.Text));
+    }
+
+    [Fact]
+    public async Task AGoalLineAndAMessageAtTheSameInstantFallOnTheirOwnSideOfAPageBoundary()
+    {
+        // The photograph and a page of messages after it, all at the instant
+        // the clock stands at: the newest page is the messages alone, and the
+        // photograph is the newest line of the page before it.
+        await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        await SendManyAsync(Client, AutomatedTestSeed.SharedGoalConversationId, ThreadPage.Size, "Automated test: cheer");
+
+        var pages = await WalkBackAsync(Client, AutomatedTestSeed.SharedGoalConversationId);
+
+        Assert.Equal(2, pages.Count);
+
+        var (older, newest) = (pages[0], pages[1]);
+
+        Assert.Empty(newest.Events);
+        Assert.Equal(ThreadPage.Size, newest.Messages.Count);
+        Assert.Empty(older.Messages);
+
+        // Created, the two kept windows the seed laid down, and the photograph
+        // — once each, in the timeline's own order.
+        Assert.Equal(
+            [GoalEventKind.Created, GoalEventKind.WindowDone, GoalEventKind.WindowDone, GoalEventKind.ProofDelivered],
+            older.Events.Select(entry => entry.Kind));
+        Assert.Equal(older.Events[^1].At, newest.Messages[0].SentAt);
+        Assert.NotNull(older.Events[^1].Proof);
+        Assert.Null(older.OlderCursor);
+    }
+
+    [Fact]
+    public async Task ReadingFurtherBackDoesNotMoveTheReadMarker()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        await SendManyAsync(friend, AutomatedTestSeed.DirectConversationId, ThreadPage.Size + 1, "Automated test: unread");
+
+        Assert.Equal(ThreadPage.Size + 2, (await DirectRowAsync()).UnreadCount);
+
+        // The friend scrolls back through their own thread; this person has
+        // still not read any of it.
+        var cursor = (await ThreadAsync(friend, AutomatedTestSeed.DirectConversationId)).OlderCursor;
+        (await OlderAsync(friend, AutomatedTestSeed.DirectConversationId, cursor)).EnsureSuccessStatusCode();
+
+        Assert.Equal(ThreadPage.Size + 2, (await DirectRowAsync()).UnreadCount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("yesterday")]
+    [InlineData("638000000000000000.Message.not-an-id")]
+    public async Task ACursorTheThreadNeverHandedOutIsAValidationProblem(string? before)
+    {
+        var response = await OlderAsync(Client, AutomatedTestSeed.DirectConversationId, before);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OlderPagesOfSomebodyElsesConversationAreNotFoundEither()
+    {
+        var cursor = (await ThreadAsync(AutomatedTestSeed.DirectConversationId)).Messages[^1];
+        var before = new ThreadPosition(cursor.SentAt, IsMessage: true, default, cursor.Id).ToCursor();
+
+        var response = await OlderAsync(Client, AutomatedTestSeed.ForeignConversationId, before);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheListShowsTheNewestMessageOfALongThreadAndCountsWhatIsUnread()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        // The friend opens the thread, then writes a page and a half into it.
+        await ThreadAsync(friend, AutomatedTestSeed.DirectConversationId);
+        await SendManyAsync(friend, AutomatedTestSeed.DirectConversationId, ThreadPage.Size + 15, "Automated test: news");
+
+        var mine = await DirectRowAsync();
+
+        // Everything from somebody else after the read marker, however much
+        // of it there is — the seeded reply included, which was never read.
+        Assert.Equal($"Automated test: news {ThreadPage.Size + 15}", mine.LastMessage);
+        Assert.False(mine.LastMessageIsMine);
+        Assert.Equal(ThreadPage.Size + 16, mine.UnreadCount);
+
+        // Nothing they wrote themselves is unread to them.
+        var theirs = (await ListAsync(friend)).Single(chat => chat.Id == AutomatedTestSeed.DirectConversationId);
+
+        Assert.True(theirs.LastMessageIsMine);
+        Assert.Equal(0, theirs.UnreadCount);
     }
 
     [Fact]
@@ -482,19 +644,50 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var added = await (await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{theirs.Id}/reactions",
-            new { kind = nameof(KudosKind.Fire) })).ReadAsync<ThreadDocument>();
+            new { kind = nameof(KudosKind.Fire) })).ReadAsync<MessageDocument>();
 
-        Assert.Contains(
-            added.Messages.Single(m => m.Id == theirs.Id).Reactions,
-            reaction => reaction.Kind == KudosKind.Fire && reaction.IsMine);
+        Assert.Equal(theirs.Id, added.Id);
+        Assert.Contains(added.Reactions, reaction => reaction.Kind == KudosKind.Fire && reaction.IsMine);
 
         var removed = await (await Client.PostJsonAsync(
             $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{theirs.Id}/reactions",
-            new { kind = nameof(KudosKind.Fire) })).ReadAsync<ThreadDocument>();
+            new { kind = nameof(KudosKind.Fire) })).ReadAsync<MessageDocument>();
 
-        Assert.DoesNotContain(
-            removed.Messages.Single(m => m.Id == theirs.Id).Reactions,
-            reaction => reaction.Kind == KudosKind.Fire);
+        Assert.DoesNotContain(removed.Reactions, reaction => reaction.Kind == KudosKind.Fire);
+    }
+
+    [Fact]
+    public async Task AReactionToAMessageBeforeTheNewestPageAnswersWithThatMessage()
+    {
+        await SendManyAsync(Client, AutomatedTestSeed.DirectConversationId, ThreadPage.Size, "Automated test: later");
+
+        var newest = await ThreadAsync(AutomatedTestSeed.DirectConversationId);
+        var older = await (await OlderAsync(Client, AutomatedTestSeed.DirectConversationId, newest.OlderCursor))
+            .ReadAsync<PageDocument>();
+        var reply = older.Messages.Single(message => message.Text == "Automated test: unread reply");
+
+        Assert.DoesNotContain(newest.Messages, message => message.Id == reply.Id);
+
+        var reacted = await (await Client.PostJsonAsync(
+            $"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages/{reply.Id}/reactions",
+            new { kind = nameof(KudosKind.Strong) })).ReadAsync<MessageDocument>();
+
+        // The seed's applause is still there, and this person's is new.
+        Assert.Equal(reply.Id, reacted.Id);
+        Assert.Contains(reacted.Reactions, reaction => reaction.Kind == KudosKind.Strong && reaction.IsMine);
+        Assert.Contains(reacted.Reactions, reaction => reaction.Kind == KudosKind.Applause);
+    }
+
+    [Fact]
+    public async Task AReactionToAMessageOfAnotherConversationIsNotFound()
+    {
+        var thread = await ThreadAsync(AutomatedTestSeed.DirectConversationId);
+
+        var response = await Client.PostJsonAsync(
+            $"/api/chats/{AutomatedTestSeed.SharedGoalConversationId}/messages/{thread.Messages[0].Id}/reactions",
+            new { kind = nameof(KudosKind.Fire) });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

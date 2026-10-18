@@ -102,9 +102,9 @@ message and does not ring.
   challenge remains the thing to do on the first day
   ([0021](0021-daily-challenge.md)).
 - The thread of a long-running daily goal grows by a photograph and a line a
-  day. Nothing is paginated yet — neither are messages — and the day that
-  matters it will be both at once
-  ([#44](https://github.com/AaronGreiner/q2/issues/44)).
+  day. Its messages and its goal's lines are read a page at a time along one
+  cursor since [0043](0043-threads-a-page-at-a-time.md); the goal behind them
+  is still read whole ([#127](https://github.com/AaronGreiner/q2/issues/127)).
 - A goal's thread follows its goal over the live connection: `keysFor` names
   `goal:<id>` for a goal's changes and for a photograph arriving, and the open
   thread reads itself again on that key. A vote that does not settle a

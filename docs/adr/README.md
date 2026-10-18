@@ -34,7 +34,7 @@ so the reasoning at the time stays readable.
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md) and [0038](0038-spot-checks.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
-| [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md) and [0039](0039-first-run-onboarding.md) |
+| [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md), [0039](0039-first-run-onboarding.md) and [0043](0043-threads-a-page-at-a-time.md) |
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
 | [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted, amended by [0036](0036-live-or-screenshot.md) |
@@ -50,3 +50,4 @@ so the reasoning at the time stays readable.
 | [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |
 | [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted |
 | [0042](0042-field-errors-as-codes.md) | Field errors travel as codes, and the app words them | Accepted |
+| [0043](0043-threads-a-page-at-a-time.md) | A thread is read a page at a time | Accepted |

@@ -38,9 +38,16 @@ public static class ChatEndpoints
 
         group.MapGet("/{id:guid}", GetChat)
             .WithName("GetChat")
-            .WithSummary("Returns one thread and marks it as read.")
+            .WithSummary("Returns one thread with its newest page, and marks it as read.")
             .Produces<ChatDetailResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{id:guid}/messages", GetOlderMessages)
+            .WithName("GetOlderChatMessages")
+            .WithSummary("Returns the page of a thread before a cursor the thread handed out.")
+            .Produces<ChatPageResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
 
         group.MapPost("/{id:guid}/messages", SendMessage)
             .WithName("SendMessage")
@@ -51,8 +58,8 @@ public static class ChatEndpoints
 
         group.MapPost("/{id:guid}/messages/{messageId:guid}/reactions", ToggleReaction)
             .WithName("ToggleMessageReaction")
-            .WithSummary("Adds a reaction to a message, or takes it back.")
-            .Produces<ChatDetailResponse>()
+            .WithSummary("Adds a reaction to a message, or takes it back, and returns the message.")
+            .Produces<ChatMessageResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesValidationProblem();
 
@@ -121,6 +128,16 @@ public static class ChatEndpoints
         return TypedResults.Ok(result);
     }
 
+    private static async Task<Ok<ChatPageResponse>> GetOlderMessages(
+        ChatService chats,
+        Guid id,
+        [FromQuery] string? before,
+        CancellationToken cancellationToken)
+    {
+        var result = await chats.GetOlderAsync(id, before, cancellationToken);
+        return TypedResults.Ok(result);
+    }
+
     private static async Task<Ok<ChatDetailResponse>> SendMessage(
         ChatService chats,
         Guid id,
@@ -135,7 +152,7 @@ public static class ChatEndpoints
         return TypedResults.Ok(result);
     }
 
-    private static async Task<Ok<ChatDetailResponse>> ToggleReaction(
+    private static async Task<Ok<ChatMessageResponse>> ToggleReaction(
         ChatService chats,
         Guid id,
         Guid messageId,

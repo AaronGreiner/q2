@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { ThreadItem } from '~/utils/chatTimeline'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
@@ -18,6 +19,10 @@ import type { PhotoOrigin } from '~/utils/proofSource'
  * refreshed afterwards — the count has just changed under it. A reply arriving
  * while it is open comes in over the live connection, which refreshes this
  * thread by its key (useLiveConnection).
+ *
+ * It opens on its newest page. Scrolling towards the top reads the page before,
+ * and the screen keeps its place while that page is put above what is being
+ * read (#44).
  *
  * The bell in the header mutes this conversation on every device of this
  * person's. It is the one switch that is about a single conversation rather
@@ -46,6 +51,12 @@ const { person: me } = useSession()
 const id = computed(() => String(route.params.id))
 const {
   chat,
+  messages,
+  events,
+  hasOlder,
+  isLoadingOlder,
+  olderFailed,
+  loadOlder,
   error,
   isMissing,
   isLoading,
@@ -61,8 +72,8 @@ const {
   isVoting,
 } = useChatThread(id)
 
-/** Messages and what happened to the goal, as one thread by time. */
-const items = computed(() => (chat.value ? threadItems(chat.value.messages, chat.value.events) : []))
+/** Messages and what happened to the goal, as one thread by time — as far back as is loaded. */
+const items = computed(() => (chat.value ? threadItems(messages.value, events.value) : []))
 
 /** The same, with a separator per day and a run of misses folded into one line. */
 const rows = computed(() => threadRows(items.value, now.value, t.value, zone.value))
@@ -116,8 +127,24 @@ function scrollToLatest() {
   if (thread.value) thread.value.scrollTop = thread.value.scrollHeight
 }
 
+/**
+ * Whether the reader is at the newest line. Read off the last scroll rather
+ * than measured when something arrives, because by then the thread has already
+ * grown under them.
+ */
+let atLatest = true
+
+/** How close to the top the page before is asked for: about a screen, so it is there before the reader is. */
+const olderMargin = 800
+
+/** Something the reader did themselves, which the thread scrolls down to wherever they were. */
+function isOwn(item: ThreadItem | undefined) {
+  if (!item) return false
+  return item.kind === 'message' ? item.message.isMine : item.event.isMine
+}
+
 /*
- * Every moment that puts the newest message out of sight, in one place.
+ * Every moment that puts the newest line out of sight, in one place.
  *
  * `thread` is the scroll region, and it only exists once the conversation has
  * loaded — which, on a tap from the list, is *after* this page is mounted.
@@ -126,14 +153,63 @@ function scrollToLatest() {
  * catches the render it appears in, whether that is the first one (the payload
  * came from the server) or a later one.
  *
- * The message count covers everything written from here — sending, and the
- * pinned goal's "Anfeuern", which is a message like any other. A reaction
- * leaves the count alone and does not move the thread under the reader.
+ * After that it is the newest line that matters, not the number of lines: a
+ * page read further back adds lines at the top and must not move the reader,
+ * and a reaction adds none. A new line is followed when the reader was at the
+ * bottom already, or when it is theirs — sending, the pinned goal's
+ * "Anfeuern", a photograph — and otherwise left for them to scroll to, rather
+ * than taking them out of last week's messages.
  *
  * `flush: 'post'` because the height being measured is the one after Vue has
  * patched the DOM, not before.
  */
-watch([thread, () => items.value.length], scrollToLatest, { flush: 'post' })
+watch([thread, () => items.value.at(-1)?.key], ([element], [previous]) => {
+  if (!element) return
+  if (element !== previous || atLatest || isOwn(items.value.at(-1))) scrollToLatest()
+  void loadOlderNearTop()
+}, { flush: 'post' })
+
+/**
+ * Reads the page before when the top is near, and keeps the reader's place.
+ *
+ * The lines arrive above what is on screen, which pushes it down by their
+ * height; measuring from the bottom before and setting it back after keeps the
+ * same line under the reader's thumb. The browser's own scroll anchoring is
+ * off on the region (`overflow-anchor`), because where it exists it would make
+ * the same correction a second time.
+ *
+ * A page that still leaves the top in sight — a run of short lines — asks for
+ * the next one straight away, until the region can scroll or the thread
+ * begins.
+ */
+async function loadOlderNearTop() {
+  const element = thread.value
+  if (!element || !hasOlder.value || isLoadingOlder.value || olderFailed.value) return
+  if (element.scrollTop > olderMargin) return
+
+  if (await loadOlderKeepingPlace()) await loadOlderNearTop()
+}
+
+/** The page before, put above the reader without moving what they are reading. */
+async function loadOlderKeepingPlace() {
+  const element = thread.value
+  if (!element) return false
+
+  const fromBottom = element.scrollHeight - element.scrollTop
+  if (!await loadOlder()) return false
+
+  await nextTick()
+  element.scrollTop = element.scrollHeight - fromBottom
+  return true
+}
+
+function onScroll() {
+  const element = thread.value
+  if (!element) return
+
+  atLatest = element.scrollHeight - element.scrollTop - element.clientHeight < 48
+  void loadOlderNearTop()
+}
 
 const status = computed(() => {
   if (!chat.value) return ''
@@ -275,7 +351,9 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <template v-else>
       <div
         ref="thread"
-        class="q2-scroll flex flex-1 flex-col gap-2 bg-(--q2-surface) px-[18px] py-3.5"
+        class="q2-scroll flex flex-1 flex-col gap-2 bg-(--q2-surface) px-[18px] py-3.5 [overflow-anchor:none]"
+        data-testid="chat-thread"
+        @scroll.passive="onScroll"
       >
         <ChatGoalBanner
           v-if="chat.pinnedGoal"
@@ -286,6 +364,43 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
           @cheer="cheer()"
           @deliver="isCameraOpen = true"
         />
+
+        <!-- The page before, on its way in. A failed one waits to be asked
+             for again rather than retrying on every scroll. -->
+        <div
+          v-if="hasOlder"
+          class="flex min-h-11 items-center justify-center"
+          data-testid="chat-older"
+        >
+          <UButton
+            v-if="olderFailed && !isLoadingOlder"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-rotate-ccw"
+            data-testid="chat-older-retry"
+            @click="loadOlderKeepingPlace"
+          >
+            {{ t.chats.olderRetry }}
+          </UButton>
+
+          <!-- The row keeps its height while idle, so the spinner appearing
+               does not push the thread down under the reader. -->
+          <span
+            v-else
+            role="status"
+            :aria-busy="isLoadingOlder"
+            class="text-(--ui-text-dimmed)"
+          >
+            <template v-if="isLoadingOlder">
+              <UIcon
+                name="i-lucide-loader-circle"
+                class="size-5 animate-spin"
+                aria-hidden="true"
+              />
+              <span class="sr-only">{{ t.chats.olderLoading }}</span>
+            </template>
+          </span>
+        </div>
 
         <!-- Always rendered, so the first message animates in rather than
              mounting the whole list; each timeline item carries its own key. -->

@@ -210,24 +210,6 @@ public sealed class Conversation
         return message;
     }
 
-    /// <summary>
-    /// How many messages from other people <paramref name="personId"/> has not
-    /// seen. Derived from their read marker, so it can never drift from the
-    /// messages themselves.
-    /// </summary>
-    public int UnreadCountFor(Guid personId)
-    {
-        var participant = _participants.FirstOrDefault(p => p.PersonId == personId);
-        if (participant is null)
-        {
-            return 0;
-        }
-
-        return _messages.Count(m =>
-            m.SenderPersonId != personId
-            && (participant.LastReadAt is null || m.SentAt > participant.LastReadAt));
-    }
-
     /// <summary>Marks everything up to <paramref name="readAt"/> as seen.</summary>
     public void MarkRead(Guid personId, DateTimeOffset readAt) =>
         _participants.FirstOrDefault(p => p.PersonId == personId)?.MarkRead(readAt);

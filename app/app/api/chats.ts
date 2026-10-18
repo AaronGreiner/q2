@@ -1,6 +1,8 @@
 import type { ApiCaller } from './client'
 import type {
   ChatDetail,
+  ChatMessage,
+  ChatPage,
   ChatSummary,
   CreateGroupChatRequest,
   KudosKind,
@@ -12,8 +14,9 @@ import type {
 export interface ChatsApi {
   list: (options?: { search?: string }) => Promise<ChatSummary[]>
   get: (id: string) => Promise<ChatDetail>
+  older: (id: string, before: string) => Promise<ChatPage>
   send: (id: string, message: { text?: string, imageId?: string }) => Promise<ChatDetail>
-  react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatDetail>
+  react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatMessage>
   startDirect: (personId: string) => Promise<ChatDetail>
   createGroup: (request: CreateGroupChatRequest) => Promise<ChatDetail>
   mute: (id: string, muted: boolean) => Promise<ChatDetail>
@@ -34,10 +37,18 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
     }),
 
     // Opening a thread also marks it read, which is why this is not a plain
-    // cacheable read — see ChatService on the server.
+    // cacheable read — see ChatService on the server. It answers with the
+    // newest page of the thread; `older` reads the pages before it.
     get: id => call<ChatDetail>(`/api/chats/${encodeURIComponent(id)}`, { method: 'GET' }),
 
-    // The whole thread comes back, not just the new message: a reply may have
+    // `before` is the cursor the previous page handed out, passed back as it
+    // came: what it means is the server's business.
+    older: (id, before) => call<ChatPage>(`/api/chats/${encodeURIComponent(id)}/messages`, {
+      method: 'GET',
+      query: { before },
+    }),
+
+    // The newest page comes back, not just the new message: a reply may have
     // arrived while this one was being typed, and re-rendering from one answer
     // is simpler to get right than merging two. A photograph is uploaded first
     // (`purpose=ChatPhoto`) and only its id travels here.
@@ -46,7 +57,9 @@ export function createChatsApi(call: ApiCaller): ChatsApi {
       body: message,
     }),
 
-    react: (id, messageId, kind) => call<ChatDetail>(
+    // Only the message comes back: it may be pages back from the newest, and
+    // it is the one thing a reaction changes.
+    react: (id, messageId, kind) => call<ChatMessage>(
       `/api/chats/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/reactions`,
       { method: 'POST', body: { kind } },
     ),
