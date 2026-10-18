@@ -64,6 +64,25 @@ describe('ProofCard', () => {
     expect(wrapper.text()).toContain('Dreimal die Woche laufen')
   })
 
+  it('says what counts under what was promised, and keeps it out of Session Replay (#95)', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: { proof: proof(), goalTitle: 'Laufen', goalDescription: 'Mindestens 5 km, ohne Pause.' },
+    })
+
+    const description = wrapper.get('[data-testid="proof-goal-description"]')
+    expect(description.text()).toBe('Mindestens 5 km, ohne Pause.')
+    expect(description.attributes()).toHaveProperty('data-q2-private')
+  })
+
+  it('says nothing more where nothing was said, or where the thread names the goal', async () => {
+    const undescribed = await mountSuspended(ProofCard, { props: { proof: proof(), goalTitle: 'Laufen' } })
+    expect(undescribed.find('[data-testid="proof-goal-description"]').exists()).toBe(false)
+
+    // In a goal's conversation the banner above carries it.
+    const inThread = await mountSuspended(ProofCard, { props: { proof: proof(), goalDescription: 'Mindestens 5 km' } })
+    expect(inThread.find('[data-testid="proof-goal-description"]').exists()).toBe(false)
+  })
+
   it('keeps somebody else\'s photograph out of Session Replay', async () => {
     const wrapper = await mountSuspended(ProofCard, { props: { proof: proof() } })
 

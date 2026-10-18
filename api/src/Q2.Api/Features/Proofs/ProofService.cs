@@ -383,6 +383,7 @@ public sealed class ProofService(
                 .Select(pair => new FeedProofResponse(
                     Describe(pair.Goal!, pair.Proof, me.Id, people, now),
                     pair.Goal!.Title,
+                    pair.Goal!.Description,
                     pair.Goal!.Icon)),
         ];
     }

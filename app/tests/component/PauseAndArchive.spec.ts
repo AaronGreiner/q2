@@ -252,4 +252,25 @@ describe('ChatGoalBanner', () => {
     expect(wrapper.text()).not.toContain('Grippe')
     expect(wrapper.find('[data-testid="pause-veto"]').exists()).toBe(false)
   })
+
+  it('says what counts above the photographs voted on in the thread (#95)', async () => {
+    const pinned = {
+      id: 'goal-1',
+      title: 'Halbmarathon',
+      description: 'Jeder Lauf über 10 km zählt.',
+      current: null,
+      streak: 2,
+      pausedUntil: null,
+      isMine: false,
+    } satisfies ChatPinnedGoal
+
+    const wrapper = await mountSuspended(ChatGoalBanner, { props: { goal: pinned } })
+
+    const description = wrapper.get('[data-testid="chat-goal-description"]')
+    expect(description.text()).toBe('Jeder Lauf über 10 km zählt.')
+    expect(description.attributes()).toHaveProperty('data-q2-private')
+
+    const undescribed = await mountSuspended(ChatGoalBanner, { props: { goal: { ...pinned, description: null } } })
+    expect(undescribed.find('[data-testid="chat-goal-description"]').exists()).toBe(false)
+  })
 })

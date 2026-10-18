@@ -3776,6 +3776,7 @@
         "required": [
           "id",
           "title",
+          "description",
           "current",
           "streak",
           "pausedUntil",
@@ -3789,6 +3790,10 @@
           },
           "title": {
             "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
           },
           "current": {
             "oneOf": [
@@ -4160,6 +4165,7 @@
         "required": [
           "proof",
           "goalTitle",
+          "goalDescription",
           "goalIcon"
         ],
         "type": "object",
@@ -4169,6 +4175,10 @@
           },
           "goalTitle": {
             "type": "string"
+          },
+          "goalDescription": {
+            "type": "string",
+            "nullable": true
           },
           "goalIcon": {
             "type": "string"

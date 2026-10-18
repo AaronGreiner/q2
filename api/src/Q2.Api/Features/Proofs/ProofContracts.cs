@@ -91,7 +91,11 @@ public sealed record ReactionSummaryResponse(KudosKind Kind, int Count, bool IsM
 /// <param name="GoalTitle">
 /// What was promised, so the picture can be judged against something.
 /// </param>
-public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, string GoalIcon);
+/// <param name="GoalDescription">
+/// What counts, in the owner's words — "mindestens 5 km", "ohne Handy" — when
+/// they said. The agreement a checker judges the photograph against (#95).
+/// </param>
+public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, string? GoalDescription, string GoalIcon);
 
 /// <summary>One of your own photographs, as your profile's gallery shows it.</summary>
 /// <param name="ImageId">Fetched from <c>/api/images/{id}</c>, like every other picture.</param>

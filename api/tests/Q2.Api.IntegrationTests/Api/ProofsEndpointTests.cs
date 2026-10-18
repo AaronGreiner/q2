@@ -23,7 +23,7 @@ namespace Q2.Api.IntegrationTests.Api;
 [Trait("Category", "Integration")]
 public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 {
-    private sealed record FeedCardDocument(ProofDocument Proof, string GoalTitle, string GoalIcon);
+    private sealed record FeedCardDocument(ProofDocument Proof, string GoalTitle, string? GoalDescription, string GoalIcon);
 
     private async Task<HttpResponseMessage> VoteAsync(HttpClient client, Guid proofId, VoteValue value) =>
         await client.PostJsonAsync($"/api/proofs/{proofId}/vote", new { value });
@@ -256,6 +256,22 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         // And it leaves the moment you have had your say.
         Assert.DoesNotContain(await PendingAsync(friend), card => card.Proof.Id == proof.Id);
+    }
+
+    /// <summary>
+    /// A checker judges a photograph against what was agreed, and the title
+    /// alone rarely says it: "mindestens 5 km" is in the description (#95).
+    /// </summary>
+    [Fact]
+    public async Task ACardCarriesWhatThePhotographIsJudgedAgainst()
+    {
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        var card = Assert.Single(await PendingAsync(friend), card => card.Proof.Id == proof.Id);
+
+        Assert.Equal("Automated test: shared active goal", card.GoalTitle);
+        Assert.Equal("Synthetic test data.", card.GoalDescription);
     }
 
     [Fact]

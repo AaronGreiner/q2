@@ -54,7 +54,7 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int RemainingProofs,
         GoalInstanceStatus Status);
 
-    private sealed record PinnedGoalDocument(Guid Id, string Title, WindowDocument? Current, int Streak, bool IsMine);
+    private sealed record PinnedGoalDocument(Guid Id, string Title, string? Description, WindowDocument? Current, int Streak, bool IsMine);
 
     private sealed record EventDocument(
         string Key,
@@ -156,6 +156,9 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.NotNull(thread.PinnedGoal.Current);
         Assert.Equal(1, thread.PinnedGoal.Current.RemainingProofs);
         Assert.Equal(2, thread.PinnedGoal.Streak);
+
+        // What counts, above the photographs that are voted on here (#95).
+        Assert.Equal("Synthetic test data.", thread.PinnedGoal.Description);
     }
 
     [Fact]

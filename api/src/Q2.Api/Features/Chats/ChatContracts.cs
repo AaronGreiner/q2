@@ -125,9 +125,14 @@ public sealed record ChatMessageResponse(
 /// Whether the reader owns it, which decides whether the thread offers the
 /// camera. The server refuses a photograph from anybody else either way.
 /// </param>
+/// <param name="Description">
+/// What counts, in the owner's words, when they said: the thread is where its
+/// photographs are voted on, so the agreement is shown above them (#95).
+/// </param>
 public sealed record ChatPinnedGoalResponse(
     Guid Id,
     string Title,
+    string? Description,
     Goals.GoalInstanceResponse? Current,
     int Streak,
     DateOnly? PausedUntil,

@@ -198,6 +198,7 @@ function onClickCapture(event: MouseEvent) {
           :key="current.proof.id"
           :proof="current.proof"
           :goal-title="current.goalTitle"
+          :goal-description="current.goalDescription"
           :busy="busy || leaving !== null"
           @vote="decide"
         />

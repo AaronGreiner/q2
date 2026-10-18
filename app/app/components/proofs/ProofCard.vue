@@ -38,6 +38,8 @@ const props = withDefaults(defineProps<{
   proof: Proof
   /** What was promised, so the picture can be judged against something. */
   goalTitle?: string | null
+  /** What counts, in the owner's words, when they said (#95). Shown with the title. */
+  goalDescription?: string | null
   /**
    * What the picture is of, for the full-screen view only — in a goal's
    * conversation the card does not name the goal, because the thread does.
@@ -46,6 +48,7 @@ const props = withDefaults(defineProps<{
   busy?: boolean
 }>(), {
   goalTitle: null,
+  goalDescription: null,
   context: null,
   busy: false,
 })
@@ -142,6 +145,18 @@ function vote(value: ProofVoteValue) {
         >{{ t.proof.expired }}</span>
       </template>
     </header>
+
+    <!-- The agreement the picture is judged against. Three lines at most, so
+         the card keeps its height in the stack; the whole text is on the
+         goal's screen. -->
+    <p
+      v-if="goalTitle && goalDescription"
+      class="line-clamp-3 px-3.5 pb-2.5 text-[13px] leading-snug font-semibold whitespace-pre-line text-(--ui-text-muted)"
+      data-q2-private
+      data-testid="proof-goal-description"
+    >
+      {{ goalDescription }}
+    </p>
 
     <!--
       A square frame at a fixed ratio, so the card is the same height before and

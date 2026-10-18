@@ -639,6 +639,7 @@ public sealed class ChatService(
                 : new ChatPinnedGoalResponse(
                     goal.Id,
                     goal.Title,
+                    goal.Description,
                     (goal.CurrentInstance ?? goal.RelapsedInstanceAt(now)) is { } window ? GoalInstanceResponse.From(window) : null,
                     goal.Streak,
                     goal.ActivePauseAt(now)?.EndsOn,

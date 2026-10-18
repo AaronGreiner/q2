@@ -68,6 +68,17 @@ const t = useMessages()
       >{{ windowLabel(goal.current, t) }}</span>
     </div>
 
+    <!-- What counts, above the photographs that are voted on in this thread
+         (#95). Two lines; the whole text is behind the title. -->
+    <p
+      v-if="goal.description"
+      class="mt-1 line-clamp-2 text-[13px] leading-snug font-semibold whitespace-pre-line text-(--ui-text-muted)"
+      data-q2-private
+      data-testid="chat-goal-description"
+    >
+      {{ goal.description }}
+    </p>
+
     <!-- Why there is no window, when there is none. Only the day: the reason
          and the objection are on the goal's own screen, which the title above
          links to — a chat is not where somebody should be asked to judge a

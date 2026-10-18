@@ -63,11 +63,15 @@ const now = useNow()
 const zone = useTimeZoneOffset()
 
 const maxTitleLength = 120
+/** `Goal.MaxDescriptionLength` on the server, which stays the authority. */
+const maxDescriptionLength = 1000
 const stepCount = 4
 
 const step = ref(0)
 const kind = ref<GoalKind>('Do')
 const title = ref('')
+/** What counts, in the owner's words: what the checkers judge a proof against (#95). */
+const description = ref('')
 const icon = ref<string>(goalIcons[0]!)
 const withReminder = ref(true)
 const reminderTime = ref('09:00')
@@ -172,7 +176,7 @@ function fieldError(field: string): string | undefined {
  */
 watch(() => props.error, (failure) => {
   if (!failure) return
-  if (fieldError('title') || fieldError('icon')) step.value = 0
+  if (fieldError('title') || fieldError('description') || fieldError('icon')) step.value = 0
   else if (fieldError('schedule') || fieldError('targetDate') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
@@ -198,9 +202,15 @@ function back() {
 function onSubmit() {
   if (title.value.trim().length === 0 || participantIds.value.length === 0 || props.submitting) return
 
+  // Left out when empty rather than sent blank, the way a goal without one
+  // has always been created.
+  const said = description.value.trim()
+  const described = said ? { description: said } : {}
+
   emit('submit', isDont.value
     ? {
         title: title.value.trim(),
+        ...described,
         kind: 'Dont',
         schedule: dontSchedule.value,
         limit: dontLimit.value.limit,
@@ -211,6 +221,7 @@ function onSubmit() {
       }
     : {
         title: title.value.trim(),
+        ...described,
         schedule: schedule.value,
         ...(schedule.value.kind === 'Once' ? { targetDate: targetDate.value } : {}),
         icon: icon.value,
@@ -224,6 +235,7 @@ function reset() {
   step.value = 0
   kind.value = 'Do'
   title.value = ''
+  description.value = ''
   icon.value = goalIcons[0]!
   schedule.value = { kind: 'Interval', everyDays: 1 }
   targetDate.value = null
@@ -360,7 +372,30 @@ defineExpose({ reset })
             />
           </UFormField>
 
-          <div v-if="title.trim().length === 0">
+          <!-- Ideas while there is no title; once there is one, their place is
+               where the owner says what counts. -->
+          <UFormField
+            v-if="title.trim().length > 0"
+            :label="t.create.descriptionLabel"
+            name="description"
+            :help="t.create.descriptionHelp"
+            :error="fieldError('description')"
+            :hint="`${description.length}/${maxDescriptionLength}`"
+          >
+            <UTextarea
+              v-model="description"
+              :placeholder="isDont ? t.dont.descriptionPlaceholder : t.create.descriptionPlaceholder"
+              :maxlength="maxDescriptionLength"
+              :rows="2"
+              autoresize
+              :maxrows="5"
+              size="lg"
+              class="w-full"
+              data-testid="goal-description-input"
+            />
+          </UFormField>
+
+          <div v-else>
             <p class="mb-2 text-sm font-semibold text-(--ui-text-muted)">
               {{ t.create.templatesLabel }}
             </p>
@@ -587,6 +622,18 @@ defineExpose({ reset })
               </dt>
               <dd class="min-w-0 flex-1 text-[15px] font-extrabold">
                 {{ title.trim() }}
+              </dd>
+            </div>
+            <div
+              v-if="description.trim()"
+              class="flex flex-col gap-1 py-3 text-sm"
+              data-testid="goal-review-description"
+            >
+              <dt class="font-semibold text-(--ui-text-muted)">
+                {{ t.create.reviewDescription }}
+              </dt>
+              <dd class="font-bold whitespace-pre-line">
+                {{ description.trim() }}
               </dd>
             </div>
             <div class="flex justify-between gap-3 py-3 text-sm">

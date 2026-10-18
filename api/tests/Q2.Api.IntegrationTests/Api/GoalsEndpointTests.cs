@@ -409,6 +409,48 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Contains("Title", problem.Errors.Keys);
     }
 
+    /// <summary>
+    /// What counts, said when the goal is made — the create sheet's optional
+    /// field (#95). Trimmed like the title, and blank means none.
+    /// </summary>
+    [Fact]
+    public async Task AGoalCanBeGivenADescriptionWhenItIsCreated()
+    {
+        var described = await (await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Laufen",
+            description = "  Mindestens 5 km, ohne Pause.  ",
+            participantIds = Friend,
+        })).ReadAsync<GoalDocument>();
+
+        Assert.Equal("Mindestens 5 km, ohne Pause.", described.Description);
+
+        var blank = await (await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Lesen",
+            description = "   ",
+            participantIds = Friend,
+        })).ReadAsync<GoalDocument>();
+
+        Assert.Null(blank.Description);
+    }
+
+    [Fact]
+    public async Task ADescriptionLongerThanTheLimitIsAValidationProblem()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Zu lang",
+            description = new string('x', Goal.MaxDescriptionLength + 1),
+            participantIds = Friend,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.ReadAsync<ValidationDocument>();
+        Assert.Contains("Description", problem.Errors.Keys);
+    }
+
     [Fact]
     public async Task CreatingAGoalWithAnUnknownIconIsAValidationProblem()
     {

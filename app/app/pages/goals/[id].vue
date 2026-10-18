@@ -271,6 +271,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           v-if="goal.description"
           class="mt-3 text-sm text-(--ui-text-muted)"
           data-q2-private
+          data-testid="goal-description"
         >
           {{ goal.description }}
         </p>

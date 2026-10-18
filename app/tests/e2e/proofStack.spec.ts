@@ -72,3 +72,46 @@ test('a friend\'s photograph waits on the start screen, opens full screen and is
     await theirs.close()
   }
 })
+
+/**
+ * What counts, said when the goal is made, is read where it is judged (#95):
+ * on the goal, on the friend's card and above the thread the photographs are
+ * voted in — not only as a title.
+ */
+test('what counts goes from the create sheet to the goal, the friend\'s card and the thread', async ({ page, browser }, testInfo) => {
+  const title = `E2E described ${Date.now()}`
+  const description = 'Mindestens 5 km, ohne Pause.'
+
+  await createGoal(page, { title, friend: friend.name, description })
+
+  await goalLink(page, title).click()
+  await expect(page.getByTestId('goal-description')).toHaveText(description)
+
+  await page.getByTestId('goal-open-chat').click()
+  await expect(page.getByTestId('chat-goal-description')).toHaveText(description)
+  await page.getByTestId('chat-deliver').click()
+  await deliverPhoto(page)
+  await expect(page.getByTestId('chat-proof').last().getByTestId('proof-status')).toContainText('Dein eigener Beweis')
+
+  const theirs = await browser.newContext({ ...testInfo.project.use, storageState: { cookies: [], origins: [] } })
+
+  try {
+    const signIn = await theirs.request.post(`${apiBaseUrl}/api/auth/login`, {
+      data: { email: friend.email, password: e2eAccount.password },
+    })
+    expect(signIn.ok(), `signing in as ${friend.email}`).toBe(true)
+
+    const friendPage = await theirs.newPage()
+    await friendPage.goto('/')
+
+    const card = friendPage.getByTestId('home-vote').getByTestId('proof-swipe-card').filter({ hasText: title })
+    await expect(card.getByTestId('proof-goal-description')).toHaveText(description)
+
+    // Decided, so no photograph from this test is left waiting for the next.
+    await card.getByTestId('proof-confirm').click()
+    await expect(friendPage.getByTestId('home-vote').filter({ hasText: title })).toHaveCount(0)
+  }
+  finally {
+    await theirs.close()
+  }
+})

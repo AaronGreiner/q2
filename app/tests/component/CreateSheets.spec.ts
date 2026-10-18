@@ -108,6 +108,47 @@ describe('GoalCreateSheet', () => {
   })
 
   /**
+   * The API took a description all along, but nothing sent one, so friends
+   * voted on a title alone (#95). It takes the ideas' place once there is a
+   * title, and is left out of the request when nothing was said — the first
+   * test above pins that.
+   */
+  it('lets the owner say what counts, shows it in the summary and sends it trimmed', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    const field = () => document.querySelector<HTMLTextAreaElement>(
+      'textarea[data-testid="goal-description-input"], [data-testid="goal-description-input"] textarea')
+
+    // Ideas first; nothing to describe before there is something to do.
+    expect(field()).toBeNull()
+
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+
+    type(field()!, '  Mindestens 5 km, ohne Pause.  ')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+    await next(wrapper)
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    expect(element('[data-testid="goal-review-description"]').textContent).toContain('Mindestens 5 km, ohne Pause.')
+
+    element<HTMLButtonElement>('[data-testid="goal-submit"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      title: 'Laufen',
+      description: 'Mindestens 5 km, ohne Pause.',
+    })
+    wrapper.unmount()
+  })
+
+  /**
    * "Einmalig" used to say "bis zum gewählten Tag" with nothing to choose a
    * day with, and was due the day it was made (#94).
    */

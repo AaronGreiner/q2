@@ -1327,6 +1327,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            description: string | null;
             current: (null) | components["schemas"]["GoalInstanceResponse"];
             /** Format: int32 */
             streak: number;
@@ -1417,6 +1418,7 @@ export interface components {
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
             goalTitle: string;
+            goalDescription: string | null;
             goalIcon: string;
         };
         ForgotPasswordRequest: {
