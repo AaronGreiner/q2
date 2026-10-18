@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { goalLink } from './support/goalList'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * A Don't, end to end at phone width (docs/adr/0037-donts.md): made in the
@@ -32,7 +33,7 @@ test('the seeded Don\'t is on the start screen with what its week has used', asy
 test('a Don\'t is made, a use is logged, and the relapse is asked about and then said', async ({ page }, testInfo) => {
   const title = `E2E no sugar ${Date.now()}`
 
-  await page.goto('/goals?create=1')
+  await gotoHydrated(page, '/goals?create=1')
   await page.getByTestId('segment-Dont').click()
   await page.getByTestId('goal-title-input').fill(title)
   await page.getByTestId('goal-next').click()

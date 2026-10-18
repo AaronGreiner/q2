@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { e2eAccount } from './support/e2eEnvironment'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * User Feedback: the one thing q2 sends to Sentry that somebody wrote by hand.
@@ -46,7 +47,7 @@ test.describe('the feedback dialog', () => {
   })
 
   test('lets the message be corrected, despite the app being unselectable', async ({ page }) => {
-    await page.goto('/settings')
+    await gotoHydrated(page, '/settings')
     await page.getByTestId('open-feedback').click()
 
     const message = page.locator('#sentry-feedback textarea[name="message"]')
@@ -77,7 +78,7 @@ test.describe('the feedback dialog', () => {
       await route.fulfill({ status: 200, body: '{}' })
     })
 
-    await page.goto('/settings')
+    await gotoHydrated(page, '/settings')
     await page.getByTestId('open-feedback').click()
 
     await page.locator('#sentry-feedback textarea[name="message"]').fill('Der Ladebalken bleibt stehen')

@@ -7,6 +7,7 @@ import {
   runId,
   storageStatePath,
 } from './e2eEnvironment'
+import { gotoHydrated } from './hydration'
 
 /**
  * Verifies the suite is about to test what it thinks it is, and signs it in.
@@ -62,7 +63,7 @@ export default async function globalSetup() {
     })
 
     const page = await context.newPage()
-    await page.goto(`${appBaseUrl}/login`)
+    await gotoHydrated(page, `${appBaseUrl}/login`)
 
     // The environment sets NUXT_PUBLIC_DEMO_*, so the seeded credentials are
     // one tap away and are not repeated in this file.

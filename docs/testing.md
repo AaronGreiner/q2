@@ -339,3 +339,10 @@ that a green suite is a floor, not a ceiling. Run the app.
 - Sentry tests must run through the real SDK to the recording transport.
   Asserting that a wrapper method was called proves nothing about what would be
   transmitted.
+- An E2E test that types into a field straight after loading a page opens it
+  with `gotoHydrated` (`app/tests/e2e/support/hydration.ts`), not `page.goto`.
+  Until Vue has hydrated the server-rendered page, a field is visible and
+  fillable but no `v-model` listens to it, so on a busy machine the keystrokes
+  vanish and the test fails for a reason that has nothing to do with it
+  ([#123](https://github.com/AaronGreiner/q2/issues/123)). A screen reached by
+  a click inside the app is rendered on the client and needs no wait.

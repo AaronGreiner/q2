@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { gotoHydrated } from './support/hydration'
 
 for (const reducedMotion of ['no-preference', 'reduce'] as const) {
   test(`navigation, tab selection and sheets work with motion ${reducedMotion}`, async ({ page }, testInfo) => {
@@ -67,7 +68,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 
 test('a new chat message arrives without remounting existing messages or losing the composer', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.goto('/chats')
+  await gotoHydrated(page, '/chats')
   await page.getByTestId('chat-row').filter({ hasText: 'E2E group chat' }).click()
   const firstMessage = page.getByTestId('chat-bubble').first()
   await firstMessage.evaluate(element => element.setAttribute('data-motion-retained', 'true'))

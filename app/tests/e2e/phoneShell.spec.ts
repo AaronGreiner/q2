@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * The three things that stop q2 behaving like a web page.
@@ -45,7 +46,7 @@ test.describe('text selection', () => {
   })
 
   test('still works in anything a person types into', async ({ page }) => {
-    await page.goto('/search')
+    await gotoHydrated(page, '/search')
 
     const search = page.getByTestId('friend-search')
     await search.fill('Robin')

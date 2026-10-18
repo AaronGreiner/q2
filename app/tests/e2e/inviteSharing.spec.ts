@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { apiBaseUrl } from './support/e2eEnvironment'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * The invite link once somebody already has friends.
@@ -31,7 +32,7 @@ test('the profile offers the link', async ({ page }) => {
 })
 
 test('a search that finds nobody offers to send them the link', async ({ page }) => {
-  await page.goto('/search')
+  await gotoHydrated(page, '/search')
   await page.getByTestId('friend-search').fill('Niemand mit diesem Namen')
 
   await expect(page.getByTestId('search-empty')).toContainText('Nicht dabei? Schick deinen Link.')

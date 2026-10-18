@@ -3,6 +3,7 @@ import { expect, test, type Browser, type BrowserContext, type Page, type TestIn
 import { apiBaseUrl } from './support/e2eEnvironment'
 import { undersizedTargets } from './support/touchTargets'
 import { waitForMotion } from './support/waitForMotion'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * The first-run introduction, through a real browser
@@ -233,7 +234,7 @@ test('the introduction is remembered on the account, not on the device', async (
   const page = await elsewhere.newPage()
 
   try {
-    await page.goto('/login')
+    await gotoHydrated(page, '/login')
     await page.getByTestId('login-email').fill(account.email)
     await page.getByTestId('login-password').fill(password)
     await page.getByTestId('login-submit').click()

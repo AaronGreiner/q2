@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { gotoHydrated } from './hydration'
 
 /**
  * Creating a goal through the sheet, the way a person does: a title, the
@@ -11,7 +12,7 @@ export async function createGoal(
   page: Page,
   { title, friend, rhythm }: { title: string, friend: string, rhythm?: (page: Page) => Promise<void> },
 ) {
-  await page.goto('/goals?create=1')
+  await gotoHydrated(page, '/goals?create=1')
   await page.getByTestId('goal-title-input').fill(title)
   await page.getByTestId('goal-next').click()
 

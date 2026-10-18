@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * Getting away from somebody, end to end.
@@ -15,7 +16,7 @@ import { expect, test } from '@playwright/test'
 const friend = 'E2E Jonas'
 
 async function openFriendProfile(page: import('@playwright/test').Page) {
-  await page.goto('/search')
+  await gotoHydrated(page, '/search')
   await page.getByTestId('friend-search').fill(friend)
   await page.getByTestId('person-result').filter({ hasText: friend }).first().getByTestId('person-link').click()
   await expect(page.getByTestId('person-actions')).toBeVisible()
@@ -52,7 +53,7 @@ test.describe('blocking somebody', () => {
 
     // Findable again — but not a friend again, which is the honest
     // consequence and is asserted on the API side.
-    await page.goto('/search')
+    await gotoHydrated(page, '/search')
     await page.getByTestId('friend-search').fill(friend)
     await expect(page.getByTestId('person-result').filter({ hasText: friend }).first()).toBeVisible()
   })

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * Getting in, and being kept out.
@@ -38,7 +39,7 @@ test.describe('signed out', () => {
   })
 
   test('signing in lands on the start screen with that person\'s data', async ({ page }) => {
-    await page.goto('/login')
+    await gotoHydrated(page, '/login')
 
     await page.getByTestId('login-email').fill(e2eAccount.email)
 
@@ -61,7 +62,7 @@ test.describe('signed out', () => {
   })
 
   test('a wrong password says so without saying whether the account exists', async ({ page }) => {
-    await page.goto('/login')
+    await gotoHydrated(page, '/login')
 
     await page.getByTestId('login-email').fill(e2eAccount.email)
     await page.getByTestId('login-password').fill('definitely-not-the-password')
@@ -76,7 +77,7 @@ test.describe('signed out', () => {
   })
 
   test('an address nobody has gets exactly the same answer', async ({ page }) => {
-    await page.goto('/login')
+    await gotoHydrated(page, '/login')
 
     await page.getByTestId('login-email').fill('nobody@kudos.example')
     await page.getByTestId('login-password').fill(e2eAccount.password)
@@ -120,7 +121,7 @@ test.describe('signed out', () => {
   })
 
   test('a password that is too short is refused at the field', async ({ page }) => {
-    await page.goto('/register')
+    await gotoHydrated(page, '/register')
 
     await page.getByTestId('register-name').fill('E2E Zu Kurz')
     await page.getByTestId('register-email').fill(`e2e.kurz.${Date.now()}@kudos.example`)
@@ -132,7 +133,7 @@ test.describe('signed out', () => {
   })
 
   test('an address that is already taken is refused', async ({ page }) => {
-    await page.goto('/register')
+    await gotoHydrated(page, '/register')
 
     await page.getByTestId('register-name').fill('E2E Doppelt')
     await page.getByTestId('register-email').fill(e2eAccount.email)

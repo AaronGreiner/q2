@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { apiBaseUrl } from './support/e2eEnvironment'
 import { goalLink } from './support/goalList'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * A spot check, end to end at phone width (docs/adr/0038-spot-checks.md): the
@@ -26,7 +27,7 @@ test('an open check comes first, opens a live-only camera and goes to its friend
   const title = `E2E no smoking ${Date.now()}`
 
   // A Don't checked by spot checks, made the way a person makes one.
-  await page.goto('/goals?create=1')
+  await gotoHydrated(page, '/goals?create=1')
   await page.getByTestId('segment-Dont').click()
   await page.getByTestId('goal-title-input').fill(title)
   await page.getByTestId('goal-next').click()

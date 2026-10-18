@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { goalLink } from './support/goalList'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * Back goes to the screen something was opened from, and finds it the way it
@@ -95,7 +96,7 @@ test('a list scrolled down is where it was left when it is gone back to', async 
 })
 
 test('the Friends search is still there when a result is gone back from, and only then', async ({ page }) => {
-  await page.goto('/search')
+  await gotoHydrated(page, '/search')
   await page.getByTestId('friend-search').fill('e2e.jonas')
   const result = page.getByTestId('person-result').filter({ hasText: seeded.friend })
   await expect(result).toBeVisible()

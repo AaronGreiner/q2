@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type TestInfo } from '@playwright/test'
 import { apiBaseUrl } from './support/e2eEnvironment'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * Following somebody's invite link, all the way to the friendship.
@@ -98,7 +99,7 @@ test('somebody with an account signs in from the link and accepts it', async ({ 
 
   try {
     const link = await inviteLinkOf(sender)
-    await page.goto(link)
+    await gotoHydrated(page, link)
 
     await page.getByTestId('invite-welcome-sign-in').click()
     await page.getByTestId('login-email').fill(guest.email)

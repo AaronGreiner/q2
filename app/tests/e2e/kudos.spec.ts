@@ -3,6 +3,7 @@ import { apiBaseUrl, e2eAccount } from './support/e2eEnvironment'
 import { deliverPhoto } from './support/proofPhoto'
 import { createGoal } from './support/createGoal'
 import { goalLink } from './support/goalList'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * The flows q2 exists for, through a real browser at phone width.
@@ -300,7 +301,7 @@ test.describe('goals', () => {
 
   test('a new goal can be created and appears in the list', async ({ page }) => {
     // The way in is the tab bar's centre button, which is a link to this URL.
-    await page.goto('/goals?create=1')
+    await gotoHydrated(page, '/goals?create=1')
 
     const title = `E2E created goal ${Date.now()}`
     await page.getByTestId('goal-title-input').fill(title)
@@ -443,7 +444,7 @@ test.describe('chats', () => {
   })
 
   test('a message can be sent and appears in the thread', async ({ page }) => {
-    await page.goto('/chats')
+    await gotoHydrated(page, '/chats')
     await page.getByTestId('chat-row').filter({ hasText: seeded.friend }).click()
 
     const text = `E2E message ${Date.now()}`
@@ -578,7 +579,7 @@ test.describe('friends', () => {
   })
 
   test('searching finds somebody who is not a friend yet, and adds them', async ({ page }) => {
-    await page.goto('/search')
+    await gotoHydrated(page, '/search')
 
     // The one box searches everybody, which is what makes it possible to add
     // somebody the app has not already suggested.
@@ -592,7 +593,7 @@ test.describe('friends', () => {
   })
 
   test('search matches a handle as well as a name', async ({ page }) => {
-    await page.goto('/search')
+    await gotoHydrated(page, '/search')
 
     await page.getByTestId('friend-search').fill('e2e.jonas')
 
@@ -600,7 +601,7 @@ test.describe('friends', () => {
   })
 
   test('a term too short to be useful asks for more rather than listing everybody', async ({ page }) => {
-    await page.goto('/search')
+    await gotoHydrated(page, '/search')
 
     await page.getByTestId('friend-search').fill('E')
 

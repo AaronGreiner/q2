@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { mailDirectory, recoveringAccount } from './support/e2eEnvironment'
+import { gotoHydrated } from './support/hydration'
 
 /**
  * The way back into an account whose password is gone.
@@ -52,7 +53,7 @@ async function resetLinkFor(address: string): Promise<string> {
 }
 
 test('a forgotten password is replaced through the link in the mail', async ({ page }) => {
-  await page.goto('/login')
+  await gotoHydrated(page, '/login')
   await page.getByTestId('login-email').fill(recoveringAccount.email)
   await page.getByTestId('to-forgot-password').click()
 
@@ -84,14 +85,14 @@ test('a forgotten password is replaced through the link in the mail', async ({ p
   await expect(page).toHaveURL('/')
 
   // The same link a second time is refused rather than replayed.
-  await page.goto(link)
+  await gotoHydrated(page, link)
   await page.getByTestId('reset-password').fill('noch-ein-anderes-passwort')
   await page.getByTestId('reset-submit').click()
   await expect(page.getByTestId('reset-invalid')).toBeVisible()
 })
 
 test('an address nobody has gets exactly the same answer', async ({ page }) => {
-  await page.goto('/forgot-password')
+  await gotoHydrated(page, '/forgot-password')
 
   await page.getByTestId('forgot-email').fill('nobody@kudos.example')
   await page.getByTestId('forgot-submit').click()
