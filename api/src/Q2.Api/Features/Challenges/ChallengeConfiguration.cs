@@ -19,6 +19,10 @@ public sealed class ChallengeConfiguration : IEntityTypeConfiguration<Challenge>
             .IsRequired()
             .HasMaxLength(Challenge.MaxPromptLength);
 
+        // Nullable for the rows written before #105; every new one has it.
+        builder.Property(challenge => challenge.PromptEnglish)
+            .HasMaxLength(Challenge.MaxPromptLength);
+
         builder.Property(challenge => challenge.PublishedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);

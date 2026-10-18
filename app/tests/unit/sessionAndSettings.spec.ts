@@ -153,18 +153,25 @@ describe('theme and settings', () => {
     const colorMode = reactive({ preference: 'system', value: 'light' })
     const language = ref<'German' | 'English'>('German')
     const settings = { theme: 'Dark', language: 'English', reminders: true, weeklyReview: false }
+    let stored = settings
     const api = {
       settings: {
         get: vi.fn().mockResolvedValue(settings),
-        update: vi.fn().mockImplementation(async change => ({ ...settings, ...change })),
+        update: vi.fn().mockImplementation(async (change) => {
+          stored = { ...stored, ...change }
+          return stored
+        }),
       },
     }
     const report = vi.fn(() => failure)
+
+    const refreshAll = vi.fn()
 
     vi.stubGlobal('useColorMode', () => colorMode)
     vi.stubGlobal('useLanguage', () => language)
     vi.stubGlobal('useQ2Api', () => api)
     vi.stubGlobal('useErrorReporter', () => ({ report }))
+    vi.stubGlobal('refreshNuxtData', refreshAll)
 
     const cookies = installCookies()
     const state = useAppSettings()
@@ -181,6 +188,13 @@ describe('theme and settings', () => {
     expect(cookies.get('q2-language')?.value).toBe('German')
     expect(state.settings.value).toMatchObject({ theme: 'Light' })
     expect(state.isSaving.value).toBe(false)
+
+    // A new language reads the screen again, for the prompt the server words
+    // in it (#105) — after the server knows it, and not for a theme alone.
+    expect(refreshAll).toHaveBeenCalledOnce()
+    await state.update({ theme: 'Dark' })
+    await state.update({ language: 'German' })
+    expect(refreshAll).toHaveBeenCalledOnce()
   })
 
   it('keeps defaults usable when loading or saving preferences fails', async () => {

@@ -33,8 +33,13 @@ public sealed class PushDelivery(
     /// Sends <paramref name="payload"/> to every device of
     /// <paramref name="recipients"/>. Returns how many took it.
     /// </summary>
+    /// <param name="englishSubject">
+    /// The subject in English, when q2 holds it in both languages — see
+    /// <see cref="NotificationEvent.EnglishSubject"/>.
+    /// </param>
     public async Task<int> DeliverAsync(
         NotificationResponse payload,
+        string? englishSubject,
         IReadOnlyCollection<Guid> recipients,
         CancellationToken cancellationToken)
     {
@@ -61,10 +66,7 @@ public sealed class PushDelivery(
         // in the language its recipient chose, which a device cannot ask for
         // (#39). Nobody with settings yet has the product default, as in the app.
         var owners = subscriptions.Select(subscription => subscription.PersonId).Distinct().ToList();
-        var languages = await database.UserSettings
-            .AsNoTracking()
-            .Where(settings => owners.Contains(settings.PersonId))
-            .ToDictionaryAsync(settings => settings.PersonId, settings => settings.Language, cancellationToken);
+        var languages = await ChosenLanguage.OfAsync(database, owners, cancellationToken);
 
         var now = timeProvider.GetUtcNow();
         var delivered = 0;
@@ -72,10 +74,8 @@ public sealed class PushDelivery(
 
         foreach (var subscription in subscriptions)
         {
-            var addressed = payload with
-            {
-                Language = languages.GetValueOrDefault(subscription.PersonId, LanguagePreference.German),
-            };
+            var language = languages.GetValueOrDefault(subscription.PersonId, ChosenLanguage.Default);
+            var addressed = payload.For(language, englishSubject) with { Language = language };
 
             switch (await sender.SendAsync(subscription, addressed, cancellationToken))
             {

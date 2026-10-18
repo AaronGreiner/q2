@@ -46,7 +46,9 @@ export function useTheme() {
  * the page renders (it is prefetched from app.vue). That is what makes the
  * server paint English for an English account on a device that has no
  * remembered language yet (#85). Every language applied is remembered on the
- * device for the next first paint (`rememberLanguage`).
+ * device for the next first paint (`rememberLanguage`), and a new one makes
+ * the mounted reads read again once it is saved, for the one text the server
+ * words in it (#105).
  */
 export function useAppSettings() {
   const api = useQ2Api()
@@ -90,12 +92,19 @@ export function useAppSettings() {
   const isSaving = ref(false)
 
   async function update(change: UpdateSettingsRequest) {
+    const newLanguage = Boolean(change.language) && change.language !== language.value
+
     if (change.theme) theme.preference.value = change.theme
     if (change.language) applyLanguage(change.language)
 
     isSaving.value = true
     try {
       data.value = await api.settings.update(change)
+
+      // The server words one thing itself, in the language it has stored: the
+      // daily challenge's prompt (#105). Once it knows the new one, whatever
+      // is mounted reads again rather than keep the old language's prompt.
+      if (newLanguage) void refreshNuxtData()
     }
     catch (caught) {
       report(caught, { feature: 'settings', action: 'update' })

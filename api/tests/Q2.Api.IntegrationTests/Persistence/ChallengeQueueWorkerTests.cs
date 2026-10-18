@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Q2.Api.Features.Challenges;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -78,5 +80,69 @@ public class ChallengeQueueWorkerTests(Q2ApiFactory factory) : ApiTestBase(facto
         {
             Assert.Equal(rows[index - 1].ExpiresAt, rows[index].PublishedAt);
         }
+    }
+
+    /// <summary>
+    /// Every row the queue writes can be read in either language, each half
+    /// straight from the configuration (#105).
+    /// </summary>
+    [Fact]
+    public async Task EveryQueuedDayHasItsPromptInBothLanguages()
+    {
+        await Worker.RunOnceAsync(TestContext.Current.CancellationToken);
+
+        var configured = Factory.Services.GetRequiredService<IOptions<ChallengeOptions>>().Value.Prompts;
+
+        foreach (var row in (await QueuedAsync()).Skip(1))
+        {
+            var pair = Assert.Single(configured, prompt => prompt.German == row.Prompt);
+            Assert.Equal(pair.English, row.PromptEnglish);
+        }
+    }
+
+    /// <summary>
+    /// A row written before prompts had two languages is given its English as
+    /// soon as the configuration holds its German — the archive included —
+    /// and one whose prompt has since left the configuration keeps reading in
+    /// German, because nobody wrote its English.
+    /// </summary>
+    [Fact]
+    public async Task ARowFromBeforeIsGivenItsEnglishWhereTheConfigurationHasIt()
+    {
+        var configured = Factory.Services.GetRequiredService<IOptions<ChallengeOptions>>().Value.Prompts[0];
+
+        await Worker.RunOnceAsync(TestContext.Current.CancellationToken);
+
+        // Two rows as they were before #105: one whose German is configured,
+        // and the seeded one, whose German is not.
+        Guid known = Guid.Empty;
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            var rows = await database.Challenges.OrderBy(challenge => challenge.Day).ToListAsync(TestContext.Current.CancellationToken);
+            known = rows[^1].Id;
+
+            await database.Challenges
+                .Where(challenge => challenge.Id == known)
+                .ExecuteUpdateAsync(
+                    update => update
+                        .SetProperty(challenge => challenge.Prompt, configured.German)
+                        .SetProperty(challenge => challenge.PromptEnglish, (string?)null),
+                    TestContext.Current.CancellationToken);
+
+            await database.Challenges
+                .Where(challenge => challenge.Id == rows[0].Id)
+                .ExecuteUpdateAsync(
+                    update => update.SetProperty(challenge => challenge.PromptEnglish, (string?)null),
+                    TestContext.Current.CancellationToken);
+        });
+
+        await Worker.RunOnceAsync(TestContext.Current.CancellationToken);
+        await Worker.RunOnceAsync(TestContext.Current.CancellationToken);
+
+        var after = await QueuedAsync();
+
+        Assert.Equal(configured.English, after.Single(row => row.Id == known).PromptEnglish);
+        Assert.Null(after[0].PromptEnglish);
+        Assert.Equal(AutomatedTestSeed.ChallengePrompt, after[0].PromptIn(LanguagePreference.English));
     }
 }

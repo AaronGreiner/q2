@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.Notifications;
@@ -50,15 +51,25 @@ public sealed class NotificationDispatcher(
             return;
         }
 
+        // Only a subject q2 holds in two languages differs by reader (#105);
+        // for everything else nobody's language is asked for.
+        var languages = notification.EnglishSubject is null || plan.Banner.Count == 0
+            ? []
+            : await ChosenLanguage.OfAsync(database, plan.Banner, cancellationToken);
+
         // After the refresh above, so an app that opens the banner finds the
         // screen behind it already read again.
         foreach (var personId in plan.Banner)
         {
+            var addressed = payload.For(
+                languages.GetValueOrDefault(personId, ChosenLanguage.Default),
+                notification.EnglishSubject);
+
             await hub.Clients.Group(LiveHub.GroupOf(personId))
-                .SendAsync(LiveEvents.Notification, payload, cancellationToken);
+                .SendAsync(LiveEvents.Notification, addressed, cancellationToken);
         }
 
-        await push.DeliverAsync(payload, plan.Push, cancellationToken);
+        await push.DeliverAsync(payload, notification.EnglishSubject, plan.Push, cancellationToken);
     }
 
     /// <summary>Tells whoever is looking what moved: the counts, and which part of the screen.</summary>

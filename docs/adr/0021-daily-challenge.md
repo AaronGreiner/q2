@@ -88,6 +88,16 @@ it is met. `ChallengeOptions.Prompts` is an ordered list in `appsettings.json`;
 a day becomes the current challenge simply because the clock reached it.
 Tomorrow's prompt exists tonight.
 
+Every prompt is written in German and English
+([#105](https://github.com/AaronGreiner/q2/issues/105)), because it is the one
+text on these screens the server holds rather than the client's catalogue, and
+an English reader was otherwise shown one German sentence in an English room.
+Both halves are required, and the host does not start with one missing. Each
+reader is given the one in the language they chose — in the room, the archive,
+the bell, a banner and a push — and a row written before this keeps reading in
+German until the queue finds its German in the configuration and fills in the
+English beside it.
+
 The two alternatives were both worse. An admin screen needs a role, and q2 has
 none ([0011](0011-authentication-with-identity.md)). A job that invents a prompt
 every night is a daily editorial shift by another name.

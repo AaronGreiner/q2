@@ -199,7 +199,9 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
     /// <summary>
     /// One announcement, two people, two languages: each device is told in the
-    /// language its owner chose in q2, not in its browser's (#39).
+    /// language its owner chose in q2, not in its browser's (#39) — and the
+    /// prompt, the one subject q2 writes itself, comes in that language too
+    /// (#105).
     /// </summary>
     [Fact]
     public async Task EachDeviceIsToldInTheLanguageItsOwnerChose()
@@ -216,8 +218,13 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
 
         var sent = Factory.PushSender.Sent;
 
-        Assert.Equal(LanguagePreference.German, Assert.Single(sent, message => message.Endpoint == "https://push.example/me").Payload.Language);
-        Assert.Equal(LanguagePreference.English, Assert.Single(sent, message => message.Endpoint == "https://push.example/friend").Payload.Language);
+        var mine = Assert.Single(sent, message => message.Endpoint == "https://push.example/me").Payload;
+        var theirs = Assert.Single(sent, message => message.Endpoint == "https://push.example/friend").Payload;
+
+        Assert.Equal(LanguagePreference.German, mine.Language);
+        Assert.Equal(AutomatedTestSeed.ChallengePrompt, mine.Subject);
+        Assert.Equal(LanguagePreference.English, theirs.Language);
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, theirs.Subject);
     }
 
     [Fact]

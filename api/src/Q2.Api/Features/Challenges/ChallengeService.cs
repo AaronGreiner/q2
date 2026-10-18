@@ -4,6 +4,7 @@ using Q2.Api.Features.Images;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Observability;
 using Q2.Api.Infrastructure.Persistence;
@@ -213,7 +214,8 @@ public sealed class ChallengeService(
                     me.Id,
                     NotificationTarget.Challenge,
                     challenge.Id,
-                    challenge.Prompt),
+                    challenge.Prompt,
+                    EnglishSubject: challenge.PromptEnglish),
                 [entry.PersonId],
                 cancellationToken);
         }
@@ -272,11 +274,12 @@ public sealed class ChallengeService(
         }
 
         var people = await LoadPeopleAsync([me.Id], cancellationToken);
+        var language = await ChosenLanguage.OfAsync(database, me.Id, cancellationToken);
 
         return
         [
             .. rows.Select(row => new ChallengeArchiveEntryResponse(
-                Describe(row.Challenge),
+                Describe(row.Challenge, language),
                 Describe(row.Entry, me.Id, people, now, revealed: true))),
         ];
     }
@@ -329,21 +332,23 @@ public sealed class ChallengeService(
             .ToList();
 
         var own = challenge.EntryOf(viewerId);
+        var language = await ChosenLanguage.OfAsync(database, viewerId, cancellationToken);
 
         var people = await LoadPeopleAsync(
             [.. friendEntries.Select(entry => entry.PersonId).Append(viewerId)],
             cancellationToken);
 
         return new ChallengeRoomResponse(
-            Describe(challenge),
+            Describe(challenge, language),
             own is null ? null : Describe(own, viewerId, people, now, revealed: true),
             [.. friendEntries.Select(entry => Describe(entry, viewerId, people, now, revealed))],
             friendIds.Count,
             revealed);
     }
 
-    private static ChallengeResponse Describe(Challenge challenge) =>
-        new(challenge.Id, challenge.Prompt, challenge.PublishedAt, challenge.ExpiresAt);
+    /// <param name="language">The reader's: the prompt is the one text here q2 wrote, in both (#105).</param>
+    private static ChallengeResponse Describe(Challenge challenge, LanguagePreference language) =>
+        new(challenge.Id, challenge.PromptIn(language), challenge.PublishedAt, challenge.ExpiresAt);
 
     /// <param name="revealed">
     /// False while the room is covered. The picture's id is then left out

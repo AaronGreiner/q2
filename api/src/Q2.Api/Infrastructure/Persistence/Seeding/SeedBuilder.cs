@@ -494,6 +494,8 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// <summary>
     /// Adds a daily challenge, covering one whole day.
     /// </summary>
+    /// <param name="prompt">In German.</param>
+    /// <param name="promptEnglish">The same task in English, which every challenge has (#105).</param>
     /// <param name="daysAgo">0 for the one running now, 1 for yesterday's.</param>
     /// <remarks>
     /// **No contributions.** A contribution is a photograph, a seed writes no
@@ -509,7 +511,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// challenge and a queued one can overlap by a few hours; the room takes
     /// the newest and carries on.
     /// </remarks>
-    public Challenge AddChallenge(string prompt, int daysAgo = 0)
+    public Challenge AddChallenge(string prompt, string promptEnglish, int daysAgo = 0)
     {
         var day = Context.Today.AddDays(-daysAgo);
 
@@ -517,6 +519,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             NextId(SeedEntity.Challenge),
             day,
             prompt,
+            promptEnglish,
             Context.DaysAgo(daysAgo),
 
             // Exclusive, like the queue's: the end of one day is the start of

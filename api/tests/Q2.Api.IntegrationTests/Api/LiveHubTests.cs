@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -390,6 +391,30 @@ public class LiveHubTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Equal(AutomatedTestSeed.ChallengePrompt, line.Subject);
         Assert.Null(line.Actor);
+    }
+
+    /// <summary>
+    /// A banner names the prompt in the language of whoever is looking, as a
+    /// push does (#105).
+    /// </summary>
+    [Fact]
+    public async Task TheChallengeIsAnnouncedOnScreenInTheReadersLanguage()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        (await friend.PutJsonAsync("/api/settings", new { language = LanguagePreference.English }))
+            .EnsureSuccessStatusCode();
+
+        var mine = await ConnectAsync(Client);
+        var theirs = await ConnectAsync(friend);
+
+        var toMe = NextAsync<LineDocument>(mine, LiveEvents.Notification, line => line.Kind == NotificationKind.ChallengePublished);
+        var toThem = NextAsync<LineDocument>(theirs, LiveEvents.Notification, line => line.Kind == NotificationKind.ChallengePublished);
+
+        var worker = ActivatorUtilities.CreateInstance<ChallengeQueueWorker>(Factory.Services);
+        Assert.Equal(1, await worker.AnnounceAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(AutomatedTestSeed.ChallengePrompt, (await toMe).Subject);
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, (await toThem).Subject);
     }
 
     [Fact]

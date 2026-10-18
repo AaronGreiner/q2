@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.People;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence;
 
 namespace Q2.Api.Features.Notifications;
@@ -46,6 +47,7 @@ public sealed class InboxService(
 
         var lines = InboxLines.Group(visible, seenBefore);
         var actors = await LoadActorsAsync(lines, cancellationToken);
+        var language = await ChosenLanguage.OfAsync(database, me.Id, cancellationToken);
 
         var responses = lines
             .Select(line => NotificationResponse.ForBell(
@@ -54,7 +56,8 @@ public sealed class InboxService(
                     ? PersonSummary.From(actor, now)
                     : null,
                 line.Latest.Kind == NotificationKind.ReactionReceived ? line.People.Count : line.Latest.Amount,
-                line.IsNew))
+                line.IsNew,
+                language))
             .ToList();
 
         me.MarkNotificationsSeen(now);

@@ -73,6 +73,9 @@ public sealed class E2ESeed : ISeedDataSource
     /// <summary>The prompt Playwright reads off the banner and the room.</summary>
     public const string ChallengePrompt = "E2E challenge of the day";
 
+    /// <summary>The same prompt for somebody who reads q2 in English (#105).</summary>
+    public const string ChallengePromptEnglish = "E2E challenge of the day, in English";
+
     /// <summary>A goal due three times a week, with one proof already in.</summary>
     public const string QuotaGoalTitle = "E2E goal three times a week";
 
@@ -206,7 +209,7 @@ public sealed class E2ESeed : ISeedDataSource
             unread: 0,
             new SeedMessage(lena, "E2E group hello", 600));
 
-        build.AddChallenge(ChallengePrompt);
+        build.AddChallenge(ChallengePrompt, ChallengePromptEnglish);
 
         // Two lines in the bell, both unseen, so the badge on it reads two and
         // opening it is what clears it.

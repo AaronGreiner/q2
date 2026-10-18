@@ -115,28 +115,70 @@ public sealed class ChallengeQueueWorker(
 
         var planned = ChallengeQueue.Plan(settings.Prompts, queued, today, horizon, calendar);
 
-        if (planned.Count == 0)
-        {
-            return 0;
-        }
-
         foreach (var item in planned)
         {
             database.Challenges.Add(Challenge.Create(
                 ids.NewId(),
                 item.Day,
-                item.Prompt,
+                item.Prompt.German,
+                item.Prompt.English,
                 item.PublishedAt,
                 item.ExpiresAt));
         }
 
+        var translated = await TranslateEarlierRowsAsync(database, settings.Prompts, cancellationToken);
+
+        if (planned.Count == 0 && translated == 0)
+        {
+            return 0;
+        }
+
         await database.SaveChangesAsync(cancellationToken);
 
-        // The count, not the prompts: they are authored text, and a log line is
-        // read by more people than wrote them.
-        logger.LogInformation("Queued {ChallengeCount} challenge(s)", planned.Count);
+        // The counts, not the prompts: they are authored text, and a log line
+        // is read by more people than wrote them.
+        logger.LogInformation(
+            "Queued {ChallengeCount} challenge(s); gave {TranslatedCount} earlier one(s) their English prompt",
+            planned.Count,
+            translated);
 
         return planned.Count;
+    }
+
+    /// <summary>
+    /// Gives the rows written before prompts came in two languages their
+    /// English one, wherever the configuration still holds the German prompt
+    /// they were written from (#105). Returns how many it gave one to.
+    /// </summary>
+    /// <remarks>
+    /// The past ones too: the archive shows every prompt somebody answered.
+    /// A row whose prompt has since left the configuration keeps reading in
+    /// German, and that is the honest answer — nobody wrote its English.
+    /// Idempotent like the rest of the pass: a row that has its English is
+    /// not asked again.
+    /// </remarks>
+    private static async Task<int> TranslateEarlierRowsAsync(
+        Q2DbContext database,
+        IReadOnlyList<ChallengePrompt> prompts,
+        CancellationToken cancellationToken)
+    {
+        var untranslated = await database.Challenges
+            .Where(challenge => challenge.PromptEnglish == null)
+            .ToListAsync(cancellationToken);
+
+        var translated = 0;
+
+        foreach (var challenge in untranslated)
+        {
+            var pair = prompts.FirstOrDefault(prompt => prompt.German.Trim() == challenge.Prompt);
+
+            if (pair is not null && challenge.GiveEnglish(pair.English))
+            {
+                translated++;
+            }
+        }
+
+        return translated;
     }
 
     /// <summary>
@@ -187,7 +229,8 @@ public sealed class ChallengeQueueWorker(
             ActorPersonId: null,
             NotificationTarget.Challenge,
             current.Id,
-            current.Prompt));
+            current.Prompt,
+            EnglishSubject: current.PromptEnglish));
 
         await notifier.FlushAsync(cancellationToken);
 

@@ -33,16 +33,40 @@ public sealed class ChallengeOptions
     /// <summary>
     /// The prompts, in rotation. Empty means no daily challenge at all.
     /// </summary>
-    public string[] Prompts { get; init; } = [];
+    public ChallengePrompt[] Prompts { get; init; } = [];
 
     /// <summary>How many days ahead to write rows for, including today.</summary>
     public int HorizonDays { get; init; } = DefaultHorizonDays;
+
+    /// <summary>
+    /// Whether every prompt can be published in both languages. Checked when
+    /// the host starts, so a prompt with one half missing stops a deployment
+    /// rather than a queue pass at night (#105).
+    /// </summary>
+    public bool IsComplete() =>
+        Prompts.All(prompt => Challenge.IsUsablePrompt(prompt.German) && Challenge.IsUsablePrompt(prompt.English));
+}
+
+/// <summary>
+/// One task, in both languages the interface speaks.
+/// </summary>
+/// <remarks>
+/// Written by whoever keeps the queue, never by a machine: a prompt is short
+/// and has a tone, and a translation that misses it reads worse than none. So
+/// both halves are required, and each reader is shown the one in their own
+/// language (#105).
+/// </remarks>
+public sealed class ChallengePrompt
+{
+    public string German { get; init; } = string.Empty;
+
+    public string English { get; init; } = string.Empty;
 }
 
 /// <summary>A challenge that should exist but does not yet.</summary>
 public sealed record PlannedChallenge(
     DateOnly Day,
-    string Prompt,
+    ChallengePrompt Prompt,
     DateTimeOffset PublishedAt,
     DateTimeOffset ExpiresAt);
 
@@ -76,7 +100,7 @@ public static class ChallengeQueue
     /// everybody and turns over at one moment. See <see cref="Challenge"/>.
     /// </param>
     public static IReadOnlyList<PlannedChallenge> Plan(
-        IReadOnlyList<string> prompts,
+        IReadOnlyList<ChallengePrompt> prompts,
         IReadOnlyCollection<DateOnly> alreadyQueued,
         DateOnly today,
         int horizonDays,
@@ -125,6 +149,6 @@ public static class ChallengeQueue
     /// not depend on what has already been written. That is what makes running
     /// this twice — or after a week of downtime — produce the same queue.
     /// </remarks>
-    public static string PromptFor(IReadOnlyList<string> prompts, DateOnly day) =>
+    public static ChallengePrompt PromptFor(IReadOnlyList<ChallengePrompt> prompts, DateOnly day) =>
         prompts[day.DayNumber % prompts.Count];
 }

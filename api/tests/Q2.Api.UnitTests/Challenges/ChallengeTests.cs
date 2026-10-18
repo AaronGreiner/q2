@@ -1,6 +1,7 @@
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Proofs;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Time;
 
@@ -50,6 +51,28 @@ public class ChallengeTests
         // Trimmed rather than refused: trailing space in a settings file is
         // not somebody's mistake to be punished for.
         Assert.Equal("Zeig deinen Schreibtisch.", Build(prompt: "  Zeig deinen Schreibtisch.  ").Prompt);
+    }
+
+    /// <summary>
+    /// Both languages, or no challenge: an English reader would otherwise get
+    /// the one German sentence on a screen that is English all round (#105).
+    /// </summary>
+    [Fact]
+    public void APromptComesInBothLanguages()
+    {
+        Assert.Throws<DomainValidationException>(() => Build(promptEnglish: " "));
+        Assert.Throws<DomainValidationException>(() => Build(promptEnglish: new string('x', Challenge.MaxPromptLength + 1)));
+
+        Assert.Equal("Show your desk.", Build(promptEnglish: "  Show your desk.  ").PromptEnglish);
+    }
+
+    [Fact]
+    public void EachReaderIsShownThePromptInTheirLanguage()
+    {
+        var challenge = Build();
+
+        Assert.Equal("Zeig deinen Schreibtisch.", challenge.PromptIn(LanguagePreference.German));
+        Assert.Equal("Show your desk.", challenge.PromptIn(LanguagePreference.English));
     }
 
     /// <summary>
@@ -146,11 +169,14 @@ public class ChallengeTests
         Assert.Empty(entry.Reactions);
     }
 
-    private static Challenge Build(string prompt = "Zeig deinen Schreibtisch.") =>
+    private static Challenge Build(
+        string prompt = "Zeig deinen Schreibtisch.",
+        string promptEnglish = "Show your desk.") =>
         Challenge.Create(
             NewId(1),
             Today,
             prompt,
+            promptEnglish,
             Utc.StartOfDay(Today),
             Utc.StartOfDay(Today.AddDays(1)));
 

@@ -19,7 +19,12 @@ public class ChallengeQueueTests
 
     private static readonly DateOnly Today = new(2026, 6, 15);
 
-    private static readonly string[] Prompts = ["eins", "zwei", "drei"];
+    private static readonly ChallengePrompt[] Prompts =
+    [
+        new() { German = "eins", English = "one" },
+        new() { German = "zwei", English = "two" },
+        new() { German = "drei", English = "three" },
+    ];
 
     [Fact]
     public void ItWritesOneRowPerDayUpToTheHorizon()
@@ -122,6 +127,16 @@ public class ChallengeQueueTests
 
         Assert.All(planned, item => Assert.Contains(item.Prompt, Prompts));
         Assert.Equal(3, planned.Select(item => item.Prompt).Distinct().Count());
+    }
+
+    /// <summary>A prompt with a half missing stops the host from starting, not a queue pass at night.</summary>
+    [Fact]
+    public void TheConfigurationIsCompleteOnlyWithBothLanguages()
+    {
+        Assert.True(new ChallengeOptions { Prompts = Prompts }.IsComplete());
+        Assert.True(new ChallengeOptions().IsComplete());
+        Assert.False(new ChallengeOptions { Prompts = [new() { German = "Zeig deinen Schreibtisch." }] }.IsComplete());
+        Assert.False(new ChallengeOptions { Prompts = [new() { English = "Show your desk." }] }.IsComplete());
     }
 
     /// <summary>No prompts configured is "no daily challenge", not a failure.</summary>

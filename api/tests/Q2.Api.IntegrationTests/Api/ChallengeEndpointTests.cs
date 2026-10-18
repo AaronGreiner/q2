@@ -3,7 +3,9 @@ using System.Net.Http.Headers;
 using Q2.Api.Features.Challenges;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Proofs;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -395,6 +397,52 @@ public class ChallengeEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         // The friend's contribution is in my room, not in my archive.
         Assert.DoesNotContain(archive, entry => entry.Entry.Author.Id == AutomatedTestSeed.FriendPersonId);
     }
+
+    /// <summary>
+    /// The prompt is the one text on these screens q2 writes itself, and it is
+    /// shown in the reader's language like everything around it (#105) — in
+    /// the room and in the archive alike. German for nobody-has-chosen.
+    /// </summary>
+    [Fact]
+    public async Task AnEnglishReaderIsShownThePromptInEnglish()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        (await friend.PutJsonAsync("/api/settings", new { language = LanguagePreference.English }))
+            .EnsureSuccessStatusCode();
+
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, (await TodayAsync(friend)).Room!.Challenge.Prompt);
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, (await ContributedRoomAsync(friend)).Challenge.Prompt);
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, Assert.Single(await ArchiveAsync(friend)).Challenge.Prompt);
+
+        Assert.Equal(AutomatedTestSeed.ChallengePrompt, (await TodayAsync(Client)).Room!.Challenge.Prompt);
+    }
+
+    /// <summary>
+    /// A reaction to your contribution stays in the bell, named after the
+    /// prompt — in your language there too (#105).
+    /// </summary>
+    [Fact]
+    public async Task TheBellNamesTheChallengeInTheReadersLanguage()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        (await friend.PutJsonAsync("/api/settings", new { language = LanguagePreference.English }))
+            .EnsureSuccessStatusCode();
+
+        var theirs = await ContributedRoomAsync(friend);
+        await ContributedRoomAsync(Client);
+
+        (await Client.PostJsonAsync(
+            $"/api/challenges/entries/{theirs.OwnEntry!.Id}/reactions",
+            new { kind = KudosKind.Fire })).EnsureSuccessStatusCode();
+
+        var bell = await (await friend.GetAsync("/api/notifications", TestContext.Current.CancellationToken))
+            .ReadAsync<IReadOnlyList<BellLineDocument>>();
+
+        var line = Assert.Single(bell, line => line.Kind == NotificationKind.ReactionReceived);
+        Assert.Equal(AutomatedTestSeed.ChallengePromptEnglish, line.Subject);
+    }
+
+    private sealed record BellLineDocument(NotificationKind Kind, string? Subject);
 
     [Fact]
     public async Task NoneOfItIsReachableWithoutASession()

@@ -306,7 +306,9 @@ internal static class KudosWorld
         // Today's prompt, with nobody in the room yet: a seed writes no
         // photographs, so what a developer sees is the state a real morning
         // starts in.
-        build.AddChallenge("Zeig deinen Arbeitsplatz, so wie er gerade aussieht.");
+        build.AddChallenge(
+            "Zeig deinen Arbeitsplatz, so wie er gerade aussieht.",
+            "Show your workspace, just as it looks right now.");
 
         build.AddDefaultSettings();
 

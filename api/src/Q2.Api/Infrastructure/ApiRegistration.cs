@@ -50,9 +50,16 @@ public static class ApiRegistration
         builder.Services.Configure<ImageOptions>(builder.Configuration.GetSection(ImageOptions.SectionName));
 
         // The daily challenge's prompts. Configuration is the editorial desk
-        // here on purpose — see ChallengeOptions.
-        builder.Services.Configure<ChallengeOptions>(
-            builder.Configuration.GetSection(ChallengeOptions.SectionName));
+        // here on purpose — see ChallengeOptions. Checked at start-up, because
+        // a prompt missing its English (#105) would otherwise surface as a
+        // failed queue pass at night.
+        builder.Services.AddOptions<ChallengeOptions>()
+            .Bind(builder.Configuration.GetSection(ChallengeOptions.SectionName))
+            .Validate(
+                options => options.IsComplete(),
+                $"Every prompt in {ChallengeOptions.SectionName}:Prompts needs a German and an English text of "
+                + $"{Challenge.MinPromptLength} to {Challenge.MaxPromptLength} characters.")
+            .ValidateOnStart();
 
         builder.Services.Configure<PushOptions>(builder.Configuration.GetSection(PushOptions.SectionName));
 

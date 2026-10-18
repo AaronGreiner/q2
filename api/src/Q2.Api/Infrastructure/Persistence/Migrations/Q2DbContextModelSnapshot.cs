@@ -16,7 +16,7 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
@@ -227,6 +227,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Prompt")
                         .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptEnglish")
                         .HasMaxLength(160)
                         .HasColumnType("TEXT");
 
@@ -817,6 +821,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Subject")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SubjectEnglish")
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 

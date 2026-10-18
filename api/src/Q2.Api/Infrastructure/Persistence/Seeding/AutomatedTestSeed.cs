@@ -80,6 +80,9 @@ public sealed class AutomatedTestSeed : ISeedDataSource
     /// </summary>
     public const string ChallengePrompt = "Automated test: today's prompt";
 
+    /// <summary>The same prompt for somebody who reads q2 in English (#105).</summary>
+    public const string ChallengePromptEnglish = "Automated test: today's prompt, in English";
+
     public SeedData Create(SeedContext context)
     {
         var build = new SeedBuilder(Owner, context);
@@ -181,7 +184,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         // One running challenge and no contributions: a seed writes no image
         // bytes, so the room starts empty and a test that wants somebody in it
         // uploads a picture like a client would.
-        build.AddChallenge(ChallengePrompt);
+        build.AddChallenge(ChallengePrompt, ChallengePromptEnglish);
 
         // One line in the bell, unseen: the friend reacted to the shared goal.
         // Enough for the badge to read one, and for opening the bell to clear

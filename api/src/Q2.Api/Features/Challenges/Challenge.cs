@@ -1,5 +1,6 @@
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Proofs;
+using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.Features.Challenges;
@@ -51,11 +52,18 @@ public sealed class Challenge
     {
     }
 
-    private Challenge(Guid id, DateOnly day, string prompt, DateTimeOffset publishedAt, DateTimeOffset expiresAt)
+    private Challenge(
+        Guid id,
+        DateOnly day,
+        string prompt,
+        string promptEnglish,
+        DateTimeOffset publishedAt,
+        DateTimeOffset expiresAt)
     {
         Id = id;
         Day = day;
         Prompt = prompt;
+        PromptEnglish = promptEnglish;
         PublishedAt = publishedAt;
         ExpiresAt = expiresAt;
     }
@@ -74,8 +82,21 @@ public sealed class Challenge
     /// </remarks>
     public DateOnly Day { get; private set; }
 
-    /// <summary>The wording of the task.</summary>
+    /// <summary>The wording of the task, in German — the product's own language.</summary>
     public string Prompt { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The same task in English (#105). Null only on a row written before
+    /// prompts had to come in both languages, until the queue finds its pair
+    /// in the configuration (<see cref="GiveEnglish"/>); such a row reads in
+    /// German for everybody.
+    /// </summary>
+    /// <remarks>
+    /// A column beside <see cref="Prompt"/> rather than a table of
+    /// translations: there are two languages, and a third is the moment the
+    /// frontend's catalogue changes shape too (#11).
+    /// </remarks>
+    public string? PromptEnglish { get; private set; }
 
     /// <summary>
     /// When it goes live. In the future for everything still queued.
@@ -105,23 +126,18 @@ public sealed class Challenge
 
     public IReadOnlyList<ChallengeEntry> Entries => _entries;
 
-    /// <summary>Publishes a prompt for one day.</summary>
-    /// <exception cref="DomainValidationException">The prompt or the window is not usable.</exception>
+    /// <summary>Publishes a prompt for one day, in both languages.</summary>
+    /// <exception cref="DomainValidationException">A prompt or the window is not usable.</exception>
     public static Challenge Create(
         Guid id,
         DateOnly day,
         string prompt,
+        string promptEnglish,
         DateTimeOffset publishedAt,
         DateTimeOffset expiresAt)
     {
-        var trimmed = (prompt ?? string.Empty).Trim();
-
-        if (trimmed.Length < MinPromptLength || trimmed.Length > MaxPromptLength)
-        {
-            throw new DomainValidationException(
-                nameof(Prompt),
-                $"A prompt is between {MinPromptLength} and {MaxPromptLength} characters.");
-        }
+        var german = Usable(prompt, nameof(Prompt));
+        var english = Usable(promptEnglish, nameof(PromptEnglish));
 
         if (expiresAt <= publishedAt)
         {
@@ -130,7 +146,43 @@ public sealed class Challenge
                 "A challenge has to end after it starts.");
         }
 
-        return new Challenge(id, day, trimmed, publishedAt, expiresAt);
+        return new Challenge(id, day, german, english, publishedAt, expiresAt);
+    }
+
+    /// <summary>Whether a text is fit to be one language's prompt.</summary>
+    public static bool IsUsablePrompt(string? prompt) =>
+        prompt?.Trim().Length is >= MinPromptLength and <= MaxPromptLength;
+
+    /// <summary>The prompt as somebody who reads q2 in <paramref name="language"/> is shown it.</summary>
+    public string PromptIn(LanguagePreference language) =>
+        language == LanguagePreference.English && PromptEnglish is { } english ? english : Prompt;
+
+    /// <summary>
+    /// Gives a row from before #105 its English prompt. Returns false when it
+    /// already had one, so running the queue twice changes nothing twice.
+    /// </summary>
+    /// <exception cref="DomainValidationException">The text is not a usable prompt.</exception>
+    public bool GiveEnglish(string promptEnglish)
+    {
+        if (PromptEnglish is not null)
+        {
+            return false;
+        }
+
+        PromptEnglish = Usable(promptEnglish, nameof(PromptEnglish));
+        return true;
+    }
+
+    private static string Usable(string? prompt, string field)
+    {
+        if (!IsUsablePrompt(prompt))
+        {
+            throw new DomainValidationException(
+                field,
+                $"A prompt is between {MinPromptLength} and {MaxPromptLength} characters.");
+        }
+
+        return prompt!.Trim();
     }
 
     /// <summary>Whether it is running: published, and not yet over.</summary>

@@ -1,3 +1,5 @@
+using Q2.Api.Features.Settings;
+
 namespace Q2.Api.Features.Notifications;
 
 /// <summary>
@@ -18,6 +20,12 @@ namespace Q2.Api.Features.Notifications;
 /// is already in its conversation, and a second copy of somebody's words in a
 /// notification table would be a second place to erase them from.
 /// </param>
+/// <param name="EnglishSubject">
+/// The subject in English, for the one subject q2 holds in both languages: a
+/// challenge's prompt (#105). Each reader is handed the one in their language.
+/// Null for everything a person wrote, which has the one language it was
+/// written in.
+/// </param>
 public sealed record NotificationEvent(
     NotificationKind Kind,
     Guid? ActorPersonId,
@@ -25,7 +33,8 @@ public sealed record NotificationEvent(
     Guid? TargetId,
     string? Subject = null,
     int? Amount = null,
-    string? Excerpt = null);
+    string? Excerpt = null,
+    string? EnglishSubject = null);
 
 /// <summary>
 /// One line in somebody's bell.
@@ -63,6 +72,7 @@ public sealed class Notification
         NotificationKind kind,
         Guid? actorPersonId,
         string? subject,
+        string? subjectEnglish,
         int? amount,
         NotificationTarget target,
         Guid? targetId,
@@ -73,6 +83,7 @@ public sealed class Notification
         Kind = kind;
         ActorPersonId = actorPersonId;
         Subject = subject;
+        SubjectEnglish = subjectEnglish;
         Amount = amount;
         Target = target;
         TargetId = targetId;
@@ -94,6 +105,16 @@ public sealed class Notification
     /// Sentry (docs/privacy.md).
     /// </summary>
     public string? Subject { get; private set; }
+
+    /// <summary>
+    /// The subject in English where q2 has one — a challenge's prompt (#105).
+    /// See <see cref="NotificationEvent.EnglishSubject"/>.
+    /// </summary>
+    public string? SubjectEnglish { get; private set; }
+
+    /// <summary>The subject as a reader of <paramref name="language"/> is shown it.</summary>
+    public string? SubjectIn(LanguagePreference language) =>
+        language == LanguagePreference.English && SubjectEnglish is { } english ? english : Subject;
 
     /// <summary>A number the sentence needs: days paused, proofs missing, attempts left.</summary>
     public int? Amount { get; private set; }
@@ -138,6 +159,7 @@ public sealed class Notification
             notification.Kind,
             notification.ActorPersonId,
             Shorten(notification.Subject, MaxSubjectLength),
+            Shorten(notification.EnglishSubject, MaxSubjectLength),
             notification.Amount,
             notification.Target,
             notification.TargetId,

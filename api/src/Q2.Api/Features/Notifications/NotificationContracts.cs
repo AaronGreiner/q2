@@ -77,7 +77,13 @@ public sealed record NotificationResponse(
     /// <summary>How much of a message a lock screen gets.</summary>
     public const int MaxExcerptLength = 140;
 
-    public static NotificationResponse ForBell(Notification line, PersonSummary? actor, int? amount, bool isNew)
+    /// <param name="language">The reader's, for a subject q2 holds in both (#105).</param>
+    public static NotificationResponse ForBell(
+        Notification line,
+        PersonSummary? actor,
+        int? amount,
+        bool isNew,
+        LanguagePreference language)
     {
         ArgumentNullException.ThrowIfNull(line);
 
@@ -85,7 +91,7 @@ public sealed record NotificationResponse(
             line.Id,
             line.Kind,
             actor,
-            line.Subject,
+            line.SubjectIn(language),
             Excerpt: null,
             amount,
             line.Target,
@@ -110,6 +116,16 @@ public sealed record NotificationResponse(
             occurredAt,
             IsNew: true);
     }
+
+    /// <summary>
+    /// This payload for a reader of <paramref name="language"/>: q2's own words
+    /// in theirs, where it has them in both (#105). Everything a person wrote
+    /// stays as it was written.
+    /// </summary>
+    public NotificationResponse For(LanguagePreference language, string? englishSubject) =>
+        language == LanguagePreference.English && Notification.Shorten(englishSubject, Notification.MaxSubjectLength) is { } english
+            ? this with { Subject = english }
+            : this;
 
     /// <summary>The bytes that are encrypted to a device — the same JSON the bell is read as.</summary>
     public string ToJson() => JsonSerializer.Serialize(this, PushJson.Options);
