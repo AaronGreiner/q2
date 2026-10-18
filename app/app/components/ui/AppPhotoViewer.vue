@@ -241,8 +241,11 @@ function onKeydown(event: KeyboardEvent) {
         aria-hidden="true"
       />
 
+      <!-- Somebody's photograph, at its largest: replaced as a whole in Session
+           Replay, like every other element that draws one (#126). -->
       <div
         class="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
+        data-q2-block
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"

@@ -49,7 +49,9 @@ describe('AppPhotoViewer', () => {
     expect(info).toContain('Zeig deinen Arbeitsplatz.')
     expect(info).toContain('Mara · 8.9.2026')
 
-    // Somebody's photograph and name, so neither reaches Session Replay.
+    // Somebody's photograph and name, so neither reaches Session Replay — the
+    // picture blocked as a whole, as everywhere else it is drawn (#126).
+    expect(wrapper.get('[data-testid="photo-viewer-image"]').element.closest('[data-q2-block]')).not.toBeNull()
     expect(wrapper.get('[data-testid="photo-viewer-info"] p').attributes()).toHaveProperty('data-q2-private')
   })
 
