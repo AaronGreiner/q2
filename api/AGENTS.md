@@ -288,12 +288,20 @@ Two layers, on purpose:
    reading its limits from the domain constants so the numbers have one source.
 2. `Goal.Create` enforces the same invariants regardless of caller.
 
+**A field error a person can see carries a code.** Validators fill a
+`FieldErrors` — an English message for the raw response, and a
+`FieldErrorCode` (`required`, `tooShort` with `min`, …) that travels as the
+problem's `codes` extension and that the app words in the reader's language.
+A rule a form can trip either fits an existing code or adds one here and in
+the frontend's catalogue
+([docs/adr/0042-field-errors-as-codes.md](../docs/adr/0042-field-errors-as-codes.md)).
+
 `GlobalExceptionHandler` is the only place that maps an exception to a
 response, and the only place that reports to Sentry:
 
 | Exception | Response | Sentry |
 | --- | --- | --- |
-| `DomainValidationException` | 400 + field errors | no |
+| `DomainValidationException` | 400 + field errors, with their `codes` | no |
 | `ResourceNotFoundException` | 404 | no |
 | `AuthenticationRequiredException` | 401 + a machine-readable `reason` | no |
 | `AccessDeniedException` | 403 | no |

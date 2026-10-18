@@ -200,7 +200,7 @@ public sealed class GoalService(
 
         if (CreateGoalRequestValidator.ValidateTargetDate(request.TargetDate, schedule, calendar.Today(now)) is { } problem)
         {
-            throw new DomainValidationException(nameof(request.TargetDate), problem);
+            throw new DomainValidationException(nameof(request.TargetDate), problem.Message, problem.Code);
         }
 
         var goal = Goal.Create(

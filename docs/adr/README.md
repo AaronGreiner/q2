@@ -49,3 +49,4 @@ so the reasoning at the time stays readable.
 | [0039](0039-first-run-onboarding.md) | A first-run introduction, once, and a first Do that waits for a friend | Accepted |
 | [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |
 | [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted |
+| [0042](0042-field-errors-as-codes.md) | Field errors travel as codes, and the app words them | Accepted |

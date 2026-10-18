@@ -37,11 +37,9 @@ const demo = computed(() => (config.demoEmail && config.demoPassword
 
 const message = computed(() => signInMessage(failure.value, t.value))
 
-/** Server-reported messages for one field, matched case-insensitively. */
+/** What is wrong with one field, worded in the reader's language from the server's code (#80). */
 function fieldError(field: string): string | undefined {
-  const errors = failure.value?.fieldErrors ?? {}
-  const match = Object.keys(errors).find(key => key.toLowerCase() === field.toLowerCase())
-  return match ? errors[match]?.[0] : undefined
+  return fieldErrorText(failure.value, field, t.value)
 }
 
 function useDemoAccount() {

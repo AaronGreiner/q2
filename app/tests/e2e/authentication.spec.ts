@@ -129,7 +129,20 @@ test.describe('signed out', () => {
     await page.getByTestId('register-submit').click()
 
     await expect(page).toHaveURL('/register')
-    await expect(page.getByTestId('register-form')).toContainText('at least 10 characters')
+
+    // In the language of the screen, not the API's English (#80).
+    await expect(page.getByTestId('register-form')).toContainText('Mindestens 10 Zeichen.')
+    await expect(page.getByTestId('register-form')).not.toContainText('at least')
+  })
+
+  test('an empty form is refused field by field, in German', async ({ page }) => {
+    await gotoHydrated(page, '/register')
+
+    await page.getByTestId('register-submit').click()
+
+    const form = page.getByTestId('register-form')
+    await expect(form.getByText('Bitte ausfüllen.')).toHaveCount(3)
+    await expect(form).not.toContainText('is required')
   })
 
   test('an address that is already taken is refused', async ({ page }) => {
@@ -141,6 +154,7 @@ test.describe('signed out', () => {
     await page.getByTestId('register-submit').click()
 
     await expect(page).toHaveURL('/register')
+    await expect(page.getByTestId('register-form')).toContainText('Mit dieser Adresse gibt es schon ein Konto.')
   })
 })
 

@@ -604,6 +604,9 @@ Three rules keep it working:
 - **The API sends structure, not sentences.** The feed sends `kind`, `subject`
   and `amount`; `activitySentence` in `app/utils/display.ts` composes the line.
   Anything the server phrases is a line that can only ever be one language.
+  A form's field errors are the same: shown through `fieldErrorText`, worded
+  from the code beside the server's English, never from the English itself
+  ([../docs/adr/0042-field-errors-as-codes.md](../docs/adr/0042-field-errors-as-codes.md)).
 
 Presentation helpers take the catalogue as an argument rather than reaching for
 a composable, which is what keeps them pure and unit-testable.

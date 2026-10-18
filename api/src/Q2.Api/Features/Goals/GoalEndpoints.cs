@@ -160,7 +160,7 @@ public static class GoalEndpoints
 
         if (errors.Count > 0)
         {
-            return TypedResults.ValidationProblem(errors);
+            return errors.ToProblem();
         }
 
         var created = await goals.CreateAsync(request, cancellationToken);
@@ -181,7 +181,7 @@ public static class GoalEndpoints
 
         if (errors.Count > 0)
         {
-            return TypedResults.ValidationProblem(errors);
+            return errors.ToProblem();
         }
 
         return TypedResults.Ok(await drafts.SaveAsync(request, cancellationToken));
@@ -210,7 +210,7 @@ public static class GoalEndpoints
 
         if (errors.Count > 0)
         {
-            return TypedResults.ValidationProblem(errors);
+            return errors.ToProblem();
         }
 
         return TypedResults.Ok(await goals.PauseAsync(id, request, cancellationToken));

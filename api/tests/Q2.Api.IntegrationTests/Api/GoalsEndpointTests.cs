@@ -2,6 +2,7 @@ using System.Net;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
+using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
 
@@ -300,8 +301,11 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        var problem = await response.ReadAsync<ValidationDocument>();
+        var problem = await response.ReadAsync<CodedProblemDocument>();
         Assert.Contains("ParticipantIds", problem.Errors.Keys);
+
+        // The create sheet words it from this, in the reader's language (#80).
+        Assert.Equal(FieldErrorCodes.NoChecker, problem.CodeOf("ParticipantIds").Code);
     }
 
     [Fact]
@@ -359,8 +363,15 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        var problem = await response.ReadAsync<ValidationDocument>();
+        var problem = await response.ReadAsync<CodedProblemDocument>();
         Assert.Contains("TargetDate", problem.Errors.Keys);
+
+        // Raised by the service, through the global handler, and coded all the same (#80).
+        Assert.Equal(
+            daysFromToday < 0
+                ? new FieldErrorCodeDocument(FieldErrorCodes.PastDay, null, null)
+                : new FieldErrorCodeDocument(FieldErrorCodes.TooFarAhead, null, Goal.MaxTargetDaysAhead),
+            problem.CodeOf("TargetDate"));
     }
 
     [Fact]

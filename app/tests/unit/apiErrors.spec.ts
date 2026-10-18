@@ -51,6 +51,27 @@ describe('normalizeApiError', () => {
     expect(error.fieldErrors.Icon).toEqual([])
   })
 
+  it('keeps the code each field is worded by, with the bounds it names (#80)', () => {
+    const error = normalizeApiError(fetchError(400, {
+      errors: { Password: ['A password must be at least 10 characters long.'] },
+      codes: { Password: [{ code: 'tooShort', min: 10 }], Email: [{ code: 'email' }] },
+    }))
+
+    expect(error.fieldCodes.Password).toEqual([{ code: 'tooShort', min: 10 }])
+    expect(error.fieldCodes.Email).toEqual([{ code: 'email' }])
+    expect(toApiFailure(error).fieldCodes).toEqual(error.fieldCodes)
+  })
+
+  it('ignores codes that are not of the expected shape', () => {
+    const error = normalizeApiError(fetchError(400, {
+      codes: { Title: 'required', Icon: [{ code: 1 }, null, { code: 'unknownOption', max: 'x' }] },
+    }))
+
+    expect(error.fieldCodes.Title).toBeUndefined()
+    expect(error.fieldCodes.Icon).toEqual([{ code: 'unknownOption' }])
+    expect(normalizeApiError(fetchError(400, { codes: 'nope' })).fieldCodes).toEqual({})
+  })
+
   it('keeps the correlation ids a user can quote', () => {
     const error = normalizeApiError(fetchError(500, { traceId: 'trace-1', errorId: 'sentry-1' }))
 

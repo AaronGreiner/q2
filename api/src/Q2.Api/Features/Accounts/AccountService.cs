@@ -321,7 +321,8 @@ public sealed class AccountService(
         {
             throw new DomainValidationException(
                 nameof(request.Password),
-                "Your password is required to delete your account.");
+                "Your password is required to delete your account.",
+                new(FieldErrorCodes.Required));
         }
 
         var me = await currentPerson.GetAsync(cancellationToken);
@@ -558,11 +559,18 @@ public sealed class AccountService(
 
     /// <summary>
     /// Turns Identity's error codes into the field-level shape every other
-    /// rejected request in q2 has.
+    /// rejected request in q2 has — the first answer per field, with the code
+    /// the app words it by (#80).
     /// </summary>
-    private static Dictionary<string, string[]> ToFieldErrors(IdentityResult result)
+    /// <remarks>
+    /// The address and the user name are the same thing here, so a taken one
+    /// is reported once, as the address. Everything else Identity can say has
+    /// been ruled out by <see cref="AccountRequestValidator"/> already, and is
+    /// worded generically if it ever arrives.
+    /// </remarks>
+    private static FieldErrors ToFieldErrors(IdentityResult result)
     {
-        var errors = new Dictionary<string, List<string>>();
+        var errors = new FieldErrors();
 
         foreach (var error in result.Errors)
         {
@@ -574,10 +582,16 @@ public sealed class AccountService(
                 _ => nameof(RegisterRequest.Email),
             };
 
-            errors.TryAdd(field, []);
-            errors[field].Add(error.Description);
+            var reason = error.Code is nameof(IdentityErrorDescriber.DuplicateEmail) or nameof(IdentityErrorDescriber.DuplicateUserName)
+                ? FieldErrorCodes.Taken
+                : FieldErrorCodes.Invalid;
+
+            if (!errors.ContainsKey(field))
+            {
+                errors.Add(field, new(reason), error.Description);
+            }
         }
 
-        return errors.ToDictionary(entry => entry.Key, entry => entry.Value.ToArray());
+        return errors;
     }
 }

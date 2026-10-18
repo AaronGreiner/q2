@@ -10,8 +10,9 @@ import type { DontTemplate, GoalTemplate } from '~/utils/goalTemplates'
  *
  * It owns its own draft and nothing else: submitting emits the request and the
  * page decides what to do with it. Server-side field errors are passed back in
- * via `error`, so the messages the user reads are the ones the API produced —
- * no second copy of the rules living in the browser.
+ * via `error`, so the rules the user reads are the ones the API enforced — no
+ * second copy of them living in the browser — worded from the catalogue by
+ * the code each one carries (#80).
  *
  * **Four short steps rather than one long form.** What, how often, who checks
  * it, and a summary. Every one fits on a phone without scrolling past three
@@ -163,11 +164,9 @@ const firstWindow = computed(() => {
   return t.value.create.firstWindowOn(formatWeekdayDay(end, t.value))
 })
 
-/** Server-reported messages for one field, matched case-insensitively. */
+/** What is wrong with one field, worded in the reader's language from the server's code (#80). */
 function fieldError(field: string): string | undefined {
-  const errors = props.error?.fieldErrors ?? {}
-  const match = Object.keys(errors).find(key => key.toLowerCase() === field.toLowerCase())
-  return match ? errors[match]?.[0] : undefined
+  return fieldErrorText(props.error, field, t.value)
 }
 
 /*

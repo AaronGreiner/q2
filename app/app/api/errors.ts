@@ -39,6 +39,20 @@ const expectedKinds: ReadonlySet<ApiErrorKind> = new Set<ApiErrorKind>([
 ])
 
 /**
+ * Which rule a field broke, as the server says it: a code and the bounds the
+ * sentence needs. The words come from the `validation` block of the catalogue,
+ * in the reader's language (#80, docs/adr/0042-field-errors-as-codes.md).
+ * Mirrors `FieldErrorCode` in api/src/Q2.Api/Infrastructure/Errors/FieldErrors.cs,
+ * which travels as a validation problem's `codes` extension and so is not in
+ * the generated contract.
+ */
+export interface FieldErrorCode {
+  code: string
+  min?: number
+  max?: number
+}
+
+/**
  * A failed API call, normalised into something the UI can act on.
  *
  * Note what is *not* here: a sentence to show somebody. The app speaks two
@@ -49,8 +63,14 @@ const expectedKinds: ReadonlySet<ApiErrorKind> = new Set<ApiErrorKind>([
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status: number | null
-  /** Field name -> messages. Empty unless `kind === 'validation'`. */
+  /**
+   * Field name -> messages. Empty unless `kind === 'validation'`. The messages
+   * are the server's English, for a breadcrumb; a person is shown
+   * {@link fieldCodes}, worded from the catalogue.
+   */
   readonly fieldErrors: Readonly<Record<string, string[]>>
+  /** Field name -> the codes of the rules it broke, under the same names as `fieldErrors`. */
+  readonly fieldCodes: Readonly<Record<string, FieldErrorCode[]>>
   /**
    * Why a 401 came back — `invalidCredentials`, `lockedOut`, `noSession`.
    *
@@ -68,6 +88,7 @@ export class ApiError extends Error {
     kind: ApiErrorKind
     status?: number | null
     fieldErrors?: Record<string, string[]>
+    fieldCodes?: Record<string, FieldErrorCode[]>
     reason?: string | null
     traceId?: string | null
     errorId?: string | null
@@ -78,6 +99,7 @@ export class ApiError extends Error {
     this.kind = init.kind
     this.status = init.status ?? null
     this.fieldErrors = Object.freeze({ ...(init.fieldErrors ?? {}) })
+    this.fieldCodes = Object.freeze({ ...(init.fieldCodes ?? {}) })
     this.reason = init.reason ?? null
     this.traceId = init.traceId ?? null
     this.errorId = init.errorId ?? null
@@ -106,6 +128,8 @@ export interface ApiFailure {
   kind: ApiErrorKind
   status: number | null
   fieldErrors: Record<string, string[]>
+  /** See {@link ApiError.fieldCodes}. Absent on a failure that never had any. */
+  fieldCodes?: Record<string, FieldErrorCode[]>
   reason: string | null
   traceId: string | null
   errorId: string | null
@@ -117,6 +141,7 @@ export function toApiFailure(error: ApiError): ApiFailure {
     kind: error.kind,
     status: error.status,
     fieldErrors: { ...error.fieldErrors },
+    fieldCodes: { ...error.fieldCodes },
     reason: error.reason,
     traceId: error.traceId,
     errorId: error.errorId,
@@ -145,6 +170,7 @@ interface FetchLikeError {
 }
 
 function readProblem(data: unknown): ProblemDetails & Partial<ValidationProblemDetails> & {
+  codes?: unknown
   reason?: unknown
   traceId?: unknown
   errorId?: unknown
@@ -160,6 +186,29 @@ function readFieldErrors(problem: { errors?: unknown }): Record<string, string[]
     if (Array.isArray(messages)) {
       result[field] = messages.filter((m): m is string => typeof m === 'string')
     }
+  }
+  return result
+}
+
+/** The `codes` extension, keeping only entries of the expected shape. */
+function readFieldCodes(problem: { codes?: unknown }): Record<string, FieldErrorCode[]> {
+  if (typeof problem.codes !== 'object' || problem.codes === null) return {}
+
+  const result: Record<string, FieldErrorCode[]> = {}
+  for (const [field, codes] of Object.entries(problem.codes as Record<string, unknown>)) {
+    if (!Array.isArray(codes)) continue
+
+    result[field] = codes.flatMap((entry): FieldErrorCode[] => {
+      if (typeof entry !== 'object' || entry === null) return []
+      const { code, min, max } = entry as Record<string, unknown>
+      if (typeof code !== 'string') return []
+
+      return [{
+        code,
+        ...(typeof min === 'number' ? { min } : {}),
+        ...(typeof max === 'number' ? { max } : {}),
+      }]
+    })
   }
   return result
 }
@@ -187,6 +236,7 @@ export function normalizeApiError(error: unknown): ApiError {
     kind: kindForStatus(status),
     status,
     fieldErrors: readFieldErrors(problem),
+    fieldCodes: readFieldCodes(problem),
     reason: typeof problem.reason === 'string' ? problem.reason : null,
     traceId: typeof problem.traceId === 'string' ? problem.traceId : null,
     errorId: typeof problem.errorId === 'string' ? problem.errorId : null,

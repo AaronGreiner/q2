@@ -356,11 +356,14 @@ describe('GoalCreateSheet', () => {
   })
 
   it('matches field errors case-insensitively and takes a refusal back to its step', async () => {
+    // The server's messages are English; what is shown is worded from the
+    // codes beside them, in the screen's language (#80).
     const fieldFailure: ApiFailure = {
       kind: 'validation',
       isExpected: true,
       status: 400,
-      fieldErrors: { Title: ['Titel fehlt'], ICON: ['Icon ungültig'] },
+      fieldErrors: { Title: ['A title may be at most 120 characters long.'], ICON: ['That icon is not one of the available goal icons.'] },
+      fieldCodes: { Title: [{ code: 'tooLong', max: 120 }], ICON: [{ code: 'unknownOption' }] },
       traceId: null,
       errorId: null,
       reason: null,
@@ -370,8 +373,9 @@ describe('GoalCreateSheet', () => {
       attachTo: document.body,
     })
 
-    expect(document.body.textContent).toContain('Titel fehlt')
-    expect(document.body.textContent).toContain('Icon ungültig')
+    expect(document.body.textContent).toContain('Höchstens 120 Zeichen.')
+    expect(document.body.textContent).toContain('Bitte wähl eine der Möglichkeiten.')
+    expect(document.body.textContent).not.toContain('at most')
     expect(document.querySelector('[data-testid="goal-create-error"]')).toBeNull()
     fieldWrapper.unmount()
     document.body.replaceChildren()
@@ -389,9 +393,15 @@ describe('GoalCreateSheet', () => {
     await wrapper.vm.$nextTick()
     await next(wrapper)
 
-    await wrapper.setProps({ error: { ...fieldFailure, fieldErrors: { participantIds: ['Freund fehlt'] } } })
+    await wrapper.setProps({
+      error: {
+        ...fieldFailure,
+        fieldErrors: { ParticipantIds: ['Invite at least one friend to check this goal.'] },
+        fieldCodes: { ParticipantIds: [{ code: 'noChecker' }] },
+      },
+    })
     expect(element('[data-testid="goal-create-step"]').textContent).toContain('Schritt 3 von 4')
-    expect(document.body.textContent).toContain('Freund fehlt')
+    expect(document.body.textContent).toContain('Wähl mindestens eine Person, die dich prüft.')
     wrapper.unmount()
     document.body.replaceChildren()
 

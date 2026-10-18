@@ -112,6 +112,39 @@ public class AccountEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        // Identity's own sentence is English; the code is what the form words (#80).
+        var problem = await response.ReadAsync<CodedProblemDocument>();
+        Assert.Equal(FieldErrorCodes.Taken, problem.CodeOf("Email").Code);
+    }
+
+    /// <summary>
+    /// What the registration form shows comes from the app's catalogue, in the
+    /// language the person reads q2 in — so every field error carries a code,
+    /// with the number the sentence needs, beside the English message (#80).
+    /// </summary>
+    [Fact]
+    public async Task EveryFieldErrorCarriesACodeTheAppWordsItBy()
+    {
+        var empty = await (await AnonymousClient.PostJsonAsync("/api/auth/register", new { name = "", email = "", password = "" }))
+            .ReadAsync<CodedProblemDocument>();
+
+        Assert.Equal(FieldErrorCodes.Required, empty.CodeOf("Name").Code);
+        Assert.Equal(FieldErrorCodes.Required, empty.CodeOf("Email").Code);
+        Assert.Equal(FieldErrorCodes.Required, empty.CodeOf("Password").Code);
+
+        var short_ = await (await AnonymousClient.PostJsonAsync("/api/auth/register", new
+        {
+            name = "Kurz",
+            email = "kein-at-zeichen",
+            password = "kurz",
+        })).ReadAsync<CodedProblemDocument>();
+
+        Assert.Equal(FieldErrorCodes.Email, short_.CodeOf("Email").Code);
+        Assert.Equal(new FieldErrorCodeDocument(FieldErrorCodes.TooShort, AccountPolicy.MinimumPasswordLength, null), short_.CodeOf("Password"));
+
+        // The English message stays, for whoever reads the raw response.
+        Assert.Equal($"A password must be at least {AccountPolicy.MinimumPasswordLength} characters long.", Assert.Single(short_.Errors["Password"]));
     }
 
     [Fact]

@@ -12,13 +12,18 @@ public interface IExpectedFailure
 
 /// <summary>
 /// A domain invariant was violated. Carries per-field messages so the API can
-/// answer with a standard validation problem.
+/// answer with a standard validation problem — and, where the rule has one,
+/// the <see cref="FieldErrorCode"/> a client words it by (#80).
 /// </summary>
 public sealed class DomainValidationException : Exception, IExpectedFailure
 {
-    public DomainValidationException(string field, string message)
+    public DomainValidationException(string field, string message, FieldErrorCode? code = null)
         : this(new Dictionary<string, string[]> { [field] = [message] })
     {
+        if (code is not null)
+        {
+            Codes = new Dictionary<string, FieldErrorCode[]> { [field] = [code] };
+        }
     }
 
     public DomainValidationException(IReadOnlyDictionary<string, string[]> errors)
@@ -27,7 +32,16 @@ public sealed class DomainValidationException : Exception, IExpectedFailure
         Errors = errors;
     }
 
+    public DomainValidationException(FieldErrors errors)
+        : this((IReadOnlyDictionary<string, string[]>)errors)
+    {
+        Codes = errors.Codes;
+    }
+
     public IReadOnlyDictionary<string, string[]> Errors { get; }
+
+    /// <summary>The codes for the fields that have one; a field without one is worded generically.</summary>
+    public IReadOnlyDictionary<string, FieldErrorCode[]> Codes { get; } = new Dictionary<string, FieldErrorCode[]>();
 
     public int StatusCode => StatusCodes.Status400BadRequest;
 }

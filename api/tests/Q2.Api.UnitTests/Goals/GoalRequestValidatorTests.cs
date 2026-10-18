@@ -1,4 +1,5 @@
 using Q2.Api.Features.Goals;
+using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.UnitTests.Goals;
 
@@ -42,6 +43,10 @@ public class CreateGoalRequestValidatorTests
         Assert.Equal(
             [nameof(CreateGoalRequest.Title), nameof(CreateGoalRequest.ParticipantIds)],
             errors.Keys);
+
+        // Each with the code the create sheet words it by (#80).
+        Assert.Equal(FieldErrorCodes.Required, Assert.Single(errors.Codes[nameof(CreateGoalRequest.Title)]).Code);
+        Assert.Equal(FieldErrorCodes.NoChecker, Assert.Single(errors.Codes[nameof(CreateGoalRequest.ParticipantIds)]).Code);
     }
 
     [Fact]

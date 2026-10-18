@@ -88,10 +88,10 @@ public sealed class PasswordResetService(
                 throw InvalidLink();
             }
 
-            throw new DomainValidationException(new Dictionary<string, string[]>
-            {
-                [nameof(request.Password)] = [.. result.Errors.Select(error => error.Description)],
-            });
+            throw new DomainValidationException(
+                nameof(request.Password),
+                result.Errors.First().Description,
+                new(FieldErrorCodes.Invalid));
         }
 
         // The way back into an account is also the way out of a lockout: a
@@ -113,5 +113,5 @@ public sealed class PasswordResetService(
     }
 
     private static DomainValidationException InvalidLink() =>
-        new(nameof(ResetPasswordRequest.Token), AccountRequestValidator.InvalidResetLink);
+        new(nameof(ResetPasswordRequest.Token), AccountRequestValidator.InvalidResetLink, new(FieldErrorCodes.ResetLink));
 }

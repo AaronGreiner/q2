@@ -1273,6 +1273,31 @@ export const de = {
     unexpected: 'Wir sind auf ein unerwartetes Problem gestoßen. Es wurde aufgezeichnet — bitte versuch es erneut.',
   },
 
+  /**
+   * What is wrong with one field of a form, by the code the server sends with
+   * it (#80, docs/adr/0042-field-errors-as-codes.md). The server's own message
+   * is English and meant for whoever reads the raw response; these are what a
+   * person is shown, under the field. Short, because the label above already
+   * says which field it is.
+   */
+  fieldErrors: {
+    invalid: 'Das passt so nicht. Bitte prüf die Angabe.',
+    required: 'Bitte ausfüllen.',
+    tooShort: (min: number) => `Mindestens ${min} Zeichen.`,
+    tooLong: (max: number) => `Höchstens ${max} Zeichen.`,
+    outOfRange: (min: number, max: number) => `Bitte eine Zahl von ${min} bis ${max}.`,
+    tooMany: (max: number) => `Höchstens ${max}.`,
+    email: 'Das sieht nicht nach einer E-Mail-Adresse aus.',
+    taken: 'Mit dieser Adresse gibt es schon ein Konto.',
+    unknownOption: 'Bitte wähl eine der Möglichkeiten.',
+    resetLink: 'Dieser Link ist ungültig, abgelaufen oder wurde schon benutzt.',
+    noChecker: 'Wähl mindestens eine Person, die dich prüft.',
+    noWeekday: 'Wähl mindestens einen Wochentag.',
+    pastDay: 'Dieser Tag ist schon vorbei.',
+    tooFarAhead: (days: number) => `Höchstens ${days} Tage im Voraus.`,
+    mustRepeat: 'Ein wartendes Do muss sich wiederholen.',
+  },
+
   /*
    * The page the service worker shows when a navigation cannot reach the
    * server. It is the one screen in q2 that is rendered without the
@@ -2409,6 +2434,24 @@ export const en: Messages = {
     pageNotFound: 'Page not found',
     pageNotFoundHint: 'That page does not exist. It may have been moved or removed.',
     unexpected: 'We hit an unexpected problem. The incident has been recorded — please try again.',
+  },
+
+  fieldErrors: {
+    invalid: 'That does not work. Please check it.',
+    required: 'Please fill this in.',
+    tooShort: (min: number) => `At least ${min} characters.`,
+    tooLong: (max: number) => `At most ${max} characters.`,
+    outOfRange: (min: number, max: number) => `Please enter a number from ${min} to ${max}.`,
+    tooMany: (max: number) => `At most ${max}.`,
+    email: 'That does not look like an email address.',
+    taken: 'There is already an account with this address.',
+    unknownOption: 'Please choose one of the options.',
+    resetLink: 'This link is invalid, has expired, or has been used already.',
+    noChecker: 'Choose at least one person to check you.',
+    noWeekday: 'Choose at least one weekday.',
+    pastDay: 'That day has already passed.',
+    tooFarAhead: (days: number) => `At most ${days} days ahead.`,
+    mustRepeat: 'A waiting Do has to repeat.',
   },
 
   offline: {

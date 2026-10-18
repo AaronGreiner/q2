@@ -62,7 +62,7 @@ public static class ProfileEndpoints
 
         if (errors.Count > 0)
         {
-            return TypedResults.ValidationProblem(errors);
+            return errors.ToProblem();
         }
 
         var result = await profile.UpdateAsync(request, cancellationToken);

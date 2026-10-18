@@ -1,3 +1,5 @@
+using Q2.Api.Infrastructure.Errors;
+
 namespace Q2.Api.Features.Goals;
 
 /// <summary>
@@ -11,56 +13,44 @@ namespace Q2.Api.Features.Goals;
 /// everything themselves; a request that slips past this validator produces a
 /// <see cref="Infrastructure.Errors.DomainValidationException"/>, which the
 /// global handler also turns into a 400.
+///
+/// Every message comes with a <see cref="FieldErrorCode"/>, which is what the
+/// create sheet words in the reader's language (#80).
 /// </remarks>
 public static class CreateGoalRequestValidator
 {
     /// <summary>
-    /// Returns field name → messages. An empty dictionary means "valid".
+    /// Returns what is wrong, per field. Empty means "valid".
     /// </summary>
-    public static Dictionary<string, string[]> Validate(CreateGoalRequest request)
+    public static FieldErrors Validate(CreateGoalRequest request)
     {
-        var errors = new Dictionary<string, string[]>();
+        var errors = new FieldErrors();
 
-        var title = request.Title?.Trim();
-        if (string.IsNullOrEmpty(title))
-        {
-            errors[nameof(request.Title)] = ["A title is required."];
-        }
-        else if (title.Length > Goal.MaxTitleLength)
-        {
-            errors[nameof(request.Title)] = [$"A title may be at most {Goal.MaxTitleLength} characters long."];
-        }
+        AddTitleErrors(request.Title, nameof(request.Title), errors);
 
         if (request.Description is { } description && description.Trim().Length > Goal.MaxDescriptionLength)
         {
-            errors[nameof(request.Description)] =
-                [$"A description may be at most {Goal.MaxDescriptionLength} characters long."];
+            errors.Add(
+                nameof(request.Description),
+                new(FieldErrorCodes.TooLong, Max: Goal.MaxDescriptionLength),
+                $"A description may be at most {Goal.MaxDescriptionLength} characters long.");
         }
 
-        if (request.Icon is { } icon && !string.IsNullOrWhiteSpace(icon) && !GoalIcons.IsValid(icon.Trim()))
-        {
-            errors[nameof(request.Icon)] = ["That icon is not one of the available goal icons."];
-        }
+        AddIconErrors(request.Icon, nameof(request.Icon), errors);
 
         var kind = request.Kind ?? GoalKind.Do;
 
         if (!Enum.IsDefined(kind))
         {
-            errors[nameof(request.Kind)] = ["That is not a kind of goal."];
+            errors.Add(nameof(request.Kind), new(FieldErrorCodes.UnknownOption), "That is not a kind of goal.");
         }
         else if (kind == GoalKind.Dont)
         {
-            foreach (var (field, messages) in ValidateDont(request))
-            {
-                errors[field] = messages;
-            }
+            errors.Add(ValidateDont(request));
         }
         else
         {
-            foreach (var (field, messages) in ValidateSchedule(request.Schedule))
-            {
-                errors[field] = messages;
-            }
+            errors.Add(ValidateSchedule(request.Schedule));
         }
 
         // At least one friend: a goal is checked by the people it is made in
@@ -68,49 +58,83 @@ public static class CreateGoalRequestValidator
         // (docs/adr/0027-goal-conversations.md).
         if (request.ParticipantIds is not { Count: > 0 } participants)
         {
-            errors[nameof(request.ParticipantIds)] = ["Invite at least one friend to check this goal."];
+            errors.Add(
+                nameof(request.ParticipantIds),
+                new(FieldErrorCodes.NoChecker),
+                "Invite at least one friend to check this goal.");
         }
         else
         {
             if (participants.Count > Goal.MaxParticipants)
             {
-                errors[nameof(request.ParticipantIds)] =
-                    [$"A goal may have at most {Goal.MaxParticipants} participants."];
+                errors.Add(
+                    nameof(request.ParticipantIds),
+                    new(FieldErrorCodes.TooMany, Max: Goal.MaxParticipants),
+                    $"A goal may have at most {Goal.MaxParticipants} participants.");
             }
             else if (participants.Any(id => id == Guid.Empty))
             {
-                errors[nameof(request.ParticipantIds)] = ["Participant ids must not be empty."];
+                errors.Add(nameof(request.ParticipantIds), new(FieldErrorCodes.Invalid), "Participant ids must not be empty.");
             }
         }
 
         return errors;
     }
 
+    /// <summary>A title is required and bounded — for a goal and for a waiting Do alike.</summary>
+    internal static void AddTitleErrors(string? value, string field, FieldErrors errors)
+    {
+        var title = value?.Trim();
+        if (string.IsNullOrEmpty(title))
+        {
+            errors.Add(field, new(FieldErrorCodes.Required), "A title is required.");
+        }
+        else if (title.Length > Goal.MaxTitleLength)
+        {
+            errors.Add(
+                field,
+                new(FieldErrorCodes.TooLong, Max: Goal.MaxTitleLength),
+                $"A title may be at most {Goal.MaxTitleLength} characters long.");
+        }
+    }
+
+    /// <summary>No icon is fine — the default is used — but one that is given has to exist.</summary>
+    internal static void AddIconErrors(string? icon, string field, FieldErrors errors)
+    {
+        if (icon is not null && !string.IsNullOrWhiteSpace(icon) && !GoalIcons.IsValid(icon.Trim()))
+        {
+            errors.Add(field, new(FieldErrorCodes.UnknownOption), "That icon is not one of the available goal icons.");
+        }
+    }
+
     /// <summary>
     /// A Don't: one limit per day, week or month, and a way for friends to
     /// check it. No schedule at all means per day.
     /// </summary>
-    private static Dictionary<string, string[]> ValidateDont(CreateGoalRequest request)
+    private static FieldErrors ValidateDont(CreateGoalRequest request)
     {
-        var errors = new Dictionary<string, string[]>();
+        var errors = new FieldErrors();
 
         if (request.Schedule?.Kind is { } kind && kind != ScheduleKind.Limit)
         {
-            errors[nameof(request.Schedule)] = ["A Don't is counted per day, week or month."];
+            errors.Add(nameof(request.Schedule), new(FieldErrorCodes.UnknownOption), "A Don't is counted per day, week or month.");
         }
         else if (request.Schedule?.Period is { } period && !Enum.IsDefined(period))
         {
-            errors[nameof(request.Schedule)] = ["Choose a day, a week or a month."];
+            errors.Add(nameof(request.Schedule), new(FieldErrorCodes.UnknownOption), "Choose a day, a week or a month.");
         }
 
         if (request.Limit is not { } limit || limit is < 0 or > Goal.MaxLimit)
         {
-            errors[nameof(request.Limit)] = [$"A limit must be between 0 and {Goal.MaxLimit}."];
+            errors.Add(
+                nameof(request.Limit),
+                new(FieldErrorCodes.OutOfRange, Min: 0, Max: Goal.MaxLimit),
+                $"A limit must be between 0 and {Goal.MaxLimit}.");
         }
 
         if (request.ProofMode is not { } mode || !Enum.IsDefined(mode))
         {
-            errors[nameof(request.ProofMode)] = ["Choose how your friends can check this."];
+            errors.Add(nameof(request.ProofMode), new(FieldErrorCodes.UnknownOption), "Choose how your friends can check this.");
         }
 
         return errors;
@@ -120,9 +144,9 @@ public static class CreateGoalRequestValidator
     /// Everything wrong with the schedule half of the request, under the field
     /// name the client sent it as.
     /// </summary>
-    internal static Dictionary<string, string[]> ValidateSchedule(GoalScheduleRequest? schedule)
+    internal static FieldErrors ValidateSchedule(GoalScheduleRequest? schedule)
     {
-        var errors = new Dictionary<string, string[]>();
+        var errors = new FieldErrors();
         const string field = nameof(CreateGoalRequest.Schedule);
 
         // No schedule at all is allowed: it means "every day", which is what
@@ -134,34 +158,40 @@ public static class CreateGoalRequestValidator
 
         if (!Enum.IsDefined(kind))
         {
-            errors[field] = ["That is not a kind of schedule."];
+            errors.Add(field, new(FieldErrorCodes.UnknownOption), "That is not a kind of schedule.");
             return errors;
         }
 
         switch (kind)
         {
             case ScheduleKind.Interval when schedule.EveryDays is not { } days || days is < 1 or > GoalSchedule.MaxEveryDays:
-                errors[field] = [$"An interval must be between 1 and {GoalSchedule.MaxEveryDays} days."];
+                errors.Add(
+                    field,
+                    new(FieldErrorCodes.OutOfRange, Min: 1, Max: GoalSchedule.MaxEveryDays),
+                    $"An interval must be between 1 and {GoalSchedule.MaxEveryDays} days.");
                 break;
 
             case ScheduleKind.Weekdays when schedule.Weekdays is not { Count: > 0 }:
-                errors[field] = ["Choose at least one weekday."];
+                errors.Add(field, new(FieldErrorCodes.NoWeekday), "Choose at least one weekday.");
                 break;
 
             case ScheduleKind.Weekdays when schedule.Weekdays.Any(day => !Enum.IsDefined(day)):
-                errors[field] = ["That is not a weekday."];
+                errors.Add(field, new(FieldErrorCodes.UnknownOption), "That is not a weekday.");
                 break;
 
             case ScheduleKind.Times when schedule.Times is not { } times || times is < 1 or > GoalSchedule.MaxTimesPerPeriod:
-                errors[field] = [$"A quota must be between 1 and {GoalSchedule.MaxTimesPerPeriod} times."];
+                errors.Add(
+                    field,
+                    new(FieldErrorCodes.OutOfRange, Min: 1, Max: GoalSchedule.MaxTimesPerPeriod),
+                    $"A quota must be between 1 and {GoalSchedule.MaxTimesPerPeriod} times.");
                 break;
 
             case ScheduleKind.Times when schedule.Period is not { } period || !Enum.IsDefined(period) || period == QuotaPeriod.Day:
-                errors[field] = ["Choose a week or a month."];
+                errors.Add(field, new(FieldErrorCodes.UnknownOption), "Choose a week or a month.");
                 break;
 
             case ScheduleKind.Limit:
-                errors[field] = ["Only a Don't has a limit."];
+                errors.Add(field, new(FieldErrorCodes.UnknownOption), "Only a Don't has a limit.");
                 break;
 
             default:
@@ -180,7 +210,7 @@ public static class CreateGoalRequestValidator
     /// time zone, which only the service knows (#94). No day at all is fine —
     /// the one-off is then due today, as before.
     /// </remarks>
-    public static string? ValidateTargetDate(DateOnly? targetDate, GoalSchedule schedule, DateOnly today)
+    public static (FieldErrorCode Code, string Message)? ValidateTargetDate(DateOnly? targetDate, GoalSchedule schedule, DateOnly today)
     {
         if (schedule.Kind != ScheduleKind.Once || targetDate is not { } day)
         {
@@ -189,12 +219,14 @@ public static class CreateGoalRequestValidator
 
         if (day < today)
         {
-            return "A one-off cannot be due on a day that has already passed.";
+            return (new(FieldErrorCodes.PastDay), "A one-off cannot be due on a day that has already passed.");
         }
 
         if (day > today.AddDays(Goal.MaxTargetDaysAhead))
         {
-            return $"A one-off may be due at most {Goal.MaxTargetDaysAhead} days ahead.";
+            return (
+                new(FieldErrorCodes.TooFarAhead, Max: Goal.MaxTargetDaysAhead),
+                $"A one-off may be due at most {Goal.MaxTargetDaysAhead} days ahead.");
         }
 
         return null;
@@ -231,35 +263,19 @@ public static class CreateGoalRequestValidator
 /// </remarks>
 public static class SaveGoalDraftRequestValidator
 {
-    public static Dictionary<string, string[]> Validate(SaveGoalDraftRequest request)
+    public static FieldErrors Validate(SaveGoalDraftRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var errors = new Dictionary<string, string[]>();
+        var errors = new FieldErrors();
 
-        var title = request.Title?.Trim();
-        if (string.IsNullOrEmpty(title))
-        {
-            errors[nameof(request.Title)] = ["A title is required."];
-        }
-        else if (title.Length > Goal.MaxTitleLength)
-        {
-            errors[nameof(request.Title)] = [$"A title may be at most {Goal.MaxTitleLength} characters long."];
-        }
-
-        if (request.Icon is { } icon && !string.IsNullOrWhiteSpace(icon) && !GoalIcons.IsValid(icon.Trim()))
-        {
-            errors[nameof(request.Icon)] = ["That icon is not one of the available goal icons."];
-        }
-
-        foreach (var (field, messages) in CreateGoalRequestValidator.ValidateSchedule(request.Schedule))
-        {
-            errors[field] = messages;
-        }
+        CreateGoalRequestValidator.AddTitleErrors(request.Title, nameof(request.Title), errors);
+        CreateGoalRequestValidator.AddIconErrors(request.Icon, nameof(request.Icon), errors);
+        errors.Add(CreateGoalRequestValidator.ValidateSchedule(request.Schedule));
 
         if (request.Schedule?.Kind == ScheduleKind.Once)
         {
-            errors[nameof(request.Schedule)] = ["A waiting Do has to repeat."];
+            errors.Add(nameof(request.Schedule), new(FieldErrorCodes.MustRepeat), "A waiting Do has to repeat.");
         }
 
         return errors;
@@ -279,31 +295,37 @@ public static class SaveGoalDraftRequestValidator
 /// </remarks>
 public static class RequestPauseValidator
 {
-    public static Dictionary<string, string[]> Validate(RequestPauseRequest request)
+    public static FieldErrors Validate(RequestPauseRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var errors = new Dictionary<string, string[]>();
+        var errors = new FieldErrors();
 
         if (!PauseRules.IsReasonValid(request.Reason))
         {
-            errors[nameof(request.Reason)] =
-                [$"A pause needs a reason of at least {PauseRules.MinReasonLength} characters."];
+            errors.Add(
+                nameof(request.Reason),
+                new(FieldErrorCodes.TooShort, Min: PauseRules.MinReasonLength),
+                $"A pause needs a reason of at least {PauseRules.MinReasonLength} characters.");
         }
         else if (request.Reason!.Trim().Length > PauseRules.MaxReasonLength)
         {
-            errors[nameof(request.Reason)] =
-                [$"A reason may be at most {PauseRules.MaxReasonLength} characters long."];
+            errors.Add(
+                nameof(request.Reason),
+                new(FieldErrorCodes.TooLong, Max: PauseRules.MaxReasonLength),
+                $"A reason may be at most {PauseRules.MaxReasonLength} characters long.");
         }
 
         if (request.Days is not { } days)
         {
-            errors[nameof(request.Days)] = ["A pause needs a length in days."];
+            errors.Add(nameof(request.Days), new(FieldErrorCodes.Required), "A pause needs a length in days.");
         }
         else if (days is < PauseRules.MinDays or > PauseRules.MaxDays)
         {
-            errors[nameof(request.Days)] =
-                [$"A pause runs for between {PauseRules.MinDays} and {PauseRules.MaxDays} days."];
+            errors.Add(
+                nameof(request.Days),
+                new(FieldErrorCodes.OutOfRange, Min: PauseRules.MinDays, Max: PauseRules.MaxDays),
+                $"A pause runs for between {PauseRules.MinDays} and {PauseRules.MaxDays} days.");
         }
 
         return errors;

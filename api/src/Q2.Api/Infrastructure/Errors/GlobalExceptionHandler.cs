@@ -72,6 +72,10 @@ public sealed class GlobalExceptionHandler(
             Title = "One or more validation errors occurred.",
             Status = StatusCodes.Status400BadRequest,
             Type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.1",
+
+            // Beside the messages, the same way an endpoint's own validation
+            // sends them (FieldErrors.ToProblem): what the client words (#80).
+            Extensions = { ["codes"] = exception.Codes },
         };
     }
 
