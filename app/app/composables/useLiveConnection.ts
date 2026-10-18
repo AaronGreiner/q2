@@ -16,8 +16,13 @@ export interface LiveChange {
   id: string | null
 }
 
-/** The three events the server sends. Mirrors `LiveEvents` on the server. */
-export const liveEvents = { counts: 'counts', changed: 'changed', notification: 'notification' } as const
+/** The four events the server sends. Mirrors `LiveEvents` on the server. */
+export const liveEvents = {
+  listening: 'listening',
+  counts: 'counts',
+  changed: 'changed',
+  notification: 'notification',
+} as const
 
 /**
  * How long a hidden page keeps its connection before letting it go.
@@ -72,7 +77,6 @@ export interface LiveTransport {
   start(): Promise<void>
   stop(): Promise<void>
   on(event: string, handler: (payload: never) => void): void
-  onreconnected(handler: () => void): void
 }
 
 export interface LiveLinkOptions {
@@ -83,7 +87,10 @@ export interface LiveLinkOptions {
   /** Something that concerns this person, which the server has already decided may interrupt them. */
   onNotification: (line: NotificationLine) => void
 
-  /** After a (re)connection: whatever moved in the meantime was not replayed. */
+  /**
+   * Once the server says it is listening, after every (re)connection: from
+   * then on everything arrives, and whatever moved before was not replayed.
+   */
   onCaughtUp: () => void
 }
 
@@ -102,10 +109,22 @@ export function createLiveLink(options: LiveLinkOptions) {
     if (transport) return transport
 
     transport = options.connect()
+
+    /*
+     * Caught up when the server says so, not when `start()` resolves (#67).
+     * SignalR answers the handshake before the hub has joined this person's
+     * group, so a read made the moment `start()` resolves can miss what
+     * happens next: it arrives neither in that read nor over the connection.
+     * The server says `listening` once it hears everything for this person —
+     * on every connection, so a reconnection is announced the same way.
+     */
+    transport.on(liveEvents.listening, (counts: Counts) => {
+      options.onCounts(counts)
+      options.onCaughtUp()
+    })
     transport.on(liveEvents.counts, (counts: Counts) => options.onCounts(counts))
     transport.on(liveEvents.changed, (change: LiveChange) => options.onChanged(change))
     transport.on(liveEvents.notification, (line: NotificationLine) => options.onNotification(line))
-    transport.onreconnected(() => options.onCaughtUp())
 
     return transport
   }
@@ -116,8 +135,8 @@ export function createLiveLink(options: LiveLinkOptions) {
     if (current.state !== HubConnectionState.Disconnected) return
 
     try {
+      // Connected is not yet listening — `listening` above is.
       await current.start()
-      options.onCaughtUp()
     }
     catch {
       // Offline, signed out, or the server restarting. Not a defect and not
@@ -145,8 +164,11 @@ export function createLiveLink(options: LiveLinkOptions) {
  *
  * It only ever listens: every change still goes through the REST API, so the
  * OpenAPI contract stays the only one (docs/adr/0024-one-notification-pipeline.md).
- * What arrives is one of three things:
+ * What arrives is one of four things:
  *
+ * - **"listening"**, once per connection, with the badge numbers: the server
+ *   now hears everything for this person, so the mounted reads are read again
+ *   to catch up on what moved before (#67);
  * - **fresh badge numbers**, which replace the ones on screen — and when the
  *   bell's number went up, the bell reads itself again in case it is open;
  * - **"this part changed"**, which reads again whatever of that part is

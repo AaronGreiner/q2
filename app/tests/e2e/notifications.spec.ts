@@ -34,10 +34,11 @@ function saved(page: Page) {
 /**
  * Opens a screen and waits until the server is listening for this person.
  *
- * The app refreshes mounted reads when its live connection is up
- * (`onCaughtUp` in useLiveConnection), after the handshake — so that read is
- * the sign that what the friend does next will arrive, rather than land in the
- * moment before the connection existed. The server-rendered first paint reads
+ * The app refreshes mounted reads once the server says it is listening for
+ * this person (`listening`, then `onCaughtUp` in useLiveConnection) — later
+ * than the handshake, which the server answers before it has joined the
+ * person's group (#67). So that read is the sign that what the friend does
+ * next will arrive, rather than land in the moment before anybody listened. The server-rendered first paint reads
  * the badges on the server, where this page cannot see it, so the first read
  * the browser makes is that one. A thread uses the plain layout without badges,
  * so its catch-up reads the thread itself instead.

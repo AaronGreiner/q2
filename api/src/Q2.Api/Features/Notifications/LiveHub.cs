@@ -40,9 +40,26 @@ public enum LiveArea
 /// <param name="Id">Which conversation or goal, when it is one in particular.</param>
 public sealed record LiveChange(LiveArea Area, Guid? Id = null);
 
-/// <summary>The only three things the server ever says over a live connection.</summary>
+/// <summary>The only four things the server ever says over a live connection.</summary>
 public static class LiveEvents
 {
+    /// <summary>
+    /// "From now on you hear everything", with the badge numbers as a
+    /// <see cref="CountsResponse"/>. Sent once per connection, by the server,
+    /// at the end of <see cref="LiveHub.OnConnectedAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// A client is not listening when its <c>start()</c> resolves. SignalR
+    /// answers the handshake before it runs the hub's <c>OnConnectedAsync</c>,
+    /// and only that joins the person's group and counts them as watching — so
+    /// for a moment after <c>start()</c> a notification for them still goes to
+    /// their phone, and nothing is sent to the open app at all (#67). A read
+    /// made in that moment to catch up can miss what happens next. This is
+    /// what the app waits for instead: anything after it arrives live, and the
+    /// read it makes on receiving it covers everything before.
+    /// </remarks>
+    public const string Listening = "listening";
+
     /// <summary>The badge numbers, as a <see cref="CountsResponse"/>.</summary>
     public const string Counts = "counts";
 
@@ -91,6 +108,7 @@ public static class LiveEvents
 public sealed class LiveHub(
     CurrentPerson currentPerson,
     LiveConnections connections,
+    CountsService counts,
     ILogger<LiveHub> logger) : Hub
 {
     /// <summary>
@@ -126,6 +144,14 @@ public sealed class LiveHub(
         Context.Items[PersonKey] = person.Id;
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupOf(person.Id), Context.ConnectionAborted);
         connections.Opened(person.Id, Context.ConnectionId);
+
+        // Last, after both of the above: from here on this connection hears
+        // everything for this person, and the app knows it. See
+        // LiveEvents.Listening for why start() resolving is not that moment.
+        await Clients.Caller.SendAsync(
+            LiveEvents.Listening,
+            await counts.ForAsync(person.Id, Context.ConnectionAborted),
+            Context.ConnectionAborted);
 
         // Nothing about whom. Who is looking at the app right now is exactly
         // the kind of fact a log line should not be the place to find out.

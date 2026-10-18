@@ -14,7 +14,6 @@ import type { Counts, NotificationLine } from '~/api/types'
 /** Stands in for a SignalR connection: the same states, and a way to play the server. */
 function fakeTransport(options: { failToStart?: boolean } = {}) {
   const handlers = new Map<string, (payload: never) => void>()
-  let reconnected: (() => void) | null = null
 
   const transport = {
     state: 'Disconnected',
@@ -28,18 +27,10 @@ function fakeTransport(options: { failToStart?: boolean } = {}) {
     on: vi.fn((event: string, handler: (payload: never) => void) => {
       handlers.set(event, handler)
     }),
-    onreconnected: vi.fn((handler: () => void) => {
-      reconnected = handler
-    }),
 
     /** The server sending an event. */
     send(event: string, payload: unknown) {
       handlers.get(event)?.(payload as never)
-    },
-
-    /** The connection coming back after a drop. */
-    reconnect() {
-      reconnected?.()
     },
   }
 
@@ -119,7 +110,7 @@ describe('createLiveLink', () => {
     expect(options.connect).not.toHaveBeenCalled()
   })
 
-  it('connects once, and catches up on what moved while it was not', async () => {
+  it('connects once, and catches up once the server says it is listening', async () => {
     const { transport, options, live } = link()
 
     await live.open()
@@ -127,7 +118,21 @@ describe('createLiveLink', () => {
 
     expect(options.connect).toHaveBeenCalledTimes(1)
     expect(transport.start).toHaveBeenCalledTimes(1)
+
+    transport.send(liveEvents.listening, counts)
+
+    expect(options.onCounts).toHaveBeenCalledWith(counts)
     expect(options.onCaughtUp).toHaveBeenCalledTimes(1)
+  })
+
+  it('is not caught up merely because it connected', async () => {
+    // The handshake is answered before the server has joined this person's
+    // group (#67): a read made now could miss what happens next.
+    const { options, live } = link()
+
+    await live.open()
+
+    expect(options.onCaughtUp).not.toHaveBeenCalled()
   })
 
   it('hands on what the server sends', async () => {
@@ -149,14 +154,16 @@ describe('createLiveLink', () => {
 
     // A typo here is a banner that never appears, with nothing to say why.
     expect(transport.on.mock.calls.map(([event]) => event).sort())
-      .toEqual(['changed', 'counts', 'notification'])
+      .toEqual(['changed', 'counts', 'listening', 'notification'])
   })
 
   it('catches up again after a dropped connection comes back', async () => {
     const { transport, options, live } = link()
     await live.open()
+    transport.send(liveEvents.listening, counts)
 
-    transport.reconnect()
+    // A reconnection is a new connection, which the server announces the same way.
+    transport.send(liveEvents.listening, counts)
 
     expect(options.onCaughtUp).toHaveBeenCalledTimes(2)
   })

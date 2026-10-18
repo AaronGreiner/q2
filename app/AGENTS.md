@@ -169,7 +169,10 @@ app/composables/useQ2Api.ts     the configured client
   (`keysFor`) — so a new read that should follow live changes needs its key
   there. The third thing is a notification sent instead of a push, which
   `useNotificationToast` shows as a banner at the top unless the screen already
-  shows what it is about (`isNotificationOnScreen`). Nothing is ever sent over
+  shows what it is about (`isNotificationOnScreen`). It catches up — reads
+  everything mounted again — when the server says `listening`, not when
+  `start()` resolves: the handshake is answered before the server has joined
+  the connection to its person's group (#67). Nothing is ever sent over
   it ([../docs/adr/0024-one-notification-pipeline.md](../docs/adr/0024-one-notification-pipeline.md),
   [../docs/adr/0025-banners-in-the-open-app.md](../docs/adr/0025-banners-in-the-open-app.md)).
 - **The session is a cookie, and it does not travel by itself.** In the browser
