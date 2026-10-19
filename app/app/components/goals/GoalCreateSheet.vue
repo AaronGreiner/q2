@@ -77,7 +77,6 @@ const icon = ref<string>(goalIcons[0]!)
 const withReminder = ref(true)
 const reminderTime = ref('09:00')
 const participantIds = ref<string[]>([])
-const friendQuery = ref('')
 
 /*
  * Every day, which is what most people mean by a new habit and the one the
@@ -117,23 +116,8 @@ const stepNames = computed(() => t.value.create.steps.map((name, index) =>
 /** The schedule a Don't is sent with: its period, which is its window. */
 const dontSchedule = computed<GoalScheduleRequest>(() => ({ kind: 'Limit', period: dontLimit.value.period }))
 
-function toggleFriend(personId: string) {
-  participantIds.value = participantIds.value.includes(personId)
-    ? participantIds.value.filter(id => id !== personId)
-    : [...participantIds.value, personId]
-}
-
-/** Only worth a search field once the list is longer than a screen. */
-const showFriendSearch = computed(() => props.friends.length > 6)
-
-const shownFriends = computed(() => {
-  const query = friendQuery.value.trim().toLowerCase()
-  if (!query) return props.friends
-
-  return props.friends.filter(friend =>
-    friend.person.displayName.toLowerCase().includes(query)
-    || friend.person.handle.toLowerCase().includes(query))
-})
+/** Who can be asked to check it: the owner's friends. */
+const friendPeople = computed(() => props.friends.map(friend => friend.person))
 
 const chosenNames = computed(() => props.friends
   .filter(friend => participantIds.value.includes(friend.person.id))
@@ -242,7 +226,6 @@ function reset() {
   withReminder.value = true
   reminderTime.value = '09:00'
   participantIds.value = []
-  friendQuery.value = ''
 }
 
 defineExpose({ reset })
@@ -452,31 +435,10 @@ defineExpose({ reset })
             name="icon"
             :error="fieldError('icon')"
           >
-            <div
-              class="grid grid-cols-6 gap-2"
-              role="radiogroup"
-              :aria-label="t.create.iconLabel"
-            >
-              <button
-                v-for="option in goalIcons"
-                :key="option"
-                type="button"
-                role="radio"
-                :aria-checked="icon === option"
-                :aria-label="option"
-                class="flex aspect-square items-center justify-center rounded-(--q2-radius-md) border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-                :class="icon === option
-                  ? 'border-transparent bg-(--q2-accent-solid) text-(--q2-accent-contrast)'
-                  : 'border-(--ui-border) bg-(--q2-surface) text-(--ui-text-muted)'"
-                :data-testid="`icon-${option}`"
-                @click="icon = option"
-              >
-                <UIcon
-                  :name="goalIconName(option)"
-                  class="size-5"
-                />
-              </button>
-            </div>
+            <GoalIconPicker
+              v-model="icon"
+              :label="t.create.iconLabel"
+            />
           </UFormField>
         </template>
 
@@ -545,59 +507,10 @@ defineExpose({ reset })
           :help="participantIds.length > 0 ? t.create.friendsChosen(participantIds.length) : t.create.friendsHint"
           :error="fieldError('participantIds')"
         >
-          <UInput
-            v-if="showFriendSearch"
-            v-model="friendQuery"
-            icon="i-lucide-search"
-            :placeholder="t.create.friendsSearch"
-            :aria-label="t.create.friendsSearch"
-            autocomplete="off"
-            size="lg"
-            class="mb-2 w-full"
-            data-testid="goal-friend-search"
+          <CheckerPicker
+            v-model="participantIds"
+            :people="friendPeople"
           />
-
-          <ul
-            class="flex max-h-[40vh] list-none flex-col gap-1.5 overflow-y-auto p-0"
-            data-testid="goal-friend-picker"
-          >
-            <li
-              v-for="friend in shownFriends"
-              :key="friend.person.id"
-            >
-              <label
-                class="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-(--q2-radius-md) px-2 py-2"
-                :data-testid="`goal-friend-${friend.person.id}`"
-              >
-                <UCheckbox
-                  :model-value="participantIds.includes(friend.person.id)"
-                  @update:model-value="toggleFriend(friend.person.id)"
-                />
-
-                <AppAvatar
-                  :initials="friend.person.initials"
-                  :color="friend.person.avatarColor"
-                  :image-id="friend.person.avatarImageId"
-                  :size="32"
-                />
-
-                <span
-                  class="min-w-0 flex-1 truncate text-sm font-bold"
-                  data-q2-private
-                >
-                  {{ friend.person.displayName }}
-                </span>
-              </label>
-            </li>
-
-            <li
-              v-if="shownFriends.length === 0"
-              class="px-2 py-3 text-sm font-semibold text-(--ui-text-muted)"
-              role="status"
-            >
-              {{ t.create.friendsNoMatch }}
-            </li>
-          </ul>
         </UFormField>
 
         <!-- 4 — what is about to happen -->

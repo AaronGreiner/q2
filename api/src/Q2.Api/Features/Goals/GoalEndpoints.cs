@@ -107,6 +107,34 @@ public static class GoalEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        goals.MapPatch("/{id:guid}", EditGoal)
+            .WithName("EditGoal")
+            .WithSummary("Edits one of your own running goals. Easier changes wait for the next window and can be objected to.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapPost("/{id:guid}/change/preview", PreviewGoalEdit)
+            .WithName("PreviewGoalEdit")
+            .WithSummary("Says what an edit would do — what applies now, what waits and from when — without saving it.")
+            .Produces<GoalEditPreviewResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapDelete("/{id:guid}/change", WithdrawGoalChange)
+            .WithName("WithdrawGoalChange")
+            .WithSummary("Takes back the change waiting on one of your own goals.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        goals.MapPost("/{id:guid}/change/veto", VetoGoalChange)
+            .WithName("VetoGoalChange")
+            .WithSummary("Objects to the change waiting on a goal you check, or takes the objection back. Anonymous.")
+            .Produces<GoalResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         goals.MapPut("/{id:guid}/reminder", SetReminder)
             .WithName("SetGoalReminder")
             .WithSummary("Moves the daily reminder of one of your own running goals, or removes it with null.")
@@ -234,6 +262,50 @@ public static class GoalEndpoints
         CloseGoalRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await goals.CloseAsync(id, request, cancellationToken));
+
+    private static async Task<Results<Ok<GoalResponse>, ValidationProblem>> EditGoal(
+        GoalService goals,
+        Guid id,
+        EditGoalRequest request,
+        CancellationToken cancellationToken)
+    {
+        var errors = EditGoalRequestValidator.Validate(request);
+
+        if (errors.Count > 0)
+        {
+            return errors.ToProblem();
+        }
+
+        return TypedResults.Ok(await goals.EditAsync(id, request, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<GoalEditPreviewResponse>, ValidationProblem>> PreviewGoalEdit(
+        GoalService goals,
+        Guid id,
+        EditGoalRequest request,
+        CancellationToken cancellationToken)
+    {
+        var errors = EditGoalRequestValidator.Validate(request);
+
+        if (errors.Count > 0)
+        {
+            return errors.ToProblem();
+        }
+
+        return TypedResults.Ok(await goals.PreviewEditAsync(id, request, cancellationToken));
+    }
+
+    private static async Task<Ok<GoalResponse>> WithdrawGoalChange(
+        GoalService goals,
+        Guid id,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.WithdrawChangeAsync(id, cancellationToken));
+
+    private static async Task<Ok<GoalResponse>> VetoGoalChange(
+        GoalService goals,
+        Guid id,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await goals.VetoChangeAsync(id, cancellationToken));
 
     private static async Task<Ok<GoalResponse>> SetReminder(
         GoalService goals,

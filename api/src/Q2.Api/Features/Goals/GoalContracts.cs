@@ -153,6 +153,11 @@ public sealed record GoalInstanceResponse(
 /// end. Only for the owner, and never before it is asked: a check drawn for
 /// later is not announced (docs/adr/0038-spot-checks.md).
 /// </param>
+/// <param name="PendingChange">
+/// The edit waiting for the next window, if there is one: what it changes,
+/// from when, and — for one that makes the goal easier — the objection to it,
+/// as everybody on the goal sees it (docs/adr/0044-editing-a-running-goal.md).
+/// </param>
 public sealed record GoalResponse(
     Guid Id,
     string Title,
@@ -181,7 +186,8 @@ public sealed record GoalResponse(
     RiskResponse? Risk,
     GoalPauseResponse? Pause,
     int? RemainingPauses,
-    OpenSpotCheckResponse? SpotCheck)
+    OpenSpotCheckResponse? SpotCheck,
+    GoalChangeResponse? PendingChange)
 {
     public static GoalResponse From(
         Goal goal,
@@ -251,9 +257,188 @@ public sealed record GoalResponse(
                 : null,
             isMine && goal.OpenSpotCheckAt(now) is { ExpiresAt: { } expiresAt } check
                 ? new OpenSpotCheckResponse(check.Id, expiresAt)
-                : null);
+                : null,
+            GoalChangeResponse.From(
+                goal.PendingChange,
+                goal,
+                people,
+                viewerId,
+                now,
+                ownerCalendar is null ? null : GoalMaintenance.WhenPendingChangeApplies(goal, ownerCalendar)));
     }
 }
+
+/// <summary>
+/// One edit of a running goal, as everybody on it sees it: what changed, from
+/// what to what, and what became of the part that waited.
+/// </summary>
+/// <remarks>
+/// A field that did not change is null on both sides. Sentences are the
+/// client's: this says which fields moved and how, never "Rhythmus geändert".
+/// </remarks>
+/// <param name="Status">What became of the waiting half; <c>None</c> when nothing waited.</param>
+/// <param name="Objectable">Whether the waiting half makes the goal easier, so the checkers may object.</param>
+/// <param name="ObjectionEndsAt">The earliest moment an objectable change can apply. Null otherwise.</param>
+/// <param name="AppliesOn">
+/// The first local day the waiting half counts for: once applied, the day it
+/// did; while it waits, the day it will if nothing intervenes, when the
+/// owner's calendar was at hand to work that out.
+/// </param>
+/// <param name="DescriptionChanged">Whether the description changed; <paramref name="DescriptionTo"/> is null when it was removed.</param>
+/// <param name="TargetDateFrom">A one-off's day before the edit, when the edit moved it.</param>
+/// <param name="CheckersAdded">Who started checking with this edit.</param>
+/// <param name="CheckersRemoved">Who stops, or stopped, checking with it.</param>
+/// <param name="VetoCount">Objections raised — a number, never names (<see cref="GoalPauseResponse"/>).</param>
+/// <param name="VetoesRequired">How many it takes to lift the change.</param>
+/// <param name="CanVeto">Whether the reader may object right now: a checker, and the change still open to it.</param>
+public sealed record GoalChangeResponse(
+    Guid Id,
+    GoalChangeStatus Status,
+    DateTimeOffset CreatedAt,
+    bool Objectable,
+    DateTimeOffset? ObjectionEndsAt,
+    DateOnly? AppliesOn,
+    DateTimeOffset? ResolvedAt,
+    string? TitleFrom,
+    string? TitleTo,
+    string? IconFrom,
+    string? IconTo,
+    bool DescriptionChanged,
+    string? DescriptionTo,
+    GoalScheduleResponse? ScheduleFrom,
+    GoalScheduleResponse? ScheduleTo,
+    int? LimitFrom,
+    int? LimitTo,
+    DontProofMode? ProofModeFrom,
+    DontProofMode? ProofModeTo,
+    DateOnly? TargetDateFrom,
+    DateOnly? TargetDateTo,
+    IReadOnlyList<PersonSummary> CheckersAdded,
+    IReadOnlyList<PersonSummary> CheckersRemoved,
+    int VetoCount,
+    int VetoesRequired,
+    bool VetoedByMe,
+    bool CanVeto)
+{
+    /// <param name="expectedOn">For a change still waiting: the day it is expected to apply, if known.</param>
+    public static GoalChangeResponse? From(
+        GoalChange? change,
+        Goal goal,
+        IReadOnlyDictionary<Guid, Person> people,
+        Guid viewerId,
+        DateTimeOffset now,
+        DateOnly? expectedOn = null)
+    {
+        ArgumentNullException.ThrowIfNull(goal);
+        ArgumentNullException.ThrowIfNull(people);
+
+        if (change is null)
+        {
+            return null;
+        }
+
+        var open = change.IsPending && change.Objectable;
+
+        return new GoalChangeResponse(
+            change.Id,
+            change.Status,
+            change.CreatedAt,
+            change.Objectable,
+            change.Objectable ? change.ObjectionEndsAt : null,
+            change.AppliesOn ?? (change.IsPending ? expectedOn : null),
+            change.ResolvedAt,
+            change.TitleFrom,
+            change.TitleTo,
+            change.IconFrom,
+            change.IconTo,
+            change.DescriptionChanged,
+            change.DescriptionTo,
+            change.ScheduleFrom is null ? null : GoalScheduleResponse.From(change.ScheduleFrom),
+            change.ScheduleTo is null ? null : GoalScheduleResponse.From(change.ScheduleTo),
+            change.LimitFrom,
+            change.LimitTo,
+            change.ProofModeFrom,
+            change.ProofModeTo,
+            change.TargetDateFrom,
+            change.TargetDateTo,
+            Summaries(change.AddedCheckerIds, people, now),
+            Summaries(change.RemovedCheckerIds, people, now),
+            change.VetoCount,
+            PauseRules.VetoesRequired(goal.VoterCount),
+
+            // Only the reader's own objection comes back; everybody else's is a count.
+            change.HasVetoFrom(viewerId),
+            open && goal.CanVote(viewerId));
+    }
+
+    /// <summary>
+    /// Describes an edit that has not been saved: what the sheet shows before
+    /// the owner commits to it. Its id is empty, because nothing was recorded.
+    /// </summary>
+    public static GoalChangeResponse Preview(
+        GoalEditPlan plan,
+        Goal goal,
+        IReadOnlyDictionary<Guid, Person> people,
+        DateTimeOffset now,
+        DateOnly? expectedOn)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(goal);
+        ArgumentNullException.ThrowIfNull(people);
+
+        var deferred = plan.HasNewDeferred ? plan.Deferred : null;
+        var objectable = deferred is not null && plan.Objectable;
+
+        return new GoalChangeResponse(
+            Guid.Empty,
+            deferred is null ? GoalChangeStatus.None : GoalChangeStatus.Pending,
+            now,
+            objectable,
+            objectable ? now + GoalChangeRules.ObjectionPeriod : null,
+            deferred is null ? null : expectedOn,
+            null,
+            plan.TitleTo is null ? null : plan.TitleFrom,
+            plan.TitleTo,
+            plan.IconTo is null ? null : plan.IconFrom,
+            plan.IconTo,
+            deferred?.DescriptionChanged ?? false,
+            deferred?.Description,
+            deferred?.Schedule is null ? null : GoalScheduleResponse.From(goal.Schedule),
+            deferred?.Schedule is { } schedule ? GoalScheduleResponse.From(schedule) : null,
+            deferred?.Limit is null ? null : goal.Limit,
+            deferred?.Limit,
+            deferred?.ProofMode is null ? null : goal.ProofMode,
+            deferred?.ProofMode,
+            plan.TargetDateTo is not null || deferred?.TargetDate is not null ? plan.TargetDateFrom : null,
+            plan.TargetDateTo ?? deferred?.TargetDate,
+            Summaries(plan.CheckersAdded, people, now),
+            Summaries(deferred?.RemovedCheckers ?? [], people, now),
+            0,
+            PauseRules.VetoesRequired(goal.VoterCount + plan.CheckersAdded.Count),
+            false,
+            false);
+    }
+
+    private static IReadOnlyList<PersonSummary> Summaries(
+        IEnumerable<Guid> ids,
+        IReadOnlyDictionary<Guid, Person> people,
+        DateTimeOffset now) =>
+        [.. ids
+            .Where(people.ContainsKey)
+            .Select(id => PersonSummary.From(people[id], now))
+            .OrderBy(person => person.DisplayName, StringComparer.OrdinalIgnoreCase)];
+}
+
+/// <summary>
+/// What saving an edit would do, before it is saved.
+/// </summary>
+/// <param name="Change">
+/// The edit as it would be recorded, or null when it would change nothing.
+/// </param>
+/// <param name="WithdrawsPending">
+/// A change is waiting and this edit would take it back.
+/// </param>
+public sealed record GoalEditPreviewResponse(GoalChangeResponse? Change, bool WithdrawsPending);
 
 /// <summary>A spot check that is open: answer it with a live photograph before <paramref name="ExpiresAt"/>.</summary>
 public sealed record OpenSpotCheckResponse(Guid Id, DateTimeOffset ExpiresAt);
@@ -423,6 +608,35 @@ public sealed record CreateGoalRequest(
     GoalKind? Kind = null,
     int? Limit = null,
     DontProofMode? ProofMode = null);
+
+/// <summary>
+/// Request body for editing a running goal.
+/// </summary>
+/// <remarks>
+/// Every field is optional, and one that is left out stays as it is — or as
+/// the change already waiting would leave it (<see cref="GoalEdit"/>). What
+/// applies at once and what waits for the next window is the server's
+/// decision, and <c>POST /api/goals/{id}/change/preview</c> says which before
+/// anything is saved.
+/// </remarks>
+/// <param name="Description">An empty string removes it.</param>
+/// <param name="TargetDate">A one-off only.</param>
+/// <param name="Limit">A Don't only.</param>
+/// <param name="ProofMode">A Don't only.</param>
+/// <param name="ParticipantIds">
+/// Everybody who should check the goal. Somebody on it and missing here is
+/// removed with the next window; somebody here and not on it is added at once,
+/// and has to be a friend.
+/// </param>
+public sealed record EditGoalRequest(
+    string? Title = null,
+    string? Description = null,
+    string? Icon = null,
+    GoalScheduleRequest? Schedule = null,
+    DateOnly? TargetDate = null,
+    int? Limit = null,
+    DontProofMode? ProofMode = null,
+    IReadOnlyList<Guid>? ParticipantIds = null);
 
 /// <summary>Request body for logging one use of a Don't.</summary>
 /// <param name="ImageId">An optional photograph, uploaded as a proof image first.</param>

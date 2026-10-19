@@ -198,6 +198,50 @@ export const de = {
     note: 'Ein laufendes Fenster zählt weder als geschafft noch als verpasst.',
   },
 
+  /**
+   * Ein laufendes Do oder Don’t bearbeiten (docs/adr/0044-editing-a-running-goal.md).
+   *
+   * Nüchtern wie die Pause: Wer etwas leichter macht, tut nichts Verbotenes —
+   * aber vor den Leuten, die prüfen, und die können widersprechen.
+   */
+  edit: {
+    open: 'Bearbeiten',
+    heading: 'Bearbeiten',
+    subtitle: 'Was soll anders werden?',
+    limitStep: 'Limit',
+    dayStep: 'Termin',
+    checkersHint: 'Neue Prüfer sind sofort dabei. Wer entfernt wird, prüft bis zum nächsten Fenster mit.',
+    submit: 'Speichern',
+    nothing: 'Du hast nichts geändert.',
+    checking: 'Wird geprüft …',
+    now: 'Gilt sofort',
+    from: (day: string) => `Gilt ab ${day}`,
+    fromNext: 'Gilt ab dem nächsten Fenster',
+    objectable: (until: string) => `Das macht es leichter. Deine Prüfer können bis ${until} widersprechen — mit genug Einsprüchen bleibt alles, wie es ist.`,
+    stricter: 'Das laufende Fenster bleibt, wie es ist. Danach gilt es ohne Einspruch.',
+    replaces: 'Das ersetzt die Änderung, die noch aussteht.',
+    withdraws: 'Damit ziehst du die Änderung zurück, die noch aussteht.',
+    item: {
+      title: (from: string, to: string) => `Titel: „${from}“ → „${to}“`,
+      icon: 'Neues Symbol',
+      description: 'Neue Beschreibung',
+      descriptionRemoved: 'Beschreibung entfernt',
+      schedule: (from: string, to: string) => `Rhythmus: ${from} → ${to}`,
+      period: (from: string, to: string) => `Gezählt pro ${from} → pro ${to}`,
+      limit: (from: string, to: string) => `Limit: ${from} → ${to}`,
+      limitValue: (limit: number) => (limit === 0 ? 'nie' : `${limit}×`),
+      proofMode: (from: string, to: string) => `Prüfung: ${from} → ${to}`,
+      targetDate: (from: string, to: string) => `Termin: ${from} → ${to}`,
+      checkerAdded: (name: string) => `${name} prüft jetzt mit`,
+      checkerRemoved: (name: string) => `${name} prüft nicht mehr mit`,
+    },
+    bannerTitle: 'Änderung ausstehend',
+    bannerFrom: (day: string) => `ab ${day}`,
+    objectionUntil: (until: string) => `Einspruch möglich bis ${until}`,
+    withdraw: 'Zurückziehen',
+    moment: (day: string, clock: string) => `${day}, ${clock} Uhr`,
+  },
+
   archive: {
     heading: 'Archiv',
     subtitle: 'Beendete Dos & Don’ts',
@@ -467,6 +511,11 @@ export const de = {
       pauseOverturned: 'Die Pause wurde durch Einspruch aufgehoben.',
       completed: 'Abgeschlossen.',
       stopped: (name: string | null) => (name ? `${name} hat es beendet.` : 'Du hast es beendet.'),
+      edited: (name: string | null) => (name ? `${name} hat es geändert.` : 'Du hast es geändert.'),
+      // No full stop of its own: the day is written "17.6." already.
+      changeApplied: (day: string | null) => (day ? `Die Änderung gilt ab ${day}` : 'Die Änderung gilt jetzt.'),
+      changeOverturned: 'Die Änderung wurde durch Einspruch aufgehoben.',
+      changeWithdrawn: (name: string | null) => (name ? `${name} hat die Änderung zurückgezogen.` : 'Du hast die Änderung zurückgezogen.'),
     },
 
     /** The same, as the one line a row in the list has room for. */
@@ -482,6 +531,10 @@ export const de = {
       Stopped: 'Beendet',
       UseLogged: 'Eingetragen',
       WindowRelapse: 'Rückfall',
+      Edited: 'Geändert',
+      ChangeApplied: 'Änderung gilt',
+      ChangeOverturned: 'Änderung aufgehoben',
+      ChangeWithdrawn: 'Änderung zurückgezogen',
     } satisfies Record<GoalEventKind, string>,
 
     openInfo: 'Info zur Unterhaltung',
@@ -1061,6 +1114,8 @@ export const de = {
       ? `setzt „${goal}“ für einen Tag aus.`
       : `setzt „${goal}“ für ${days} Tage aus.`),
     pauseLifted: (goal: string) => `Einsprüche haben die Pause für „${goal}“ beendet. Das Fenster läuft wieder.`,
+    goalChangeProposed: (goal: string) => `hat „${goal}“ leichter gemacht. Du kannst widersprechen.`,
+    goalChangeLifted: (goal: string) => `Einsprüche haben deine Änderung an „${goal}“ aufgehoben. Es bleibt, wie es war.`,
     friendAtRisk: (goal: string, missing: number) => (missing === 1
       ? `droht „${goal}“ zu verpassen — ein Nachweis fehlt noch.`
       : `droht „${goal}“ zu verpassen — es fehlen noch ${missing} Nachweise.`),
@@ -1298,6 +1353,8 @@ export const de = {
     pastDay: 'Dieser Tag ist schon vorbei.',
     tooFarAhead: (days: number) => `Höchstens ${days} Tage im Voraus.`,
     mustRepeat: 'Ein wartendes Do muss sich wiederholen.',
+    kindFixed: 'Ein einmaliges Do bleibt einmalig, ein wiederkehrendes wiederkehrend.',
+    tooLateToMove: 'Einen späteren Tag kannst du nur wählen, solange die Frist noch mindestens einen Tag entfernt ist.',
   },
 
   /*
@@ -1510,6 +1567,44 @@ export const en: Messages = {
     archivedHint: 'You are stopping. Your record stays as it is.',
     submit: 'Stop',
     note: 'A running window counts as neither kept nor missed.',
+  },
+
+  edit: {
+    open: 'Edit',
+    heading: 'Edit',
+    subtitle: 'What should be different?',
+    limitStep: 'Limit',
+    dayStep: 'Day',
+    checkersHint: 'New checkers join at once. Anybody removed keeps checking until the next window.',
+    submit: 'Save',
+    nothing: 'You have not changed anything.',
+    checking: 'Checking …',
+    now: 'Applies now',
+    from: (day: string) => `Applies from ${day}`,
+    fromNext: 'Applies from the next window',
+    objectable: (until: string) => `This makes it easier. Your checkers can object until ${until} — with enough objections everything stays as it is.`,
+    stricter: 'The running window stays as it is. After that it applies without objection.',
+    replaces: 'This replaces the change that is still waiting.',
+    withdraws: 'This takes back the change that is still waiting.',
+    item: {
+      title: (from: string, to: string) => `Title: “${from}” → “${to}”`,
+      icon: 'New icon',
+      description: 'New description',
+      descriptionRemoved: 'Description removed',
+      schedule: (from: string, to: string) => `Rhythm: ${from} → ${to}`,
+      period: (from: string, to: string) => `Counted per ${from} → per ${to}`,
+      limit: (from: string, to: string) => `Limit: ${from} → ${to}`,
+      limitValue: (limit: number) => (limit === 0 ? 'never' : `${limit}×`),
+      proofMode: (from: string, to: string) => `Checked by: ${from} → ${to}`,
+      targetDate: (from: string, to: string) => `Day: ${from} → ${to}`,
+      checkerAdded: (name: string) => `${name} checks it now`,
+      checkerRemoved: (name: string) => `${name} stops checking it`,
+    },
+    bannerTitle: 'Change waiting',
+    bannerFrom: (day: string) => `from ${day}`,
+    objectionUntil: (until: string) => `Objections possible until ${until}`,
+    withdraw: 'Take back',
+    moment: (day: string, clock: string) => `${day}, ${clock}`,
   },
 
   archive: {
@@ -1753,6 +1848,10 @@ export const en: Messages = {
       pauseOverturned: 'The pause was lifted by objection.',
       completed: 'Completed.',
       stopped: (name: string | null) => (name ? `${name} stopped it.` : 'You stopped it.'),
+      edited: (name: string | null) => (name ? `${name} changed it.` : 'You changed it.'),
+      changeApplied: (day: string | null) => (day ? `The change applies from ${day}` : 'The change applies now.'),
+      changeOverturned: 'The change was lifted by objection.',
+      changeWithdrawn: (name: string | null) => (name ? `${name} took the change back.` : 'You took the change back.'),
     },
 
     lastEvent: {
@@ -1767,6 +1866,10 @@ export const en: Messages = {
       Stopped: 'Stopped',
       UseLogged: 'Logged',
       WindowRelapse: 'Relapse',
+      Edited: 'Changed',
+      ChangeApplied: 'Change applies',
+      ChangeOverturned: 'Change lifted',
+      ChangeWithdrawn: 'Change taken back',
     } satisfies Record<GoalEventKind, string>,
 
     openInfo: 'Conversation info',
@@ -2245,6 +2348,8 @@ export const en: Messages = {
       ? `is setting “${goal}” aside for a day.`
       : `is setting “${goal}” aside for ${days} days.`),
     pauseLifted: (goal: string) => `Objections have ended the pause on “${goal}”. The window is running again.`,
+    goalChangeProposed: (goal: string) => `made “${goal}” easier. You can object.`,
+    goalChangeLifted: (goal: string) => `Objections have lifted your change to “${goal}”. It stays as it was.`,
     friendAtRisk: (goal: string, missing: number) => (missing === 1
       ? `is about to miss “${goal}” — one proof still missing.`
       : `is about to miss “${goal}” — ${missing} proofs still missing.`),
@@ -2456,6 +2561,8 @@ export const en: Messages = {
     pastDay: 'That day has already passed.',
     tooFarAhead: (days: number) => `At most ${days} days ahead.`,
     mustRepeat: 'A waiting Do has to repeat.',
+    kindFixed: 'A one-off stays a one-off, and a repeating goal keeps repeating.',
+    tooLateToMove: 'A later day can only be chosen while the deadline is at least a day away.',
   },
 
   offline: {

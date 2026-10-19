@@ -39,6 +39,7 @@ aspirational.
 | Reactions | who reacted, with which kind, to a proof, a challenge contribution, a message or a feed line (kudos) | |
 | Don't uses and spot checks | when a use of a Don't was logged, with an optional photograph; when a spot check was planned, asked and answered | What a Don't records is a relapse, the most sensitive thing a habit can say ([adr/0037](adr/0037-donts.md), [adr/0038](adr/0038-spot-checks.md)). |
 | Pauses | who set a goal aside, for which days, why — a free-text reason of 10 to 280 characters — and who objected | **The reason is user-authored and often about health** ("Grippe"). It is shown on the goal's own screen, never in its conversation ([adr/0020](adr/0020-pause-and-archive.md)), and never logged. |
+| Edits of a running goal | who edited a goal and when; the title, description, icon, schedule, limit, proof mode and day before and after; who was added or removed as a checker; and who objected | **The old and new title and description are user-authored**, kept so the goal's conversation can say what changed from what ([adr/0044](adr/0044-editing-a-running-goal.md)). Shown to the people on the goal only; objections are a count, never names; never logged. They go with the goal, and a person's own rows with their account. |
 | Check-ins and badges | which days somebody delivered something, and which badges they earned when | Derived from the windows; the streak beside a name is counted from the check-ins. |
 | People | display name, handle, initials, avatar colour, an optional profile picture, the time zone their days are counted in, two stored counters (kudos received, goals completed), and when they last opened the bell | Separate from the account, and the only thing other people see of somebody — their picture included. |
 | Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). A reset link's token is not stored at all — Identity derives it from the security stamp, which changes with the password — and which account was last mailed one is kept in memory for two minutes, never on disk ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)). |
@@ -127,9 +128,9 @@ Sentry ([#33](https://github.com/AaronGreiner/q2/issues/33)). The mail names
 nobody and carries nothing but the link
 ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)).
 
-Every name in the database is invented — but a goal's title and description,
-a pause's reason and a message all can identify somebody, so all of them are
-treated as personal data throughout.
+Every name in the database is invented — but a goal's title and description
+(also as an edit kept them), a pause's reason and a message all can identify
+somebody, so all of them are treated as personal data throughout.
 
 Chat messages, the social graph, the account itself and uploaded images are the
 categories that need a retention answer before real people are in the database

@@ -52,6 +52,8 @@ export function wordFieldError(error: FieldErrorCode, t: Messages): string {
     case 'noWeekday': return words.noWeekday
     case 'pastDay': return words.pastDay
     case 'mustRepeat': return words.mustRepeat
+    case 'kindFixed': return words.kindFixed
+    case 'tooLateToMove': return words.tooLateToMove
     default: return words.invalid
   }
 }

@@ -166,6 +166,10 @@ public sealed record ChatPinnedGoalResponse(
 /// lines, which is how a client tells "Durchgehalten" from "Geschafft".
 /// </param>
 /// <param name="ImageId">For a logged use: its optional photograph.</param>
+/// <param name="Change">
+/// For an edit and what became of it: what changed, from what to what, and
+/// the objection to it while that is still open.
+/// </param>
 public sealed record GoalEventResponse(
     string Key,
     GoalEventKind Kind,
@@ -180,7 +184,8 @@ public sealed record GoalEventResponse(
     DateOnly? Day,
     int? Uses,
     int? Limit,
-    Guid? ImageId);
+    Guid? ImageId,
+    GoalChangeResponse? Change);
 
 /// <summary>Everything the thread screen shows, with the newest page of the thread.</summary>
 /// <param name="Members">

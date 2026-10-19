@@ -380,7 +380,8 @@ export interface paths {
         delete: operations["DeleteGoal"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Edits one of your own running goals. Easier changes wait for the next window and can be objected to. */
+        patch: operations["EditGoal"];
         trace?: never;
     };
     "/api/goals/{id}/uses": {
@@ -463,6 +464,57 @@ export interface paths {
         put?: never;
         /** Stops a goal for good and moves it to the archive. */
         post: operations["CloseGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/change/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Says what an edit would do — what applies now, what waits and from when — without saving it. */
+        post: operations["PreviewGoalEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Takes back the change waiting on one of your own goals. */
+        delete: operations["WithdrawGoalChange"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{id}/change/veto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Objects to the change waiting on a goal you check, or takes the objection back. Anonymous. */
+        post: operations["VetoGoalChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1422,6 +1474,18 @@ export interface components {
         };
         /** @enum {unknown} */
         DontProofMode: "SpotCheck" | "ProofAtEnd" | "HonestOnly" | null;
+        EditGoalRequest: {
+            title?: string | null;
+            description?: string | null;
+            icon?: string | null;
+            schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
+            /** Format: date */
+            targetDate?: string | null;
+            /** Format: int32 */
+            limit?: number | null;
+            proofMode?: (null) | components["schemas"]["DontProofMode"];
+            participantIds?: string[] | null;
+        };
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
             goalTitle: string;
@@ -1458,6 +1522,48 @@ export interface components {
         };
         /** @enum {unknown} */
         FriendshipState: "None" | "RequestSent" | "RequestReceived" | "Friends" | "Self";
+        GoalChangeResponse: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["GoalChangeStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            objectable: boolean;
+            /** Format: date-time */
+            objectionEndsAt: string | null;
+            /** Format: date */
+            appliesOn: string | null;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            titleFrom: string | null;
+            titleTo: string | null;
+            iconFrom: string | null;
+            iconTo: string | null;
+            descriptionChanged: boolean;
+            descriptionTo: string | null;
+            scheduleFrom: (null) | components["schemas"]["GoalScheduleResponse"];
+            scheduleTo: (null) | components["schemas"]["GoalScheduleResponse"];
+            /** Format: int32 */
+            limitFrom: number | null;
+            /** Format: int32 */
+            limitTo: number | null;
+            proofModeFrom: (null) | components["schemas"]["DontProofMode"];
+            proofModeTo: (null) | components["schemas"]["DontProofMode"];
+            /** Format: date */
+            targetDateFrom: string | null;
+            /** Format: date */
+            targetDateTo: string | null;
+            checkersAdded: components["schemas"]["PersonSummary"][];
+            checkersRemoved: components["schemas"]["PersonSummary"][];
+            /** Format: int32 */
+            vetoCount: number;
+            /** Format: int32 */
+            vetoesRequired: number;
+            vetoedByMe: boolean;
+            canVeto: boolean;
+        };
+        /** @enum {unknown} */
+        GoalChangeStatus: "None" | "Pending" | "Applied" | "Overturned" | "Withdrawn" | "Superseded";
         GoalDetailResponse: {
             goal: components["schemas"]["GoalResponse"];
             team: components["schemas"]["GoalTeamMemberResponse"][];
@@ -1480,8 +1586,12 @@ export interface components {
             draft: (null) | components["schemas"]["GoalDraftResponse"];
             hasFriends: boolean;
         };
+        GoalEditPreviewResponse: {
+            change: (null) | components["schemas"]["GoalChangeResponse"];
+            withdrawsPending: boolean;
+        };
         /** @enum {unknown} */
-        GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | "UseLogged" | "WindowRelapse" | null;
+        GoalEventKind: "Created" | "ProofDelivered" | "WindowDone" | "WindowMissed" | "PauseStarted" | "PauseEnded" | "PauseOverturned" | "Completed" | "Stopped" | "UseLogged" | "WindowRelapse" | "Edited" | "ChangeApplied" | "ChangeOverturned" | "ChangeWithdrawn" | null;
         GoalEventResponse: {
             key: string;
             kind: components["schemas"]["GoalEventKind"];
@@ -1506,6 +1616,7 @@ export interface components {
             limit: number | null;
             /** Format: uuid */
             imageId: string | null;
+            change: (null) | components["schemas"]["GoalChangeResponse"];
         };
         GoalInstanceResponse: {
             /** Format: uuid */
@@ -1597,6 +1708,7 @@ export interface components {
             /** Format: int32 */
             remainingPauses: number | null;
             spotCheck: (null) | components["schemas"]["OpenSpotCheckResponse"];
+            pendingChange: (null) | components["schemas"]["GoalChangeResponse"];
         };
         GoalScheduleRequest: {
             kind?: (null) | components["schemas"]["ScheduleKind"];
@@ -1703,7 +1815,7 @@ export interface components {
             muted?: boolean | null;
         };
         /** @enum {unknown} */
-        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue";
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue" | "GoalChangeProposed" | "GoalChangeLifted";
         NotificationResponse: {
             /** Format: uuid */
             id: string | null;
@@ -2870,6 +2982,50 @@ export interface operations {
             };
         };
     };
+    EditGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     LogDontUse: {
         parameters: {
             query?: never;
@@ -3093,6 +3249,130 @@ export interface operations {
                 "application/json": components["schemas"]["CloseGoalRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PreviewGoalEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalEditPreviewResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    WithdrawGoalChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    VetoGoalChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

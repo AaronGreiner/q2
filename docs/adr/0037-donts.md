@@ -29,8 +29,9 @@ migration. A Don't says "at most **N** times per day, week or month", and
 two ways to say one thing. The schedule kind is `Limit` with a `Period`, and
 `QuotaPeriod` gained `Day`, which a Do's quota may not use. The window is the
 period. The limit is copied onto each window when it opens, like its deadline,
-so history keeps what each window was held to. Once the Don't runs, the limit
-is fixed ([#4](https://github.com/AaronGreiner/q2/issues/4)).
+so history keeps what each window was held to. A running Don't's limit is
+changed by an edit and from the next window on; a higher one waits for its
+checkers' objections ([0044](0044-editing-a-running-goal.md)).
 
 ### Uses are logged, and the one over the limit is a relapse at once
 

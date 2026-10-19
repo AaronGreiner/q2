@@ -30,6 +30,9 @@ public static class TestJson
     public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string url, object body) =>
         client.PutAsJsonAsync(url, body, Options, TestContext.Current.CancellationToken);
 
+    public static Task<HttpResponseMessage> PatchJsonAsync(this HttpClient client, string url, object body) =>
+        client.PatchAsJsonAsync(url, body, Options, TestContext.Current.CancellationToken);
+
     /// <summary>
     /// A DELETE that carries a body.
     /// </summary>

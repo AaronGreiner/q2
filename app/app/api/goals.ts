@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { CloseGoalRequest, CreateGoalRequest, Goal, GoalDetail, GoalDraft, GoalDraftState, GoalStatus, LogUseRequest, RequestPauseRequest, SaveGoalDraftRequest, SetReminderRequest } from './types'
+import type { CloseGoalRequest, CreateGoalRequest, EditGoalRequest, Goal, GoalDetail, GoalDraft, GoalDraftState, GoalEditPreview, GoalStatus, LogUseRequest, RequestPauseRequest, SaveGoalDraftRequest, SetReminderRequest } from './types'
 
 /**
  * The only place the frontend talks HTTP about goals.
@@ -34,6 +34,21 @@ export interface GoalsApi {
 
   /** Moves the daily reminder of one of your own running goals, or removes it with null. */
   setReminder: (id: string, request: SetReminderRequest) => Promise<Goal>
+
+  /**
+   * Edits one of your own running goals. What makes it easier waits for the
+   * next window and can be objected to (docs/adr/0044-editing-a-running-goal.md).
+   */
+  edit: (id: string, request: EditGoalRequest) => Promise<Goal>
+
+  /** What an edit would do — now, later, and whether it can be objected to — without saving it. */
+  previewEdit: (id: string, request: EditGoalRequest) => Promise<GoalEditPreview>
+
+  /** Takes back the change waiting on one of your own goals. */
+  withdrawChange: (id: string) => Promise<Goal>
+
+  /** Objects to the change waiting on a goal you check, or takes the objection back. Anonymous. */
+  vetoChange: (id: string) => Promise<Goal>
 
   /** Deletes a stopped goal outright, for everybody on it. */
   remove: (id: string) => Promise<void>
@@ -96,6 +111,14 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     close: (id, request) => call<Goal>(`${goal(id)}/close`, { method: 'POST', body: request }),
 
     setReminder: (id, request) => call<Goal>(`${goal(id)}/reminder`, { method: 'PUT', body: request }),
+
+    edit: (id, request) => call<Goal>(goal(id), { method: 'PATCH', body: request }),
+
+    previewEdit: (id, request) => call<GoalEditPreview>(`${goal(id)}/change/preview`, { method: 'POST', body: request }),
+
+    withdrawChange: id => call<Goal>(`${goal(id)}/change`, { method: 'DELETE' }),
+
+    vetoChange: id => call<Goal>(`${goal(id)}/change/veto`, { method: 'POST' }),
 
     logUse: (id, request) => call<Goal>(`${goal(id)}/uses`, { method: 'POST', body: request }),
 

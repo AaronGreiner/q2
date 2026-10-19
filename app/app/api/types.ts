@@ -36,6 +36,12 @@ export type QuotaPeriod = NonNullable<Schemas['QuotaPeriod']>
 export type Weekday = Schemas['Weekday']
 
 export type GoalPause = Schemas['GoalPauseResponse']
+
+/** One edit of a running goal, and what became of the part that waited (docs/adr/0044). */
+export type GoalChange = Schemas['GoalChangeResponse']
+export type GoalChangeStatus = Schemas['GoalChangeStatus']
+export type EditGoalRequest = Schemas['EditGoalRequest']
+export type GoalEditPreview = Schemas['GoalEditPreviewResponse']
 export type RequestPauseRequest = Schemas['RequestPauseRequest']
 export type CloseGoalRequest = Schemas['CloseGoalRequest']
 export type SetReminderRequest = Schemas['SetReminderRequest']

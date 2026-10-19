@@ -238,6 +238,15 @@ export function goalEventText(event: GoalEvent, t: Messages): string {
       return t.chats.event.completed
     case 'Stopped':
       return t.chats.event.stopped(name)
+    // What changed is listed under the line (ChatEventLine); the line says who.
+    case 'Edited':
+      return t.chats.event.edited(name)
+    case 'ChangeApplied':
+      return t.chats.event.changeApplied(event.day ? formatDay(event.day) : null)
+    case 'ChangeOverturned':
+      return t.chats.event.changeOverturned
+    case 'ChangeWithdrawn':
+      return t.chats.event.changeWithdrawn(name)
     case 'ProofDelivered':
     default:
       return t.chats.lastEvent.ProofDelivered
@@ -269,6 +278,13 @@ export function goalEventIcon(kind: GoalEvent['kind']): string {
       return 'i-lucide-trophy'
     case 'Stopped':
       return 'i-lucide-archive'
+    case 'Edited':
+      return 'i-lucide-pencil'
+    case 'ChangeApplied':
+      return 'i-lucide-circle-check'
+    case 'ChangeOverturned':
+    case 'ChangeWithdrawn':
+      return 'i-lucide-undo-2'
     case 'ProofDelivered':
     default:
       return 'i-lucide-camera'

@@ -552,6 +552,28 @@ public sealed class GoalInstance
     }
 
     /// <summary>
+    /// Moves the deadline of a one-off's window to another day, for an edit of
+    /// that day. Returns false when the window is already decided.
+    /// </summary>
+    /// <remarks>
+    /// The one exception to "a window keeps the deadline it opened with": a
+    /// one-off has no next window for a new day to wait for
+    /// (docs/adr/0044-editing-a-running-goal.md). An earlier day is moved at
+    /// once; a later one only once its checkers have had their day to object.
+    /// </remarks>
+    internal bool MoveDeadline(DateOnly dueOn, DateTimeOffset dueAt)
+    {
+        if (Status is not (GoalInstanceStatus.Open or GoalInstanceStatus.Paused) || dueOn < StartsOn)
+        {
+            return false;
+        }
+
+        DueOn = dueOn;
+        DueAt = dueAt;
+        return true;
+    }
+
+    /// <summary>
     /// Records that this window's friends have now been warned. Returns false
     /// when they already had been, so a job that runs every ten minutes warns
     /// once rather than sixty times an evening.

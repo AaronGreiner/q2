@@ -15,10 +15,41 @@ import type { GoalEvent } from '~/api/types'
  * A Don't's logged use and its relapse are lines like these, never messages
  * (docs/adr/0037-donts.md). A use may bring a photograph, which sits in the
  * line as a thumbnail and opens full size; nobody votes on it.
+ *
+ * An edit says what changed underneath, from what to what, and while it can
+ * be objected to, a checker can do that right here as well as on the goal
+ * (docs/adr/0044-editing-a-running-goal.md).
  */
-const props = defineProps<{ event: GoalEvent }>()
+const props = defineProps<{
+  event: GoalEvent
+  busy?: boolean
+}>()
+
+const emit = defineEmits<{ veto: [] }>()
 
 const t = useMessages()
+const zone = useTimeZoneOffset()
+
+/**
+ * The edit's lines: all of them where it was made, and what came into force
+ * where it applied. A lifted or withdrawn one points back at the first.
+ */
+const changeItems = computed(() => {
+  const change = props.event.change
+  if (!change) return []
+
+  if (props.event.kind === 'Edited') return goalChangeItems(change, t.value)
+  if (props.event.kind === 'ChangeApplied') return goalChangeItems(change, t.value).filter(item => !item.now)
+  return []
+})
+
+/** Open to objection still: said once, under the line the edit was made on. */
+const objection = computed(() => {
+  const change = props.event.change
+  if (props.event.kind !== 'Edited' || change?.status !== 'Pending') return null
+
+  return objectionDeadline(change, t.value, zone.value)
+})
 
 const text = computed(() => goalEventText(props.event, t.value))
 const icon = computed(() => goalEventIcon(props.event.kind))
@@ -34,7 +65,7 @@ function enlarge() {
 
 <template>
   <li
-    class="my-1.5 flex list-none justify-center"
+    class="my-1.5 flex list-none flex-col items-center gap-1.5"
     data-testid="chat-event"
     :data-kind="event.kind"
   >
@@ -67,5 +98,36 @@ function enlarge() {
         >
       </button>
     </p>
+
+    <div
+      v-if="changeItems.length > 0"
+      class="flex max-w-[90%] flex-col items-center gap-1.5"
+      data-testid="chat-event-change"
+    >
+      <GoalChangeList
+        :items="changeItems"
+        centred
+      />
+
+      <p
+        v-if="objection"
+        class="text-[12px] font-semibold text-(--ui-text-dimmed)"
+      >
+        {{ t.edit.objectionUntil(objection) }}
+      </p>
+
+      <UButton
+        v-if="objection && event.change?.canVeto"
+        class="min-h-11"
+        size="sm"
+        color="neutral"
+        :variant="event.change.vetoedByMe ? 'solid' : 'outline'"
+        icon="i-lucide-gavel"
+        :label="event.change.vetoedByMe ? t.pause.vetoWithdraw : t.pause.veto"
+        :disabled="busy"
+        data-testid="chat-event-veto"
+        @click="emit('veto')"
+      />
+    </div>
   </li>
 </template>

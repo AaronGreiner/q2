@@ -92,6 +92,17 @@ const canDeliver = computed(() =>
 /** A Don't's use, logged from its conversation; the line it makes arrives in the thread. */
 const dontUse = useDontUse(() => refresh())
 
+/**
+ * An objection to an edit, raised from the line it was made on — the same
+ * request the goal's banner sends (docs/adr/0044-editing-a-running-goal.md).
+ */
+const lifecycle = useGoalLifecycle()
+
+async function onChangeVeto() {
+  const goalId = chat.value?.pinnedGoal?.id
+  if (goalId && await lifecycle.toggleChangeVeto(goalId)) await refresh()
+}
+
 async function onLog() {
   const goalId = chat.value?.pinnedGoal?.id
   if (goalId && await dontUse.logUse(goalId)) await refresh()
@@ -448,6 +459,8 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
             <ChatEventLine
               v-else-if="item.kind === 'event'"
               :event="item.event"
+              :busy="lifecycle.isBusy.value"
+              @veto="onChangeVeto"
             />
 
             <!-- The owner's photograph sits on their side of the thread, a

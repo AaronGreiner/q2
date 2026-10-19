@@ -105,6 +105,15 @@ public static class GoalMaintenance
                 break;
             }
 
+            // A one-off has no next window for a change to wait for. Its change
+            // applies once the objection period is over — before the deadline
+            // below is looked at, since a later day is what it may have moved.
+            if (goal.ApplyDueOneOffChange(calendar.Today(now), calendar.EndOfDay, now))
+            {
+                changed = true;
+                continue;
+            }
+
             if (goal.CurrentInstance is { } open)
             {
                 // A spot check whose three minutes are up is settled first: an
@@ -164,7 +173,29 @@ public static class GoalMaintenance
                 continue;
             }
 
-            if (NextWindowFor(goal) is not { } window)
+            var next = NextWindowFor(goal);
+
+            /*
+             * An edit that waited for the next window takes effect between
+             * windows: from the first day the old window no longer covers, or,
+             * when it can be objected to, the first day that starts once the
+             * objection period is over — as long as that comes before the next
+             * window the old terms would open, which otherwise opens first.
+             * Then round again, so the window is cut from the new terms
+             * (docs/adr/0044-editing-a-running-goal.md).
+             */
+            if (goal.PendingChange is { } waiting
+                && goal.LatestInstance is { } latest
+                && FirstDayFor(waiting.Objectable, waiting.CreatedAt, latest.DueOn, calendar) is var from
+                && from <= calendar.Today(now)
+                && (next is not { } upcoming || from <= upcoming.Start))
+            {
+                goal.ApplyChange(waiting, from, calendar.EndOfDay, now);
+                changed = true;
+                continue;
+            }
+
+            if (next is not { } window)
             {
                 break;
             }
@@ -196,6 +227,84 @@ public static class GoalMaintenance
     }
 
     /// <summary>
+    /// The first local day the goal's waiting change will count for, if
+    /// nothing else happens first — what the goal screen says it applies "ab".
+    /// Null when nothing is waiting.
+    /// </summary>
+    public static DateOnly? WhenPendingChangeApplies(Goal goal, LocalCalendar calendar)
+    {
+        ArgumentNullException.ThrowIfNull(goal);
+
+        return goal.PendingChange is { } change
+            ? WhenChangeApplies(goal, calendar, change.Objectable, change.CreatedAt)
+            : null;
+    }
+
+    /// <summary>
+    /// The first local day a change made at <paramref name="madeAt"/> would
+    /// count for — whether it has been made yet or not, which is what lets the
+    /// sheet say so before it is saved.
+    /// </summary>
+    /// <remarks>
+    /// Walked through the same windows <see cref="Advance"/> opens, so the day
+    /// on the screen is the day it happens. A pause still to come can only
+    /// move it later.
+    /// </remarks>
+    public static DateOnly? WhenChangeApplies(Goal goal, LocalCalendar calendar, bool objectable, DateTimeOffset madeAt)
+    {
+        ArgumentNullException.ThrowIfNull(goal);
+        ArgumentNullException.ThrowIfNull(calendar);
+
+        // A one-off's change goes into the window it has, the moment it may.
+        if (!goal.Schedule.Repeats)
+        {
+            return calendar.DayOf(objectable ? madeAt + GoalChangeRules.ObjectionPeriod : madeAt);
+        }
+
+        if (goal.LatestInstance is not { } latest)
+        {
+            return null;
+        }
+
+        var lastEnd = latest.DueOn;
+        var next = NextWindowFor(goal);
+
+        for (var step = 0; step < MaxWindowsPerRun; step++)
+        {
+            var from = FirstDayFor(objectable, madeAt, lastEnd, calendar);
+
+            if (next is not { } window || from <= window.Start)
+            {
+                return from;
+            }
+
+            lastEnd = window.End;
+            next = SkipPaused(goal, goal.Schedule.NextWindow(window.End));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The first day a waiting change can count for once the window ending on
+    /// <paramref name="lastEnd"/> is over: the day after it, or the first day
+    /// that starts once the objection period has run, whichever is later.
+    /// </summary>
+    private static DateOnly FirstDayFor(bool objectable, DateTimeOffset madeAt, DateOnly lastEnd, LocalCalendar calendar)
+    {
+        var earliest = objectable ? madeAt + GoalChangeRules.ObjectionPeriod : madeAt;
+        var day = calendar.DayOf(earliest);
+
+        if (calendar.StartOfDay(day) < earliest)
+        {
+            day = day.AddDays(1);
+        }
+
+        var after = lastEnd.AddDays(1);
+        return day > after ? day : after;
+    }
+
+    /// <summary>
     /// The window that should come next: the first one if the goal has never
     /// had one, otherwise the one after its newest.
     /// </summary>
@@ -203,7 +312,9 @@ public static class GoalMaintenance
     {
         var window = goal.LatestInstance is { } latest
 
-            ? goal.Schedule.NextWindow(latest.DueOn)
+            // After a change, from the day it applied: the new terms do not
+            // reach back into the days before it.
+            ? goal.Schedule.NextWindow(LaterOf(latest.DueOn, goal.LastChangeAppliedOn?.AddDays(-1)))
 
             // A goal with no window at all. Normal at creation, and also what a
             // goal migrated from the old step-counting model looks like.
@@ -211,15 +322,25 @@ public static class GoalMaintenance
                 DateOnly.FromDateTime(goal.CreatedAt.UtcDateTime),
                 goal.TargetDate);
 
-        /*
-         * A window whose deadline fell inside a pause never happens.
-         *
-         * Without this, the run that follows a week off would create those
-         * seven days one after another and miss every one of them — which is
-         * precisely what the pause was granted to prevent. Skipping them leaves
-         * a gap in the history rather than a row of failures, and a gap is what
-         * a pause honestly is: no result at all.
-         */
+        return SkipPaused(goal, window);
+    }
+
+    private static DateOnly LaterOf(DateOnly day, DateOnly? other) => other is { } candidate && candidate > day ? candidate : day;
+
+    /// <summary>
+    /// The window itself, or the first after it whose deadline does not fall
+    /// inside a pause.
+    /// </summary>
+    /// <remarks>
+    /// A window whose deadline fell inside a pause never happens. Without
+    /// this, the run that follows a week off would create those seven days one
+    /// after another and miss every one of them — which is precisely what the
+    /// pause was granted to prevent. Skipping them leaves a gap in the history
+    /// rather than a row of failures, and a gap is what a pause honestly is: no
+    /// result at all.
+    /// </remarks>
+    private static GoalWindow? SkipPaused(Goal goal, GoalWindow? window)
+    {
         for (var guard = 0; window is { } candidate && goal.IsPausedOn(candidate.End); guard++)
         {
             if (guard >= MaxWindowsPerRun)

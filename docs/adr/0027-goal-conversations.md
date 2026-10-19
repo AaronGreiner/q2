@@ -49,8 +49,10 @@ the missing conversation of an older goal. A unique index on `GoalId` makes
   and the icon are read from the goal, so they cannot go stale.
 - **It cannot be left, only muted.** Membership is the goal's. Leaving would
   quietly take a vote off it — and the last friend leaving would turn it back
-  into a goal that confirms itself. Changing who is on a goal is
-  [#4](https://github.com/AaronGreiner/q2/issues/4).
+  into a goal that confirms itself. Who is on a goal is changed by its owner's
+  edit, and the conversation follows: somebody added joins at once, somebody
+  removed leaves once the removal applies, and the last one cannot be removed
+  ([0044](0044-editing-a-running-goal.md)).
 - **It goes with the goal.** Deleting a goal from the archive, and erasing its
   owner's account, remove it explicitly. The foreign key stays `SetNull`:
   moving it to `Cascade` would make SQLite rebuild the table with foreign keys

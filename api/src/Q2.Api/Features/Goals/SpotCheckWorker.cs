@@ -83,6 +83,10 @@ public sealed class SpotCheckWorker(
             .Include(goal => goal.Instances)
             .ThenInclude(instance => instance.SpotChecks)
             .Include(goal => goal.Pauses)
+            .Include(goal => goal.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(goal => goal.Changes)
+            .ThenInclude(change => change.Vetoes)
             .Where(goal => goal.Status == GoalStatus.Active
                 && goal.Kind == GoalKind.Dont
                 && goal.ProofMode == DontProofMode.SpotCheck)

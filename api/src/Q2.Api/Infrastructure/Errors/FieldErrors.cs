@@ -75,6 +75,12 @@ public static class FieldErrorCodes
 
     /// <summary>A waiting Do that would not repeat.</summary>
     public const string MustRepeat = "mustRepeat";
+
+    /// <summary>An edit that would turn a one-off into a repeating goal, or the other way round.</summary>
+    public const string KindFixed = "kindFixed";
+
+    /// <summary>A one-off moved to a later day when its deadline is less than a day away.</summary>
+    public const string TooLateToMove = "tooLateToMove";
 }
 
 /// <summary>

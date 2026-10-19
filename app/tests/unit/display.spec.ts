@@ -90,6 +90,8 @@ const everyKind: readonly NotificationKind[] = [
   'GoalInvitation',
   'GoalPaused',
   'PauseLifted',
+  'GoalChangeProposed',
+  'GoalChangeLifted',
   'FriendWindowAtRisk',
   'ChallengePublished',
   'SpotCheckDue',

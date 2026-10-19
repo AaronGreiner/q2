@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { Goal } from '~/api/types'
+import type { EditGoalRequest, Goal, GoalEditPreview } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ArchivePayload {
@@ -8,12 +8,13 @@ interface ArchivePayload {
 }
 
 /**
- * The exits a goal has: setting it aside, objecting to that, and stopping it.
+ * What the owner can do to a running goal and what its checkers can do about
+ * it: setting it aside, editing it, objecting to either, and stopping it.
  *
- * One composable for all four because they are one decision from the screen's
- * point of view — every one of them answers with the whole goal, and every one
- * of them is followed by the same reload. Splitting them would mean four
- * copies of the busy flag and of the failure that goes with it.
+ * One composable for all of them because they are one decision from the
+ * screen's point of view — every one of them answers with the whole goal, and
+ * every one of them is followed by the same reload. Splitting them would mean
+ * a copy of the busy flag and of the failure that goes with it for each.
  */
 export function useGoalLifecycle() {
   const api = useQ2Api()
@@ -65,6 +66,47 @@ export function useGoalLifecycle() {
   const setReminder = (id: string, reminderAt: string | null) =>
     run('reminder', () => api.goals.setReminder(id, { reminderAt }))
 
+  /**
+   * Edits the goal. What applies now and what waits is the server's answer,
+   * read back from the goal it returns (docs/adr/0044-editing-a-running-goal.md).
+   */
+  const edit = (id: string, request: EditGoalRequest) =>
+    run('edit', () => api.goals.edit(id, request))
+
+  /** Takes back the change waiting on the goal. */
+  const withdrawChange = (id: string) =>
+    run('withdrawChange', () => api.goals.withdrawChange(id))
+
+  /** Raises this person's objection to the waiting change, or takes it back. */
+  const toggleChangeVeto = (id: string) =>
+    run('vetoChange', () => api.goals.vetoChange(id))
+
+  const previewing = ref(false)
+  const preview = ref<GoalEditPreview | null>(null)
+
+  /**
+   * What an edit would do, for the sheet's last step. Its own busy flag and
+   * its own answer: reading it is not one of the actions above, and a
+   * refusal lands in {@link error} like theirs, with the field it is about.
+   */
+  async function previewEdit(id: string, request: EditGoalRequest): Promise<GoalEditPreview | null> {
+    previewing.value = true
+    failure.value = null
+    preview.value = null
+
+    try {
+      preview.value = await api.goals.previewEdit(id, request)
+      return preview.value
+    }
+    catch (caught) {
+      failure.value = report(caught, { feature: 'goals', action: 'previewEdit' })
+      return null
+    }
+    finally {
+      previewing.value = false
+    }
+  }
+
   return {
     isBusy: computed(() => isBusy.value),
     error: computed(() => failure.value),
@@ -73,6 +115,12 @@ export function useGoalLifecycle() {
     toggleVeto,
     close,
     setReminder,
+    edit,
+    withdrawChange,
+    toggleChangeVeto,
+    previewEdit,
+    preview: computed(() => preview.value),
+    isPreviewing: computed(() => previewing.value),
   }
 }
 

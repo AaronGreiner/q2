@@ -39,6 +39,7 @@ public sealed class Goal
     private readonly List<GoalParticipant> _participants = [];
     private readonly List<GoalInstance> _instances = [];
     private readonly List<GoalPause> _pauses = [];
+    private readonly List<GoalChange> _changes = [];
 
     // EF Core materialisation only.
     private Goal()
@@ -100,7 +101,9 @@ public sealed class Goal
 
     /// <summary>
     /// For a Don't: the most uses per period, 0 for "never". Null for a Do.
-    /// Fixed once the goal runs, like its schedule.
+    /// Changed only by an edit, and then from the next window on, like its
+    /// schedule — each window keeps the limit it opened with
+    /// (docs/adr/0044-editing-a-running-goal.md).
     /// </summary>
     public int? Limit { get; private set; }
 
@@ -154,6 +157,17 @@ public sealed class Goal
 
     /// <summary>Every time out taken from this goal, running or over.</summary>
     public IReadOnlyList<GoalPause> Pauses => _pauses;
+
+    /// <summary>Every edit made to this goal while it ran, in the order they were made.</summary>
+    public IReadOnlyList<GoalChange> Changes => _changes;
+
+    /// <summary>The edit whose waiting half has not applied yet, if there is one. Never more than one.</summary>
+    public GoalChange? PendingChange => _changes.FirstOrDefault(change => change.IsPending);
+
+    /// <summary>The first day the most recently applied edit counted for, if one ever applied.</summary>
+    public DateOnly? LastChangeAppliedOn => _changes
+        .Where(change => change.Status == GoalChangeStatus.Applied)
+        .Max(change => change.AppliesOn);
 
     /// <summary>
     /// Creates a goal, validating every invariant. <paramref name="id"/> and
@@ -405,6 +419,8 @@ public sealed class Goal
 
         // A Don't's window takes a photograph only when its proof mode asks
         // for one at the end; the limit comes along so the window knows it.
+        // A window an edit cut short holds its share of the limit, the way a
+        // Do's holds its share of the quota (GoalSchedule.NextWindow).
         var instance = IsDont
             ? GoalInstance.Create(
                 id,
@@ -412,7 +428,11 @@ public sealed class Goal
                 window with { RequiredProofs = ProofMode == DontProofMode.ProofAtEnd ? 1 : 0 },
                 startsAt,
                 dueAt,
-                Limit ?? 0)
+                GoalSchedule.Prorate(
+                    Limit ?? 0,
+                    window.End.DayNumber - window.Start.DayNumber + 1,
+                    Schedule.PeriodDaysAround(window.End),
+                    minimum: 0))
             : GoalInstance.Create(id, Id, window, startsAt, dueAt);
         _instances.Add(instance);
         return instance;
@@ -456,6 +476,9 @@ public sealed class Goal
         {
             Status = GoalStatus.Completed;
             ClosedAt = now;
+
+            // A finished one-off has nothing left for a waiting change to change.
+            PendingChange?.Supersede(now);
         }
 
         return true;
@@ -603,6 +626,9 @@ public sealed class Goal
         // and a closing that worsened the balance would be one nobody used.
         CurrentInstance?.Suspend();
 
+        // Nor does a change wait for windows that will never open.
+        PendingChange?.Supersede(now);
+
         return true;
     }
 
@@ -610,10 +636,10 @@ public sealed class Goal
     /// Moves the daily reminder, or takes it away with null.
     /// </summary>
     /// <remarks>
-    /// The one thing about a running goal its owner may change on their own:
-    /// it nudges only them, so nobody who agreed to check the goal agreed to
-    /// anything it touches. A stopped goal keeps whatever it had, because
-    /// there is nothing left to be reminded of. Returns false then.
+    /// Not an edit (<see cref="Edit"/>): it nudges only the owner, so nobody who
+    /// agreed to check the goal agreed to anything it touches, and it leaves
+    /// no line in the conversation. A stopped goal keeps whatever it had,
+    /// because there is nothing left to be reminded of. Returns false then.
     /// </remarks>
     public bool SetReminder(TimeOnly? reminderAt)
     {
@@ -764,6 +790,412 @@ public sealed class Goal
         }
 
         return changed;
+    }
+
+    /// <summary>A one-off's window while it can still be moved: running, or set aside by a pause.</summary>
+    private GoalInstance? OneOffWindow => Schedule.Repeats
+        ? null
+        : _instances.FirstOrDefault(instance => instance.Status is GoalInstanceStatus.Open or GoalInstanceStatus.Paused);
+
+    /// <summary>
+    /// Works out what an edit would do, without doing it: what applies now,
+    /// what waits for the next window, and whether the checkers may object.
+    /// </summary>
+    /// <remarks>
+    /// The kind, the owner and everything that already happened — windows,
+    /// photographs, votes, uses, checks — are not part of an edit at all. Nor
+    /// is the shape of a schedule's promise: a one-off stays a one-off, and a
+    /// repeating goal keeps repeating (docs/adr/0044-editing-a-running-goal.md).
+    /// </remarks>
+    /// <param name="today">The owner's local day, for a one-off's new day.</param>
+    /// <exception cref="DomainValidationException">
+    /// The goal has stopped, or something asked for is not allowed.
+    /// </exception>
+    public GoalEditPlan PlanEdit(GoalEdit edit, DateOnly today, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+
+        if (IsClosed)
+        {
+            throw new DomainValidationException("Goal", "A goal that has stopped cannot be edited.");
+        }
+
+        var errors = new FieldErrors();
+        var pending = PendingChange;
+
+        string? titleTo = null;
+        if (edit.Title?.Trim() is { } title)
+        {
+            if (title.Length == 0)
+            {
+                errors.Add(nameof(Title), new(FieldErrorCodes.Required), "A title is required.");
+            }
+            else if (title.Length > MaxTitleLength)
+            {
+                errors.Add(
+                    nameof(Title),
+                    new(FieldErrorCodes.TooLong, Max: MaxTitleLength),
+                    $"A title may be at most {MaxTitleLength} characters long.");
+            }
+            else if (title != Title)
+            {
+                titleTo = title;
+            }
+        }
+
+        string? iconTo = null;
+        if (edit.Icon?.Trim() is { } icon)
+        {
+            if (!GoalIcons.IsValid(icon))
+            {
+                errors.Add(nameof(Icon), new(FieldErrorCodes.UnknownOption), "That icon is not one of the available goal icons.");
+            }
+            else if (icon != Icon)
+            {
+                iconTo = icon;
+            }
+        }
+
+        // What is not asked for stays as the waiting change would leave it.
+        var description = edit.Description is { } said
+            ? (string.IsNullOrWhiteSpace(said) ? null : said.Trim())
+            : pending is { DescriptionChanged: true } ? pending.DescriptionTo : Description;
+
+        if (description is { Length: > MaxDescriptionLength })
+        {
+            errors.Add(
+                nameof(Description),
+                new(FieldErrorCodes.TooLong, Max: MaxDescriptionLength),
+                $"A description may be at most {MaxDescriptionLength} characters long.");
+        }
+
+        var schedule = edit.Schedule ?? pending?.ScheduleTo ?? Schedule;
+        if (IsDont != (schedule.Kind == ScheduleKind.Limit))
+        {
+            errors.Add(
+                nameof(Schedule),
+                new(FieldErrorCodes.UnknownOption),
+                IsDont ? "A Don't is counted per day, week or month." : "Only a Don't has a limit.");
+        }
+        else if (schedule.Repeats != Schedule.Repeats)
+        {
+            errors.Add(
+                nameof(Schedule),
+                new(FieldErrorCodes.KindFixed),
+                "A one-off stays a one-off, and a repeating goal keeps repeating.");
+        }
+
+        int? limitTo = null;
+        DontProofMode? proofModeTo = null;
+
+        if (!IsDont)
+        {
+            if (edit.Limit is not null)
+            {
+                errors.Add(nameof(Limit), new(FieldErrorCodes.UnknownOption), "Only a Don't has a limit.");
+            }
+
+            if (edit.ProofMode is not null)
+            {
+                errors.Add(nameof(ProofMode), new(FieldErrorCodes.UnknownOption), "Only a Don't has a proof mode.");
+            }
+        }
+        else
+        {
+            var limit = edit.Limit ?? pending?.LimitTo ?? Limit ?? 0;
+            if (limit is < 0 or > MaxLimit)
+            {
+                errors.Add(
+                    nameof(Limit),
+                    new(FieldErrorCodes.OutOfRange, Min: 0, Max: MaxLimit),
+                    $"A limit must be between 0 and {MaxLimit}.");
+            }
+            else if (limit != Limit)
+            {
+                limitTo = limit;
+            }
+
+            var mode = edit.ProofMode ?? pending?.ProofModeTo ?? ProofMode ?? DontProofMode.HonestOnly;
+            if (!Enum.IsDefined(mode))
+            {
+                errors.Add(nameof(ProofMode), new(FieldErrorCodes.UnknownOption), "Choose how your friends can check this.");
+            }
+            else if (mode != ProofMode)
+            {
+                proofModeTo = mode;
+            }
+        }
+
+        var window = OneOffWindow;
+        var dueFrom = Schedule.Repeats ? (DateOnly?)null : window?.DueOn ?? TargetDate;
+        var waitingLater = pending?.Deferred.TargetDate;
+        DateOnly? earlier = null;
+        DateOnly? later = null;
+
+        if ((edit.TargetDate ?? waitingLater) is { } target)
+        {
+            if (Schedule.Repeats)
+            {
+                errors.Add(nameof(TargetDate), new(FieldErrorCodes.KindFixed), "Only a one-off has a day.");
+            }
+            else if (window is null || dueFrom is not { } due)
+            {
+                errors.Add(nameof(TargetDate), new(FieldErrorCodes.Invalid), "This one-off has no running window to move.");
+            }
+            else if (target < today && target != due)
+            {
+                errors.Add(nameof(TargetDate), new(FieldErrorCodes.PastDay), "A one-off cannot be due on a day that has already passed.");
+            }
+            else if (target > today.AddDays(MaxTargetDaysAhead))
+            {
+                errors.Add(
+                    nameof(TargetDate),
+                    new(FieldErrorCodes.TooFarAhead, Max: MaxTargetDaysAhead),
+                    $"A one-off may be due at most {MaxTargetDaysAhead} days ahead.");
+            }
+            else if (target < due)
+            {
+                earlier = target;
+            }
+
+            // A later day waits a day for objections, so it can only be asked
+            // for while the deadline is still that far off — or it would be a
+            // way to slip past the one that is about to pass.
+            else if (target > due)
+            {
+                if (target != waitingLater && window.DueAt - now < GoalChangeRules.ObjectionPeriod)
+                {
+                    errors.Add(
+                        nameof(TargetDate),
+                        new(FieldErrorCodes.TooLateToMove),
+                        "A one-off can be moved to a later day only while its deadline is at least a day away.");
+                }
+                else
+                {
+                    later = target;
+                }
+            }
+        }
+
+        var checkers = _participants.Select(participant => participant.PersonId).ToHashSet();
+        var wanted = edit.CheckerIds is { } ids
+            ? ids.Where(personId => personId != OwnerPersonId).ToHashSet()
+            : checkers.Except(pending?.RemovedCheckerIds ?? []).ToHashSet();
+
+        // A goal is made in front of somebody, and stays in front of somebody
+        // (docs/adr/0027-goal-conversations.md). One from before a friend was
+        // required has nobody to lose, and can still be edited.
+        if (wanted.Count == 0 && checkers.Count > 0)
+        {
+            errors.Add("ParticipantIds", new(FieldErrorCodes.NoChecker), "A goal needs at least one friend to check it.");
+        }
+        else if (wanted.Count > MaxParticipants)
+        {
+            errors.Add(
+                "ParticipantIds",
+                new(FieldErrorCodes.TooMany, Max: MaxParticipants),
+                $"A goal may have at most {MaxParticipants} participants.");
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new DomainValidationException(errors);
+        }
+
+        var descriptionChanged = description != Description;
+        var terms = new DeferredTerms(
+            schedule.SameAs(Schedule) ? null : schedule,
+            limitTo,
+            proofModeTo,
+            later,
+            descriptionChanged,
+            descriptionChanged ? description : null,
+            [.. checkers.Except(wanted).Order()]);
+
+        var deferred = terms.IsEmpty ? null : terms;
+
+        return new GoalEditPlan(
+            Title,
+            titleTo,
+            Icon,
+            iconTo,
+            dueFrom,
+            earlier,
+            [.. wanted.Except(checkers).Order()],
+            deferred,
+            deferred is not null && GoalChangeRules.IsEasier(this, deferred),
+            KeepsPending: deferred is not null && pending is not null && deferred.SameAs(pending.Deferred),
+            WithdrawsPending: deferred is null && pending is not null);
+    }
+
+    /// <summary>
+    /// Carries out a planned edit: what applies now, applies; what waits is
+    /// recorded, replacing whatever was waiting. Returns the edit's row, or
+    /// null when there is nothing new to record.
+    /// </summary>
+    /// <remarks>
+    /// The caller adds an added checker to the goal's conversation and tells
+    /// them; the goal only knows its own participants.
+    /// </remarks>
+    /// <param name="newId">Hands out the ids of the participant and checker rows.</param>
+    /// <param name="endOfDay">The last instant of a local day in the owner's zone.</param>
+    /// <exception cref="DomainValidationException">The goal has stopped since the plan was made.</exception>
+    public GoalChange? Edit(
+        Guid changeId,
+        GoalEditPlan plan,
+        Func<Guid> newId,
+        Func<DateOnly, DateTimeOffset> endOfDay,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(newId);
+        ArgumentNullException.ThrowIfNull(endOfDay);
+
+        if (IsClosed)
+        {
+            throw new DomainValidationException("Goal", "A goal that has stopped cannot be edited.");
+        }
+
+        if (!plan.HasChanges)
+        {
+            return null;
+        }
+
+        if (plan.TitleTo is { } title)
+        {
+            Title = title;
+        }
+
+        if (plan.IconTo is { } icon)
+        {
+            Icon = icon;
+        }
+
+        foreach (var personId in plan.CheckersAdded)
+        {
+            AddParticipant(newId(), personId);
+        }
+
+        if (plan.TargetDateTo is { } earlier)
+        {
+            MoveOneOffDeadline(earlier, endOfDay);
+        }
+
+        // One change waits at a time: a new one takes the old one's place,
+        // and an edit that wants nothing to wait takes it back.
+        if (plan.WithdrawsPending)
+        {
+            PendingChange?.Withdraw(now);
+        }
+        else if (plan.HasNewDeferred)
+        {
+            PendingChange?.Supersede(now);
+        }
+
+        if (!plan.HasImmediate && !plan.HasNewDeferred)
+        {
+            return null;
+        }
+
+        var change = GoalChange.Record(changeId, this, plan, newId, now);
+        _changes.Add(change);
+        return change;
+    }
+
+    /// <summary>
+    /// Puts the waiting half of an edit into force. <see cref="GoalMaintenance"/>
+    /// calls it as the window it applies with opens.
+    /// </summary>
+    /// <param name="on">The first local day it counts for.</param>
+    internal void ApplyChange(GoalChange change, DateOnly on, Func<DateOnly, DateTimeOffset> endOfDay, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        ArgumentNullException.ThrowIfNull(endOfDay);
+
+        if (change.ScheduleTo is { } schedule)
+        {
+            // A copy, because EF Core owns a schedule through exactly one row.
+            Schedule = schedule.Copy();
+        }
+
+        if (change.LimitTo is { } limit)
+        {
+            Limit = limit;
+        }
+
+        if (change.ProofModeTo is { } mode)
+        {
+            ProofMode = mode;
+        }
+
+        if (change.DescriptionChanged)
+        {
+            Description = change.DescriptionTo;
+        }
+
+        if (change.Deferred.TargetDate is { } later)
+        {
+            MoveOneOffDeadline(later, endOfDay);
+        }
+
+        // Never the last one. The edit made sure somebody stays; this keeps it
+        // true whatever happened in between.
+        var removed = change.RemovedCheckerIds.ToHashSet();
+        if (_participants.Any(participant => !removed.Contains(participant.PersonId)))
+        {
+            _participants.RemoveAll(participant => removed.Contains(participant.PersonId));
+        }
+
+        change.MarkApplied(on, now);
+    }
+
+    /// <summary>
+    /// Applies a one-off's waiting change once its objection period is over.
+    /// Returns false when there is nothing to apply yet.
+    /// </summary>
+    /// <remarks>
+    /// A one-off has no next window for a change to wait for, so it applies
+    /// into the window it has — but never while a photograph in it is being
+    /// voted on: friends halfway through deciding must not have the people
+    /// deciding changed under them.
+    /// </remarks>
+    internal bool ApplyDueOneOffChange(DateOnly today, Func<DateOnly, DateTimeOffset> endOfDay, DateTimeOffset now)
+    {
+        if (Schedule.Repeats
+            || PendingChange is not { } change
+            || !change.IsDueAt(now)
+            || CurrentInstance?.PendingProof is not null)
+        {
+            return false;
+        }
+
+        ApplyChange(change, today, endOfDay, now);
+        return true;
+    }
+
+    /// <summary>
+    /// Records one checker's objection to the waiting change, or takes it back,
+    /// and lifts the change when enough of them have objected. Returns the
+    /// change, or null when nothing is open to objection.
+    /// </summary>
+    public GoalChange? VetoChange(Guid vetoId, Guid personId, DateTimeOffset now)
+    {
+        if (PendingChange is not { Objectable: true } change)
+        {
+            return null;
+        }
+
+        change.ToggleVeto(vetoId, personId, _participants.Count, now);
+        return change;
+    }
+
+    /// <summary>Takes back the waiting change. Returns false when nothing was waiting.</summary>
+    public bool WithdrawChange(DateTimeOffset now) => PendingChange?.Withdraw(now) ?? false;
+
+    private void MoveOneOffDeadline(DateOnly day, Func<DateOnly, DateTimeOffset> endOfDay)
+    {
+        TargetDate = day;
+        OneOffWindow?.MoveDeadline(day, endOfDay(day));
     }
 
     /// <summary>True when this person may read the goal: its owner, or somebody it is shared with.</summary>

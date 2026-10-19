@@ -429,6 +429,223 @@ public sealed class GoalService(
     }
 
     /// <summary>
+    /// Edits one of your own running goals: what applies now applies, what
+    /// waits for the next window is recorded, and the people who check it are
+    /// told what they need to know (docs/adr/0044-editing-a-running-goal.md).
+    /// </summary>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">
+    /// It has stopped, a newcomer is not a friend, or something asked for is
+    /// not allowed for this goal.
+    /// </exception>
+    public async Task<GoalResponse> EditAsync(Guid id, EditGoalRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        // Up to date first: an edit is judged against the window that is
+        // really running, and a change that was due overnight has applied.
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+
+        var plan = await PlanEditAsync(goal, request, me, calendar, now, cancellationToken);
+        var change = goal.Edit(idGenerator.NewId(), plan, idGenerator.NewId, calendar.EndOfDay, now);
+
+        if (change is not null)
+        {
+            database.GoalChanges.Add(change);
+        }
+
+        if (plan.CheckersAdded.Count > 0)
+        {
+            await JoinConversationAsync(goal, plan.CheckersAdded, now, cancellationToken);
+
+            // Somebody put on a running goal is one of the people who decide
+            // it from now on, the same news as being put on a new one.
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.GoalInvitation, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                plan.CheckersAdded,
+                cancellationToken);
+        }
+
+        var checkers = goal.Participants.Select(participant => participant.PersonId).ToList();
+
+        /*
+         * An easier change is announced to the people who can object to it —
+         * that it exists, and never what it is: the terms belong on the goal
+         * and in its conversation, not on a lock screen. A stricter one needs
+         * no telling beyond the line in the conversation. Somebody added in the
+         * same edit has just been told about the whole goal.
+         */
+        if (change is { IsPending: true, Objectable: true })
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.GoalChangeProposed, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                checkers.Except(plan.CheckersAdded),
+                cancellationToken);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+
+        // Catching up may have applied an earlier edit that removed somebody.
+        await RemoveFormerCheckersAsync([goal], cancellationToken);
+
+        // The goal's screen, and its conversation: its name and its lines.
+        notifier.Touch(checkers.Append(me.Id), LiveArea.Goals, goal.Id);
+        notifier.Touch(checkers.Append(me.Id), LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
+        // What kind of edit, and nothing of what it says (docs/privacy.md).
+        logger.LogInformation(
+            "Goal {GoalId} was edited: {AppliedNow} applied now, {Waiting} waiting, objectable {Objectable}",
+            goal.Id,
+            plan.HasImmediate,
+            plan.HasNewDeferred,
+            plan.HasNewDeferred && plan.Objectable);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// What an edit would do, without doing it: what applies at once, what
+    /// waits and from when, and whether the checkers could object.
+    /// </summary>
+    /// <remarks>
+    /// The edit sheet's last step, so the owner reads the consequences before
+    /// committing to them — worked out by the same <see cref="Goal.PlanEdit"/>
+    /// that saving goes through, rather than by a copy of its rules in the
+    /// client.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">The same refusals as <see cref="EditAsync"/>.</exception>
+    public async Task<GoalEditPreviewResponse> PreviewEditAsync(
+        Guid id,
+        EditGoalRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        if (await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken))
+        {
+            await database.SaveChangesAsync(cancellationToken);
+            await notifier.FlushAsync(cancellationToken);
+        }
+
+        var plan = await PlanEditAsync(goal, request, me, calendar, now, cancellationToken);
+
+        if (!plan.HasImmediate && !plan.HasNewDeferred)
+        {
+            return new GoalEditPreviewResponse(null, plan.WithdrawsPending);
+        }
+
+        var ids = goal.Participants.Select(participant => participant.PersonId).Concat(plan.CheckersAdded).ToList();
+        var people = await database.People
+            .AsNoTracking()
+            .Where(person => ids.Contains(person.Id))
+            .ToDictionaryAsync(person => person.Id, cancellationToken);
+
+        var expectedOn = plan.HasNewDeferred
+            ? GoalMaintenance.WhenChangeApplies(goal, calendar, plan.Objectable, now)
+            : null;
+
+        return new GoalEditPreviewResponse(
+            GoalChangeResponse.Preview(plan, goal, people, now, expectedOn),
+            plan.WithdrawsPending);
+    }
+
+    /// <summary>
+    /// Adds or takes back the reader's objection to the change waiting on a
+    /// goal they check.
+    /// </summary>
+    /// <remarks>
+    /// The same people and the same 404 as an objection to a pause: the
+    /// checkers, never the owner, and a goal somebody is not on is not
+    /// confirmed to exist by the way this fails.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">Not a goal this person may object on.</exception>
+    /// <exception cref="DomainValidationException">Nothing is waiting that can be objected to.</exception>
+    public async Task<GoalResponse> VetoChangeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        var goal = await LoadAsync(id, cancellationToken);
+
+        if (goal is null || !goal.CanVote(me.Id))
+        {
+            throw new ResourceNotFoundException("Goal", id);
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var owner = await OwnerOf(goal, me, cancellationToken);
+        var calendar = timeZones.For(owner.TimeZoneId);
+
+        // Up to date first: a change that applied with this morning's window
+        // can no longer be objected to.
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
+
+        if (goal.VetoChange(idGenerator.NewId(), me.Id, now) is not { } change)
+        {
+            throw new DomainValidationException("Change", "Nothing is waiting on this goal that can be objected to.");
+        }
+
+        // As for a pause: a single objection is silent, and the owner hears
+        // only the consequence, from nobody in particular.
+        if (change.Status == GoalChangeStatus.Overturned)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.GoalChangeLifted, ActorPersonId: null, NotificationTarget.Goal, goal.Id, goal.Title),
+                [goal.OwnerPersonId],
+                cancellationToken);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        await RemoveFormerCheckersAsync([goal], cancellationToken);
+
+        var everybody = goal.Participants.Select(participant => participant.PersonId).Append(goal.OwnerPersonId).ToList();
+        notifier.Touch(everybody, LiveArea.Goals, goal.Id);
+        notifier.Touch(everybody, LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
+    /// <summary>Takes back the change waiting on one of your own goals.</summary>
+    /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
+    /// <exception cref="DomainValidationException">Nothing was waiting.</exception>
+    public async Task<GoalResponse> WithdrawChangeAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var goal = await RequireOwnAsync(id, me.Id, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+
+        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+
+        if (!goal.WithdrawChange(now))
+        {
+            throw new DomainValidationException("Change", "Nothing is waiting on this goal.");
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        await RemoveFormerCheckersAsync([goal], cancellationToken);
+
+        var everybody = goal.Participants.Select(participant => participant.PersonId).Append(me.Id).ToList();
+        notifier.Touch(everybody, LiveArea.Goals, goal.Id);
+        notifier.Touch(everybody, LiveArea.Chats);
+        await notifier.FlushAsync(cancellationToken);
+
+        return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
+    /// <summary>
     /// Stops a goal for good and moves it to the archive.
     /// </summary>
     /// <exception cref="ResourceNotFoundException">Not this person's goal.</exception>
@@ -701,6 +918,107 @@ public sealed class GoalService(
             removed.Count);
     }
 
+    /// <summary>
+    /// Turns the request into the goal's own terms and plans it against the
+    /// goal, refusing a newcomer who is not a friend.
+    /// </summary>
+    /// <remarks>
+    /// Only somebody being added has to be a friend. A checker already on the
+    /// goal stays until the owner removes them, friends or not — the same
+    /// rule as at creation, applied to the people it is about.
+    /// </remarks>
+    private async Task<GoalEditPlan> PlanEditAsync(
+        Goal goal,
+        EditGoalRequest request,
+        Person me,
+        LocalCalendar calendar,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (request.ParticipantIds is { } wanted)
+        {
+            var newcomers = wanted
+                .Where(personId => personId != me.Id && goal.Participants.All(participant => participant.PersonId != personId))
+                .ToList();
+
+            if (newcomers.Count > 0)
+            {
+                var friendIds = (await friends.FriendIdsAsync(me.Id, cancellationToken)).ToHashSet();
+
+                if (newcomers.Any(personId => !friendIds.Contains(personId)))
+                {
+                    throw new DomainValidationException(
+                        nameof(request.ParticipantIds),
+                        "A goal can only be shared with your friends.",
+                        new(FieldErrorCodes.Invalid));
+                }
+            }
+        }
+
+        var edit = new GoalEdit(
+            request.Title,
+            request.Description,
+            request.Icon,
+            EditGoalRequestValidator.ToSchedule(request.Schedule, goal.Kind),
+            request.TargetDate,
+            request.Limit,
+            request.ProofMode,
+            request.ParticipantIds);
+
+        return goal.PlanEdit(edit, calendar.Today(now), now);
+    }
+
+    /// <summary>
+    /// Puts checkers added by an edit into the goal's conversation — or opens
+    /// it, for a goal from before every goal had one.
+    /// </summary>
+    private async Task JoinConversationAsync(
+        Goal goal,
+        IReadOnlyList<Guid> added,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var conversation = await database.Conversations
+            .Include(candidate => candidate.Participants)
+            .SingleOrDefaultAsync(candidate => candidate.GoalId == goal.Id, cancellationToken);
+
+        if (conversation is null)
+        {
+            database.Conversations.Add(GoalConversations.Open(goal, idGenerator.NewId(), idGenerator.NewId, now));
+            return;
+        }
+
+        // Read up to now: the thread so far is history to scroll back
+        // through, not a badge of a hundred unread lines.
+        foreach (var personId in added)
+        {
+            conversation.AddParticipant(idGenerator.NewId(), personId, now);
+        }
+
+        notifier.Touch(added, LiveArea.Chats);
+    }
+
+    /// <summary>
+    /// Takes checkers an applied edit removed out of these goals'
+    /// conversations, and saves when anybody was.
+    /// </summary>
+    private async Task RemoveFormerCheckersAsync(IReadOnlyCollection<Goal> goals, CancellationToken cancellationToken)
+    {
+        var former = await GoalConversations.RemoveFormerCheckersAsync(
+            database,
+            [.. goals.Select(goal => goal.Id)],
+            cancellationToken);
+
+        if (former.Count == 0)
+        {
+            return;
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        notifier.Touch(former, LiveArea.Chats);
+        notifier.Touch(former, LiveArea.Goals);
+    }
+
     /// <summary>Mine, and the ones I have been let in on. Tracked, because reads advance them.</summary>
     private async Task<List<Goal>> MineAsync(Guid meId, CancellationToken cancellationToken) =>
         await database.Goals
@@ -714,6 +1032,10 @@ public sealed class GoalService(
             .ThenInclude(instance => instance.SpotChecks)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Vetoes)
             .Where(g => g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId))
             .OrderByDescending(g => g.CreatedAt)
             .ThenBy(g => g.Id)
@@ -750,6 +1072,10 @@ public sealed class GoalService(
         if (changed)
         {
             await database.SaveChangesAsync(cancellationToken);
+
+            // A change that applied may have removed a checker, who leaves
+            // the conversation with it.
+            await RemoveFormerCheckersAsync(mine, cancellationToken);
             await notifier.FlushAsync(cancellationToken);
         }
     }
@@ -813,6 +1139,10 @@ public sealed class GoalService(
             .ThenInclude(instance => instance.SpotChecks)
             .Include(g => g.Pauses)
             .ThenInclude(pause => pause.Vetoes)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Vetoes)
             .SingleOrDefaultAsync(g => g.Id == id, cancellationToken);
 
     /// <summary>

@@ -635,6 +635,11 @@ export function notificationText(line: NotificationLine, t: Messages): Notificat
       return said(t.notify.titles.goals, name, t.notify.goalPaused(subject, line.amount ?? 1))
     case 'PauseLifted':
       return said(t.notify.titles.goals, null, t.notify.pauseLifted(subject))
+    case 'GoalChangeProposed':
+      return said(t.notify.titles.goals, name, t.notify.goalChangeProposed(subject))
+    // Nobody's name: objections are anonymous, and so is their result.
+    case 'GoalChangeLifted':
+      return said(t.notify.titles.goals, null, t.notify.goalChangeLifted(subject))
     case 'FriendWindowAtRisk':
       return said(t.notify.titles.risk, name, t.notify.friendAtRisk(subject, line.amount ?? 1))
     case 'ChallengePublished':
@@ -751,6 +756,10 @@ export function notificationIcon(line: NotificationLine): string {
       return 'i-lucide-pause'
     case 'PauseLifted':
       return 'i-lucide-play'
+    case 'GoalChangeProposed':
+      return 'i-lucide-pencil'
+    case 'GoalChangeLifted':
+      return 'i-lucide-undo-2'
     case 'FriendWindowAtRisk':
       return 'i-lucide-clock-alert'
     case 'ChallengePublished':

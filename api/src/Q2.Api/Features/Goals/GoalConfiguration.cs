@@ -62,34 +62,7 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
          * It still lands in the Goals table, one column per field, so a person
          * reading the database sees the whole goal in one row.
          */
-        builder.OwnsOne(g => g.Schedule, schedule =>
-        {
-            schedule.Property(s => s.Kind)
-                .HasColumnName("ScheduleKind")
-                .IsRequired()
-                .HasMaxLength(32)
-                .HasConversion<string>();
-
-            schedule.Property(s => s.EveryDays).HasColumnName("ScheduleEveryDays");
-
-            schedule.Property(s => s.WeekdayList)
-                .HasColumnName("ScheduleWeekdays")
-                .IsRequired()
-                .HasMaxLength(32);
-
-            schedule.Property(s => s.Times).HasColumnName("ScheduleTimes");
-
-            schedule.Property(s => s.Period)
-                .HasColumnName("SchedulePeriod")
-                .HasMaxLength(16)
-                .HasConversion<string>();
-
-            // Parsed from WeekdayList on the way out; a second copy in the
-            // database would be a second thing to keep in step.
-            schedule.Ignore(s => s.Weekdays);
-            schedule.Ignore(s => s.RequiredProofs);
-            schedule.Ignore(s => s.Repeats);
-        });
+        builder.OwnsOne(g => g.Schedule, schedule => MapSchedule(schedule, "Schedule"));
 
         builder.Navigation(g => g.Schedule).IsRequired();
 
@@ -141,6 +114,14 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
             .HasForeignKey(pause => pause.GoalId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(g => g.Changes)
+            .WithOne()
+            .HasForeignKey(change => change.GoalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Ignore(g => g.PendingChange);
+        builder.Ignore(g => g.LastChangeAppliedOn);
+
         builder.Metadata
             .FindNavigation(nameof(Goal.Participants))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
@@ -150,6 +131,166 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
         builder.Metadata
             .FindNavigation(nameof(Goal.Pauses))!
             .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata
+            .FindNavigation(nameof(Goal.Changes))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+    }
+
+    /// <summary>
+    /// Maps a schedule owned by something other than a goal, into columns that
+    /// start with <paramref name="prefix"/>. The same fields as a goal's own.
+    /// </summary>
+    internal static void MapSchedule<TOwner>(OwnedNavigationBuilder<TOwner, GoalSchedule> schedule, string prefix)
+        where TOwner : class
+    {
+        schedule.Property(s => s.Kind)
+            .HasColumnName($"{prefix}Kind")
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        schedule.Property(s => s.EveryDays).HasColumnName($"{prefix}EveryDays");
+
+        schedule.Property(s => s.WeekdayList)
+            .HasColumnName($"{prefix}Weekdays")
+            .IsRequired()
+            .HasMaxLength(32);
+
+        schedule.Property(s => s.Times).HasColumnName($"{prefix}Times");
+
+        schedule.Property(s => s.Period)
+            .HasColumnName($"{prefix}Period")
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        // Parsed from WeekdayList on the way out; a second copy in the
+        // database would be a second thing to keep in step.
+        schedule.Ignore(s => s.Weekdays);
+        schedule.Ignore(s => s.RequiredProofs);
+        schedule.Ignore(s => s.Repeats);
+    }
+}
+
+public sealed class GoalChangeConfiguration : IEntityTypeConfiguration<GoalChange>
+{
+    public void Configure(EntityTypeBuilder<GoalChange> builder)
+    {
+        builder.ToTable("GoalChanges");
+        builder.HasKey(change => change.Id);
+
+        builder.Property(change => change.CreatedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.Property(change => change.ResolvedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(change => change.AppliesOn);
+
+        builder.Property(change => change.Status)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Property(change => change.Objectable).IsRequired();
+
+        // User content, the same bounds as the goal's own columns.
+        builder.Property(change => change.TitleFrom).HasMaxLength(Goal.MaxTitleLength);
+        builder.Property(change => change.TitleTo).HasMaxLength(Goal.MaxTitleLength);
+        builder.Property(change => change.IconFrom).HasMaxLength(40);
+        builder.Property(change => change.IconTo).HasMaxLength(40);
+        builder.Property(change => change.DescriptionChanged).IsRequired();
+        builder.Property(change => change.DescriptionFrom).HasMaxLength(Goal.MaxDescriptionLength);
+        builder.Property(change => change.DescriptionTo).HasMaxLength(Goal.MaxDescriptionLength);
+
+        builder.Property(change => change.LimitFrom);
+        builder.Property(change => change.LimitTo);
+
+        builder.Property(change => change.ProofModeFrom)
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Property(change => change.ProofModeTo)
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
+        builder.Property(change => change.TargetDateFrom);
+        builder.Property(change => change.TargetDateTo);
+
+        // Owned and optional, in the change's own row: null on both sides when
+        // the schedule did not change.
+        builder.OwnsOne(change => change.ScheduleFrom, schedule => GoalConfiguration.MapSchedule(schedule, "ScheduleFrom"));
+        builder.OwnsOne(change => change.ScheduleTo, schedule => GoalConfiguration.MapSchedule(schedule, "ScheduleTo"));
+
+        builder.Ignore(change => change.VetoCount);
+        builder.Ignore(change => change.IsPending);
+        builder.Ignore(change => change.ObjectionEndsAt);
+        builder.Ignore(change => change.AddedCheckerIds);
+        builder.Ignore(change => change.RemovedCheckerIds);
+
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(change => change.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(change => change.Checkers)
+            .WithOne()
+            .HasForeignKey(checker => checker.GoalChangeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(change => change.Vetoes)
+            .WithOne()
+            .HasForeignKey(veto => veto.GoalChangeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Metadata.FindNavigation(nameof(GoalChange.Checkers))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+        builder.Metadata.FindNavigation(nameof(GoalChange.Vetoes))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        // "Is a change waiting on this goal" is asked on every read of it,
+        // like "is it paused".
+        builder.HasIndex(change => new { change.GoalId, change.Status });
+    }
+}
+
+public sealed class GoalChangeCheckerConfiguration : IEntityTypeConfiguration<GoalChangeChecker>
+{
+    public void Configure(EntityTypeBuilder<GoalChangeChecker> builder)
+    {
+        builder.ToTable("GoalChangeCheckers");
+        builder.HasKey(checker => checker.Id);
+
+        builder.Property(checker => checker.Added).IsRequired();
+
+        // Erasing somebody takes them out of the edits that named them too.
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(checker => checker.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(checker => new { checker.GoalChangeId, checker.PersonId }).IsUnique();
+    }
+}
+
+public sealed class GoalChangeVetoConfiguration : IEntityTypeConfiguration<GoalChangeVeto>
+{
+    public void Configure(EntityTypeBuilder<GoalChangeVeto> builder)
+    {
+        builder.ToTable("GoalChangeVetoes");
+        builder.HasKey(veto => veto.Id);
+
+        builder.Property(veto => veto.CreatedAt)
+            .IsRequired()
+            .HasConversion(InstantConversion.Required);
+
+        builder.HasOne<Person>()
+            .WithMany()
+            .HasForeignKey(veto => veto.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One objection per person and change, as for a pause.
+        builder.HasIndex(veto => new { veto.GoalChangeId, veto.PersonId }).IsUnique();
     }
 }
 

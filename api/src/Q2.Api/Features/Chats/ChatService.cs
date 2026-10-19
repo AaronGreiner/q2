@@ -705,7 +705,14 @@ public sealed class ChatService(
             conversation.Participants
                 .Select(participant => participant.PersonId)
                 .Concat(page.Messages.Select(message => message.SenderPersonId))
-                .Concat(proofPeopleIds),
+                .Concat(proofPeopleIds)
+
+                // An edit names whoever it added or removed, and somebody
+                // removed is no longer in the thread to be found there.
+                .Concat(page.Events
+                    .Select(entry => entry.Change)
+                    .OfType<GoalChange>()
+                    .SelectMany(change => change.Checkers.Select(checker => checker.PersonId))),
             cancellationToken);
 
         // The photographs are described from their own, narrower set of
@@ -739,7 +746,8 @@ public sealed class ChatService(
                         entry.Day,
                         entry.Uses,
                         entry.Limit,
-                        entry.ImageId)),
+                        entry.ImageId,
+                        GoalChangeResponse.From(entry.Change, goal, people, meId, now))),
                 ],
             page.Older?.ToCursor(),
             people);
@@ -959,6 +967,10 @@ public sealed class ChatService(
             .ThenInclude(instance => instance.Proofs)
             .ThenInclude(proof => proof.Reactions)
             .Include(g => g.Pauses)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(g => g.Changes)
+            .ThenInclude(change => change.Vetoes)
             .Where(g => ids.Contains(g.Id)
                 && (g.OwnerPersonId == meId || g.Participants.Any(p => p.PersonId == meId)))
             .ToDictionaryAsync(g => g.Id, cancellationToken);

@@ -121,6 +121,8 @@ Current components, by folder:
 | `HistoryGrid` | the windows a goal has been through, by month with the day on each, deliberately without the accent |
 | `GoalReminderSheet` | moving or removing a goal's daily reminder |
 | `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't; without a friend it keeps a Do waiting instead |
+| `GoalEditSheet` `GoalChangeBanner` `GoalChangeList` | editing a running goal in the create sheet's steps, with a summary the server previews; the change waiting for the next window on the goal, with "Zurückziehen" for the owner and the objection for a checker; and what an edit changed, line by line, worded by `utils/goalChange.ts` ([0044](../docs/adr/0044-editing-a-running-goal.md)) |
+| `GoalIconPicker` `CheckerPicker` | the icon grid and the list of people who check a goal, shared by both sheets |
 | `GoalDraftCard` `GoalDraftForm` | a Do that waits for its owner's first friend, and the short form a first Do is made in — a waiting Do without friends, a goal with them ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `SpotCheckCard` | an open spot check: its countdown in seconds and the live-only camera, first on the start screen and on the Don't's screen ([0038](../docs/adr/0038-spot-checks.md)) |
 | `DontWindowRow` `DontHero` `DontLogButton` `DontLimitPicker` | a Don't: its row on today's list, the top of its own screen with the run, the one tap that logs a use (and asks first when it would be the relapse), and its limit, period and proof mode in the create sheet ([0037](../docs/adr/0037-donts.md)) |

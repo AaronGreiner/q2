@@ -56,6 +56,12 @@ public sealed class Q2DbContext(DbContextOptions<Q2DbContext> options)
 
     public DbSet<PauseVeto> PauseVetoes => Set<PauseVeto>();
 
+    public DbSet<GoalChange> GoalChanges => Set<GoalChange>();
+
+    public DbSet<GoalChangeChecker> GoalChangeCheckers => Set<GoalChangeChecker>();
+
+    public DbSet<GoalChangeVeto> GoalChangeVetoes => Set<GoalChangeVeto>();
+
     public DbSet<StoredImage> Images => Set<StoredImage>();
 
     public DbSet<ProofPhoto> ProofPhotos => Set<ProofPhoto>();

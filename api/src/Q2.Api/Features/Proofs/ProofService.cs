@@ -540,6 +540,10 @@ public sealed class ProofService(
             .Include(goal => goal.Instances)
             .ThenInclude(instance => instance.SpotChecks)
             .Include(goal => goal.Pauses)
+            .Include(goal => goal.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(goal => goal.Changes)
+            .ThenInclude(change => change.Vetoes)
             .SingleOrDefaultAsync(goal => goal.Id == goalId, cancellationToken);
 
     private async Task<(Goal Goal, ProofPhoto Proof)> LoadProofAsync(
@@ -569,6 +573,10 @@ public sealed class ProofService(
             // As in LoadGoalAsync: the outcome of this vote goes through
             // GoalMaintenance, which has to be able to see a running pause.
             .Include(candidate => candidate.Pauses)
+            .Include(candidate => candidate.Changes)
+            .ThenInclude(change => change.Checkers)
+            .Include(candidate => candidate.Changes)
+            .ThenInclude(change => change.Vetoes)
             .SingleOrDefaultAsync(
                 candidate => candidate.Instances.Any(instance => instance.Id == instanceId),
                 cancellationToken)

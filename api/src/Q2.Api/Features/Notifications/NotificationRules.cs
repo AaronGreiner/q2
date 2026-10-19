@@ -37,6 +37,8 @@ public static class NotificationRules
         NotificationKind.GoalPaused => true,
         NotificationKind.PauseLifted => true,
         NotificationKind.FriendWindowAtRisk => true,
+        NotificationKind.GoalChangeProposed => true,
+        NotificationKind.GoalChangeLifted => true,
 
         _ => throw Undecided(kind),
     };
@@ -54,6 +56,8 @@ public static class NotificationRules
         NotificationKind.GoalInvitation => NotificationSwitch.GoalUpdates,
         NotificationKind.GoalPaused => NotificationSwitch.GoalUpdates,
         NotificationKind.PauseLifted => NotificationSwitch.GoalUpdates,
+        NotificationKind.GoalChangeProposed => NotificationSwitch.GoalUpdates,
+        NotificationKind.GoalChangeLifted => NotificationSwitch.GoalUpdates,
         NotificationKind.FriendWindowAtRisk => NotificationSwitch.FriendsAtRisk,
         NotificationKind.ChallengePublished => NotificationSwitch.Challenge,
         NotificationKind.SpotCheckDue => NotificationSwitch.SpotChecks,
@@ -78,6 +82,8 @@ public static class NotificationRules
         NotificationKind.GoalInvitation => LiveArea.Goals,
         NotificationKind.GoalPaused => LiveArea.Goals,
         NotificationKind.PauseLifted => LiveArea.Goals,
+        NotificationKind.GoalChangeProposed => LiveArea.Goals,
+        NotificationKind.GoalChangeLifted => LiveArea.Goals,
         NotificationKind.FriendWindowAtRisk => LiveArea.Notifications,
         NotificationKind.ChallengePublished => LiveArea.Challenge,
         NotificationKind.SpotCheckDue => LiveArea.Goals,

@@ -40,6 +40,21 @@ public enum GoalEventKind
 
     /// <summary>A Don't's period ended in a relapse the owner logged themselves.</summary>
     WindowRelapse,
+
+    /// <summary>
+    /// The owner edited the goal. Carries the edit: what applied at once, and
+    /// what waits for the next window (docs/adr/0044-editing-a-running-goal.md).
+    /// </summary>
+    Edited,
+
+    /// <summary>What an edit left waiting is in force now. Carries the edit and the day it counts from.</summary>
+    ChangeApplied,
+
+    /// <summary>Enough checkers objected to an edit for it to be lifted; the goal stayed as it was.</summary>
+    ChangeOverturned,
+
+    /// <summary>The owner took back what an edit had left waiting.</summary>
+    ChangeWithdrawn,
 }
 
 /// <summary>
@@ -56,6 +71,7 @@ public enum GoalEventKind
 /// <param name="Uses">For a logged use: which one of the period it was.</param>
 /// <param name="Limit">For a Don't's window or use: the limit of its period.</param>
 /// <param name="ImageId">For a logged use: its photograph, if it had one.</param>
+/// <param name="Change">For an edit and what became of it: the edit itself.</param>
 public sealed record GoalEvent(
     GoalEventKind Kind,
     DateTimeOffset At,
@@ -69,11 +85,12 @@ public sealed record GoalEvent(
     DateOnly? Day = null,
     int? Uses = null,
     int? Limit = null,
-    Guid? ImageId = null)
+    Guid? ImageId = null,
+    GoalChange? Change = null)
 {
     /// <summary>
-    /// Unique within one goal. A pause starts and ends, and a goal is created and
-    /// closed, so the source alone is not.
+    /// Unique within one goal. A pause starts and ends, a goal is created and
+    /// closed, and an edit is made and later applies, so the source alone is not.
     /// </summary>
     public string Key => $"{Kind}-{SourceId:N}";
 }
@@ -206,6 +223,36 @@ public static class GoalTimeline
             {
                 // Over, even before the maintenance pass has written it down.
                 events.Add(new GoalEvent(GoalEventKind.PauseEnded, pause.EndsAt, pause.Id, null));
+            }
+        }
+
+        foreach (var change in goal.Changes)
+        {
+            // What changed, from what to what, is the owner's doing; what
+            // became of the waiting half is time's or the checkers', and
+            // names nobody — objections are anonymous, as for a pause.
+            events.Add(new GoalEvent(GoalEventKind.Edited, change.CreatedAt, change.Id, change.PersonId, Change: change));
+
+            var resolvedAt = change.ResolvedAt ?? change.CreatedAt;
+
+            switch (change.Status)
+            {
+                case GoalChangeStatus.Applied:
+                    events.Add(new GoalEvent(GoalEventKind.ChangeApplied, resolvedAt, change.Id, null, Day: change.AppliesOn, Change: change));
+                    break;
+
+                case GoalChangeStatus.Overturned:
+                    events.Add(new GoalEvent(GoalEventKind.ChangeOverturned, resolvedAt, change.Id, null, Change: change));
+                    break;
+
+                case GoalChangeStatus.Withdrawn:
+                    events.Add(new GoalEvent(GoalEventKind.ChangeWithdrawn, resolvedAt, change.Id, change.PersonId, Change: change));
+                    break;
+
+                // Replaced by the next edit, whose own line says what it is
+                // now, or dropped with a goal that stopped, which says so too.
+                default:
+                    break;
             }
         }
 

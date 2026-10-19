@@ -140,6 +140,13 @@ public sealed class GoalMaintenanceWorker(
                 // the night missing windows somebody is excused from — the
                 // exact thing a pause exists to prevent.
                 .Include(g => g.Pauses)
+
+                // Nor could it apply an edit that waits for the next window,
+                // and would open that window on the old terms.
+                .Include(g => g.Changes)
+                .ThenInclude(change => change.Checkers)
+                .Include(g => g.Changes)
+                .ThenInclude(change => change.Vetoes)
                 .Where(g => g.Status == GoalStatus.Active && g.Id.CompareTo(lastId) > 0)
                 .OrderBy(g => g.Id)
                 .Take(BatchSize)
@@ -195,6 +202,18 @@ public sealed class GoalMaintenanceWorker(
             }
 
             await database.SaveChangesAsync(cancellationToken);
+        }
+
+        // A checker an edit removed in this pass — or in a request that did not
+        // tidy up after itself — leaves the goal's conversation as well. After
+        // the save, because the question is asked of the database.
+        var former = await GoalConversations.RemoveFormerCheckersAsync(database, goalIds: null, cancellationToken);
+
+        if (former.Count > 0)
+        {
+            await database.SaveChangesAsync(cancellationToken);
+            notifier.Touch(former, LiveArea.Chats);
+            notifier.Touch(former, LiveArea.Goals);
         }
 
         if (changed > 0)

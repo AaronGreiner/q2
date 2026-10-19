@@ -85,6 +85,20 @@ public enum NotificationKind
     /// and not kept in the bell: three minutes later it means nothing.
     /// </summary>
     SpotCheckDue,
+
+    /// <summary>
+    /// The owner of a goal you check made it easier, and you can object until
+    /// it applies. <c>Subject</c> is the goal. What changed is on the goal and
+    /// in its conversation, not on a lock screen
+    /// (docs/adr/0044-editing-a-running-goal.md).
+    /// </summary>
+    GoalChangeProposed,
+
+    /// <summary>
+    /// Objections lifted your change before it applied; the goal stays as it
+    /// was. Never an actor: objecting is anonymous, as it is for a pause.
+    /// </summary>
+    GoalChangeLifted,
 }
 
 /// <summary>What a notification leads to when it is tapped.</summary>

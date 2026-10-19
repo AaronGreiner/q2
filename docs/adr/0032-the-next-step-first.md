@@ -91,7 +91,8 @@ that no photograph or vote in the thread carries their id.
 - **The reminder can be moved or removed** by the goal's owner while it runs:
   `PUT /api/goals/{id}/reminder` with `reminderAt` (`HH:MM:SS`, or null). It
   nudges only the owner, so it is the one thing about a running goal that is
-  theirs alone to change; everything else stays with #4. The create sheet now
+  theirs alone to change; everything else is changed in front of the checkers
+  ([0044](0044-editing-a-running-goal.md)). The create sheet now
   asks for the time too, instead of fixing nine o'clock.
 
   The reminder is stored, shown and changeable, but **nothing sends it yet**:

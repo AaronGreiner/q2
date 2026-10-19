@@ -264,15 +264,75 @@ public sealed class GoalSchedule
     /// The window after one that has closed, or null when the goal does not
     /// repeat.
     /// </summary>
+    /// <remarks>
+    /// Never reaches back into the window before it. With an unchanged
+    /// schedule the periods line up and nothing is cut; after an edit changed
+    /// the period — three times a week becoming ten times a month, a daily goal
+    /// becoming a weekly quota — the first period of the new schedule began
+    /// before the old window ended. That window starts the day after instead,
+    /// and asks for its share of the quota, rounded up and at least one
+    /// (<see cref="Prorate"/>; docs/adr/0044-editing-a-running-goal.md).
+    /// </remarks>
     /// <param name="previousEnd">The last day of the window that just closed.</param>
     public GoalWindow? NextWindow(DateOnly previousEnd) => Kind switch
     {
         ScheduleKind.Once => null,
         ScheduleKind.Interval => Day(previousEnd.AddDays(Math.Max(1, EveryDays ?? 1))),
         ScheduleKind.Weekdays => NextMatchingDay(previousEnd.AddDays(1)) is { } day ? Day(day) : null,
-        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(previousEnd.AddDays(1)),
+        ScheduleKind.Times or ScheduleKind.Limit => After(previousEnd, PeriodAround(previousEnd.AddDays(1))),
         _ => null,
     };
+
+    /// <summary>
+    /// How many days the full period around <paramref name="day"/> has. One
+    /// for a schedule that is not counted in periods.
+    /// </summary>
+    public int PeriodDaysAround(DateOnly day) => Kind is ScheduleKind.Times or ScheduleKind.Limit
+        ? LengthOf(PeriodAround(day))
+        : 1;
+
+    /// <summary>
+    /// A quota or limit scaled to the days a cut window covers: the share of
+    /// <paramref name="amount"/>, rounded up, never below <paramref name="minimum"/>.
+    /// </summary>
+    /// <remarks>
+    /// Rounded up because a share that rounds to nothing would make a window
+    /// that asks nothing of anybody; at least one proof for a Do, because a Do's
+    /// window is kept by photographs (<see cref="GoalInstance"/>).
+    /// </remarks>
+    public static int Prorate(int amount, int days, int fullDays, int minimum) =>
+        fullDays <= 0 || days >= fullDays
+            ? Math.Max(minimum, amount)
+            : Math.Max(minimum, (int)Math.Ceiling(amount * (double)days / fullDays));
+
+    /// <summary>True when both schedules ask for the same thing.</summary>
+    public bool SameAs(GoalSchedule other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        return Kind == other.Kind
+            && EveryDays == other.EveryDays
+            && WeekdayList == other.WeekdayList
+            && Times == other.Times
+            && Period == other.Period;
+    }
+
+    /// <summary>The window, cut so it starts after <paramref name="previousEnd"/>, with its quota scaled to match.</summary>
+    private GoalWindow After(DateOnly previousEnd, GoalWindow window)
+    {
+        if (window.Start > previousEnd)
+        {
+            return window;
+        }
+
+        var cut = window with { Start = previousEnd.AddDays(1) };
+        return cut with
+        {
+            RequiredProofs = Prorate(window.RequiredProofs, LengthOf(cut), LengthOf(window), Kind == ScheduleKind.Limit ? 0 : 1),
+        };
+    }
+
+    private static int LengthOf(GoalWindow window) => window.End.DayNumber - window.Start.DayNumber + 1;
 
     /// <summary>
     /// The window before one, or null when there is nothing before it.

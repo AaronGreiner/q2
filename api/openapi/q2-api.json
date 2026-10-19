@@ -1013,6 +1013,66 @@
           }
         }
       },
+      "patch": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Edits one of your own running goals. Easier changes wait for the next window and can be objected to.",
+        "operationId": "EditGoal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditGoalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Goals"
@@ -1372,6 +1432,172 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/change/preview": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Says what an edit would do — what applies now, what waits and from when — without saving it.",
+        "operationId": "PreviewGoalEdit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditGoalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalEditPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/change": {
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Takes back the change waiting on one of your own goals.",
+        "operationId": "WithdrawGoalChange",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/goals/{id}/change/veto": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Objects to the change waiting on a goal you check, or takes the objection back. Anonymous.",
+        "operationId": "VetoGoalChange",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -4249,6 +4475,67 @@
           null
         ]
       },
+      "EditGoalRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedule": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalScheduleRequest"
+              }
+            ]
+          },
+          "targetDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "proofMode": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/DontProofMode"
+              }
+            ]
+          },
+          "participantIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        }
+      },
       "FeedProofResponse": {
         "required": [
           "proof",
@@ -4385,6 +4672,200 @@
           "Self"
         ]
       },
+      "GoalChangeResponse": {
+        "required": [
+          "id",
+          "status",
+          "createdAt",
+          "objectable",
+          "objectionEndsAt",
+          "appliesOn",
+          "resolvedAt",
+          "titleFrom",
+          "titleTo",
+          "iconFrom",
+          "iconTo",
+          "descriptionChanged",
+          "descriptionTo",
+          "scheduleFrom",
+          "scheduleTo",
+          "limitFrom",
+          "limitTo",
+          "proofModeFrom",
+          "proofModeTo",
+          "targetDateFrom",
+          "targetDateTo",
+          "checkersAdded",
+          "checkersRemoved",
+          "vetoCount",
+          "vetoesRequired",
+          "vetoedByMe",
+          "canVeto"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GoalChangeStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "objectable": {
+            "type": "boolean"
+          },
+          "objectionEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "appliesOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "resolvedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "titleFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "titleTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconFrom": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "descriptionChanged": {
+            "type": "boolean"
+          },
+          "descriptionTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleFrom": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalScheduleResponse"
+              }
+            ]
+          },
+          "scheduleTo": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalScheduleResponse"
+              }
+            ]
+          },
+          "limitFrom": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "limitTo": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "proofModeFrom": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/DontProofMode"
+              }
+            ]
+          },
+          "proofModeTo": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/DontProofMode"
+              }
+            ]
+          },
+          "targetDateFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "targetDateTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "checkersAdded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonSummary"
+            }
+          },
+          "checkersRemoved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonSummary"
+            }
+          },
+          "vetoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vetoesRequired": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vetoedByMe": {
+            "type": "boolean"
+          },
+          "canVeto": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GoalChangeStatus": {
+        "enum": [
+          "None",
+          "Pending",
+          "Applied",
+          "Overturned",
+          "Withdrawn",
+          "Superseded"
+        ]
+      },
       "GoalDetailResponse": {
         "required": [
           "goal",
@@ -4476,6 +4957,31 @@
           }
         }
       },
+      "GoalEditPreviewResponse": {
+        "required": [
+          "change",
+          "withdrawsPending"
+        ],
+        "type": "object",
+        "properties": {
+          "change": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalChangeResponse"
+              }
+            ]
+          },
+          "withdrawsPending": {
+            "type": "boolean"
+          }
+        }
+      },
       "GoalEventKind": {
         "enum": [
           "Created",
@@ -4489,6 +4995,10 @@
           "Stopped",
           "UseLogged",
           "WindowRelapse",
+          "Edited",
+          "ChangeApplied",
+          "ChangeOverturned",
+          "ChangeWithdrawn",
           null
         ]
       },
@@ -4507,7 +5017,8 @@
           "day",
           "uses",
           "limit",
-          "imageId"
+          "imageId",
+          "change"
         ],
         "type": "object",
         "properties": {
@@ -4580,6 +5091,19 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "change": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalChangeResponse"
+              }
+            ]
           }
         }
       },
@@ -4754,7 +5278,8 @@
           "risk",
           "pause",
           "remainingPauses",
-          "spotCheck"
+          "spotCheck",
+          "pendingChange"
         ],
         "type": "object",
         "properties": {
@@ -4911,6 +5436,19 @@
               },
               {
                 "$ref": "#/components/schemas/OpenSpotCheckResponse"
+              }
+            ]
+          },
+          "pendingChange": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalChangeResponse"
               }
             ]
           }
@@ -5306,7 +5844,9 @@
           "PauseLifted",
           "FriendWindowAtRisk",
           "ChallengePublished",
-          "SpotCheckDue"
+          "SpotCheckDue",
+          "GoalChangeProposed",
+          "GoalChangeLifted"
         ]
       },
       "NotificationResponse": {

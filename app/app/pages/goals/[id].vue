@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Image } from '~/api/types'
+import type { EditGoalRequest, Image } from '~/api/types'
 import type { PhotoOrigin } from '~/utils/proofSource'
 import { pauseLimits } from '~/api/types'
 
@@ -45,6 +45,10 @@ async function handInCheck(image: Image) {
 const pausing = ref(false)
 const closing = ref(false)
 const reminding = ref(false)
+const editing = ref(false)
+
+/** Who could be added as a checker — the same read the goals list makes for its create sheet. */
+const { friends } = useFriends()
 
 /** Moves on to the goal's conversation when it has one — see useProofDelivery. */
 async function handIn(image: Image, origin: PhotoOrigin) {
@@ -84,6 +88,11 @@ const canPause = computed(() =>
 
 const canClose = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
 
+/** Only the owner changes the terms, and only while the goal runs (docs/adr/0044). */
+const canEdit = computed(() => Boolean(goal.value?.isMine) && goal.value?.status === 'Active')
+
+const pendingChange = computed(() => goal.value?.pendingChange ?? null)
+
 /**
  * Only the owner is reminded, so only the owner moves it — and only while it
  * runs. A Don't has no daily reminder at all (docs/adr/0037-donts.md): there
@@ -97,6 +106,9 @@ const canEditReminder = computed(() =>
  * as the camera, for things done once in a goal's life; stopping is final.
  */
 const exits = computed(() => [
+  ...(canEdit.value
+    ? [{ label: t.value.edit.open, icon: 'i-lucide-pencil', onSelect: () => openEdit() }]
+    : []),
   ...(canPause.value
     ? [{ label: t.value.pause.open, icon: 'i-lucide-pause', onSelect: () => { pausing.value = true } }]
     : []),
@@ -125,6 +137,29 @@ async function onReminder(reminderAt: string | null) {
 
   reminding.value = false
   await refresh()
+}
+
+function openEdit() {
+  editing.value = true
+}
+
+async function onPreviewEdit(request: EditGoalRequest) {
+  await lifecycle.previewEdit(id.value, request)
+}
+
+async function onEdit(request: EditGoalRequest) {
+  if (!await lifecycle.edit(id.value, request)) return
+
+  editing.value = false
+  await refresh()
+}
+
+async function onWithdrawChange() {
+  if (await lifecycle.withdrawChange(id.value)) await refresh()
+}
+
+async function onChangeVeto() {
+  if (await lifecycle.toggleChangeVeto(id.value)) await refresh()
 }
 
 async function onClose(completed: boolean) {
@@ -284,6 +319,18 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           :busy="lifecycle.isBusy.value"
           @end="onEndPause"
           @veto="onVeto"
+        />
+
+        <!-- An edit waiting for the next window: what, from when, and the
+             objection to it while that is open (docs/adr/0044). -->
+        <GoalChangeBanner
+          v-if="pendingChange"
+          class="mt-4"
+          :change="pendingChange"
+          :is-mine="goal.isMine"
+          :busy="lifecycle.isBusy.value"
+          @withdraw="onWithdrawChange"
+          @veto="onChangeVeto"
         />
 
         <!-- Gone entirely while the goal is set aside: there is no window, so
@@ -619,6 +666,19 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       v-model:open="closing"
       :submitting="lifecycle.isBusy.value"
       @close="onClose"
+    />
+
+    <GoalEditSheet
+      v-if="goal && canEdit"
+      v-model:open="editing"
+      :goal="goal"
+      :friends="friends"
+      :preview="lifecycle.preview.value"
+      :previewing="lifecycle.isPreviewing.value"
+      :submitting="lifecycle.isBusy.value"
+      :error="lifecycle.error.value"
+      @preview="onPreviewEdit"
+      @submit="onEdit"
     />
   </div>
 </template>

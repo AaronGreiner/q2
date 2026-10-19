@@ -120,6 +120,7 @@ configuration, contracts with their mapping, a service, and endpoints. Taking
 | `GoalKind.cs` `DontUse.cs` | a Do or a Don't, a Don't's proof mode, and one logged use ([0037](../docs/adr/0037-donts.md)) |
 | `SpotCheck.cs` `SpotChecks.cs` `SpotCheckWorker.cs` | a spot check on a Don't: drawn, asked, settled, and the thirty-second pass that keeps its three minutes ([0038](../docs/adr/0038-spot-checks.md)) |
 | `GoalMaintenance.cs` | what happens to a window while nobody is looking |
+| `GoalEdit.cs` `GoalChange.cs` `GoalChangeRules.cs` | an edit of a running goal: what is asked, what was recorded and what became of it, and which edits count as easier ([0044](../docs/adr/0044-editing-a-running-goal.md)) |
 | `GoalMaintenanceWorker.cs` | the same, on a timer, for everybody |
 | `GoalParticipant.cs` | somebody a goal is shared with |
 | `GoalStatus.cs` | the lifecycle enum, stored as text |

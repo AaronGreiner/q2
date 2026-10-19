@@ -274,6 +274,15 @@ export default defineNuxtConfig({
         'lucide:shield-check',
         'lucide:ban',
 
+        // An edit of a running goal and what became of it, chosen at runtime
+        // by utils/goalChange.ts and utils/chatTimeline.ts.
+        'lucide:pencil',
+        'lucide:undo-2',
+        'lucide:type',
+        'lucide:text',
+        'lucide:user-plus',
+        'lucide:user-minus',
+
         // Stage 4: the photograph, the wait, and the verdict.
         'lucide:hourglass',
         'lucide:gavel',

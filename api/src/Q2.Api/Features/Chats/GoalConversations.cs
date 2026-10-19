@@ -12,8 +12,10 @@ namespace Q2.Api.Features.Chats;
 /// <remarks>
 /// One place that knows who belongs in a goal's conversation, used by the
 /// three things that open one — creating a goal, the maintenance pass that
-/// catches up older goals, and the seeds — so the rule cannot drift between
-/// them ([0027](../../../../docs/adr/0027-goal-conversations.md)).
+/// catches up older goals, and the seeds — and by an edit that adds or removes
+/// a checker, so the rule cannot drift between them
+/// ([0027](../../../../docs/adr/0027-goal-conversations.md),
+/// [0044](../../../../docs/adr/0044-editing-a-running-goal.md)).
 /// </remarks>
 public static class GoalConversations
 {
@@ -39,6 +41,51 @@ public static class GoalConversations
         }
 
         return conversation;
+    }
+
+    /// <summary>
+    /// Takes everybody out of goal conversations who is no longer on the goal:
+    /// a checker an edit removed (docs/adr/0044-editing-a-running-goal.md).
+    /// Returns who was taken out, without saving.
+    /// </summary>
+    /// <remarks>
+    /// The goal decides who is on it, and the conversation follows. The
+    /// removal itself happens to the goal, inside <see cref="GoalMaintenance"/>
+    /// — a pure function over the goal that cannot reach a conversation — so
+    /// this asks the database afterwards what no longer matches, the same way
+    /// <see cref="OpenMissingAsync"/> asks what is missing. Idempotent, and
+    /// therefore safe to run on every maintenance pass and after every read
+    /// that moved a goal.
+    ///
+    /// Their messages stay, as when somebody leaves a group: a thread with
+    /// somebody's replies cut out is a rewritten conversation.
+    /// </remarks>
+    /// <param name="goalIds">Only these goals' conversations; every goal's when null.</param>
+    public static async Task<IReadOnlyList<Guid>> RemoveFormerCheckersAsync(
+        Q2DbContext database,
+        IReadOnlyCollection<Guid>? goalIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+
+        var conversations = database.Conversations
+            .Where(conversation => conversation.Kind == ConversationKind.Goal && conversation.GoalId != null);
+
+        if (goalIds is not null)
+        {
+            conversations = conversations.Where(conversation => goalIds.Contains(conversation.GoalId!.Value));
+        }
+
+        var former = await database.ConversationParticipants
+            .Where(member => conversations.Any(conversation => conversation.Id == member.ConversationId
+                && database.Goals.Any(goal => goal.Id == conversation.GoalId
+                    && goal.OwnerPersonId != member.PersonId
+                    && !goal.Participants.Any(participant => participant.PersonId == member.PersonId))))
+            .ToListAsync(cancellationToken);
+
+        database.ConversationParticipants.RemoveRange(former);
+
+        return [.. former.Select(member => member.PersonId).Distinct()];
     }
 
     /// <summary>

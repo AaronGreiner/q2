@@ -4,7 +4,7 @@ import { normalizeApiError } from './errors'
  * Minimal shape of the fetcher, so tests can pass a stub.
  */
 export type ApiFetch = <T>(url: string, options?: {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   query?: Record<string, string | undefined>
   body?: unknown
   /**

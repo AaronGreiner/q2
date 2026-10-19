@@ -507,6 +507,138 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("Goals", (string)null);
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("AppliesOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("DescriptionChanged")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DescriptionFrom")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DescriptionTo")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IconFrom")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IconTo")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("LimitFrom")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("LimitTo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Objectable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProofModeFrom")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProofModeTo")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("TargetDateFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("TargetDateTo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TitleFrom")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TitleTo")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("GoalId", "Status");
+
+                    b.ToTable("GoalChanges", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChangeChecker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Added")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("GoalChangeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("GoalChangeId", "PersonId")
+                        .IsUnique();
+
+                    b.ToTable("GoalChangeCheckers", (string)null);
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChangeVeto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GoalChangeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("GoalChangeId", "PersonId")
+                        .IsUnique();
+
+                    b.ToTable("GoalChangeVetoes", (string)null);
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalDraft", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1417,6 +1549,131 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChange", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.Goal", null)
+                        .WithMany("Changes")
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("Q2.Api.Features.Goals.GoalSchedule", "ScheduleFrom", b1 =>
+                        {
+                            b1.Property<Guid>("GoalChangeId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("EveryDays")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleFromEveryDays");
+
+                            b1.Property<string>("Kind")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleFromKind");
+
+                            b1.Property<string>("Period")
+                                .HasMaxLength(16)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleFromPeriod");
+
+                            b1.Property<int?>("Times")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleFromTimes");
+
+                            b1.Property<string>("WeekdayList")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleFromWeekdays");
+
+                            b1.HasKey("GoalChangeId");
+
+                            b1.ToTable("GoalChanges");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoalChangeId");
+                        });
+
+                    b.OwnsOne("Q2.Api.Features.Goals.GoalSchedule", "ScheduleTo", b1 =>
+                        {
+                            b1.Property<Guid>("GoalChangeId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("EveryDays")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleToEveryDays");
+
+                            b1.Property<string>("Kind")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleToKind");
+
+                            b1.Property<string>("Period")
+                                .HasMaxLength(16)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleToPeriod");
+
+                            b1.Property<int?>("Times")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("ScheduleToTimes");
+
+                            b1.Property<string>("WeekdayList")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("ScheduleToWeekdays");
+
+                            b1.HasKey("GoalChangeId");
+
+                            b1.ToTable("GoalChanges");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GoalChangeId");
+                        });
+
+                    b.Navigation("ScheduleFrom");
+
+                    b.Navigation("ScheduleTo");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChangeChecker", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalChange", null)
+                        .WithMany("Checkers")
+                        .HasForeignKey("GoalChangeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChangeVeto", b =>
+                {
+                    b.HasOne("Q2.Api.Features.Goals.GoalChange", null)
+                        .WithMany("Vetoes")
+                        .HasForeignKey("GoalChangeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Q2.Api.Features.People.Person", null)
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalDraft", b =>
                 {
                     b.HasOne("Q2.Api.Features.People.Person", null)
@@ -1675,11 +1932,20 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Q2.Api.Features.Goals.Goal", b =>
                 {
+                    b.Navigation("Changes");
+
                     b.Navigation("Instances");
 
                     b.Navigation("Participants");
 
                     b.Navigation("Pauses");
+                });
+
+            modelBuilder.Entity("Q2.Api.Features.Goals.GoalChange", b =>
+                {
+                    b.Navigation("Checkers");
+
+                    b.Navigation("Vetoes");
                 });
 
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalInstance", b =>

@@ -34,7 +34,7 @@ so the reasoning at the time stays readable.
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md) and [0038](0038-spot-checks.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
-| [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md), [0039](0039-first-run-onboarding.md) and [0043](0043-threads-a-page-at-a-time.md) |
+| [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md), [0039](0039-first-run-onboarding.md), [0043](0043-threads-a-page-at-a-time.md) and [0044](0044-editing-a-running-goal.md) |
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
 | [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted, amended by [0036](0036-live-or-screenshot.md) |
@@ -44,10 +44,11 @@ so the reasoning at the time stays readable.
 | [0034](0034-bearer-tokens-for-the-native-app.md) | The iOS app: a client-only build that signs in with bearer tokens | Accepted |
 | [0035](0035-dos-and-donts.md) | Dos & Don'ts: one name for what you commit to | Accepted, segments revised by [#77](https://github.com/AaronGreiner/q2/issues/77) |
 | [0036](0036-live-or-screenshot.md) | Live or screenshot: every proof says which it is | Accepted |
-| [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted, amended by [0038](0038-spot-checks.md) |
+| [0037](0037-donts.md) | Don'ts: a limit per period, logged uses and an honest relapse | Accepted, amended by [0038](0038-spot-checks.md) and [0044](0044-editing-a-running-goal.md) |
 | [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |
 | [0039](0039-first-run-onboarding.md) | A first-run introduction, once, and a first Do that waits for a friend | Accepted |
 | [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |
 | [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted |
 | [0042](0042-field-errors-as-codes.md) | Field errors travel as codes, and the app words them | Accepted |
 | [0043](0043-threads-a-page-at-a-time.md) | A thread is read a page at a time | Accepted |
+| [0044](0044-editing-a-running-goal.md) | A running goal is edited in front of the people who check it | Accepted |

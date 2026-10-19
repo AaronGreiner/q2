@@ -252,6 +252,105 @@ public static class CreateGoalRequestValidator
 }
 
 /// <summary>
+/// Validates a request to edit a running goal.
+/// </summary>
+/// <remarks>
+/// The shape of each field that was sent, with the create sheet's messages and
+/// codes. Whether it fits *this* goal — a limit on a Do, a one-off becoming a
+/// repeating goal, a later day too close to the deadline — is
+/// <see cref="Goal.PlanEdit"/>'s to say, because only the goal knows.
+/// </remarks>
+public static class EditGoalRequestValidator
+{
+    public static FieldErrors Validate(EditGoalRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var errors = new FieldErrors();
+
+        if (request.Title is not null)
+        {
+            CreateGoalRequestValidator.AddTitleErrors(request.Title, nameof(request.Title), errors);
+        }
+
+        if (request.Description is { } description && description.Trim().Length > Goal.MaxDescriptionLength)
+        {
+            errors.Add(
+                nameof(request.Description),
+                new(FieldErrorCodes.TooLong, Max: Goal.MaxDescriptionLength),
+                $"A description may be at most {Goal.MaxDescriptionLength} characters long.");
+        }
+
+        CreateGoalRequestValidator.AddIconErrors(request.Icon, nameof(request.Icon), errors);
+
+        // A Don't's period, or a Do's schedule; which of the two this goal
+        // takes is the goal's to say.
+        if (request.Schedule is { Kind: ScheduleKind.Limit } period)
+        {
+            if (period.Period is not { } value || !Enum.IsDefined(value))
+            {
+                errors.Add(nameof(request.Schedule), new(FieldErrorCodes.UnknownOption), "Choose a day, a week or a month.");
+            }
+        }
+        else if (request.Schedule is { } schedule)
+        {
+            errors.Add(CreateGoalRequestValidator.ValidateSchedule(schedule));
+        }
+
+        if (request.Limit is { } limit && limit is < 0 or > Goal.MaxLimit)
+        {
+            errors.Add(
+                nameof(request.Limit),
+                new(FieldErrorCodes.OutOfRange, Min: 0, Max: Goal.MaxLimit),
+                $"A limit must be between 0 and {Goal.MaxLimit}.");
+        }
+
+        if (request.ProofMode is { } mode && !Enum.IsDefined(mode))
+        {
+            errors.Add(nameof(request.ProofMode), new(FieldErrorCodes.UnknownOption), "Choose how your friends can check this.");
+        }
+
+        if (request.ParticipantIds is { } participants)
+        {
+            if (participants.Count == 0)
+            {
+                errors.Add(
+                    nameof(request.ParticipantIds),
+                    new(FieldErrorCodes.NoChecker),
+                    "A goal needs at least one friend to check it.");
+            }
+            else if (participants.Count > Goal.MaxParticipants)
+            {
+                errors.Add(
+                    nameof(request.ParticipantIds),
+                    new(FieldErrorCodes.TooMany, Max: Goal.MaxParticipants),
+                    $"A goal may have at most {Goal.MaxParticipants} participants.");
+            }
+            else if (participants.Any(id => id == Guid.Empty))
+            {
+                errors.Add(nameof(request.ParticipantIds), new(FieldErrorCodes.Invalid), "Participant ids must not be empty.");
+            }
+        }
+
+        return errors;
+    }
+
+    /// <summary>The domain schedule an edit asks for, or null when it leaves the schedule alone.</summary>
+    /// <remarks>
+    /// Built from the kind the request names rather than the goal's, so a
+    /// Do's schedule sent for a Don't reaches <see cref="Goal.PlanEdit"/> as
+    /// what it is and is refused there, instead of quietly becoming a period.
+    /// </remarks>
+    public static GoalSchedule? ToSchedule(GoalScheduleRequest? request, GoalKind kind) => request switch
+    {
+        null => null,
+        { Kind: ScheduleKind.Limit } => GoalSchedule.Per(request.Period ?? QuotaPeriod.Day),
+        { Kind: null } when kind == GoalKind.Dont => GoalSchedule.Per(request.Period ?? QuotaPeriod.Day),
+        _ => CreateGoalRequestValidator.ToSchedule(request, GoalKind.Do),
+    };
+}
+
+/// <summary>
 /// Validates a request to write the waiting Do.
 /// </summary>
 /// <remarks>
