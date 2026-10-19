@@ -35,21 +35,28 @@ test.describe('server-rendered HTML', () => {
     const response = await page.request.get('/')
     expect(response.ok()).toBe(true)
 
+    // On the start screen, only what every state of it renders: the name and
+    // the streak in its header. Which goals fill its few slots depends on the
+    // hour — from 20:00 the evening's risk cards take them (ADR 0019), and
+    // between local and UTC midnight the seed's windows and the owner's "today"
+    // disagree about the day (#131).
     const html = await response.text()
-    expect(html).toContain('E2E shared goal with participants')
-    expect(html).toContain('E2E goal three times a week')
+    expect(html).toContain('E2E Mara')
+    expect(html).toContain('data-testid="streak-flame"')
 
     // Nuxt Icon renders SVG on the server. Client-side hydration used to hide
     // that these were all missing from the first paint.
     expect((html.match(/<svg/g) ?? []).length).toBeGreaterThan(5)
 
-    // A rhythm is printed by a goal's row, and from 20:00 the start screen
-    // trades its rows for the evening's risk cards (ADR 0019), which print
-    // none — so it is read on the Dos screen, whose rows are there at any hour
-    // (#115).
+    // The goals themselves, with a rhythm, are read on the Dos screen, which
+    // lists every running goal at any hour (#115, #131).
     const goals = await page.request.get('/goals')
     expect(goals.ok()).toBe(true)
-    expect(await goals.text()).toContain('3× pro Woche')
+
+    const goalsHtml = await goals.text()
+    expect(goalsHtml).toContain('E2E shared goal with participants')
+    expect(goalsHtml).toContain('E2E goal three times a week')
+    expect(goalsHtml).toContain('3× pro Woche')
   })
 })
 

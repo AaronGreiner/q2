@@ -34,14 +34,21 @@ function panelScroll(page: Page) {
 test('a Do opened from the start screen goes back to the start screen', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByTestId('content-panel').locator(`a[href="${goalPath}"]`).first().click()
-  await expect(page).toHaveURL(goalPath)
+  // Whichever goal the start screen offers: which ones it shows depends on the
+  // hour (#131) — from 20:00 the risk cards, after midnight what the new day
+  // has open — and the way back does not.
+  const link = page.getByTestId('content-panel').locator('a[href^="/goals/"]').first()
+  const openedPath = await link.getAttribute('href')
+  expect(openedPath).toMatch(/^\/goals\/[0-9a-f-]+$/)
+
+  await link.click()
+  await expect(page).toHaveURL(openedPath!)
 
   await page.getByTestId('back-link').click()
 
   await expect(page).toHaveURL('/')
   // Stepped back, rather than pushing the start screen on top of the Do.
-  expect((await historyState(page)).forward).toBe(goalPath)
+  expect((await historyState(page)).forward).toBe(openedPath)
 })
 
 test('a Do\'s conversation goes back to the Do, and the Do to the list it came from', async ({ page }) => {
