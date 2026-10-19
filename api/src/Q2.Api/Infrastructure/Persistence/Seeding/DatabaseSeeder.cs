@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
 
@@ -24,6 +25,7 @@ public sealed record SeedResult(
 public sealed class DatabaseSeeder(
     IEnumerable<ISeedDataSource> sources,
     TimeProvider timeProvider,
+    TimeZoneResolver timeZones,
     ILogger<DatabaseSeeder> logger)
 {
     /// <summary>
@@ -62,7 +64,9 @@ public sealed class DatabaseSeeder(
             await ClearAsync(database, cancellationToken);
         }
 
-        var data = source.Create(SeedContext.FromTimeProvider(timeProvider));
+        // In the zone the seeded people's days are counted in: they have none
+        // of their own, so it is the configured one (#133).
+        var data = source.Create(SeedContext.FromTimeProvider(timeProvider, timeZones.For(null)));
 
         // People first and settings last, in dependency order. EF Core would
         // sort most of this out on its own, but the order is also the answer to

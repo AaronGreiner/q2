@@ -1,3 +1,5 @@
+using Q2.Api.Infrastructure.Time;
+
 namespace Q2.Api.Infrastructure.Persistence.Seeding;
 
 /// <summary>
@@ -17,18 +19,27 @@ namespace Q2.Api.Infrastructure.Persistence.Seeding;
 ///
 /// Both come from the injected <see cref="TimeProvider"/>, so a test that needs
 /// byte-identical output injects a fixed one and both agree.
+///
+/// Days are the seeded people's own (<see cref="Calendar"/>), not UTC days.
+/// Seeded people have no zone of their own, so the application counts their
+/// days in the configured one, and a seed laid out on UTC days was a day behind
+/// them between their midnight and UTC midnight: a daily goal's open window
+/// belonged to yesterday, and the seeded challenge lost to the next day's
+/// (#133). A zone is named by id, so the rows are still the same on every
+/// machine.
 /// </remarks>
-public sealed record SeedContext(DateTimeOffset SeededAt)
+public sealed record SeedContext(DateTimeOffset SeededAt, LocalCalendar Calendar)
 {
-    public static SeedContext FromTimeProvider(TimeProvider timeProvider) =>
-        new(timeProvider.GetUtcNow());
+    public static SeedContext FromTimeProvider(TimeProvider timeProvider, LocalCalendar calendar) =>
+        new(timeProvider.GetUtcNow(), calendar);
 
-    /// <summary>Midnight UTC of the day the seed ran.</summary>
-    public DateTimeOffset Midnight => new(SeededAt.UtcDateTime.Date, TimeSpan.Zero);
+    /// <summary>The start of the day the seed ran, in the seeded people's zone.</summary>
+    public DateTimeOffset Midnight => Calendar.StartOfDay(Today);
 
-    public DateOnly Today => DateOnly.FromDateTime(SeededAt.UtcDateTime);
+    public DateOnly Today => Calendar.Today(SeededAt);
 
-    public DateTimeOffset DaysAgo(int days) => Midnight.AddDays(-days);
+    /// <summary>The start of the day <paramref name="days"/> before the seed's, in the seeded people's zone.</summary>
+    public DateTimeOffset DaysAgo(int days) => Calendar.StartOfDay(Today.AddDays(-days));
 
     public DateOnly DaysFromToday(int days) => Today.AddDays(days);
 

@@ -1,6 +1,7 @@
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence.Seeding;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.UnitTests.Persistence;
 
@@ -18,8 +19,14 @@ namespace Q2.Api.UnitTests.Persistence;
 /// </remarks>
 public class SeedDataTests
 {
+    /// <summary>
+    /// The seeded people's zone, as the application resolves it — or UTC where
+    /// the platform has no zone database, like <see cref="TimeZoneResolver"/>.
+    /// </summary>
+    private static readonly LocalCalendar Berlin = new(Zone("Europe/Berlin"));
+
     private static readonly SeedContext Context =
-        new(new DateTimeOffset(2026, 6, 15, 9, 30, 0, TimeSpan.Zero));
+        new(new DateTimeOffset(2026, 6, 15, 9, 30, 0, TimeSpan.Zero), Berlin);
 
     public static TheoryData<ISeedDataSource> AllSources =>
     [
@@ -301,7 +308,7 @@ public class SeedDataTests
     {
         // A goal that is meant to be upcoming has to stay upcoming as the
         // calendar moves on, or every "is this overdue?" test would rot.
-        var later = new SeedContext(Context.SeededAt.AddDays(30));
+        var later = Context with { SeededAt = Context.SeededAt.AddDays(30) };
 
         var before = source.Create(Context).Goals.Select(g => g.TargetDate).ToList();
         var after = source.Create(later).Goals.Select(g => g.TargetDate).ToList();
@@ -348,5 +355,49 @@ public class SeedDataTests
         Assert.All(
             titles,
             title => Assert.DoesNotContain(titles, other => other != title && other.Contains(title)));
+    }
+
+    /// <summary>
+    /// Seeded at 00:30 in Berlin, which is still the day before in UTC: the
+    /// seeded people's open windows and the seeded challenge belong to their
+    /// day, the one the application counts in. On UTC days they belonged to
+    /// yesterday until UTC midnight, and the E2E suite failed between the two
+    /// midnights (#133).
+    /// </summary>
+    [Fact]
+    public void ASeedRunAfterMidnightInBerlinIsLaidOutOnTheBerlinDay()
+    {
+        Assert.SkipWhen(Berlin.Zone == TimeZoneInfo.Utc, "needs the Berlin offset");
+
+        // 2026-10-20 00:30 in Berlin (summer time), 2026-10-19 22:30 in UTC.
+        var context = new SeedContext(new DateTimeOffset(2026, 10, 19, 22, 30, 0, TimeSpan.Zero), Berlin);
+        var berlinDay = new DateOnly(2026, 10, 20);
+        var berlinMidnight = new DateTimeOffset(2026, 10, 19, 22, 0, 0, TimeSpan.Zero);
+
+        var data = new E2ESeed().Create(context);
+
+        Assert.Equal(berlinDay, context.Today);
+        Assert.Equal(berlinMidnight, context.Midnight);
+
+        var shared = data.Goals.Single(goal => goal.Id == E2ESeed.SharedGoalId);
+        Assert.Equal(berlinDay, shared.CurrentInstance!.DueOn);
+        Assert.Equal(berlinMidnight.AddDays(1).AddTicks(-1), shared.CurrentInstance.DueAt);
+
+        var challenge = Assert.Single(data.Challenges);
+        Assert.Equal(berlinDay, challenge.Day);
+        Assert.Equal(berlinMidnight, challenge.PublishedAt);
+        Assert.Equal(berlinMidnight.AddDays(1), challenge.ExpiresAt);
+    }
+
+    private static TimeZoneInfo Zone(string id)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(id);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.Utc;
+        }
     }
 }

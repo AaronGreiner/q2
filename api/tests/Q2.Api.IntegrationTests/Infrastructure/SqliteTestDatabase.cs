@@ -1,8 +1,10 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Persistence.Seeding;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.IntegrationTests.Infrastructure;
 
@@ -78,6 +80,7 @@ public sealed class SqliteTestDatabase : IAsyncDisposable
     public static DatabaseSeeder CreateSeeder(TimeProvider? timeProvider = null) => new(
         [new DevelopmentSeed(), new ManualTestingSeed(), new AutomatedTestSeed(), new E2ESeed()],
         timeProvider ?? new FixedTimeProvider(Q2ApiFactory.Now),
+        new TimeZoneResolver(new ConfigurationBuilder().Build(), NullLogger<TimeZoneResolver>.Instance),
         NullLogger<DatabaseSeeder>.Instance);
 
     public bool FileExists => _filePath is not null && File.Exists(_filePath);

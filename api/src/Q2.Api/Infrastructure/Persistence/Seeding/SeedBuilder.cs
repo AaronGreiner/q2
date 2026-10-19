@@ -330,12 +330,15 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// mean the streak on the goal card changed depending on the day somebody
     /// ran the seed.
     ///
-    /// Seeds are pure, so this uses the UTC calendar rather than a person's
-    /// zone: a seeded window has to be the same row on every machine.
+    /// On the seeded people's days (<see cref="SeedContext.Calendar"/>), the
+    /// days the application counts their windows on — a window laid out on a
+    /// UTC day belonged to yesterday between their midnight and UTC midnight
+    /// (#133). The zone is named by id, so a seeded window is still the same
+    /// row on every machine.
     /// </remarks>
     private void AddWindows(Goal goal, GoalSchedule schedule, string history, int confirmedNow, DateOnly? targetDate)
     {
-        var calendar = new LocalCalendar(TimeZoneInfo.Utc);
+        var calendar = Context.Calendar;
         var current = schedule.FirstWindow(Context.Today, targetDate);
 
         // Walk back one window per outcome, then replay them forwards so the
