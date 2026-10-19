@@ -40,8 +40,9 @@ public sealed class Conversation
     public const int MaxIconLength = 24;
 
     /// <summary>
-    /// Including yourself. The same bound as a goal's team, because a group
-    /// chat and a group goal are the same set of people seen twice.
+    /// Including yourself. The same bound as a goal's team, owner included,
+    /// because a group chat and a group goal are the same set of people seen
+    /// twice — <see cref="Goals.Goal.MaxParticipants"/> is derived from this.
     /// </summary>
     public const int MaxParticipants = 20;
 

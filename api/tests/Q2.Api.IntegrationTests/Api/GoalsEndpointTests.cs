@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
@@ -75,6 +77,12 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     private static readonly Guid[] Friend = [AutomatedTestSeed.FriendPersonId];
 
     private sealed record ValidationDocument(IReadOnlyDictionary<string, string[]> Errors);
+
+    private sealed record InviteDocument(string Code);
+
+    private sealed record RegisteredPerson(Guid Id);
+
+    private sealed record RegisteredDocument(RegisteredPerson Person);
 
     [Fact]
     public async Task ListingReturnsTheSeededGoalsNewestFirst()
@@ -321,6 +329,81 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var problem = await response.ReadAsync<ValidationDocument>();
         Assert.Contains("ParticipantIds", problem.Errors.Keys);
+    }
+
+    /// <summary>
+    /// As many checkers as a goal may have sit in its conversation beside its
+    /// owner, and one more is the field error the sheets show — on creation
+    /// and on an edit alike — never the conversation's own refusal, which no
+    /// field could show (#130).
+    /// </summary>
+    [Fact]
+    public async Task AGoalTakesAsManyCheckersAsItsConversationSeats()
+    {
+        var friends = await FriendsThroughTheInviteLinkAsync(Goal.MaxParticipants + 1);
+        var everyone = friends.ToArray();
+        var allButOne = friends.Take(Goal.MaxParticipants).ToArray();
+        var tooMany = new FieldErrorCodeDocument(FieldErrorCodes.TooMany, null, Goal.MaxParticipants);
+
+        var refused = await Client.PostJsonAsync("/api/goals", new { title = "Zu viele", participantIds = everyone });
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal(tooMany, (await refused.ReadAsync<CodedProblemDocument>()).CodeOf("ParticipantIds"));
+
+        var created = await Client.PostJsonAsync("/api/goals", new { title = "Alle dabei", participantIds = allButOne });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        var goal = await created.ReadAsync<GoalDocument>();
+        Assert.Equal(Goal.MaxParticipants, goal.Participants.Count);
+        Assert.Equal(Conversation.MaxParticipants, await SeatsInTheConversationOfAsync(goal.Id));
+
+        var edited = await Client.PatchJsonAsync($"/api/goals/{goal.Id}", new { participantIds = everyone });
+
+        Assert.Equal(HttpStatusCode.BadRequest, edited.StatusCode);
+        Assert.Equal(tooMany, (await edited.ReadAsync<CodedProblemDocument>()).CodeOf("ParticipantIds"));
+        Assert.Equal(Conversation.MaxParticipants, await SeatsInTheConversationOfAsync(goal.Id));
+    }
+
+    /// <summary>
+    /// New accounts that registered through the signed-in person's invite
+    /// link, and are therefore their friends.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> FriendsThroughTheInviteLinkAsync(int count)
+    {
+        var invite = await (await Client.GetAsync("/api/invite", TestContext.Current.CancellationToken))
+            .ReadAsync<InviteDocument>();
+
+        var ids = new List<Guid>();
+
+        for (var index = 1; index <= count; index++)
+        {
+            var registered = await AnonymousClient.PostJsonAsync("/api/auth/register", new
+            {
+                name = $"Prüferin {index}",
+                email = $"pruefer.{index}@example.test",
+                password = SeedAccounts.Password,
+                inviteCode = invite.Code,
+            });
+
+            Assert.True(registered.IsSuccessStatusCode, $"registering friend {index}: {(int)registered.StatusCode}");
+            ids.Add((await registered.ReadAsync<RegisteredDocument>()).Person.Id);
+        }
+
+        return ids;
+    }
+
+    private async Task<int> SeatsInTheConversationOfAsync(Guid goalId)
+    {
+        var seats = 0;
+
+        await Factory.WithDatabaseAsync(async database => seats = await database.ConversationParticipants
+            .CountAsync(
+                participant => database.Conversations.Any(conversation =>
+                    conversation.Id == participant.ConversationId && conversation.GoalId == goalId),
+                TestContext.Current.CancellationToken));
+
+        return seats;
     }
 
     /// <summary>

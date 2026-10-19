@@ -1,3 +1,4 @@
+using Q2.Api.Features.Chats;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 
@@ -22,7 +23,16 @@ public sealed class Goal
 {
     public const int MaxTitleLength = 120;
     public const int MaxDescriptionLength = 1000;
-    public const int MaxParticipants = 20;
+    /// <summary>
+    /// How many people may check a goal, not counting its owner.
+    /// </summary>
+    /// <remarks>
+    /// One fewer than a conversation holds, because the goal's conversation
+    /// seats its owner beside every checker. Two separate twenties let a goal
+    /// take a checker its conversation then refused, as a 400 the sheets could
+    /// not place next to any field (#130).
+    /// </remarks>
+    public const int MaxParticipants = Conversation.MaxParticipants - 1;
 
     /// <summary>The most uses a Don't may allow per period. Beyond it, it is not a limit.</summary>
     public const int MaxLimit = 100;
