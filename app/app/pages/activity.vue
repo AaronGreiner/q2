@@ -27,7 +27,7 @@ useHead({ title: () => t.value.activityOverview.heading })
       :back-label="t.common.back"
     />
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <div
         v-if="isLoading"
         class="flex flex-col gap-2.5"

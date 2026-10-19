@@ -122,7 +122,7 @@ useHead({ title: () => t.value.friends.pageHeading })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <template #toolbar>
         <AppSearchField
           id="friend-search"

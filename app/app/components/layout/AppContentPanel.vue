@@ -17,7 +17,15 @@ import type { ComponentPublicInstance } from 'vue'
  * The scroll area is `relative` so that a screen-reader text inside it is
  * placed among the rows it belongs to and scrolls with them, rather than
  * against the shell (#83).
+ *
+ * Given `refresh`, the scroll area can be pulled down to read the screen again
+ * (#19) — here, because it is the one place every screen scrolls in.
  */
+const props = defineProps<{
+  /** What a pull reads again: the `refresh` the screen's composable returns. */
+  refresh?: () => Promise<unknown>
+}>()
+
 const card = useTemplateRef<ComponentPublicInstance>('card')
 
 function scrollArea(): HTMLElement | null {
@@ -34,6 +42,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => abandon?.())
+
+// Without `refresh` there is no area to listen on, so a screen that cannot be
+// read again keeps its ordinary scrolling untouched.
+const pull = usePullToRefresh(() => (props.refresh ? scrollArea() : null), () => props.refresh?.() ?? Promise.resolve())
 </script>
 
 <template>
@@ -52,6 +64,12 @@ onBeforeUnmount(() => abandon?.())
     >
       <slot name="toolbar" />
     </template>
+    <PullToRefreshIndicator
+      v-if="refresh"
+      :distance="pull.distance.value"
+      :armed="pull.isArmed.value"
+      :refreshing="pull.isRefreshing.value"
+    />
     <slot />
   </UCard>
 </template>

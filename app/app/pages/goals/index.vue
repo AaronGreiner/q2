@@ -150,7 +150,7 @@ useHead({ title: () => t.value.goals.heading })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <template #toolbar>
         <AppSegmented
           v-model="tab"

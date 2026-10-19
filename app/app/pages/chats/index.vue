@@ -151,7 +151,7 @@ useHead({ title: () => t.value.chats.heading })
       @open="onDirect"
     />
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <template #toolbar>
         <AppSearchField
           id="chat-search"

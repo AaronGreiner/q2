@@ -170,7 +170,7 @@ useHead({ title: () => t.value.nav.home })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"

@@ -42,6 +42,17 @@ describe('haptic tap', () => {
     expect(vibrate).toHaveBeenCalledOnce()
   })
 
+  it('stays quiet before the page has been touched at all, rather than being refused', () => {
+    const { vibrate } = browser()
+    vi.stubGlobal('navigator', { vibrate, userActivation: { hasBeenActive: false } })
+    hapticTap()
+    expect(vibrate).not.toHaveBeenCalled()
+
+    vi.stubGlobal('navigator', { vibrate, userActivation: { hasBeenActive: true } })
+    hapticTap()
+    expect(vibrate).toHaveBeenCalledOnce()
+  })
+
   it('tolerates a device declining the pulse', () => {
     const { vibrate } = browser()
     vibrate.mockReturnValue(false)

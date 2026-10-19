@@ -106,6 +106,7 @@ Current components, by folder:
 | `AppPasswordInput` | every password field: what was typed can be shown and hidden again, by one button with `aria-pressed` |
 | `AppSegmented` `AppToggle` | a radio group and a switch, both keyboard-operable |
 | `AppStateMessage` | the shared shell for empty/error/not-found states |
+| `PullToRefreshIndicator` | the circle a pull brings down: turning with the finger, whole once letting go would refresh, spinning while the screen is read again. `AppContentPanel` shows it when given `refresh`, and `usePullToRefresh` is the gesture (#19) |
 | `AppErrorState` | renders an `ApiFailure` for a person |
 | `AppBottomNav` `AppScreenHeader` | the shell around every screen; five destinations, the middle one the Dos & Don'ts ([0031](../docs/adr/0031-todos-tab-and-a-bell-you-can-empty.md), [0035](../docs/adr/0035-dos-and-donts.md)) |
 | `AppBackLink` | a pushed screen's arrow: back to wherever the screen was opened from, and to its parent (`to`) only when nothing in q2 came before it. `AppContentPanel` and the search boxes hand back how a screen was left through `useReturnState` ([0040](../docs/adr/0040-back-goes-where-you-came-from.md)) |

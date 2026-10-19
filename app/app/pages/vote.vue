@@ -34,7 +34,7 @@ useHead({ title: () => t.value.vote.heading })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <div
         v-if="isLoading"
         class="flex flex-col gap-3"

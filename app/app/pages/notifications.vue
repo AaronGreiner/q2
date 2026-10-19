@@ -49,7 +49,7 @@ useHead({ title: () => t.value.notify.heading })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refresh">
       <div
         v-if="isLoading"
         class="flex flex-col gap-2.5"

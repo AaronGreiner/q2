@@ -22,6 +22,9 @@ const now = useNow()
 const { profile, error, isLoading, isSaving, refresh, rename, chooseAvatar, removeAvatar } = useProfile()
 const { proofs, error: proofsError, isLoading: proofsLoading, refresh: refreshProofs } = useOwnProofs()
 
+/** A pull reads the whole screen again: the profile and its photographs (#19). */
+const refreshAll = () => Promise.all([refresh(), refreshProofs()])
+
 /** One row and a half of the grid: enough to recognise, not enough to scroll past. */
 const previewSize = 6
 const preview = computed(() => proofs.value.slice(0, previewSize))
@@ -76,7 +79,7 @@ async function onSave(value: { displayName: string }) {
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel>
+    <AppContentPanel :refresh="refreshAll">
       <div
         v-if="isLoading"
         class="flex flex-col items-center gap-4"
