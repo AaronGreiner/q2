@@ -173,7 +173,7 @@ public static class GoalMaintenance
                 continue;
             }
 
-            var next = NextWindowFor(goal);
+            var next = NextWindowFor(goal, calendar);
 
             /*
              * An edit that waited for the next window takes effect between
@@ -267,7 +267,7 @@ public static class GoalMaintenance
         }
 
         var lastEnd = latest.DueOn;
-        var next = NextWindowFor(goal);
+        var next = NextWindowFor(goal, calendar);
 
         for (var step = 0; step < MaxWindowsPerRun; step++)
         {
@@ -308,7 +308,7 @@ public static class GoalMaintenance
     /// The window that should come next: the first one if the goal has never
     /// had one, otherwise the one after its newest.
     /// </summary>
-    private static GoalWindow? NextWindowFor(Goal goal)
+    private static GoalWindow? NextWindowFor(Goal goal, LocalCalendar calendar)
     {
         var window = goal.LatestInstance is { } latest
 
@@ -317,9 +317,12 @@ public static class GoalMaintenance
             ? goal.Schedule.NextWindow(LaterOf(latest.DueOn, goal.LastChangeAppliedOn?.AddDays(-1)))
 
             // A goal with no window at all. Normal at creation, and also what a
-            // goal migrated from the old step-counting model looks like.
+            // goal migrated from the old step-counting model looks like. From
+            // the owner's day it was made: the UTC day is the day before for
+            // anything made after local midnight, which opened a window for
+            // yesterday and settled it at once (#132).
             : goal.Schedule.FirstWindow(
-                DateOnly.FromDateTime(goal.CreatedAt.UtcDateTime),
+                calendar.DayOf(goal.CreatedAt),
                 goal.TargetDate);
 
         return SkipPaused(goal, window);

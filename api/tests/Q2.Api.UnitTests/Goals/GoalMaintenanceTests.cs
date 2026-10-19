@@ -213,6 +213,47 @@ public class GoalMaintenanceTests
         Assert.Equal(PauseStatus.Ended, Assert.Single(goal.Pauses).Status);
     }
 
+    /// <summary>
+    /// Made after midnight in Berlin, which is still the day before in UTC: the
+    /// first window is the owner's day, open, and nothing is settled behind it.
+    /// Taking the UTC day opened yesterday's window and settled it at once — a
+    /// miss for a Do, a kept day for a Don't (#132).
+    /// </summary>
+    [Theory]
+    [InlineData(GoalKind.Do)]
+    [InlineData(GoalKind.Dont)]
+    public void AGoalMadeAfterLocalMidnightStartsOnThatDay(GoalKind kind)
+    {
+        var tuesday = Monday.AddDays(1);
+
+        // 00:30 on Tuesday in Berlin (summer time), 22:30 on Monday in UTC.
+        var madeAt = new DateTimeOffset(tuesday.ToDateTime(new TimeOnly(0, 30)), TimeSpan.FromHours(2));
+        Assert.Equal(Monday, DateOnly.FromDateTime(madeAt.UtcDateTime));
+
+        var goal = Goal.Create(
+            Guid.CreateVersion7(),
+            Owner,
+            "Anything",
+            null,
+            "target",
+            kind == GoalKind.Dont ? GoalSchedule.Per(QuotaPeriod.Day) : GoalSchedule.EveryNDays(1),
+            isGroup: false,
+            reminderAt: null,
+            targetDate: null,
+            madeAt,
+            kind,
+            limit: kind == GoalKind.Dont ? 1 : null,
+            proofMode: kind == GoalKind.Dont ? DontProofMode.HonestOnly : null);
+
+        GoalMaintenance.Advance(goal, Berlin, madeAt, Ids);
+
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(tuesday, window.StartsOn);
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+        Assert.Equal(0, goal.Balance.Done);
+        Assert.Equal(0, goal.Balance.Missed);
+    }
+
     private static Goal Build(GoalSchedule schedule, DateOnly? targetDate = null) =>
         Goal.Create(
             Guid.CreateVersion7(),
@@ -235,7 +276,7 @@ public class GoalMaintenanceTests
     /// <summary>
     /// Falls back to UTC where the platform has no zone database — see
     /// <see cref="TimeZoneResolver"/>. The assertions that depend on a real
-    /// offset name it, and there is one of those.
+    /// offset name it, and there are two of those.
     /// </summary>
     private static TimeZoneInfo Zone(string id)
     {
