@@ -32,7 +32,9 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         FriendshipState State,
         int Streak,
         BalanceDocument Balance,
-        int SharedGoals);
+        IReadOnlyList<SharedGoalDocument> SharedGoals);
+
+    private sealed record SharedGoalDocument(Guid Id, string Title, GoalStatus Status);
 
     private sealed record RiskDocument(RiskReason Reason, int MissingProofs, int RequiredProofs, int RemainingDays);
 
@@ -64,13 +66,33 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         var seen = await PersonAsync(await ClientForAsync(AutomatedTestSeed.FriendEmail), AutomatedTestSeed.CurrentPersonId);
         var own = await ProfileAsync(Client);
 
-        Assert.Equal(1, seen.SharedGoals);
+        // Named, so the screen can open it (#86) — and only that one.
+        var shared = Assert.Single(seen.SharedGoals);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, shared.Id);
+        Assert.Equal(GoalStatus.Active, shared.Status);
 
         // Two delivered windows on the shared goal, and nothing else of theirs.
         Assert.Equal(2, seen.Balance.Done);
 
         // The owner's own view is wider, and that difference is the whole rule.
         Assert.True(own.Balance.Done > seen.Balance.Done);
+    }
+
+    /// <summary>
+    /// An ended goal is still part of the record, so it is still listed with
+    /// it — saying that it ended rather than dropping out (#86).
+    /// </summary>
+    [Fact]
+    public async Task AnEndedGoalStaysListedWithTheRecordItCountsIn()
+    {
+        (await Client.PostJsonAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}/close", new { completed = false }))
+            .EnsureSuccessStatusCode();
+
+        var seen = await PersonAsync(await ClientForAsync(AutomatedTestSeed.FriendEmail), AutomatedTestSeed.CurrentPersonId);
+
+        var shared = Assert.Single(seen.SharedGoals);
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, shared.Id);
+        Assert.Equal(GoalStatus.Archived, shared.Status);
     }
 
     /// <summary>
@@ -90,7 +112,7 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         // is a participant on it. Looking at *them*, none of it is theirs.
         var seen = await PersonAsync(Client, AutomatedTestSeed.FriendPersonId);
 
-        Assert.Equal(0, seen.SharedGoals);
+        Assert.Empty(seen.SharedGoals);
         Assert.Equal(0, seen.Balance.Done);
         Assert.Equal(0, seen.Balance.Missed);
     }
@@ -105,7 +127,7 @@ public class RiskAndBalanceEndpointTests(Q2ApiFactory factory) : ApiTestBase(fac
         // Zero shared goals, and therefore a zero balance — which is not the
         // same statement as "this person has never missed anything", and the
         // count is what lets a screen tell the two apart.
-        Assert.Equal(0, seen.SharedGoals);
+        Assert.Empty(seen.SharedGoals);
         Assert.Equal(0, seen.Balance.Done);
         Assert.Equal(0, seen.Balance.Missed);
     }

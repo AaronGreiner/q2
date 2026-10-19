@@ -132,6 +132,7 @@ Current components, by folder:
 | `InviteCard` `InviteSheet` | your own invite link: the empty-state card while you have no friends, and the sheet the friends tab, the profile and an empty search open after that |
 | `InviteWelcome` | the page an invite link opens: whose it is, and the one step that makes the friendship ([0033](../docs/adr/0033-invite-links-for-new-and-existing-accounts.md)) |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
+| `FriendshipActions` | the one thing to do about somebody on their profile, by the same `state`: add, answer, take back, or write to them (#86) |
 | `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
 | `ChatInfoSheet` | behind a conversation's header: its members, the way to its goal, and leaving a group |
 | `ChatMissedRun` `ChatKeptRun` | a run of missed windows, or of kept ones, as one dated line; photographs stay in place inside a kept run (#100) |

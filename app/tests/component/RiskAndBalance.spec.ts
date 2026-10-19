@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import ActivityRow from '~/components/social/ActivityRow.vue'
 import BalanceCard from '~/components/profile/BalanceCard.vue'
 import RiskCard from '~/components/goals/RiskCard.vue'
-import type { Activity, Goal, GoalWindow } from '~/api/types'
+import type { Activity, Goal, GoalWindow, SharedGoal } from '~/api/types'
 
 /**
  * The shame half, on screen.
@@ -134,6 +134,10 @@ describe('RiskCard', () => {
   })
 })
 
+function shared(id: string, title = 'Gemeinsames Ziel', status: SharedGoal['status'] = 'Active'): SharedGoal {
+  return { id, title, icon: 'flame', status }
+}
+
 describe('BalanceCard', () => {
   it('shows the two numbers together, because neither means anything alone', async () => {
     const wrapper = await mountSuspended(BalanceCard, {
@@ -160,18 +164,39 @@ describe('BalanceCard', () => {
    */
   it('tells nothing shared apart from a clean record', async () => {
     const nothing = await mountSuspended(BalanceCard, {
-      props: { balance: { done: 0, missed: 0 }, sharedGoals: 0 },
+      props: { balance: { done: 0, missed: 0 }, sharedGoals: [] },
     })
 
     expect(nothing.text()).toContain('Ihr habt noch nichts gemeinsam.')
     expect(nothing.find('[data-testid="balance-missed"]').exists()).toBe(false)
 
     const clean = await mountSuspended(BalanceCard, {
-      props: { balance: { done: 0, missed: 0 }, sharedGoals: 3 },
+      props: { balance: { done: 0, missed: 0 }, sharedGoals: [shared('goal-1'), shared('goal-2'), shared('goal-3')] },
     })
 
     expect(clean.get('[data-testid="balance-scope"]').text()).toBe('3 gemeinsame Dos & Don’ts')
     expect(clean.get('[data-testid="balance-missed"]').text()).toBe('0')
+  })
+
+  /**
+   * A count with no way to what it counts left the reader guessing which goal
+   * the record was about (#86). Each one is named and opens, and an ended one
+   * stays — it is still in the numbers — saying that it ended.
+   */
+  it('names each goal it is counted over and opens it', async () => {
+    const wrapper = await mountSuspended(BalanceCard, {
+      props: {
+        balance: { done: 4, missed: 1 },
+        sharedGoals: [shared('goal-1', 'Jeden Morgen laufen'), shared('goal-2', 'Kalt duschen', 'Completed')],
+      },
+    })
+
+    const rows = wrapper.findAll('[data-testid="balance-goal"]')
+    expect(rows.map(row => row.attributes('href'))).toEqual(['/goals/goal-1', '/goals/goal-2'])
+    expect(rows[0]!.text()).toBe('Jeden Morgen laufen')
+    expect(rows[1]!.text()).toContain('Kalt duschen')
+    expect(rows[1]!.text()).toContain('Abgeschlossen')
+    expect(wrapper.get('ul').attributes('aria-labelledby')).toBe('balance-scope')
   })
 
   it('says nothing about scope on your own profile', async () => {

@@ -122,7 +122,11 @@ public sealed class ProfileService(
             person.KudosReceived,
             person.GoalsCompleted,
             new BalanceResponse(done, missed, relapsed),
-            shared.Count);
+            shared
+                .OrderBy(goal => goal.Status != GoalStatus.Active)
+                .ThenByDescending(goal => goal.CreatedAt)
+                .Select(goal => new SharedGoalResponse(goal.Id, goal.Title, goal.Icon, goal.Status))
+                .ToList());
     }
 
     /// <summary>Every window this person has ever had, over their own goals.</summary>

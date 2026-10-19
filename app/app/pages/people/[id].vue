@@ -17,7 +17,22 @@ const route = useRoute()
 const t = useMessages()
 
 const id = computed(() => String(route.params.id))
-const { person, error, isMissing, isLoading, refresh, removeFriend } = usePersonProfile(id)
+const {
+  person,
+  error,
+  isMissing,
+  isLoading,
+  refresh,
+  request,
+  withdraw,
+  accept,
+  decline,
+  removeFriend,
+  isChanging,
+} = usePersonProfile(id)
+
+const api = useQ2Api()
+const { report: reportFailure } = useErrorReporter()
 
 const { isBusy, report, block } = useSafety()
 
@@ -47,6 +62,17 @@ const actions = computed(() => [
 
 async function onRemove() {
   await removeFriend()
+}
+
+/** The direct chat with a friend, opened — or started, the first time — as the Freunde tab does. */
+async function onMessage() {
+  try {
+    const chat = await api.chats.startDirect(id.value)
+    await navigateTo(`/chats/${chat.id}`)
+  }
+  catch (caught) {
+    reportFailure(caught, { feature: 'friends', action: 'startChat' })
+  }
 }
 
 async function onReport(reason: ReportReason, note: string) {
@@ -162,6 +188,17 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
           </p>
         </section>
 
+        <FriendshipActions
+          :state="person.state"
+          :name="person.person.displayName"
+          :busy="isChanging"
+          @request="request"
+          @withdraw="withdraw"
+          @accept="accept"
+          @decline="decline"
+          @message="onMessage"
+        />
+
         <dl
           class="mt-4 flex list-none gap-2.5"
           data-q2-private
@@ -194,8 +231,8 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
 
         <!--
           The record, and the only thing on this screen that is scoped. It says
-          how many to-dos it covers, because "0 · 0" means two very different
-          things depending on whether they share anything at all.
+          which Dos and Don'ts it covers, and opens each, because "0 · 0" means
+          two very different things depending on whether they share anything.
         -->
         <BalanceCard
           class="mt-3"

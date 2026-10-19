@@ -1883,8 +1883,7 @@ export interface components {
             /** Format: int32 */
             goalsCompleted: number;
             balance: components["schemas"]["BalanceResponse"];
-            /** Format: int32 */
-            sharedGoals: number;
+            sharedGoals: components["schemas"]["SharedGoalResponse"][];
         };
         PersonSearchResultResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -2040,6 +2039,13 @@ export interface components {
             theme: components["schemas"]["ThemePreference"];
             language: components["schemas"]["LanguagePreference"];
             notifications: components["schemas"]["NotificationSettingsResponse"];
+        };
+        SharedGoalResponse: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            icon: string;
+            status: components["schemas"]["GoalStatus"];
         };
         StartDirectChatRequest: {
             /** Format: uuid */

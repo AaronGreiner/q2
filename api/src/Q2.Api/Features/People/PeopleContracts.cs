@@ -1,3 +1,5 @@
+using Q2.Api.Features.Goals;
+
 namespace Q2.Api.Features.People;
 
 /// <summary>
@@ -135,8 +137,10 @@ public sealed record BalanceResponse(int Done, int Missed, int Relapsed)
 /// missed anything", and the screen says so in words.
 /// </param>
 /// <param name="SharedGoals">
-/// How many goals the two of them are on together. What lets the client tell
-/// "nothing shared" apart from "shared, and a clean record".
+/// The goals the balance is counted over, so the screen can name each one and
+/// open it rather than only count them (#86). The same scope as the balance:
+/// this person's own goals that the person asking checks. Empty is what lets
+/// the client tell "nothing shared" apart from "shared, and a clean record".
 /// </param>
 /// <param name="State">Where the person asking stands with them.</param>
 public sealed record PersonProfileResponse(
@@ -146,4 +150,19 @@ public sealed record PersonProfileResponse(
     int KudosReceived,
     int GoalsCompleted,
     BalanceResponse Balance,
-    int SharedGoals);
+    IReadOnlyList<SharedGoalResponse> SharedGoals);
+
+/// <summary>
+/// One goal on somebody else's profile that the person asking checks: enough
+/// to name it and open it, and nothing of its windows.
+/// </summary>
+/// <remarks>
+/// Every one of these is a goal the reader can already open, because they are
+/// on it — the list says nothing they could not see one tap further on.
+/// </remarks>
+/// <param name="Status">Ended goals stay in the list, the way they stay in the balance.</param>
+public sealed record SharedGoalResponse(
+    Guid Id,
+    string Title,
+    string Icon,
+    GoalStatus Status);

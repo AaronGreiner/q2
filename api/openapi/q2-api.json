@@ -6098,8 +6098,10 @@
             "$ref": "#/components/schemas/BalanceResponse"
           },
           "sharedGoals": {
-            "type": "integer",
-            "format": "int32"
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedGoalResponse"
+            }
           }
         }
       },
@@ -6641,6 +6643,30 @@
           },
           "notifications": {
             "$ref": "#/components/schemas/NotificationSettingsResponse"
+          }
+        }
+      },
+      "SharedGoalResponse": {
+        "required": [
+          "id",
+          "title",
+          "icon",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GoalStatus"
           }
         }
       },

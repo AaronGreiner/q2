@@ -268,29 +268,32 @@ export function usePersonProfile(id: Ref<string>) {
   )
 
   const failure = computed(() => data.value?.failure ?? null)
-  const isRemoving = ref(false)
+  const isChanging = ref(false)
 
   /**
-   * Ends the friendship from their profile — the place it is decided, rather
-   * than a button beside "Nachricht schreiben" in the friends list. The list
-   * and its counts are read again, and this profile too, because what it may
-   * show has just changed.
+   * Changes where the reader stands with this person, from their profile —
+   * the place it is decided (#86). The friends list and its counts are read
+   * again, and this profile too, because what it may show has just changed.
+   *
+   * Ending a friendship is one of these rather than an icon beside "Nachricht
+   * schreiben" in the friends list, where it was one slip of the thumb from
+   * the button people press every day.
    */
-  async function removeFriend(): Promise<boolean> {
-    if (isRemoving.value) return false
-    isRemoving.value = true
+  async function change(action: string, work: (personId: string) => Promise<unknown>): Promise<boolean> {
+    if (isChanging.value) return false
+    isChanging.value = true
 
     try {
-      await api.friends.remove(id.value)
+      await work(id.value)
       await Promise.all([refresh(), refreshNuxtData(['friends', 'counts'])])
       return true
     }
     catch (caught) {
-      report(caught, { feature: 'friends', action: 'remove' })
+      report(caught, { feature: 'friends', action })
       return false
     }
     finally {
-      isRemoving.value = false
+      isChanging.value = false
     }
   }
 
@@ -303,7 +306,11 @@ export function usePersonProfile(id: Ref<string>) {
     error: computed(() => (failure.value && failure.value.kind !== 'notFound' ? failure.value : null)),
     isLoading: computed(() => isFirstLoad(status.value, data.value)),
     refresh,
-    removeFriend,
-    isRemoving: computed(() => isRemoving.value),
+    request: () => change('request', personId => api.friends.request(personId)),
+    withdraw: () => change('withdraw', personId => api.friends.withdraw(personId)),
+    accept: () => change('accept', personId => api.friends.accept(personId)),
+    decline: () => change('decline', personId => api.friends.decline(personId)),
+    removeFriend: () => change('remove', personId => api.friends.remove(personId)),
+    isChanging: computed(() => isChanging.value),
   }
 }

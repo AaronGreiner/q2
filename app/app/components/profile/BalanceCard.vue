@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Balance } from '~/api/types'
+import type { Balance, SharedGoal } from '~/api/types'
 
 /**
  * "47 geschafft · 5 verpasst".
@@ -17,19 +17,21 @@ import type { Balance } from '~/api/types'
  * On somebody else's profile it covers only the goals the two of them share.
  * That scoping is the server's, and `sharedGoals` is what lets this card tell
  * "nothing in common" apart from "a clean record" — two very different
- * sentences that would otherwise both read as "0 · 0".
+ * sentences that would otherwise both read as "0 · 0". It names each of those
+ * goals and opens it (#86): "1 gemeinsames Do" with no way to it left the
+ * reader to guess which one the record was about.
  */
 const props = withDefaults(defineProps<{
   balance: Balance
-  /** How many goals the two people share. Omit on your own profile. */
-  sharedGoals?: number | null
+  /** The goals the two people share, as the server scoped them. Omit on your own profile. */
+  sharedGoals?: readonly SharedGoal[] | null
 }>(), {
   sharedGoals: null,
 })
 
 const t = useMessages()
 
-const hasNothingShared = computed(() => props.sharedGoals === 0)
+const hasNothingShared = computed(() => props.sharedGoals?.length === 0)
 </script>
 
 <template>
@@ -101,13 +103,54 @@ const hasNothingShared = computed(() => props.sharedGoals === 0)
         {{ t.balance.clean }}
       </p>
 
-      <p
-        v-if="sharedGoals !== null"
-        class="mt-1.5 text-[12px] font-semibold text-(--ui-text-dimmed)"
-        data-testid="balance-scope"
-      >
-        {{ t.balance.sharedGoals(sharedGoals) }}
-      </p>
+      <template v-if="sharedGoals !== null">
+        <p
+          id="balance-scope"
+          class="mt-3 text-[12px] font-semibold text-(--ui-text-dimmed)"
+          data-testid="balance-scope"
+        >
+          {{ t.balance.sharedGoals(sharedGoals.length) }}
+        </p>
+
+        <!-- Ended goals stay: they are still counted above. -->
+        <ul
+          class="mt-1 flex flex-col"
+          aria-labelledby="balance-scope"
+        >
+          <li
+            v-for="goal in sharedGoals"
+            :key="goal.id"
+          >
+            <NuxtLink
+              :to="`/goals/${goal.id}`"
+              class="-mx-1.5 flex min-h-11 items-center gap-2.5 rounded-(--q2-radius-md) px-1.5 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+              data-testid="balance-goal"
+            >
+              <span
+                class="flex size-8 shrink-0 items-center justify-center rounded-(--q2-radius-sm) bg-(--ui-bg-accented) text-(--ui-text)"
+                aria-hidden="true"
+              >
+                <UIcon
+                  :name="goalIconName(goal.icon)"
+                  class="size-4"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold">{{ goal.title }}</span>
+                <span
+                  v-if="goal.status !== 'Active'"
+                  class="block text-[11px] font-semibold text-(--ui-text-muted)"
+                >{{ t.status[goal.status] }}</span>
+              </span>
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-4 shrink-0 text-(--ui-text-dimmed)"
+                aria-hidden="true"
+              />
+            </NuxtLink>
+          </li>
+        </ul>
+      </template>
     </template>
   </section>
 </template>

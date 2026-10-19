@@ -887,7 +887,7 @@ describe('somebody else\'s profile', () => {
         person: vi.fn().mockResolvedValue({
           person: { id: 'person-2', displayName: 'Lena' },
           balance: { done: 3, missed: 1 },
-          sharedGoals: 2,
+          sharedGoals: [{ id: 'goal-1', title: 'Laufen', icon: 'flame', status: 'Active' }],
         }),
       },
     }
@@ -902,7 +902,7 @@ describe('somebody else\'s profile', () => {
 
     // Nothing here narrows the balance. The scoping is the server's, and a
     // screen that could filter is a screen that could stop filtering.
-    expect(state.person.value).toMatchObject({ sharedGoals: 2, balance: { done: 3, missed: 1 } })
+    expect(state.person.value).toMatchObject({ sharedGoals: [{ id: 'goal-1' }], balance: { done: 3, missed: 1 } })
     expect(state.isMissing.value).toBe(false)
   })
 
@@ -934,7 +934,61 @@ describe('somebody else\'s profile', () => {
 
     await expect(state.removeFriend()).resolves.toBe(false)
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'friends', action: 'remove' })
-    expect(state.isRemoving.value).toBe(false)
+    expect(state.isChanging.value).toBe(false)
+  })
+
+  /**
+   * Every answer about a person can be given from their profile (#86), and
+   * each one reads the profile again, because its `state` is what the screen
+   * switches on — and the friends list and the tab's count with it.
+   */
+  it.each([
+    ['request', 'request'],
+    ['withdraw', 'withdraw'],
+    ['accept', 'accept'],
+    ['decline', 'decline'],
+  ] as const)('can %s from the profile and reads it again', async (action, call) => {
+    const api = {
+      profile: { person: vi.fn().mockResolvedValue({ person: { id: 'person-2' }, state: 'None' }) },
+      friends: { [call]: vi.fn().mockResolvedValue(undefined) },
+    }
+
+    const { refreshNuxtData } = installFeatureGlobals(api)
+    const state = usePersonProfile(ref('person-2'))
+    await vi.waitFor(() => expect(state.person.value).not.toBeNull())
+
+    await expect(state[action]()).resolves.toBe(true)
+    expect(api.friends[call]).toHaveBeenCalledWith('person-2')
+    expect(refreshNuxtData).toHaveBeenCalledWith(['friends', 'counts'])
+    expect(api.profile.person).toHaveBeenCalledTimes(2)
+  })
+
+  it('answers one change at a time', async () => {
+    let finish: () => void = () => {}
+    const api = {
+      profile: { person: vi.fn().mockResolvedValue({ person: { id: 'person-2' }, state: 'RequestReceived' }) },
+      friends: {
+        accept: vi.fn(() => new Promise<void>((resolve) => {
+          finish = resolve
+        })),
+        decline: vi.fn().mockResolvedValue(undefined),
+      },
+    }
+
+    installFeatureGlobals(api)
+    const state = usePersonProfile(ref('person-2'))
+    await vi.waitFor(() => expect(state.person.value).not.toBeNull())
+
+    const accepting = state.accept()
+    expect(state.isChanging.value).toBe(true)
+
+    // A second tap while the first is on its way is not a second answer.
+    await expect(state.decline()).resolves.toBe(false)
+    expect(api.friends.decline).not.toHaveBeenCalled()
+
+    finish()
+    await expect(accepting).resolves.toBe(true)
+    expect(state.isChanging.value).toBe(false)
   })
 
   it('treats a person who is gone as a calm state rather than an error', async () => {

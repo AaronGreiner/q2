@@ -51,6 +51,7 @@ export type GoalWindowStatus = Schemas['GoalInstanceStatus']
 
 export type Balance = Schemas['BalanceResponse']
 export type PersonProfile = Schemas['PersonProfileResponse']
+export type SharedGoal = Schemas['SharedGoalResponse']
 export type Risk = Schemas['RiskResponse']
 export type RiskReason = Schemas['RiskReason']
 
