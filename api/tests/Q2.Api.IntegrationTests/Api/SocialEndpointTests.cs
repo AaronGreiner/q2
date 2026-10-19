@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
 using Q2.Api.Features.Activity;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -383,4 +384,45 @@ public class SocialEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    /// <summary>
+    /// A friend's streak is counted on their own day on the Freunde tab, as
+    /// on their profile (#134).
+    /// </summary>
+    /// <remarks>
+    /// The seeded friend checked in on the seed's day and the one before. At
+    /// 00:30 in Berlin two days later it is still the day after the last
+    /// check-in in UTC, where "yesterday still counts" keeps a streak of two —
+    /// but in Berlin that day is over, and the streak is gone. The tab used to
+    /// say two while the profile said none.
+    /// </remarks>
+    [Fact]
+    public async Task AFriendsStreakAfterLocalMidnightIsTheOneTheirProfileShows()
+    {
+        var clock = (FixedTimeProvider)Factory.Services.GetRequiredService<TimeProvider>();
+
+        try
+        {
+            // 2026-06-17 00:30 in Berlin (summer time), 2026-06-16 22:30 in UTC.
+            clock.Set(new DateTimeOffset(Q2ApiFactory.Today.AddDays(1).ToDateTime(new TimeOnly(22, 30)), TimeSpan.Zero));
+
+            // Signed in again, because the session from the seed's morning has
+            // long expired by then.
+            var client = await ClientForAsync(AutomatedTestSeed.CurrentPersonEmail);
+
+            var profile = await (await client.GetAsync($"/api/people/{AutomatedTestSeed.FriendPersonId}", TestContext.Current.CancellationToken))
+                .ReadAsync<ProfileStreakDocument>();
+            var onTheTab = Assert.Single((await FriendsAsync(client)).Friends, friend => friend.Person.Id == AutomatedTestSeed.FriendPersonId);
+
+            Assert.Equal(0, profile.Streak);
+            Assert.Equal(profile.Streak, onTheTab.Streak);
+        }
+        finally
+        {
+            // The clock is shared with every other test in the assembly.
+            clock.Reset();
+        }
+    }
+
+    private sealed record ProfileStreakDocument(int Streak);
 }

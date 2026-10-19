@@ -25,6 +25,7 @@ public sealed class FriendsService(
     GoalDraftStarter drafts,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
+    TimeZoneResolver timeZones,
     ILogger<FriendsService> logger)
 {
     /// <summary>How many people to offer as suggestions.</summary>
@@ -50,7 +51,6 @@ public sealed class FriendsService(
     {
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
 
         var mine = await MyFriendshipsAsync(me.Id, cancellationToken);
         var connectedIds = mine.Select(f => f.OtherThan(me.Id)).ToHashSet();
@@ -84,7 +84,7 @@ public sealed class FriendsService(
 
         var wanted = connectedIds.Concat(suggestions.Select(s => s.PersonId)).ToHashSet();
         var people = await LoadPeopleAsync(wanted, cancellationToken);
-        var streaks = await StreaksAsync(friendIds, today, cancellationToken);
+        var streaks = await StreaksAsync(friendIds, people, now, cancellationToken);
 
         var friends = mine
             .Where(f => f.Status == FriendshipStatus.Accepted)
@@ -276,7 +276,6 @@ public sealed class FriendsService(
     {
         var me = await currentPerson.GetAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
 
         var friendship = await FindBetweenAsync(me.Id, personId, cancellationToken)
             ?? throw new ResourceNotFoundException("Friend request", personId);
@@ -300,6 +299,8 @@ public sealed class FriendsService(
 
         logger.LogInformation("Friend request accepted by {PersonId}", me.Id);
 
+        // On their own day, as their profile counts it (#134).
+        var today = timeZones.For(person.TimeZoneId).Today(now);
         return new FriendResponse(PersonSummary.From(person, now), person.StreakOn(today), person.LastSeenAt);
     }
 
@@ -512,9 +513,19 @@ public sealed class FriendsService(
             .ToDictionaryAsync(p => p.Id, cancellationToken);
     }
 
+    /// <summary>
+    /// Each person's streak, counted on their own day.
+    /// </summary>
+    /// <remarks>
+    /// Their own day rather than the UTC one, because that is the day their
+    /// profile counts it on: between their midnight and UTC midnight the two
+    /// disagree, and the Freunde tab and the profile showed one person two
+    /// different streaks (#134).
+    /// </remarks>
     private async Task<IReadOnlyDictionary<Guid, int>> StreaksAsync(
         IReadOnlyCollection<Guid> personIds,
-        DateOnly today,
+        IReadOnlyDictionary<Guid, Person> people,
+        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         if (personIds.Count == 0)
@@ -528,7 +539,12 @@ public sealed class FriendsService(
             .ToListAsync(cancellationToken);
 
         return checkIns
+            .Where(c => people.ContainsKey(c.PersonId))
             .GroupBy(c => c.PersonId)
-            .ToDictionary(group => group.Key, group => Streak.Count(group.Select(c => c.Date), today));
+            .ToDictionary(
+                group => group.Key,
+                group => Streak.Count(
+                    group.Select(c => c.Date),
+                    timeZones.For(people[group.Key].TimeZoneId).Today(now)));
     }
 }
