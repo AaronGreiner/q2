@@ -105,8 +105,9 @@ regenerated artefacts belong to the same change.** CI fails otherwise.
   component or page may contain a literal user-facing string; see
   [docs/adr/0010-german-first-interface.md](docs/adr/0010-german-first-interface.md).
   The one exception is a mail, which is read with no app running to word it:
-  its German and English live in
-  `api/src/Q2.Api/Features/Accounts/PasswordResetMail.cs`
+  its German and English live beside the feature that sends it, in
+  `api/src/Q2.Api/Features/Accounts/PasswordResetMail.cs` and
+  `PasswordChangedMail.cs`
   ([docs/adr/0026-mail-and-password-reset.md](docs/adr/0026-mail-and-password-reset.md)).
 - **Comments** explain *why*, not *what*. A comment that restates the code is
   noise; a comment that records a decision, a constraint or a trap is valuable.

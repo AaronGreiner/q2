@@ -17,6 +17,14 @@ public enum ReportTargetKind
 
     /// <summary>One contribution to the daily challenge.</summary>
     ChallengeEntry,
+
+    /// <summary>
+    /// One message in a conversation, with or without a photograph (#104) —
+    /// where harassment would actually happen. A group as a whole is not a
+    /// target: its members can be reported, and what was said, message by
+    /// message.
+    /// </summary>
+    Message,
 }
 
 /// <summary>Why it is being reported.</summary>

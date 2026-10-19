@@ -93,6 +93,7 @@ public sealed record VoteSummaryDocument(
     int DoubtCount,
     IReadOnlyList<ProofPersonDocument> ConfirmedBy,
     VoteValue? MyVote,
-    bool CanIVote);
+    bool CanIVote,
+    bool DoubtCanRefuse);
 
 public sealed record ReactionSummaryDocument(string Kind, int Count, bool IsMine);

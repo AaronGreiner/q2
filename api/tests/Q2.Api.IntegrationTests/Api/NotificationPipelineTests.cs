@@ -36,6 +36,7 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
         int? Amount,
         NotificationTarget Target,
         Guid? TargetId,
+        Guid? FocusId,
         DateTimeOffset OccurredAt,
         bool IsNew);
 
@@ -82,6 +83,27 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
         Assert.Equal(1, (await CountsAsync(Client)).UnseenNotifications);
 
         Assert.Equal(NotificationTarget.Goal, Assert.Single(await BellAsync(Client)).Target);
+    }
+
+    /// <summary>
+    /// A kudos line leads where the line it is about leads: the goal that line
+    /// came from, not the whole profile (#112).
+    /// </summary>
+    [Fact]
+    public async Task KudosLeadToTheGoalTheirLineCameFrom()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        Guid? source = null;
+        await Factory.WithDatabaseAsync(async database =>
+            source = (await database.ActivityEvents.SingleAsync(
+                activity => activity.Id == MyOwnActivityId,
+                TestContext.Current.CancellationToken)).SourceId);
+
+        await PostAsync(friend, $"/api/feed/{MyOwnActivityId}/kudos");
+
+        var kudos = Assert.Single(await BellAsync(Client), line => line.Target == NotificationTarget.Activity);
+        Assert.Equal(MyOwnActivityId, kudos.TargetId);
+        Assert.Equal(source, kudos.FocusId);
     }
 
     /// <summary>
@@ -363,6 +385,9 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
 
         Assert.Null(verdict.Actor);
         Assert.Equal(AutomatedTestSeed.ActiveGoalId, verdict.TargetId);
+
+        // And the photograph it is about, so a tap shows it (#112).
+        Assert.Equal(proof.Id, verdict.FocusId);
         Assert.Equal(0, (await CountsAsync(friend)).ProofsAwaitingVote);
     }
 
@@ -427,7 +452,12 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
         await PostJsonAsync(friend, $"/api/proofs/{proof.Id}/reactions", new { kind = "Strong" });
 
         Assert.Equal(1, (await CountsAsync(Client)).UnseenNotifications);
-        Assert.Single(PushedTo(mine), pushed => pushed.Kind == NotificationKind.ReactionReceived);
+        var pushed = Assert.Single(PushedTo(mine), pushed => pushed.Kind == NotificationKind.ReactionReceived);
+
+        // The goal is what the sentence is about; the photograph is where the
+        // tap leads, in the bell and on the lock screen alike (#112).
+        Assert.Equal(AutomatedTestSeed.ActiveGoalId, pushed.TargetId);
+        Assert.Equal(proof.Id, pushed.FocusId);
 
         await PostJsonAsync(friend, $"/api/proofs/{proof.Id}/reactions", new { kind = "Strong" });
 

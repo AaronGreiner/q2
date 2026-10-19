@@ -1,8 +1,10 @@
 import type { ApiCaller } from './client'
 import type {
   AccountDeletion,
+  ChangePasswordRequest,
   ForgotPasswordRequest,
   LoginRequest,
+  PasswordChange,
   PasswordReset,
   RegisterRequest,
   ResetPasswordRequest,
@@ -63,6 +65,13 @@ export interface AccountsApi {
    * account ends with it, this device's included.
    */
   resetPassword: (request: ResetPasswordRequest) => Promise<PasswordReset>
+
+  /**
+   * Sets a new password with the current one (#40). This session stays, every
+   * other one of the account ends; the answer names the address, which the iOS
+   * app signs in with again for tokens bound to the new password.
+   */
+  changePassword: (request: ChangePasswordRequest) => Promise<PasswordChange>
 }
 
 export function createAccountsApi(call: ApiCaller): AccountsApi {
@@ -96,5 +105,7 @@ export function createAccountsApi(call: ApiCaller): AccountsApi {
     },
 
     resetPassword: request => call<PasswordReset>('/api/auth/password/reset', { method: 'POST', body: request }),
+
+    changePassword: request => call<PasswordChange>('/api/auth/password/change', { method: 'POST', body: request }),
   }
 }

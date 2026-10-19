@@ -1,6 +1,6 @@
 # 0018 — A window is closed by other people
 
-**Status:** Accepted, amended by [0030](0030-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided — by [0036](0036-live-or-screenshot.md) — every proof says whether it is live or a screenshot — and by [0037](0037-donts.md) — a believed photograph does not close a Don't's window early
+**Status:** Accepted, amended by [0030](0030-swipe-vote-and-full-screen-photos.md) — a vote may now be changed until the photograph is decided — by [0036](0036-live-or-screenshot.md) — every proof says whether it is live or a screenshot — by [0037](0037-donts.md) — a believed photograph does not close a Don't's window early — and on 2026-10-19 by [#97](https://github.com/AaronGreiner/q2/issues/97): a lone checker is told that their doubt cannot refuse
 **Date:** 2026-09-07
 
 ## Context
@@ -48,6 +48,17 @@ counter-intuitive and both are deliberate:
 - **Silence is not mistrust.** After the deadline only the votes cast count, so
   a photograph nobody objected to is confirmed — including one nobody looked at.
   The alternative lets an inattentive friend break a streak by doing nothing.
+
+**One checker cannot refuse, and both sides are told**
+([#97](https://github.com/AaronGreiner/q2/issues/97), 2026-10-19). `MinDoubtVotes`
+means a goal with a single checker can never have a photograph refused, and
+one with two needs both to doubt. The rule stays, because one friend's whim
+must not cost a streak. What changed is that it is said:
+- where checkers are chosen, in the create sheet and the edit sheet, the help
+  under the list says what the chosen number means (`checkersMeaning`);
+- on the vote card, a lone checker reads that their doubt alone does not refuse
+  the photograph. `VoteSummaryResponse.doubtCanRefuse` carries that from
+  `ProofVoting.DoubtCanRefuse`, so the card does not count checkers itself.
 
 ### Nobody to ask means nobody to convince
 

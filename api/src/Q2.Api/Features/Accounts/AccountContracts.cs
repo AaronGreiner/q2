@@ -70,3 +70,19 @@ public sealed record AccountDeletionResponse(
     int Conversations,
     int Messages,
     int ChallengeEntries);
+
+/// <summary>Request body for changing the password while signed in (#40).</summary>
+/// <remarks>
+/// The current password as well as the new one: a session is enough to read
+/// somebody's screens, not to lock them out of their own account from a
+/// borrowed phone. Both nullable so an empty body is a field error, like every
+/// other request in this API.
+/// </remarks>
+public sealed record ChangePasswordRequest(string? CurrentPassword = null, string? NewPassword = null);
+
+/// <summary>A password change went through.</summary>
+/// <param name="Email">
+/// The account's address, which the iOS app signs in with again for tokens
+/// bound to the new password (docs/adr/0034-bearer-tokens-for-the-native-app.md).
+/// </param>
+public sealed record PasswordChangeResponse(string Email);

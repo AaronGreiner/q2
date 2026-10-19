@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ChatDetail } from '~/api/types'
+import type { ApiFailure } from '~/api/errors'
+import type { ChatDetail, ChatPhoto } from '~/api/types'
 
 /**
  * What is behind a conversation's header: who is in it, the goal it is about,
@@ -13,18 +14,42 @@ import type { ChatDetail } from '~/api/types'
  * Leaving lives here rather than as a second icon in the header: it is rare,
  * it cannot be undone, and next to the mute switch it was one tap from a
  * mistake. The page still asks before it happens.
+ *
+ * Pinning and the photographs live here too (#24): pinning is about this one
+ * conversation and rare, and the photographs are what a thread read a page at
+ * a time otherwise makes hard to find again.
  */
-defineProps<{
+const props = defineProps<{
   chat: ChatDetail
   /** The signed-in person, who is listed as "Du" rather than as a link. */
   meId: string | null
+  /** The conversation's photographs (#24); null until the page has read them. */
+  photos?: ChatPhoto[] | null
+  photosFailed?: boolean
+  /** Why pinning was refused — three are pinned already, usually. */
+  pinFailure?: ApiFailure | null
 }>()
 
-const emit = defineEmits<{ leave: [] }>()
+const emit = defineEmits<{ leave: [], pin: [pinned: boolean] }>()
 
 const open = defineModel<boolean>('open', { required: true })
 
 const t = useMessages()
+
+const pinned = computed({
+  get: () => props.chat.isPinned,
+  set: value => emit('pin', value),
+})
+
+/** Three pinned already is the usual refusal, and it gets its own sentence. */
+function pinError(): string | undefined {
+  const tooMany = Object.entries(props.pinFailure?.fieldCodes ?? {})
+    .find(([field]) => field.toLowerCase() === 'pinned')?.[1]
+    ?.find(code => code.code === 'tooMany')
+
+  if (tooMany?.max !== undefined) return t.value.chats.pinTooMany(tooMany.max)
+  return fieldErrorText(props.pinFailure, 'pinned', t.value)
+}
 </script>
 
 <template>
@@ -51,6 +76,78 @@ const t = useMessages()
         >
           {{ t.chats.toGoal }}
         </UButton>
+
+        <div
+          class="flex items-center gap-3 px-1"
+          data-testid="chat-info-pin"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-bold">{{ t.chats.pin }}</span>
+            <span
+              class="block text-xs font-semibold"
+              :class="pinFailure ? 'text-(--ui-error)' : 'text-(--ui-text-muted)'"
+              :role="pinFailure ? 'alert' : undefined"
+              data-testid="chat-info-pin-hint"
+            >{{ pinError() ?? t.chats.pinHint }}</span>
+          </span>
+          <AppToggle
+            v-model="pinned"
+            :label="t.chats.pin"
+          />
+        </div>
+
+        <section
+          aria-labelledby="chat-info-photos"
+          data-testid="chat-info-photos"
+        >
+          <h3
+            id="chat-info-photos"
+            class="q2-eyebrow mb-2 px-0.5"
+          >
+            {{ t.chats.photosHeading }}
+          </h3>
+
+          <p
+            v-if="photosFailed"
+            class="px-0.5 text-sm font-semibold text-(--ui-text-muted)"
+          >
+            {{ t.chats.photosFailed }}
+          </p>
+
+          <div
+            v-else-if="photos === null || photos === undefined"
+            class="grid grid-cols-3 gap-1.5"
+            aria-busy="true"
+          >
+            <USkeleton
+              v-for="index in 3"
+              :key="index"
+              class="aspect-square w-full rounded-(--q2-radius-sm)"
+            />
+          </div>
+
+          <p
+            v-else-if="photos.length === 0"
+            class="px-0.5 text-sm font-semibold text-(--ui-text-muted)"
+          >
+            {{ t.chats.photosEmpty }}
+          </p>
+
+          <ul
+            v-else
+            class="grid list-none grid-cols-3 gap-1.5 p-0"
+          >
+            <li
+              v-for="photo in photos"
+              :key="photo.id"
+            >
+              <ChatPhotoTile
+                :photo="photo"
+                :context="chat.name"
+              />
+            </li>
+          </ul>
+        </section>
 
         <section aria-labelledby="chat-info-members">
           <h3

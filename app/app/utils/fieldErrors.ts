@@ -54,6 +54,9 @@ export function wordFieldError(error: FieldErrorCode, t: Messages): string {
     case 'mustRepeat': return words.mustRepeat
     case 'kindFixed': return words.kindFixed
     case 'tooLateToMove': return words.tooLateToMove
+    case 'wrongPassword': return words.wrongPassword
+    case 'tooLateToEdit': return max === undefined ? words.invalid : words.tooLateToEdit(max)
+    case 'lockedOut': return words.lockedOut
     default: return words.invalid
   }
 }

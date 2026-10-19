@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatDetail, ChatSummary, Image, KudosKind, ProofVoteValue } from '~/api/types'
+import type { ChatDetail, ChatMessage, ChatPhoto, ChatSummary, Image, KudosKind, ProofVoteValue } from '~/api/types'
 import { carryOver, prependPage, withMessage, withProof } from '~/utils/chatPages'
 import type { ThreadHistory } from '~/utils/chatPages'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
@@ -119,9 +119,39 @@ export function useChatThread(id: Ref<string>) {
 
       // With no keys everything is being read again already, this included.
       if (goalId && keys?.includes(`goal:${goalId}`)) await refresh()
+
+      /*
+       * A line that was edited or taken back (#25). The newest page is read
+       * again through `chat:<id>` anyway; a line further back than that is
+       * only in the history, and is fetched on its own rather than by reading
+       * every page loaded again.
+       */
+      for (const key of keys ?? []) {
+        if (!key.startsWith('chat-message:')) continue
+
+        const messageId = key.slice('chat-message:'.length)
+        if (history.value?.messages.some(message => message.id === messageId)) await refreshLine(messageId)
+      }
     })
 
     onScopeDispose(unhook)
+  }
+
+  /** One line further back, read again. Quiet if it fails: the next page read corrects it. */
+  async function refreshLine(messageId: string) {
+    try {
+      patch(await api.chats.message(id.value, messageId))
+    }
+    catch (caught) {
+      report(caught, { feature: 'chats', action: 'line' })
+    }
+  }
+
+  /** A message as the server now has it, put wherever it is loaded. */
+  function patch(updated: ChatMessage) {
+    const page = chat.value && withMessage(chat.value, updated)
+    if (page && page !== chat.value) showPage(page)
+    if (history.value) history.value = withMessage(history.value, updated)
   }
 
   /** Replaces the newest page, the shallow-ref way (see send). */
@@ -224,14 +254,68 @@ export function useChatThread(id: Ref<string>) {
   /** Patched wherever the message is: on the newest page, or pages back. */
   async function react(messageId: string, kind: KudosKind) {
     try {
-      const updated = await api.chats.react(id.value, messageId, kind)
-
-      const page = chat.value && withMessage(chat.value, updated)
-      if (page && page !== chat.value) showPage(page)
-      if (history.value) history.value = withMessage(history.value, updated)
+      patch(await api.chats.react(id.value, messageId, kind))
     }
     catch (caught) {
       report(caught, { feature: 'chats', action: 'react' })
+    }
+  }
+
+  const isChangingMessage = ref(false)
+
+  /**
+   * Corrects the words of your own message (#25). Answers with the failure, so
+   * the sheet can say under the field why the server would not take it — the
+   * fifteen minutes running out while it was open, say.
+   */
+  async function editMessage(messageId: string, text: string): Promise<ApiFailure | null> {
+    if (isChangingMessage.value) return null
+
+    isChangingMessage.value = true
+
+    try {
+      patch(await api.chats.edit(id.value, messageId, text))
+      return null
+    }
+    catch (caught) {
+      return report(caught, { feature: 'chats', action: 'edit' })
+    }
+    finally {
+      isChangingMessage.value = false
+    }
+  }
+
+  /** Takes back your own message for everybody (#25). Its place stays, saying so. */
+  async function deleteMessage(messageId: string) {
+    if (isChangingMessage.value) return
+
+    isChangingMessage.value = true
+
+    try {
+      patch(await api.chats.remove(id.value, messageId))
+      toast.show(t.value.toast.messageDeleted)
+    }
+    catch (caught) {
+      report(caught, { feature: 'chats', action: 'delete' })
+    }
+    finally {
+      isChangingMessage.value = false
+    }
+  }
+
+  /**
+   * Pins the conversation to the top of its section of this person's list, or
+   * unpins it (#24). Answers with the failure, so the sheet can say that three
+   * are already pinned.
+   */
+  async function setPinned(pinned: boolean): Promise<ApiFailure | null> {
+    try {
+      showPage(await api.chats.pin(id.value, pinned))
+      await refreshNuxtData('chats')
+      return null
+    }
+    catch (caught) {
+      return report(caught, { feature: 'chats', action: 'pin' })
     }
   }
 
@@ -317,8 +401,53 @@ export function useChatThread(id: Ref<string>) {
     react,
     vote,
     setMuted,
+    setPinned,
+    editMessage,
+    deleteMessage,
+    isChangingMessage: computed(() => isChangingMessage.value),
     leave,
     isSending,
     isVoting: computed(() => isVoting.value),
+  }
+}
+
+/**
+ * A conversation's photographs, for its info sheet (#24).
+ *
+ * Read when the sheet opens rather than with the thread: most visits never
+ * open it, and the grid is its own read on the server for the same reason —
+ * a thread is paged (ADR 0043), and paging through it for pictures would be
+ * the slow way to fill a grid.
+ */
+export function useChatPhotos(id: Ref<string>) {
+  const api = useQ2Api()
+  const { report } = useErrorReporter()
+
+  const photos = shallowRef<ChatPhoto[] | null>(null)
+  const failure = ref<ApiFailure | null>(null)
+  const isLoading = ref(false)
+
+  async function load() {
+    if (isLoading.value) return
+
+    isLoading.value = true
+    failure.value = null
+
+    try {
+      photos.value = await api.chats.photos(id.value)
+    }
+    catch (caught) {
+      failure.value = report(caught, { feature: 'chats', action: 'photos' })
+    }
+    finally {
+      isLoading.value = false
+    }
+  }
+
+  return {
+    photos: computed(() => photos.value),
+    failure: computed(() => failure.value),
+    isLoading: computed(() => isLoading.value),
+    load,
   }
 }

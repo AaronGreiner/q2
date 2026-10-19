@@ -126,6 +126,20 @@ describe('GoalPauseSheet', () => {
     expect(element<HTMLButtonElement>('[data-testid="pause-submit"]').disabled).toBe(true)
   })
 
+  /**
+   * A one-off has no next window, so "neither kept nor missed" would be the
+   * wrong promise: its window comes back, later by the paused days (#129).
+   */
+  it('tells a one-off that its deadline moves rather than that its window does not count', async () => {
+    await mountSuspended(GoalPauseSheet, {
+      props: { open: true, remaining: 2, maxDays: 7, minReason: 10, submitting: false, oneOff: true },
+      attachTo: document.body,
+    })
+
+    expect(document.body.textContent).toContain('Deine Frist verschiebt sich um die Tage der Pause.')
+    expect(document.body.textContent).not.toContain('weder als geschafft noch als verpasst')
+  })
+
   it('offers exactly the days the server would accept', async () => {
     await mountSuspended(GoalPauseSheet, {
       props: { open: true, remaining: 2, maxDays: 7, minReason: 10, submitting: false },

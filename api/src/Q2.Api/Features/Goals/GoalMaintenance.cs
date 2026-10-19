@@ -105,6 +105,14 @@ public static class GoalMaintenance
                 break;
             }
 
+            // Once a pause is over, a one-off gets back the window it set
+            // aside: it has no next window to pick up with (#129).
+            if (goal.ReopenOneOffAfterPause(calendar.EndOfDay, now))
+            {
+                changed = true;
+                continue;
+            }
+
             // A one-off has no next window for a change to wait for. Its change
             // applies once the objection period is over — before the deadline
             // below is looked at, since a later day is what it may have moved.

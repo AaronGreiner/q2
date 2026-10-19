@@ -243,6 +243,19 @@ function vote(value: ProofVoteValue) {
         <p class="text-center text-[11px] font-semibold text-(--ui-text-dimmed)">
           {{ t.proof.doubtAnonymous }}
         </p>
+
+        <!--
+          A lone checker is told what their doubt can do (#97): it is counted
+          and shown, but refusing takes two, and "Anzweifeln" must not look
+          like the last word when it is not.
+        -->
+        <p
+          v-if="!proof.votes.doubtCanRefuse"
+          class="text-center text-[11px] font-semibold text-(--ui-text-dimmed)"
+          data-testid="proof-doubt-alone"
+        >
+          {{ t.proof.doubtAlone }}
+        </p>
       </template>
 
       <div

@@ -62,6 +62,34 @@ public class InboxLinesTests
     }
 
     /// <summary>
+    /// Two photographs of the same goal are two lines, each leading to its own
+    /// picture (#112) — merged, the tap could only show one of them.
+    /// </summary>
+    [Fact]
+    public void ReactionsToDifferentPhotographsOfOneGoalStayApart()
+    {
+        var first = new Guid("44444444-0000-4000-8000-000000000001");
+        var second = new Guid("44444444-0000-4000-8000-000000000002");
+
+        var lines = InboxLines.Group(
+            [
+                Reaction(Jonas, Goal, minutesAgo: 5, photo: first),
+                Reaction(Lena, Goal, minutesAgo: 7, photo: second),
+                Reaction(Lena, Goal, minutesAgo: 9, photo: first),
+            ],
+            seenBefore: DateTimeOffset.MinValue);
+
+        Assert.Collection(
+            lines,
+            line =>
+            {
+                Assert.Equal(first, line.Latest.FocusId);
+                Assert.Equal([Jonas, Lena], line.People);
+            },
+            line => Assert.Equal(second, line.Latest.FocusId));
+    }
+
+    /// <summary>
     /// "und 4 weitere" must not count people somebody has already been told
     /// about as if they were news.
     /// </summary>
@@ -121,18 +149,19 @@ public class InboxLinesTests
     public void NothingToSayIsNull() =>
         Assert.Null(Notification.Shorten("   ", Notification.MaxSubjectLength));
 
-    private static Notification Reaction(Guid actor, Guid target, int minutesAgo) =>
-        Line(NotificationKind.ReactionReceived, actor, NotificationTarget.Goal, target, minutesAgo);
+    private static Notification Reaction(Guid actor, Guid target, int minutesAgo, Guid? photo = null) =>
+        Line(NotificationKind.ReactionReceived, actor, NotificationTarget.Goal, target, minutesAgo, photo);
 
     private static Notification Line(
         NotificationKind kind,
         Guid? actor,
         NotificationTarget target,
         Guid targetId,
-        int minutesAgo) =>
+        int minutesAgo,
+        Guid? focus = null) =>
         Notification.Create(
             new Guid($"33333333-0000-4000-8000-{Interlocked.Increment(ref _sequence):D12}"),
             Me,
-            new NotificationEvent(kind, actor, target, targetId),
+            new NotificationEvent(kind, actor, target, targetId, FocusId: focus),
             Now.AddMinutes(-minutesAgo));
 }

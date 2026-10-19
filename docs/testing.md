@@ -270,8 +270,8 @@ measure targets through `support/touchTargets.ts`.
 ### E2E (101 tests)
 
 Authentication and registration; seeded goals, their windows and all their states;
-goal creation and contribution; the daily challenge from banner to archive and
-back out again; blocking somebody from their profile and putting it back, and
+goal creation and contribution; the daily challenge from the start screen's card
+to archive and back out again; blocking somebody from their profile and putting it back, and
 reporting from the same sheet; chats and messages; friendships and search; profile and
 settings; expected and unexpected errors; Sentry privacy; PWA assets;
 server-rendered content; and the phone shell. The quality spec also

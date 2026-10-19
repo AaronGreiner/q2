@@ -8,7 +8,7 @@ import type { Counts, NotificationLine } from '~/api/types'
  * LiveHub.cs. The live connection is not a documented endpoint, so nothing
  * generates this; what travels over it — `Counts` above all — is generated.
  */
-export type LiveArea = 'Notifications' | 'Chats' | 'Friends' | 'Proofs' | 'Goals' | 'Challenge' | 'Feed'
+export type LiveArea = 'Notifications' | 'Chats' | 'Friends' | 'Proofs' | 'Goals' | 'Challenge' | 'Feed' | 'ChatMessage'
 
 /** "This part of your screen changed — read it again." */
 export interface LiveChange {
@@ -65,6 +65,10 @@ export function keysFor(change: LiveChange): string[] {
       return ['challenge-today']
     case 'Feed':
       return ['home', 'activity-overview', 'profile']
+    // No read of its own: an open thread that has this line further back than
+    // its newest page fetches it by itself when it hears the key (#25).
+    case 'ChatMessage':
+      return change.id ? [`chat-message:${change.id}`] : []
     case 'Notifications':
     default:
       return ['notifications']

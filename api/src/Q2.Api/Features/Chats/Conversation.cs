@@ -219,6 +219,14 @@ public sealed class Conversation
     public bool IsMutedFor(Guid personId) =>
         _participants.FirstOrDefault(p => p.PersonId == personId)?.MutedAt is not null;
 
+    /// <summary>Whether this person has pinned the thread (#24).</summary>
+    public bool IsPinnedFor(Guid personId) =>
+        _participants.FirstOrDefault(p => p.PersonId == personId)?.PinnedAt is not null;
+
+    /// <summary>Pins or unpins the thread for one person. The cap is the service's to check.</summary>
+    public void SetPinned(Guid personId, bool pinned, DateTimeOffset now) =>
+        _participants.FirstOrDefault(p => p.PersonId == personId)?.SetPinned(pinned, now);
+
     /// <summary>
     /// Mutes the conversation for one person, or lets it ring again.
     /// </summary>
@@ -269,6 +277,16 @@ public sealed class ConversationParticipant
 
     internal void SetMuted(bool muted, DateTimeOffset now) =>
         MutedAt = muted ? MutedAt ?? now : null;
+
+    /// <summary>
+    /// When this person pinned the thread to the top of its section of their
+    /// list (#24), or null. Per person, like a mute: pinning is how somebody
+    /// orders their own list, not something the others see.
+    /// </summary>
+    public DateTimeOffset? PinnedAt { get; private set; }
+
+    internal void SetPinned(bool pinned, DateTimeOffset now) =>
+        PinnedAt = pinned ? PinnedAt ?? now : null;
 
     internal void MarkRead(DateTimeOffset readAt)
     {

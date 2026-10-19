@@ -75,6 +75,15 @@ public static class ProofVoting
     /// <summary>How many doubts it takes before the share means anything.</summary>
     public const int MinDoubtVotes = 2;
 
+    /// <summary>
+    /// Whether doubt can refuse a photograph on a goal with this many people
+    /// to vote at all. False for a single checker, whose doubt is counted and
+    /// shown but can never be the second one <see cref="MinDoubtVotes"/> asks
+    /// for (#97) — which they are told, rather than left to believe their
+    /// "Anzweifeln" decides it.
+    /// </summary>
+    public static bool DoubtCanRefuse(int voterCount) => voterCount >= MinDoubtVotes;
+
     /// <summary>How many times one window may be proved. The second is the retry.</summary>
     public const int MaxAttempts = 2;
 

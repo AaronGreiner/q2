@@ -92,9 +92,11 @@ describe('ChatListRow — your own goal', () => {
     lastMessageSenderName: null,
     lastMessageHasPhoto: false,
     lastMessageIsMine: false,
+    lastMessageIsDeleted: false,
     lastMessageAt: '2026-09-20T09:00:00Z',
     unreadCount: 0,
     isMuted: false,
+    isPinned: false,
     lastEvent: 'WindowDone',
     goalId: 'goal-1',
     isMyGoal: true,
@@ -161,6 +163,7 @@ describe('ChatInfoSheet', () => {
       pinnedGoal: { id: 'goal-1', title: 'Frühaufsteher', current: null, streak: 0, pausedUntil: null, isMine: true },
       messages: [],
       isMuted: false,
+      isPinned: false,
       events: [],
       members: [person(), person({ id: 'person-2', displayName: 'Lena Schulz', handle: 'lena' })],
       ...overrides,
@@ -196,6 +199,55 @@ describe('ChatInfoSheet', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.emitted('leave')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  /** The photographs and the pin (#24). */
+  it('shows the photographs in a grid, and says so when there are none', async () => {
+    const photo = { id: 'message-1', imageId: 'image-1', isProof: false, authorName: 'Lena Schulz', at: '2026-10-18T09:00:00Z', source: null }
+    const wrapper = await mountSuspended(ChatInfoSheet, {
+      props: { open: true, chat: chat(), meId: 'person-1', photos: [photo, { ...photo, id: 'message-2', imageId: 'image-2' }] },
+      attachTo: document.body,
+    })
+
+    const tiles = document.querySelectorAll('[data-testid="chat-photo-tile"]')
+    expect(tiles).toHaveLength(2)
+    expect(tiles[0]!.getAttribute('aria-label')).toBe('Foto von Lena Schulz')
+    expect(tiles[0]!.hasAttribute('data-q2-block')).toBe(true)
+    wrapper.unmount()
+
+    const empty = await mountSuspended(ChatInfoSheet, {
+      props: { open: true, chat: chat(), meId: 'person-1', photos: [] },
+      attachTo: document.body,
+    })
+    expect(element('[data-testid="chat-info-photos"]').textContent).toContain('Noch keine Fotos in diesem Chat.')
+    empty.unmount()
+  })
+
+  it('pins with its switch, and says why when the server would not', async () => {
+    const wrapper = await mountSuspended(ChatInfoSheet, {
+      props: { open: true, chat: chat(), meId: 'person-1', photos: [] },
+      attachTo: document.body,
+    })
+
+    element<HTMLButtonElement>('[data-testid="chat-info-pin"] button').click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('pin')?.[0]).toEqual([true])
+
+    await wrapper.setProps({
+      pinFailure: {
+        kind: 'validation',
+        status: 400,
+        fieldErrors: { Pinned: ['At most 3 conversations can be pinned.'] },
+        fieldCodes: { Pinned: [{ code: 'tooMany', max: 3 }] },
+        reason: null,
+        traceId: null,
+        errorId: null,
+        isExpected: true,
+      },
+    })
+    expect(element('[data-testid="chat-info-pin-hint"]').textContent)
+      .toBe('Höchstens 3 Chats lassen sich anheften. Löse zuerst einen anderen.')
     wrapper.unmount()
   })
 })

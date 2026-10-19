@@ -90,7 +90,8 @@ layer projects.
   `amount`; it never sends a line of prose. The app ships in two languages
   ([../docs/adr/0010-german-first-interface.md](../docs/adr/0010-german-first-interface.md)).
   The one exception is a mail, which is read with no app running to compose
-  it: `PasswordResetMail` writes it in the language the account chose
+  it: `PasswordResetMail` and `PasswordChangedMail` write theirs in the
+  language the account chose
   ([../docs/adr/0026-mail-and-password-reset.md](../docs/adr/0026-mail-and-password-reset.md)).
 - **A mail goes through `IMailTransport`, and its links start from
   `Q2:PublicAppUrl`** — never from the request's `Host` header. Outside Staging

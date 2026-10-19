@@ -77,7 +77,10 @@ public static class ProofVerdicts
                 ActorPersonId: null,
                 NotificationTarget.Goal,
                 goal.Id,
-                goal.Title)
+                goal.Title,
+
+                // The photograph the verdict is about, so the tap shows it (#112).
+                FocusId: proof.Id)
             : new NotificationEvent(
                 NotificationKind.ProofRefused,
                 ActorPersonId: null,
@@ -87,7 +90,8 @@ public static class ProofVerdicts
 
                 // Whether there is a second try is the one thing worth knowing
                 // straight away: it decides whether there is anything to do.
-                Amount: ProofVoting.HasAttemptLeft(proof.Attempt) ? 1 : 0);
+                Amount: ProofVoting.HasAttemptLeft(proof.Attempt) ? 1 : 0,
+                FocusId: proof.Id);
 
         await notifier.StageAsync(verdict, [goal.OwnerPersonId], cancellationToken);
 

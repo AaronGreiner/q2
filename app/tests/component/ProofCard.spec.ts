@@ -48,6 +48,7 @@ function proof(overrides: Partial<Proof> = {}): Proof {
       confirmedBy: [],
       myVote: null,
       canIVote: true,
+      doubtCanRefuse: true,
     },
     reactions: [],
     ...overrides,
@@ -55,6 +56,25 @@ function proof(overrides: Partial<Proof> = {}): Proof {
 }
 
 describe('ProofCard', () => {
+  /**
+   * The only checker on a goal cannot refuse a photograph alone, and is told
+   * so where they would try (#97). Whether doubt can refuse is the server's
+   * answer, not a count this card does.
+   */
+  it('tells a lone checker that their doubt alone does not refuse the photograph', async () => {
+    const alone = await mountSuspended(ProofCard, {
+      props: { proof: proof({ votes: { ...proof().votes, doubtCanRefuse: false } }) },
+    })
+
+    expect(alone.get('[data-testid="proof-doubt-alone"]').text())
+      .toBe('Du prüfst allein: Dein Zweifel lehnt das Foto nicht ab. Dafür braucht es zwei, die zweifeln.')
+    expect(alone.find('[data-testid="proof-doubt"]').exists()).toBe(true)
+
+    const together = await mountSuspended(ProofCard, { props: { proof: proof() } })
+
+    expect(together.find('[data-testid="proof-doubt-alone"]').exists()).toBe(false)
+  })
+
   it('shows whose photograph it is and what they promised', async () => {
     const wrapper = await mountSuspended(ProofCard, {
       props: { proof: proof(), goalTitle: 'Dreimal die Woche laufen' },
@@ -164,6 +184,7 @@ describe('ProofCard', () => {
             confirmedBy: [person({ id: 'p2', displayName: 'Lena Schulz' })],
             myVote: 'Confirm',
             canIVote: false,
+            doubtCanRefuse: true,
           },
         }),
       },
@@ -185,7 +206,7 @@ describe('ProofCard', () => {
     const wrapper = await mountSuspended(ProofCard, {
       props: {
         proof: proof({
-          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: true },
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: true, doubtCanRefuse: true },
         }),
       },
     })
@@ -206,7 +227,7 @@ describe('ProofCard', () => {
       props: {
         proof: proof({
           status: 'Confirmed',
-          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false },
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false, doubtCanRefuse: true },
         }),
       },
     })
@@ -233,7 +254,7 @@ describe('ProofCard', () => {
   it('offers no verdict on your own photograph', async () => {
     const wrapper = await mountSuspended(ProofCard, {
       props: {
-        proof: proof({ votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: false } }),
+        proof: proof({ votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: false, doubtCanRefuse: true } }),
       },
     })
 

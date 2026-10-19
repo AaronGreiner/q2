@@ -28,6 +28,7 @@ function line(overrides: Partial<NotificationLine> = {}): NotificationLine {
     amount: null,
     target: 'Goal',
     targetId: '019faece-5a81-7c67-8fa2-00a63d9e9300',
+    focusId: null,
     occurredAt: '2026-06-17T08:45:00+00:00',
     isNew: true,
     ...overrides,

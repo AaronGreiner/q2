@@ -314,7 +314,15 @@ public sealed class ProofService(
         if (!hadReacted && standing is not null)
         {
             await notifier.StageAsync(
-                new NotificationEvent(NotificationKind.ReactionReceived, me.Id, NotificationTarget.Goal, goal.Id, goal.Title),
+                new NotificationEvent(
+                    NotificationKind.ReactionReceived,
+                    me.Id,
+                    NotificationTarget.Goal,
+                    goal.Id,
+                    goal.Title,
+
+                    // The photograph itself, so the tap shows it (#112).
+                    FocusId: proof.Id),
                 [proof.UploaderPersonId],
                 cancellationToken);
         }
@@ -325,6 +333,7 @@ public sealed class ProofService(
                 proof.UploaderPersonId,
                 me.Id,
                 goal.Id,
+                proof.Id,
                 cancellationToken);
         }
 
@@ -659,7 +668,8 @@ public sealed class ProofService(
             proof.DoubtCount,
             confirmedBy,
             proof.VoteOf(viewerId),
-            proof.Status == ProofStatus.Voting && !proof.IsExpiredAt(now) && goal.CanVote(viewerId));
+            proof.Status == ProofStatus.Voting && !proof.IsExpiredAt(now) && goal.CanVote(viewerId),
+            ProofVoting.DoubtCanRefuse(goal.VoterCount));
 
         var reactions = proof.Reactions
             .GroupBy(reaction => reaction.Kind)

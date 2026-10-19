@@ -180,6 +180,9 @@ describe('chat presentation', () => {
       sentAt: '2026-07-31T09:00:00Z',
       isMine: false,
       reactions: [{ kind: 'Applause' as const, count: 2, isMine: true }],
+      editedAt: null,
+      isDeleted: false,
+      canEdit: false,
       ...overrides,
     }
   }
@@ -202,6 +205,54 @@ describe('chat presentation', () => {
     await wrapper.get('[data-testid="chat-kudos-Fire"]').trigger('click')
     expect(wrapper.emitted('react')?.[0]).toEqual(['message-1', 'Fire'])
     expect(hapticTap).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * The menu is asked for, never opened here (#25): held on a phone,
+   * right-clicked on a desktop, Enter from a keyboard.
+   */
+  it('asks for its menu when held, right-clicked or entered', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const wrapper = await mountSuspended(ChatBubble, { props: { message: message(), now: Date.now() } })
+      const words = wrapper.get('[data-testid="chat-message-text"]')
+
+      await words.trigger('pointerdown', { pointerType: 'touch', clientX: 10, clientY: 10 })
+      vi.advanceTimersByTime(500)
+      expect(wrapper.emitted('actions')).toHaveLength(1)
+
+      // A scroll that starts on a message is not a press.
+      await words.trigger('pointerdown', { pointerType: 'touch', clientX: 10, clientY: 10 })
+      await words.trigger('pointermove', { pointerType: 'touch', clientX: 10, clientY: 60 })
+      vi.advanceTimersByTime(500)
+      expect(wrapper.emitted('actions')).toHaveLength(1)
+
+      await words.trigger('contextmenu')
+      await words.trigger('keydown', { key: 'Enter' })
+      expect(wrapper.emitted('actions')).toHaveLength(3)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says a message was taken back, and offers nothing on it', async () => {
+    const wrapper = await mountSuspended(ChatBubble, {
+      props: { message: message({ text: '', reactions: [], isDeleted: true }), now: Date.now() },
+    })
+
+    expect(wrapper.get('[data-testid="chat-deleted"]').text()).toBe('Nachricht gelöscht')
+    expect(wrapper.find('[data-testid="chat-message-text"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="chat-kudos-Fire"]').exists()).toBe(false)
+  })
+
+  it('marks corrected words beside the time', async () => {
+    const wrapper = await mountSuspended(ChatBubble, {
+      props: { message: message({ editedAt: '2026-07-31T09:05:00Z' }), now: Date.now() },
+    })
+
+    expect(wrapper.get('[data-testid="chat-edited"]').text()).toBe('bearbeitet')
   })
 
   it('does not offer a reaction on your own message', async () => {
@@ -360,6 +411,7 @@ describe('chat presentation', () => {
       lastMessageAt: '2026-07-31T09:00:00Z',
       lastMessageSenderName: 'Jonas',
       lastMessageIsMine: false,
+      lastMessageIsDeleted: false,
       unreadCount: 2,
     } as ChatSummary
     const unread = await mountSuspended(ChatListRow, { props: { chat: summary, now: Date.now() } })

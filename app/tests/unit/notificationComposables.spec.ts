@@ -26,6 +26,7 @@ function line(overrides: Partial<NotificationLine> = {}): NotificationLine {
     amount: null,
     target: 'Person',
     targetId: null,
+    focusId: null,
     occurredAt: '2026-07-31T09:00:00Z',
     isNew: true,
     ...overrides,

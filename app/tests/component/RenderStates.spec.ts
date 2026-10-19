@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { h } from 'vue'
 import AppScreenHeader from '~/components/layout/AppScreenHeader.vue'
 import AppSegmented from '~/components/ui/AppSegmented.vue'
-import ChallengeBanner from '~/components/home/ChallengeBanner.vue'
+import ChallengeCard from '~/components/home/ChallengeCard.vue'
 import HistoryGrid from '~/components/goals/HistoryGrid.vue'
 import RiskCard from '~/components/goals/RiskCard.vue'
 import SettingsSection from '~/components/settings/SettingsSection.vue'
@@ -170,7 +170,7 @@ describe('RiskCard', () => {
   })
 })
 
-describe('ChallengeBanner', () => {
+describe('ChallengeCard', () => {
   function room(overrides: Record<string, unknown> = {}) {
     return {
       challenge: {
@@ -189,13 +189,13 @@ describe('ChallengeBanner', () => {
 
   /** The denominator is what makes the numerator mean anything. */
   it('says so plainly when there are no friends to count against', async () => {
-    const wrapper = await mountSuspended(ChallengeBanner, { props: { room: room() } })
+    const wrapper = await mountSuspended(ChallengeCard, { props: { room: room() } })
 
     expect(wrapper.text()).toContain('Noch keine Freunde dabei')
   })
 
   it('counts one friend in the singular', async () => {
-    const wrapper = await mountSuspended(ChallengeBanner, {
+    const wrapper = await mountSuspended(ChallengeCard, {
       props: { room: room({ friendCount: 1 }) },
     })
 
@@ -204,7 +204,7 @@ describe('ChallengeBanner', () => {
 
   /** A prompt whose day is over has nothing left to count down to. */
   it('says the day is over rather than counting backwards', async () => {
-    const wrapper = await mountSuspended(ChallengeBanner, {
+    const wrapper = await mountSuspended(ChallengeCard, {
       props: {
         room: room({
           challenge: { ...room().challenge, expiresAt: '2020-01-01T00:00:00Z' },

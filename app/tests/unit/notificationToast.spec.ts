@@ -59,6 +59,7 @@ function message(overrides: Partial<NotificationLine> = {}): NotificationLine {
     amount: null,
     target: 'Conversation',
     targetId: 'chat-1',
+    focusId: null,
     occurredAt: '2026-06-17T09:00:00Z',
     isNew: true,
     ...overrides,

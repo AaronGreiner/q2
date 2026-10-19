@@ -157,6 +157,20 @@ public sealed class ReportService(
                                 || (friendship.RequesterId == entry.PersonId && friendship.AddresseeId == meId))),
                     cancellationToken),
 
+            // Somebody else's message, in a conversation the reporter is in,
+            // that has not been taken back: a withdrawn message has nothing
+            // left in it to report (#25).
+            ReportTargetKind.Message => await database.ChatMessages
+                .AsNoTracking()
+                .AnyAsync(
+                    message => message.Id == targetId
+                        && message.SenderPersonId != meId
+                        && message.DeletedAt == null
+                        && database.Conversations.Any(conversation =>
+                            conversation.Id == message.ConversationId
+                            && conversation.Participants.Any(participant => participant.PersonId == meId)),
+                    cancellationToken),
+
             _ => false,
         };
 }

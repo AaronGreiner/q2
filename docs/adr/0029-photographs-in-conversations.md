@@ -1,6 +1,6 @@
 # 0029 — Photographs in conversations, and no ready-made replies
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0046](0046-looking-after-a-conversation.md): a photograph sent as a message goes with it when the message is taken back, and a conversation's photographs have a grid of their own
 **Date:** 2026-09-23
 **Builds on:** [0017 — Image storage](0017-image-storage.md) and
 [0027 — Every goal is checked in its own conversation](0027-goal-conversations.md).

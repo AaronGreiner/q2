@@ -23,6 +23,12 @@ namespace Q2.Api.Features.Proofs;
 /// delivered it, for anybody not on the goal, and once the vote has closed or
 /// its deadline has passed.
 /// </param>
+/// <param name="DoubtCanRefuse">
+/// Whether doubt can refuse this photograph at all. False when only one person
+/// may vote on it: refusing takes two who doubt (<see cref="ProofVoting.DoubtCanRefuse"/>,
+/// #97), and a lone checker is told so on the card instead of being left to
+/// think their doubt decides it.
+/// </param>
 /// <remarks>
 /// **Doubt is anonymous, and that is a product rule rather than a display
 /// choice.** Doubting is publicly calling a friend's word into question; if it
@@ -36,7 +42,8 @@ public sealed record VoteSummaryResponse(
     int DoubtCount,
     IReadOnlyList<PersonSummary> ConfirmedBy,
     VoteValue? MyVote,
-    bool CanIVote);
+    bool CanIVote,
+    bool DoubtCanRefuse);
 
 /// <summary>A photograph delivered against a window, as somebody may see it.</summary>
 /// <param name="ImageId">

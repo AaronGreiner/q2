@@ -5,7 +5,8 @@ namespace Q2.Api.Features.Accounts;
 
 /// <summary>The words of a reset mail, in the language the account chose.</summary>
 /// <remarks>
-/// **The one place the server writes a sentence.** Everything else the API sends
+/// **One of the two places the server writes a sentence** — the other is
+/// <see cref="PasswordChangedMail"/>, for the same reason. Everything else the API sends
 /// is structure the app words from its own catalogue
 /// (docs/adr/0010-german-first-interface.md). A mail cannot work that way: it is
 /// read in a mail client, long after the request, with no q2 running to compose

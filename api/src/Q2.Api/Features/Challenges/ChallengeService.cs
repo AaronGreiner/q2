@@ -226,6 +226,7 @@ public sealed class ChallengeService(
                 entry.PersonId,
                 me.Id,
                 challenge.Id,
+                focusId: null,
                 cancellationToken);
         }
 

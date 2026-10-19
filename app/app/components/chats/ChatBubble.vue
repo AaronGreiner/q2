@@ -11,13 +11,21 @@ import { kudosKinds } from '~/api/types'
  * they saw it. They are icons, never emoji, and the one you gave is marked by a
  * filled surface rather than by a second colour — a reaction already given is a
  * state, and the accent belongs to actions.
+ *
+ * Pressing and holding a message asks for its menu (#25): correcting or taking
+ * back your own, reporting somebody else's (#104). The bubble only asks — the
+ * screen owns the one menu, as it owns the one camera. A message that was taken
+ * back has nothing left to act on, and says only that it was.
  */
 const props = defineProps<{
   message: ChatMessage
   now: number
 }>()
 
-const emit = defineEmits<{ react: [messageId: string, kind: KudosKind] }>()
+const emit = defineEmits<{
+  react: [messageId: string, kind: KudosKind]
+  actions: [message: ChatMessage]
+}>()
 
 const t = useMessages()
 
@@ -63,7 +71,9 @@ function enlarge() {
 }
 
 /** A photograph deleted since, with no words beside it, still gets a bubble. */
-const photoGone = computed(() => !props.message.image && props.message.text.length === 0)
+const photoGone = computed(() => !props.message.isDeleted && !props.message.image && props.message.text.length === 0)
+
+const longPress = useLongPress(() => emit('actions', props.message))
 
 /** How many of each kind, and whether one of them is mine. */
 function reactionFor(kind: KudosKind) {
@@ -102,6 +112,12 @@ function react(kind: KudosKind) {
       ]"
       :style="{ aspectRatio: String(photoRatio) }"
       data-testid="chat-photo"
+      @pointerdown="longPress.onPointerdown"
+      @pointermove="longPress.onPointermove"
+      @pointerup="longPress.onPointerup"
+      @pointercancel="longPress.onPointercancel"
+      @contextmenu="longPress.onContextmenu"
+      @click.capture="longPress.onClickCapture"
     >
       <button
         v-if="photoSource"
@@ -135,15 +151,46 @@ function react(kind: KudosKind) {
       </div>
     </div>
 
+    <!-- Taken back: the place stays and says so, and nothing else is left. -->
     <p
-      v-if="message.text || photoGone"
-      class="px-3.5 py-2.5 text-sm leading-snug font-medium"
+      v-if="message.isDeleted"
+      class="inline-flex items-center gap-1.5 rounded-(--q2-radius-lg) border border-(--ui-border) px-3.5 py-2.5 text-sm leading-snug font-medium text-(--ui-text-muted) italic"
+      :class="message.isMine ? 'rounded-ee-[5px]' : 'rounded-es-[5px]'"
+      data-testid="chat-deleted"
+    >
+      <UIcon
+        name="i-lucide-ban"
+        class="size-4 shrink-0"
+        aria-hidden="true"
+      />
+      {{ t.chats.deleted }}
+    </p>
+
+    <!--
+      The words are also the handle for the menu: held on a phone, right-clicked
+      on a desktop, Enter from a keyboard. A focusable bubble with a popup is
+      what a screen reader is told it is.
+    -->
+    <p
+      v-else-if="message.text || photoGone"
+      class="px-3.5 py-2.5 text-sm leading-snug font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
       :class="[
         message.isMine
           ? 'rounded-(--q2-radius-lg) rounded-ee-[5px] bg-(--ui-bg-accented) text-(--ui-text)'
           : 'bg-(--q2-track) rounded-(--q2-radius-lg) rounded-es-[5px] text-(--ui-text)',
         photoGone ? 'inline-flex items-center gap-1.5 text-(--ui-text-muted)' : '',
       ]"
+      tabindex="0"
+      role="button"
+      aria-haspopup="dialog"
+      :aria-description="t.chats.messageMore"
+      data-testid="chat-message-text"
+      @pointerdown="longPress.onPointerdown"
+      @pointermove="longPress.onPointermove"
+      @pointerup="longPress.onPointerup"
+      @pointercancel="longPress.onPointercancel"
+      @contextmenu="longPress.onContextmenu"
+      @keydown="longPress.onKeydown"
     >
       <template v-if="photoGone">
         <UIcon
@@ -164,7 +211,9 @@ function react(kind: KudosKind) {
     >
       <!-- Your own message shows what came back; somebody else's is also a
            control, because the reply to a message is often just a reaction. -->
-      <template v-if="message.isMine">
+      <template v-if="message.isDeleted" />
+
+      <template v-else-if="message.isMine">
         <span
           v-for="reaction in message.reactions"
           :key="reaction.kind"
@@ -210,6 +259,12 @@ function react(kind: KudosKind) {
         </button>
       </template>
 
+      <!-- Beside the time, which is what it qualifies. -->
+      <span
+        v-if="message.editedAt && !message.isDeleted"
+        class="text-[10px] font-semibold text-(--ui-text-dimmed)"
+        data-testid="chat-edited"
+      >{{ t.chats.edited }}</span>
       <span class="text-[10px] font-semibold text-(--ui-text-dimmed)">{{ time }}</span>
     </div>
   </li>

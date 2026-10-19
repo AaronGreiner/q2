@@ -156,4 +156,16 @@ public sealed class ProofVotingTests
         Assert.Equal(VotingResult.Running, outcome.Result);
         Assert.Equal(0, outcome.DoubtRatio);
     }
+
+    /// <summary>
+    /// A lone checker's doubt can never be the second one a refusal needs, so
+    /// the card says so (#97); from two checkers on, doubt can refuse.
+    /// </summary>
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, true)]
+    [InlineData(5, true)]
+    public void DoubtCanRefuseOnlyWithTwoOrMoreCheckers(int voters, bool expected) =>
+        Assert.Equal(expected, ProofVoting.DoubtCanRefuse(voters));
 }

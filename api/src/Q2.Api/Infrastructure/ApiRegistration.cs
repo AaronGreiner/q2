@@ -115,6 +115,7 @@ public static class ApiRegistration
         builder.Services.AddScoped<ReportService>();
         builder.Services.AddScoped<AccountService>();
         builder.Services.AddScoped<PasswordResetService>();
+        builder.Services.AddScoped<PasswordChangeService>();
         builder.Services.AddScoped<PasswordResetMailer>();
         builder.Services.AddScoped<ActivityRecorder>();
         builder.Services.AddScoped<GoalService>();

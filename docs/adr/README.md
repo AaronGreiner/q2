@@ -27,8 +27,8 @@ so the reasoning at the time stays readable.
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
 | [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md), [0030](0030-swipe-vote-and-full-screen-photos.md), [0036](0036-live-or-screenshot.md) and [0037](0037-donts.md) |
 | [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md) and [0037](0037-donts.md) |
-| [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted, amended by [0027](0027-goal-conversations.md) |
-| [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted |
+| [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted, amended by [0027](0027-goal-conversations.md); a one-off after a pause by [#129](https://github.com/AaronGreiner/q2/issues/129) |
+| [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted, amended by [0045](0045-what-waits-for-you-first.md) |
 | [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted, amended by [0033](0033-invite-links-for-new-and-existing-accounts.md) |
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) |
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md) and [0038](0038-spot-checks.md) |
@@ -36,7 +36,7 @@ so the reasoning at the time stays readable.
 | [0026](0026-mail-and-password-reset.md) | Mail, and the way back into an account | Accepted |
 | [0027](0027-goal-conversations.md) | Every goal is checked in its own conversation | Accepted, amended by [0032](0032-the-next-step-first.md), [0039](0039-first-run-onboarding.md), [0043](0043-threads-a-page-at-a-time.md) and [0044](0044-editing-a-running-goal.md) |
 | [0028](0028-ruhe-design-system.md) | Ruhe: a continuous surface and selectable accents | Accepted |
-| [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted |
+| [0029](0029-photographs-in-conversations.md) | Photographs in conversations, and no ready-made replies | Accepted, amended by [0046](0046-looking-after-a-conversation.md) |
 | [0030](0030-swipe-vote-and-full-screen-photos.md) | A verdict by swipe, a vote you can take back, and every photograph full size | Accepted, amended by [0036](0036-live-or-screenshot.md) |
 | [0031](0031-todos-tab-and-a-bell-you-can-empty.md) | A To-Dos tab, a shorter start screen, and a bell you can empty | Accepted, amended by [0032](0032-the-next-step-first.md) and [0035](0035-dos-and-donts.md) |
 | [0032](0032-the-next-step-first.md) | The next step first: urgency, folded misses, and a goal made in steps | Accepted, amended by [0041](0041-the-streak-beside-the-name.md) |
@@ -48,7 +48,9 @@ so the reasoning at the time stays readable.
 | [0038](0038-spot-checks.md) | Spot checks: a live photograph at a moment nobody can plan for | Accepted |
 | [0039](0039-first-run-onboarding.md) | A first-run introduction, once, and a first Do that waits for a friend | Accepted |
 | [0040](0040-back-goes-where-you-came-from.md) | Back goes where you came from, and finds the screen as it was left | Accepted |
-| [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted |
+| [0041](0041-the-streak-beside-the-name.md) | The streak beside the name, and a start screen of your own goals only | Accepted, amended by [0045](0045-what-waits-for-you-first.md) |
 | [0042](0042-field-errors-as-codes.md) | Field errors travel as codes, and the app words them | Accepted |
-| [0043](0043-threads-a-page-at-a-time.md) | A thread is read a page at a time | Accepted |
+| [0043](0043-threads-a-page-at-a-time.md) | A thread is read a page at a time | Accepted, amended by [0046](0046-looking-after-a-conversation.md) |
 | [0044](0044-editing-a-running-goal.md) | A running goal is edited in front of the people who check it | Accepted |
+| [0045](0045-what-waits-for-you-first.md) | What waits for you first, and the challenge as a strip of pictures | Accepted |
+| [0046](0046-looking-after-a-conversation.md) | Looking after a conversation: correcting, taking back, reporting, pinning, and its photographs | Accepted |

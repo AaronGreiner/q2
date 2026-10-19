@@ -12,6 +12,9 @@ function message(id: string, overrides: Partial<ChatMessage> = {}): ChatMessage 
     isMine: false,
     sentAt: '2026-10-18T09:00:00Z',
     reactions: [],
+    editedAt: null,
+    isDeleted: false,
+    canEdit: false,
     ...overrides,
   }
 }

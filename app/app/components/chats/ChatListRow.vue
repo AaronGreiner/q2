@@ -30,7 +30,7 @@ const time = computed(() => formatChatTime(props.chat.lastMessageAt, props.now, 
  */
 const nextStep = computed(() => {
   const window = props.chat.goalCurrent
-  const quiet = !props.chat.lastMessage && !props.chat.lastMessageHasPhoto
+  const quiet = !props.chat.lastMessage && !props.chat.lastMessageHasPhoto && !props.chat.lastMessageIsDeleted
   if (!window?.acceptsProof || !quiet) return null
 
   const left = deadlineLeft(window.dueAt, props.now, t.value)
@@ -42,6 +42,9 @@ const preview = computed(() => {
   if (props.chat.awaitingMyVote) return t.value.chats.awaitingVote
   if (nextStep.value) return nextStep.value
   if (props.chat.lastEvent) return t.value.chats.lastEvent[props.chat.lastEvent]
+
+  // Taken back (#25): said, rather than an empty line or "Noch nichts".
+  if (props.chat.lastMessageIsDeleted) return t.value.chats.deleted
   if (!props.chat.lastMessage && !props.chat.lastMessageHasPhoto) return t.value.chats.empty
 
   const prefix = props.chat.lastMessageIsMine
@@ -83,6 +86,17 @@ const preview = computed(() => {
 
           <!-- Muted still counts as unread: muting is about being interrupted,
                not about what is waiting when somebody looks. -->
+          <!-- Pinned to the top of its section of the list (#24). -->
+          <template v-if="chat.isPinned">
+            <UIcon
+              name="i-lucide-pin"
+              class="size-3.5 shrink-0 text-(--ui-text-dimmed)"
+              aria-hidden="true"
+              data-testid="chat-pinned"
+            />
+            <span class="sr-only">{{ t.chats.pinned }}</span>
+          </template>
+
           <template v-if="chat.isMuted">
             <UIcon
               name="i-lucide-bell-off"

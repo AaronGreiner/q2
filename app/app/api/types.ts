@@ -117,6 +117,7 @@ export type ChatSummary = Schemas['ChatSummaryResponse']
 export type ChatDetail = Schemas['ChatDetailResponse']
 export type ChatMessage = Schemas['ChatMessageResponse']
 export type ChatPage = Schemas['ChatPageResponse']
+export type ChatPhoto = Schemas['ChatPhotoResponse']
 export type MessageReaction = Schemas['MessageReactionResponse']
 export type KudosKind = Schemas['KudosKind']
 export type ChatPinnedGoal = Schemas['ChatPinnedGoalResponse']
@@ -143,6 +144,8 @@ export type SessionTokens = Schemas['AccessTokenResponse']
 export type ForgotPasswordRequest = Schemas['ForgotPasswordRequest']
 export type ResetPasswordRequest = Schemas['ResetPasswordRequest']
 export type PasswordReset = Schemas['PasswordResetResponse']
+export type ChangePasswordRequest = Schemas['ChangePasswordRequest']
+export type PasswordChange = Schemas['PasswordChangeResponse']
 
 export type Profile = Schemas['ProfileResponse']
 export type UpdateProfileRequest = Schemas['UpdateProfileRequest']
@@ -202,6 +205,16 @@ export const weekdays: readonly Weekday[] = [
  * rather than a symmetrical one.
  */
 export const proofVoteValues: readonly ProofVoteValue[] = ['Confirm', 'Doubt'] as const
+
+/**
+ * How many doubts a refusal takes, mirrored from `ProofVoting.MinDoubtVotes`
+ * only to word the checker step (#97). The vote is decided on the server, and
+ * a card learns whether doubt can refuse from `votes.doubtCanRefuse` rather
+ * than from this — nothing here is binding (AGENTS.md section 3).
+ */
+export const voteRules = {
+  minDoubts: 2,
+} as const
 
 /**
  * What the server accepts for a pause.

@@ -21,6 +21,10 @@ public class ModerationEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory
 {
     private sealed record ReceiptDocument(Guid Id, DateTimeOffset CreatedAt);
 
+    private sealed record SentMessageDocument(Guid Id);
+
+    private sealed record SentThreadDocument(IReadOnlyList<SentMessageDocument> Messages);
+
     private static Task<HttpResponseMessage> ReportAsync(
         HttpClient client,
         ReportTargetKind kind,
@@ -164,6 +168,32 @@ public class ModerationEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory
         var response = await ReportAsync(Client, ReportTargetKind.Person, AutomatedTestSeed.CurrentPersonId);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A message is where harassment would actually happen (#104), so it can be
+    /// reported by the people it was said to — and only by them, and never
+    /// one's own.
+    /// </summary>
+    [Fact]
+    public async Task AMessageCanBeReportedByTheOthersInItsConversation()
+    {
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var sent = await friend.PostJsonAsync($"/api/chats/{AutomatedTestSeed.DirectConversationId}/messages", new { text = "Etwas Gemeines" });
+        sent.EnsureSuccessStatusCode();
+
+        // The answer is the newest page, oldest first, so theirs is the last line.
+        var messageId = (await sent.ReadAsync<SentThreadDocument>()).Messages[^1].Id;
+
+        var report = await ReportAsync(Client, ReportTargetKind.Message, messageId, ReportReason.Harassment);
+        Assert.Equal(HttpStatusCode.Created, report.StatusCode);
+
+        // Their own message is not theirs to report, and somebody outside the
+        // conversation does not learn that it exists.
+        Assert.Equal(HttpStatusCode.NotFound, (await ReportAsync(friend, ReportTargetKind.Message, messageId)).StatusCode);
+
+        var outsider = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+        Assert.Equal(HttpStatusCode.NotFound, (await ReportAsync(outsider, ReportTargetKind.Message, messageId)).StatusCode);
     }
 
     [Fact]

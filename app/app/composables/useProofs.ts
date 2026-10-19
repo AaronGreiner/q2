@@ -254,3 +254,39 @@ export function useOwnProofs() {
     refresh,
   }
 }
+
+/**
+ * One photograph full screen, by its id — for the times a screen was asked to
+ * show a photograph it does not have on it (#112): a goal with no conversation,
+ * or a conversation where the photograph is further back than it will page.
+ *
+ * Reported and otherwise quiet when it fails: the screen behind it is the
+ * answer either way, and a photograph that was deleted since is an ordinary
+ * outcome of an old notification.
+ */
+export function useProofViewer() {
+  const api = useQ2Api()
+  const viewer = usePhotoViewer()
+  const { report } = useErrorReporter()
+  const t = useMessages()
+  const now = useNow()
+
+  async function show(proofId: string, title: string | null) {
+    try {
+      const proof = await api.proofs.get(proofId)
+
+      viewer.open({
+        imageId: proof.imageId,
+        title,
+        subtitle: proof.uploader.displayName,
+        meta: formatRelativeTime(proof.createdAt, now.value, t.value),
+        source: proof.source,
+      })
+    }
+    catch (caught) {
+      report(caught, { feature: 'proofs', action: 'show' })
+    }
+  }
+
+  return { show }
+}

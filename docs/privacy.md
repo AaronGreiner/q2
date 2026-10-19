@@ -46,15 +46,15 @@ aspirational.
 | Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
 | Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
 | Activity | what somebody did, when, and who cheered it | The subject is a goal's title, so it inherits its treatment. |
-| Conversations | who is in which conversation, a group's name and icon, the goal a conversation belongs to, and each member's read marker and mute | Every goal has one, made of its owner and the friends invited to check it; it is removed with the goal and with its owner's account ([adr/0027](adr/0027-goal-conversations.md)). Nobody else can read it. |
-| Messages | text or a photograph, sender, timestamp, reactions | The words and pictures people send each other ([adr/0029](adr/0029-photographs-in-conversations.md)). |
+| Conversations | who is in which conversation, a group's name and icon, the goal a conversation belongs to, and each member's read marker, mute and pin | Every goal has one, made of its owner and the friends invited to check it; it is removed with the goal and with its owner's account ([adr/0027](adr/0027-goal-conversations.md)). Nobody else can read it. |
+| Messages | text or a photograph, sender, timestamp, reactions, when it was corrected or taken back | The words and pictures people send each other ([adr/0029](adr/0029-photographs-in-conversations.md)). A message its sender takes back keeps only its row and its time: the words are emptied, the photograph is deleted with its bytes, and the reactions go ([adr/0046](adr/0046-looking-after-a-conversation.md)). |
 | Images | the bytes of a picture somebody uploaded, plus its owner, purpose (profile picture, proof, challenge contribution, chat photograph), media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
 | Challenge contributions | which prompt somebody answered, with which picture, and when | The prompt is authored by the deployment, never by a user. Who may see the picture depends on what the *viewer* has done — see [adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). |
 | Blocks | who blocked whom, and when | The direction is stored so only the person who set one can lift it; the effect is symmetric. Never shown to the person blocked. |
-| Reports | who reported what, why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
+| Reports | who reported what — a person, a photograph, a contribution or a message — why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
 | Invite codes | 96 random bits per person, created on first use | A credential in everything but name. Replaceable, and never derived from the handle. Whoever holds one sees its owner's display name, initials and avatar colour — nothing else — before signing up (ADR 0033). |
 | Push subscriptions | an endpoint, two browser keys, and when something last arrived | **A stable handle for one browser installation** — the most identifying thing q2 stores. Never logged, never sent to Sentry, and deleted with the account. See [adr/0023-web-push.md](adr/0023-web-push.md). |
-| Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title, or a challenge prompt in both languages), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
+| Notifications | the bell's lines: a kind, who caused it, what it is about (a goal title, or a challenge prompt in both languages), which photograph or goal a tap leads to (an id, #112), a number, and when | Never a message's text — a message lives in its chat. Deleted after thirty days, and at once with either person's account or with the goal a line is about. Who blocked whom is applied when a line is written and again when it is read. See [adr/0024-one-notification-pipeline.md](adr/0024-one-notification-pipeline.md). |
 | Preferences | theme, language, one switch per kind of notification, quiet hours, and which conversations are muted | |
 | First run | when somebody finished the introduction | One timestamp on the person, so the introduction is shown once on any device. See [adr/0039-first-run-onboarding.md](adr/0039-first-run-onboarding.md). |
 | Waiting Do | a title, an icon, a schedule and a reminder time, at most one per person | User-authored, so it is treated like a goal's title. Only exists while its owner has no friend; becomes a goal when the first friendship does, and is deleted with the account. Its title is never logged. See [adr/0039-first-run-onboarding.md](adr/0039-first-run-onboarding.md). |
@@ -127,6 +127,9 @@ link to the mail provider, a processor with the same need for an agreement as
 Sentry ([#33](https://github.com/AaronGreiner/q2/issues/33)). The mail names
 nobody and carries nothing but the link
 ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)).
+Changing the password while signed in sends the same provider a second mail to
+the same address. It says that the password changed and carries no link and no
+name ([#40](https://github.com/AaronGreiner/q2/issues/40)).
 
 Every name in the database is invented — but a goal's title and description
 (also as an edit kept them), a pause's reason and a message all can identify

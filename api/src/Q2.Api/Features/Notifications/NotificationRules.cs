@@ -16,8 +16,8 @@ public static class NotificationRules
     /// <remarks>
     /// **One place per event, and one count.** Four kinds already have a home
     /// with a number of its own — a message in the chat list, a request on the
-    /// search screen, a vote on the start screen's banner, the challenge on its
-    /// banner — and a second row in the bell would be a second thing to clear
+    /// search screen, a vote on the start screen's stack, the challenge on its
+    /// card — and a second row in the bell would be a second thing to clear
     /// for the same event. Everything else had no home at all until the bell
     /// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
     /// </remarks>

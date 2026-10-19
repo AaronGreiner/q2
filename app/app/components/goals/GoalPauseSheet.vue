@@ -20,6 +20,11 @@ const props = defineProps<{
   minReason: number
   submitting: boolean
   failure?: ApiFailure | null
+  /**
+   * A one-off has no next window to pick up with: its window comes back once
+   * the pause is over, later by the paused days (#129), and the note says so.
+   */
+  oneOff?: boolean
 }>()
 
 const emit = defineEmits<{ submit: [value: { reason: string, days: number }] }>()
@@ -119,7 +124,7 @@ function onSubmit() {
         </div>
 
         <p class="text-[13px] font-semibold text-(--ui-text-muted)">
-          {{ t.pause.windowNote }}
+          {{ oneOff ? t.pause.windowNoteOnce : t.pause.windowNote }}
         </p>
 
         <AppErrorState

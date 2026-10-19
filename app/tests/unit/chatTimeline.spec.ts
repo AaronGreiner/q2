@@ -4,7 +4,7 @@ import { goalEventIcon, goalEventText, threadItems, threadRows } from '~/utils/c
 import type { ChatMessage, GoalEvent, Proof } from '~/api/types'
 
 function message(id: string, sentAt: string): ChatMessage {
-  return { id, senderId: 'person-1', senderName: null, text: id, isMine: false, sentAt, reactions: [] }
+  return { id, senderId: 'person-1', senderName: null, text: id, isMine: false, sentAt, reactions: [], editedAt: null, isDeleted: false, canEdit: false }
 }
 
 function event(key: string, at: string, overrides: Partial<GoalEvent> = {}): GoalEvent {

@@ -114,7 +114,8 @@ Current components, by folder:
 | `OnboardingFrame` and the `Onboarding*` steps | the first-run introduction: the frame with progress, back and "Später", and one component per step — welcome with its illustrations, profile, appearance, first Do, invite, notifications, done. The page `/onboarding` owns every read and write ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `AuthScreen` | the frame the sign-in, sign-up and password-reset screens share |
 | `AppConfirmDialog` | the question in front of something that cannot be undone |
-| `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing on the start screen ([0032](../docs/adr/0032-the-next-step-first.md)) |
+| `NextUpCard` | the window to deliver next, with its countdown and the camera — the first thing of your own day on the start screen ([0032](../docs/adr/0032-the-next-step-first.md), [0045](../docs/adr/0045-what-waits-for-you-first.md)) |
+| `ChallengeCard` `ChallengeStripTile` | the daily challenge on the start screen: the prompt, the time left, a strip of portrait tiles (yours first, then your friends' newest first, covered until you are in) and the camera that joins in; the room is a tap on its heading ([0045](../docs/adr/0045-what-waits-for-you-first.md)) |
 | `StreakFlame` | the streak beside your name on the start screen: the flame gradient with the number while there is one, grey without ([0041](../docs/adr/0041-the-streak-beside-the-name.md)) |
 | `GoalCard` | one goal in a list, as a row you open rather than act on: yours led by its icon, a friend's by its owner, with no control on either |
 | `GoalWindowRow` | one goal that is due, with the control that delivers into its window, the countdown to its end and the reminder under a bell |
@@ -134,12 +135,13 @@ Current components, by folder:
 | `InviteWelcome` | the page an invite link opens: whose it is, and the one step that makes the friendship ([0033](../docs/adr/0033-invite-links-for-new-and-existing-accounts.md)) |
 | `PersonSearchRow` | a search result, and the one action its `state` implies |
 | `FriendshipActions` | the one thing to do about somebody on their profile, by the same `state`: add, answer, take back, or write to them (#86) |
-| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph and the three kinds of kudos, and the composer the photograph button and the owner's camera in a goal's conversation |
-| `ChatInfoSheet` | behind a conversation's header: its members, the way to its goal, and leaving a group |
+| `ChatListRow` `ChatBubble` `ChatComposer` `ChatGoalBanner` | the chat screens; the bubble carries a photograph, the three kinds of kudos, "bearbeitet" and "Nachricht gelöscht", and asks for its menu when held (`useLongPress`), and the composer the photograph button and the owner's camera in a goal's conversation |
+| `ChatMessageActions` `ChatEditSheet` | one message's menu — correcting and taking back your own, reporting somebody else's — and the sheet that corrects the words; the menu hands its choice on only once it has closed, because two drawers at once deadlock ([0046](../docs/adr/0046-looking-after-a-conversation.md)) |
+| `ChatInfoSheet` `ChatPhotoTile` | behind a conversation's header: pinning it, its photographs as a grid that opens full size, its members, the way to its goal, and leaving a group ([0046](../docs/adr/0046-looking-after-a-conversation.md)) |
 | `ChatMissedRun` `ChatKeptRun` | a run of missed windows, or of kept ones, as one dated line; photographs stay in place inside a kept run (#100) |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
-| `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen and `/vote` |
+| `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen — first, after an open spot check — and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
 | `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
 | `ProfileEditor` `ProfileEditSheet` | editing your own name and picture, from the profile's pencil and from settings: the sheet, and the camera it hands over to, never both at once |

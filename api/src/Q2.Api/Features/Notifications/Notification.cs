@@ -26,6 +26,13 @@ namespace Q2.Api.Features.Notifications;
 /// Null for everything a person wrote, which has the one language it was
 /// written in.
 /// </param>
+/// <param name="FocusId">
+/// Where inside <see cref="Target"/> the line leads, when that is narrower than
+/// the target itself (#112): the photograph a reaction or a verdict is about,
+/// or the goal a line of your history that got kudos came from. The target
+/// stays what the sentence is about and what lines are grouped by; this only
+/// decides how far the tap goes.
+/// </param>
 public sealed record NotificationEvent(
     NotificationKind Kind,
     Guid? ActorPersonId,
@@ -34,7 +41,8 @@ public sealed record NotificationEvent(
     string? Subject = null,
     int? Amount = null,
     string? Excerpt = null,
-    string? EnglishSubject = null);
+    string? EnglishSubject = null,
+    Guid? FocusId = null);
 
 /// <summary>
 /// One line in somebody's bell.
@@ -76,6 +84,7 @@ public sealed class Notification
         int? amount,
         NotificationTarget target,
         Guid? targetId,
+        Guid? focusId,
         DateTimeOffset occurredAt)
     {
         Id = id;
@@ -87,6 +96,7 @@ public sealed class Notification
         Amount = amount;
         Target = target;
         TargetId = targetId;
+        FocusId = focusId;
         OccurredAt = occurredAt;
     }
 
@@ -132,6 +142,13 @@ public sealed class Notification
     /// </remarks>
     public Guid? TargetId { get; private set; }
 
+    /// <summary>
+    /// Where inside the target the line leads. See
+    /// <see cref="NotificationEvent.FocusId"/>; not a foreign key, for the same
+    /// reason <see cref="TargetId"/> is not one.
+    /// </summary>
+    public Guid? FocusId { get; private set; }
+
     public DateTimeOffset OccurredAt { get; private set; }
 
     /// <exception cref="ArgumentException">The bell does not keep this kind.</exception>
@@ -163,6 +180,7 @@ public sealed class Notification
             notification.Amount,
             notification.Target,
             notification.TargetId,
+            notification.FocusId,
             occurredAt);
     }
 

@@ -82,9 +82,11 @@ public sealed record ChatSummaryResponse(
     string? LastMessageSenderName,
     bool LastMessageHasPhoto,
     bool LastMessageIsMine,
+    bool LastMessageIsDeleted,
     DateTimeOffset? LastMessageAt,
     int UnreadCount,
     bool IsMuted,
+    bool IsPinned,
     GoalEventKind? LastEvent,
     Guid? GoalId,
     bool IsMyGoal,
@@ -107,6 +109,17 @@ public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsM
 /// the space before the bytes arrive. Null for a message of words alone, and
 /// for a photograph that has since been deleted.
 /// </param>
+/// <param name="EditedAt">When the words were last corrected, for the "bearbeitet" marker (#25).</param>
+/// <param name="IsDeleted">
+/// Taken back by its sender (#25). The words, the photograph and the reactions
+/// are gone from the response as well as from the database; what is left is the
+/// place in the thread, so nobody's reply hangs in the air.
+/// </param>
+/// <param name="CanEdit">
+/// Whether the reader may still correct the words — their own message, inside
+/// <see cref="ChatMessage.EditWindow"/> — so the app offers it exactly while
+/// the server would take it.
+/// </param>
 public sealed record ChatMessageResponse(
     Guid Id,
     Guid SenderId,
@@ -115,7 +128,13 @@ public sealed record ChatMessageResponse(
     ImageResponse? Image,
     bool IsMine,
     DateTimeOffset SentAt,
-    IReadOnlyList<MessageReactionResponse> Reactions);
+    IReadOnlyList<MessageReactionResponse> Reactions,
+    DateTimeOffset? EditedAt,
+    bool IsDeleted,
+    bool CanEdit);
+
+/// <summary>Request body for correcting a message's words.</summary>
+public sealed record EditMessageRequest(string? Text = null);
 
 /// <summary>The goal a conversation belongs to, drawn at the top of it.</summary>
 /// <param name="Current">
@@ -225,6 +244,7 @@ public sealed record ChatDetailResponse(
     ChatPinnedGoalResponse? PinnedGoal,
     IReadOnlyList<ChatMessageResponse> Messages,
     bool IsMuted,
+    bool IsPinned,
     IReadOnlyList<GoalEventResponse> Events,
     IReadOnlyList<PersonSummary> Members,
     string? OlderCursor);
@@ -261,6 +281,25 @@ public sealed record ToggleReactionRequest(KudosKind? Kind = null);
 /// <summary>Request body for muting a conversation, or letting it ring again.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
 public sealed record MuteChatRequest(bool? Muted = null);
+
+/// <summary>Request body for pinning a conversation to the top of its section (#24).</summary>
+public sealed record PinChatRequest(bool? Pinned = null);
+
+/// <summary>One photograph in a conversation, for its info sheet's grid (#24).</summary>
+/// <param name="Id">The message or the proof it came with.</param>
+/// <param name="IsProof">
+/// A photograph delivered against the goal of a goal's conversation, rather
+/// than one sent as a message. Proofs carry their <paramref name="Source"/>,
+/// because every proof says whether it was live (docs/adr/0036-live-or-screenshot.md).
+/// </param>
+/// <param name="AuthorName">Who sent or delivered it, for the full-screen view.</param>
+public sealed record ChatPhotoResponse(
+    Guid Id,
+    Guid ImageId,
+    bool IsProof,
+    string AuthorName,
+    DateTimeOffset At,
+    ProofSource? Source);
 
 /// <summary>Request body for opening a direct conversation with somebody.</summary>
 /// <remarks>

@@ -327,6 +327,7 @@ function friendRequest(language?: 'German' | 'English') {
     amount: null,
     target: 'Person',
     targetId: 'e2e00000-0001-4000-8000-000000000002',
+    focusId: null,
     occurredAt: '2026-06-15T09:00:00+00:00',
     isNew: true,
     ...(language ? { language } : {}),

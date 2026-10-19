@@ -670,6 +670,57 @@
         }
       }
     },
+    "/api/auth/password/change": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Sets a new password with the current one. Keeps this session and ends every other.",
+        "operationId": "ChangePassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/password/reset": {
       "post": {
         "tags": [
@@ -3379,6 +3430,195 @@
         }
       }
     },
+    "/api/chats/{id}/messages/{messageId}": {
+      "get": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "One message as it now is, wherever in the thread it lies.",
+        "operationId": "GetChatMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Corrects the words of your own message, within fifteen minutes of sending it.",
+        "operationId": "EditChatMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Takes back your own message for everybody; its place in the thread stays.",
+        "operationId": "DeleteChatMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/chats/{id}/messages/{messageId}/reactions": {
       "post": {
         "tags": [
@@ -3443,6 +3683,113 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}/pin": {
+      "put": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "Pins a conversation to the top of its section of the reader's list, or unpins it. At most three.",
+        "operationId": "PinChat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chats/{id}/photos": {
+      "get": {
+        "tags": [
+          "Chats"
+        ],
+        "summary": "The photographs of a conversation, newest first: those sent as messages and a goal's proofs.",
+        "operationId": "GetChatPhotos",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatPhotoResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -3906,6 +4253,19 @@
           }
         }
       },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "nullable": true
+          },
+          "newPassword": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "ChatDetailResponse": {
         "required": [
           "id",
@@ -3921,6 +4281,7 @@
           "pinnedGoal",
           "messages",
           "isMuted",
+          "isPinned",
           "events",
           "members",
           "olderCursor"
@@ -3986,6 +4347,9 @@
           "isMuted": {
             "type": "boolean"
           },
+          "isPinned": {
+            "type": "boolean"
+          },
           "events": {
             "type": "array",
             "items": {
@@ -4013,7 +4377,10 @@
           "image",
           "isMine",
           "sentAt",
-          "reactions"
+          "reactions",
+          "editedAt",
+          "isDeleted",
+          "canEdit"
         ],
         "type": "object",
         "properties": {
@@ -4057,6 +4424,17 @@
             "items": {
               "$ref": "#/components/schemas/MessageReactionResponse"
             }
+          },
+          "editedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isDeleted": {
+            "type": "boolean"
+          },
+          "canEdit": {
+            "type": "boolean"
           }
         }
       },
@@ -4083,6 +4461,50 @@
           "olderCursor": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "ChatPhotoResponse": {
+        "required": [
+          "id",
+          "imageId",
+          "isProof",
+          "authorName",
+          "at",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isProof": {
+            "type": "boolean"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/ProofSource"
+              }
+            ]
           }
         }
       },
@@ -4150,9 +4572,11 @@
           "lastMessageSenderName",
           "lastMessageHasPhoto",
           "lastMessageIsMine",
+          "lastMessageIsDeleted",
           "lastMessageAt",
           "unreadCount",
           "isMuted",
+          "isPinned",
           "lastEvent",
           "goalId",
           "isMyGoal",
@@ -4204,6 +4628,9 @@
           "lastMessageIsMine": {
             "type": "boolean"
           },
+          "lastMessageIsDeleted": {
+            "type": "boolean"
+          },
           "lastMessageAt": {
             "type": "string",
             "format": "date-time",
@@ -4214,6 +4641,9 @@
             "format": "int32"
           },
           "isMuted": {
+            "type": "boolean"
+          },
+          "isPinned": {
             "type": "boolean"
           },
           "lastEvent": {
@@ -4536,6 +4966,15 @@
               "type": "string",
               "format": "uuid"
             },
+            "nullable": true
+          }
+        }
+      },
+      "EditMessageRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
             "nullable": true
           }
         }
@@ -5863,6 +6302,7 @@
           "amount",
           "target",
           "targetId",
+          "focusId",
           "occurredAt",
           "isNew"
         ],
@@ -5906,6 +6346,11 @@
             "$ref": "#/components/schemas/NotificationTarget"
           },
           "targetId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "focusId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -6057,6 +6502,17 @@
           }
         }
       },
+      "PasswordChangeResponse": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
       "PasswordResetResponse": {
         "required": [
           "email"
@@ -6163,6 +6619,15 @@
           "avatarImageId": {
             "type": "string",
             "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "PinChatRequest": {
+        "type": "object",
+        "properties": {
+          "pinned": {
+            "type": "boolean",
             "nullable": true
           }
         }
@@ -6470,6 +6935,7 @@
           "Person",
           "Proof",
           "ChallengeEntry",
+          "Message",
           null
         ]
       },
@@ -6900,7 +7366,8 @@
           "doubtCount",
           "confirmedBy",
           "myVote",
-          "canIVote"
+          "canIVote",
+          "doubtCanRefuse"
         ],
         "type": "object",
         "properties": {
@@ -6932,6 +7399,9 @@
             ]
           },
           "canIVote": {
+            "type": "boolean"
+          },
+          "doubtCanRefuse": {
             "type": "boolean"
           }
         }

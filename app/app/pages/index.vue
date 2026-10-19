@@ -45,12 +45,39 @@ const { counts } = useCounts()
 
 // The same queue as the vote screen, under the same key, so a verdict given
 // in either place — or on another device — takes the card out of both.
-const { proofs: pending, isVoting, vote } = usePendingProofs()
+const { proofs: pending, isVoting, vote, refresh: refreshPending } = usePendingProofs()
 
 // Its own read rather than part of `useHome`: the challenge is one row and the
 // dashboard is three, and a shared key would refetch all of them whenever
 // somebody joins in from the room and comes back.
-const { room: challenge } = useChallengeRoom()
+const {
+  room: challenge,
+  isSubmitting: isJoiningChallenge,
+  contribute: contributeToChallenge,
+  refresh: refreshChallenge,
+  maxEdge: challengeMaxEdge,
+} = useChallengeRoom()
+
+/*
+ * Joining in from the card (#135). The contribution's answer is the whole room
+ * again, now with the friends' pictures in it, so the strip uncovers itself
+ * without a second read.
+ */
+const isCapturingChallenge = ref(false)
+
+async function onChallengeCaptured(image: Image, origin: PhotoOrigin) {
+  isCapturingChallenge.value = false
+  await contributeToChallenge(image, origin)
+}
+
+/*
+ * A pull reads everything on the screen again, not only the dashboard: the
+ * vote stack and the challenge are the first two things on it, and they are
+ * what changes while the screen is open.
+ */
+function refreshAll() {
+  return Promise.all([refresh(), refreshPending(), refreshChallenge()])
+}
 
 /*
  * Which goal the camera is open for.
@@ -77,8 +104,9 @@ async function handIn(image: Image, origin: PhotoOrigin) {
 }
 
 /*
- * The one thing to do next, at the top — unless the evening warning is up,
- * whose cards already are the next thing to do, with their own camera.
+ * The one thing of your own to do next, at the top of your own day — unless
+ * the evening warning is up, whose cards already are the next thing to do,
+ * with their own camera.
  */
 const upNext = computed(() => (profile.value?.atRisk.length ? null : nextUp(due.value)))
 
@@ -170,7 +198,7 @@ useHead({ title: () => t.value.nav.home })
       </template>
     </AppScreenHeader>
 
-    <AppContentPanel :refresh="refresh">
+    <AppContentPanel :refresh="refreshAll">
       <div
         v-if="isLoading"
         class="flex flex-col gap-4"
@@ -192,235 +220,249 @@ useHead({ title: () => t.value.nav.home })
 
       <template v-else-if="profile">
         <!--
-          Whatever comes first sits flush under the panel's own padding, hence
-          `first:mt-0` on everything below that brings a top margin of its own:
-          which section is first depends on the day.
+          One wrapper, so that whatever comes first sits flush under the
+          panel's own padding: `first:mt-0` below counts from here, and the
+          pull indicator in front of the slot would otherwise always be first.
         -->
-        <div
-          v-if="spotChecks.length > 0"
-          class="mb-3 flex flex-col gap-2"
-        >
-          <SpotCheckCard
-            v-for="goal in spotChecks"
-            :key="goal.id"
-            :goal="goal"
+        <div data-testid="home-sections">
+          <!--
+            In the order things want something from you (#135): a spot
+            check, which is gone in three minutes; then your friends'
+            photographs, which wait for your verdict and expire; then the
+            challenge; and only then your own day, which has until midnight.
+          -->
+          <div
+            v-if="spotChecks.length > 0"
+            class="mb-3 flex flex-col gap-2"
+          >
+            <SpotCheckCard
+              v-for="goal in spotChecks"
+              :key="goal.id"
+              :goal="goal"
+              :now="now"
+              :busy="isDelivering"
+              @answer="(goalId, checkId) => answering = { goalId, checkId }"
+              @expired="refresh()"
+            />
+          </div>
+
+          <!--
+            The one thing on this screen that is somebody else's business, and
+            it is decided right here: the photographs waiting for your verdict,
+            as a stack you swipe through. It sits above your own goals on
+            purpose — a friend's photograph has a deadline on it, and yours does
+            not expire in twelve hours.
+
+            It disappears entirely when there is nothing waiting; a permanent
+            "nothing to check" would be furniture.
+          -->
+          <section
+            v-if="pending.length > 0"
+            class="mt-6 first:mt-0"
+            aria-labelledby="vote-heading"
+            data-testid="home-vote"
+          >
+            <div class="mb-3 flex items-center justify-between px-0.5">
+              <h2
+                id="vote-heading"
+                class="q2-eyebrow"
+              >
+                {{ t.vote.waitingHeading }}
+              </h2>
+              <span
+                class="rounded-full bg-(--ui-bg-accented) px-2.5 py-1 text-[11px] font-extrabold text-(--ui-text-toned)"
+                data-testid="vote-remaining"
+              >{{ t.vote.remaining(pending.length) }}</span>
+            </div>
+
+            <ProofSwipeStack
+              :cards="pending"
+              :busy="isVoting"
+              @vote="vote"
+            />
+          </section>
+
+          <!--
+            Somebody with no friends has no vote stack and an empty room, so for
+            them the invite stays the first thing (#93), above the challenge.
+          -->
+          <section
+            v-if="showFirstStep"
+            class="mt-6 first:mt-0"
+            aria-labelledby="first-step-heading"
+            data-testid="home-first-step"
+          >
+            <h2
+              id="first-step-heading"
+              class="q2-eyebrow mb-3 px-0.5"
+            >
+              {{ t.draft.homeHeading }}
+            </h2>
+
+            <GoalDraftCard
+              v-if="drafts.draft.value"
+              :draft="drafts.draft.value"
+              :busy="drafts.isSaving.value"
+              @share="shareInvite()"
+              @discard="onDiscardDraft"
+            />
+            <InviteCard v-else />
+          </section>
+
+          <!--
+            The offer with nothing at stake, above everything of your own with a
+            deadline. It is not urgent and must not look it; it is also the one
+            thing on this screen that is simply nice, and the pictures in it are
+            the reason to look in again in the evening.
+
+            Absent entirely on a day with no challenge running — a card reading
+            "nothing today" is furniture.
+          -->
+          <ChallengeCard
+            v-if="challenge"
+            class="mt-6 first:mt-0"
+            :room="challenge"
+            :busy="isJoiningChallenge"
+            @join="isCapturingChallenge = true"
+          />
+
+          <!--
+            Your own windows that are about to go. They are the only thing of
+            yours here with a deadline tonight, so they head your own day.
+
+            Absent for most of the day: the rule only turns on in the evening, so
+            `atRisk` is empty and this section is not drawn at all rather than
+            being an empty heading.
+          -->
+          <section
+            v-if="profile.atRisk.length > 0"
+            class="mt-6 first:mt-0"
+            aria-labelledby="risk-heading"
+          >
+            <h2
+              id="risk-heading"
+              class="mb-2 px-0.5 text-[11px] font-bold tracking-wide text-(--ui-text-muted) uppercase"
+            >
+              {{ t.risk.heading }}
+            </h2>
+
+            <div class="flex flex-col gap-2">
+              <RiskCard
+                v-for="goal in profile.atRisk"
+                :key="goal.id"
+                :goal="goal"
+                :busy="isDelivering"
+                @deliver="deliveringFor = $event"
+              />
+            </div>
+          </section>
+
+          <!-- Otherwise the open window that closes first, with the camera. -->
+          <NextUpCard
+            v-else-if="upNext"
+            class="mt-3 first:mt-0"
+            :goal="upNext"
             :now="now"
             :busy="isDelivering"
-            @answer="(goalId, checkId) => answering = { goalId, checkId }"
-            @expired="refresh()"
+            @deliver="deliveringFor = $event"
           />
+
+          <!-- Not drawn when the only thing due is already the next step
+               above it: saying "nothing on today" under it would be wrong. -->
+          <section
+            v-if="nextDue.length > 0 || dontsToday.length > 0 || (due.length === 0 && !showFirstStep)"
+            class="mt-6 first:mt-0"
+            aria-labelledby="today-heading"
+          >
+            <div class="mb-3 flex items-center justify-between px-0.5">
+              <h2
+                id="today-heading"
+                class="q2-eyebrow"
+              >
+                {{ t.home.todayHeading }}
+              </h2>
+              <NuxtLink
+                to="/goals"
+                class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
+              >
+                {{ t.common.showAll }}
+              </NuxtLink>
+            </div>
+
+            <div
+              v-if="nextDue.length > 0 || dontsToday.length > 0"
+              class="flex flex-col gap-2.5"
+            >
+              <GoalWindowRow
+                v-for="goal in nextDue"
+                :key="goal.id"
+                :goal="goal"
+                :now="now"
+                :busy="isDelivering"
+                @deliver="deliveringFor = $event"
+              />
+
+              <DontWindowRow
+                v-for="goal in dontsToday"
+                :key="goal.id"
+                :goal="goal"
+                :busy="isDelivering || isLogging"
+                @deliver="deliveringFor = $event"
+                @log="onLog"
+              />
+            </div>
+
+            <AppStateMessage
+              v-else
+              icon="i-lucide-circle-check"
+              :title="t.home.noTasks"
+              :description="t.home.noTasksHint"
+              data-testid="home-no-tasks"
+            />
+          </section>
+
+          <section
+            class="mt-6 first:mt-0"
+            aria-labelledby="feed-heading"
+          >
+            <div class="mb-3 flex items-center justify-between px-0.5">
+              <h2
+                id="feed-heading"
+                class="q2-eyebrow"
+              >
+                {{ t.home.feedHeading }}
+              </h2>
+              <NuxtLink
+                to="/activity"
+                class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
+                data-testid="open-activity"
+              >
+                {{ t.common.showAll }}
+              </NuxtLink>
+            </div>
+
+            <div
+              v-if="recentFeed.length > 0"
+              class="flex flex-col gap-2.5"
+              data-testid="home-feed"
+            >
+              <ActivityRow
+                v-for="entry in recentFeed"
+                :key="entry.id"
+                :activity="entry"
+                :now="now"
+                @kudos="toggleKudos"
+              />
+            </div>
+
+            <AppStateMessage
+              v-else
+              icon="i-lucide-users"
+              :title="t.home.noFeed"
+              :description="t.home.noFeedHint"
+            />
+          </section>
         </div>
-
-        <!--
-          Your own windows that are about to go, above everything else on the
-          screen. They are the only thing here with a deadline tonight.
-
-          Absent for most of the day: the rule only turns on in the evening, so
-          `atRisk` is empty and this section is not drawn at all rather than
-          being an empty heading.
-        -->
-        <section
-          v-if="profile.atRisk.length > 0"
-          class="mb-3"
-          aria-labelledby="risk-heading"
-        >
-          <h2
-            id="risk-heading"
-            class="mb-2 px-0.5 text-[11px] font-bold tracking-wide text-(--ui-text-muted) uppercase"
-          >
-            {{ t.risk.heading }}
-          </h2>
-
-          <div class="flex flex-col gap-2">
-            <RiskCard
-              v-for="goal in profile.atRisk"
-              :key="goal.id"
-              :goal="goal"
-              :busy="isDelivering"
-              @deliver="deliveringFor = $event"
-            />
-          </div>
-        </section>
-
-        <!-- Otherwise the open window that closes first, with the camera. -->
-        <NextUpCard
-          v-else-if="upNext"
-          class="mb-3"
-          :goal="upNext"
-          :now="now"
-          :busy="isDelivering"
-          @deliver="deliveringFor = $event"
-        />
-
-        <section
-          v-if="showFirstStep"
-          class="mb-3"
-          aria-labelledby="first-step-heading"
-          data-testid="home-first-step"
-        >
-          <h2
-            id="first-step-heading"
-            class="q2-eyebrow mb-3 px-0.5"
-          >
-            {{ t.draft.homeHeading }}
-          </h2>
-
-          <GoalDraftCard
-            v-if="drafts.draft.value"
-            :draft="drafts.draft.value"
-            :busy="drafts.isSaving.value"
-            @share="shareInvite()"
-            @discard="onDiscardDraft"
-          />
-          <InviteCard v-else />
-        </section>
-
-        <!--
-          The offer with nothing at stake, and it sits below the next step and
-          above everything else with a deadline. It is not urgent and must not
-          look it; it is also the one thing on this screen that is simply nice,
-          so it comes before the list of what is owed.
-
-          Absent entirely on a day with no challenge running — a banner reading
-          "nothing today" is furniture.
-        -->
-        <ChallengeBanner
-          v-if="challenge"
-          class="mt-3 first:mt-0"
-          :room="challenge"
-        />
-
-        <!--
-          The one thing on this screen that is somebody else's business, and
-          it is decided right here: the photographs waiting for your verdict,
-          as a stack you swipe through. It sits above your own goals on
-          purpose — a friend's photograph has a deadline on it, and yours does
-          not expire in twelve hours.
-
-          It disappears entirely when there is nothing waiting; a permanent
-          "nothing to check" would be furniture.
-        -->
-        <section
-          v-if="pending.length > 0"
-          class="mt-6 first:mt-0"
-          aria-labelledby="vote-heading"
-          data-testid="home-vote"
-        >
-          <div class="mb-3 flex items-center justify-between px-0.5">
-            <h2
-              id="vote-heading"
-              class="q2-eyebrow"
-            >
-              {{ t.vote.waitingHeading }}
-            </h2>
-            <span
-              class="rounded-full bg-(--ui-bg-accented) px-2.5 py-1 text-[11px] font-extrabold text-(--ui-text-toned)"
-              data-testid="vote-remaining"
-            >{{ t.vote.remaining(pending.length) }}</span>
-          </div>
-
-          <ProofSwipeStack
-            :cards="pending"
-            :busy="isVoting"
-            @vote="vote"
-          />
-        </section>
-
-        <!-- Not drawn when the only thing due is already at the top: saying
-             "nothing on today" under it would be wrong. -->
-        <section
-          v-if="nextDue.length > 0 || dontsToday.length > 0 || (due.length === 0 && !showFirstStep)"
-          class="mt-6 first:mt-0"
-          aria-labelledby="today-heading"
-        >
-          <div class="mb-3 flex items-center justify-between px-0.5">
-            <h2
-              id="today-heading"
-              class="q2-eyebrow"
-            >
-              {{ t.home.todayHeading }}
-            </h2>
-            <NuxtLink
-              to="/goals"
-              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
-            >
-              {{ t.common.showAll }}
-            </NuxtLink>
-          </div>
-
-          <div
-            v-if="nextDue.length > 0 || dontsToday.length > 0"
-            class="flex flex-col gap-2.5"
-          >
-            <GoalWindowRow
-              v-for="goal in nextDue"
-              :key="goal.id"
-              :goal="goal"
-              :now="now"
-              :busy="isDelivering"
-              @deliver="deliveringFor = $event"
-            />
-
-            <DontWindowRow
-              v-for="goal in dontsToday"
-              :key="goal.id"
-              :goal="goal"
-              :busy="isDelivering || isLogging"
-              @deliver="deliveringFor = $event"
-              @log="onLog"
-            />
-          </div>
-
-          <AppStateMessage
-            v-else
-            icon="i-lucide-circle-check"
-            :title="t.home.noTasks"
-            :description="t.home.noTasksHint"
-            data-testid="home-no-tasks"
-          />
-        </section>
-
-        <section
-          class="mt-6 first:mt-0"
-          aria-labelledby="feed-heading"
-        >
-          <div class="mb-3 flex items-center justify-between px-0.5">
-            <h2
-              id="feed-heading"
-              class="q2-eyebrow"
-            >
-              {{ t.home.feedHeading }}
-            </h2>
-            <NuxtLink
-              to="/activity"
-              class="-my-3 min-w-11 py-3 text-center text-[13px] font-bold text-(--ui-text-muted) hover:underline"
-              data-testid="open-activity"
-            >
-              {{ t.common.showAll }}
-            </NuxtLink>
-          </div>
-
-          <div
-            v-if="recentFeed.length > 0"
-            class="flex flex-col gap-2.5"
-            data-testid="home-feed"
-          >
-            <ActivityRow
-              v-for="entry in recentFeed"
-              :key="entry.id"
-              :activity="entry"
-              :now="now"
-              @kudos="toggleKudos"
-            />
-          </div>
-
-          <AppStateMessage
-            v-else
-            icon="i-lucide-users"
-            :title="t.home.noFeed"
-            :description="t.home.noFeedHint"
-          />
-        </section>
       </template>
     </AppContentPanel>
 
@@ -444,6 +486,17 @@ useHead({ title: () => t.value.nav.home })
       :max-edge="maxEdge"
       :hand-in="handInCheck"
       @update:open="value => { if (!value) answering = null }"
+    />
+
+    <!--
+      The challenge's own camera, opened from its card: a contribution is not
+      a proof, and goes to the room rather than to a goal.
+    -->
+    <PhotoCapture
+      v-model:open="isCapturingChallenge"
+      purpose="ChallengeEntry"
+      :max-edge="challengeMaxEdge"
+      @uploaded="onChallengeCaptured"
     />
   </div>
 </template>

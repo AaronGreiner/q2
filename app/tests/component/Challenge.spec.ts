@@ -1,8 +1,10 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hapticTap } from '~/utils/haptics'
-import ChallengeBanner from '~/components/home/ChallengeBanner.vue'
+import ChallengeCard from '~/components/home/ChallengeCard.vue'
 import ChallengeEntryCard from '~/components/challenge/ChallengeEntryCard.vue'
+import ChallengeStripTile from '~/components/challenge/ChallengeStripTile.vue'
+import { usePhotoViewer } from '~/composables/usePhotoViewer'
 import type { ChallengeEntry, ChallengeRoom, Person } from '~/api/types'
 
 vi.mock('~/utils/haptics', () => ({ hapticTap: vi.fn() }))
@@ -168,14 +170,68 @@ describe('ChallengeEntryCard', () => {
   })
 })
 
-describe('ChallengeBanner', () => {
+describe('ChallengeCard', () => {
   it('shows the prompt and how many friends are in', async () => {
-    const wrapper = await mountSuspended(ChallengeBanner, {
-      props: { room: room({ entries: [entry(), entry({ id: 'entry-2' })] }) },
+    const wrapper = await mountSuspended(ChallengeCard, {
+      props: { room: room({ entries: [coveredEntry(), { ...coveredEntry(), id: 'entry-2' }] }) },
     })
 
-    expect(wrapper.text()).toContain('Zeig deinen Arbeitsplatz.')
+    expect(wrapper.get('[data-testid="challenge-card-prompt"]').text()).toBe('Zeig deinen Arbeitsplatz.')
     expect(wrapper.text()).toContain('2 von 4 Freunden dabei')
+  })
+
+  /**
+   * The reciprocity rule, on the start screen: every friend who is in gets a
+   * tile with their name, and none of them a picture, because there is none
+   * to show (docs/adr/0021-daily-challenge.md).
+   */
+  it('shows who is in before you are, and nothing of what they did', async () => {
+    const wrapper = await mountSuspended(ChallengeCard, {
+      props: {
+        room: room({
+          entries: [
+            { ...coveredEntry(), id: 'entry-1', author: person({ displayName: 'Lea Hoffmann' }) },
+            { ...coveredEntry(), id: 'entry-2', author: person({ displayName: 'Jonas Weber' }) },
+          ],
+        }),
+      },
+    })
+
+    const tiles = wrapper.findAll('[data-testid="challenge-tile"]')
+    expect(tiles).toHaveLength(2)
+    expect(tiles.every(tile => tile.attributes('data-covered') !== undefined)).toBe(true)
+    expect(wrapper.find('img[data-testid="challenge-tile-image"]').exists()).toBe(false)
+    expect(wrapper.find('button[data-testid="challenge-tile"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Lea Hoffmann ist dabei, verdeckt')
+  })
+
+  /**
+   * Yours first, because it is what uncovered the rest; then the friends'
+   * newest first, so what is cut off at the edge is what you saw earlier.
+   */
+  it('puts your own first and your friends\' newest first once you are in', async () => {
+    const wrapper = await mountSuspended(ChallengeCard, {
+      props: {
+        room: room({
+          ownEntry: entry({ id: 'own', isMine: true, imageId: 'image-own' }),
+          entries: [
+            entry({ id: 'early', author: person({ displayName: 'Lea Hoffmann' }), imageId: 'image-early' }),
+            entry({ id: 'late', author: person({ displayName: 'Jonas Weber' }), imageId: 'image-late' }),
+          ],
+          isRevealed: true,
+        }),
+      },
+    })
+
+    const names = wrapper.findAll('[data-testid="challenge-tile-name"]').map(name => name.text())
+    expect(names).toEqual(['Du', 'Jonas Weber', 'Lea Hoffmann'])
+    expect(wrapper.findAll('[data-testid="challenge-tile"]').every(tile => tile.attributes('data-covered') === undefined)).toBe(true)
+  })
+
+  it('leaves the strip out while nobody is in', async () => {
+    const wrapper = await mountSuspended(ChallengeCard, { props: { room: room() } })
+
+    expect(wrapper.find('[data-testid="challenge-strip"]').exists()).toBe(false)
   })
 
   /**
@@ -183,23 +239,51 @@ describe('ChallengeBanner', () => {
    * (docs/adr/0015-qdos-design-language.md). Once you are in, being in is a
    * state, and a state is grey.
    */
-  it('spends the accent on the invitation and gives it up once you are in', async () => {
-    const inviting = await mountSuspended(ChallengeBanner, { props: { room: room() } })
+  it('offers the camera until you are in, and then says so in grey', async () => {
+    const inviting = await mountSuspended(ChallengeCard, { props: { room: room() } })
 
-    expect(inviting.text()).toContain('Mitmachen')
-    expect(inviting.html()).toContain('--q2-accent-solid')
+    const join = inviting.get('[data-testid="challenge-card-join"]')
+    expect(join.text()).toContain('Mitmachen')
+    await join.trigger('click')
+    expect(inviting.emitted('join')).toHaveLength(1)
+    expect(inviting.find('[data-testid="challenge-card-done"]').exists()).toBe(false)
 
-    const joined = await mountSuspended(ChallengeBanner, {
+    const joined = await mountSuspended(ChallengeCard, {
       props: { room: room({ ownEntry: entry({ isMine: true }), isRevealed: true }) },
     })
 
-    expect(joined.get('[data-testid="challenge-banner-done"]').text()).toContain('Erledigt')
-    expect(joined.html()).not.toContain('--q2-accent-solid')
+    expect(joined.get('[data-testid="challenge-card-done"]').text()).toContain('Erledigt')
+    expect(joined.find('[data-testid="challenge-card-join"]').exists()).toBe(false)
   })
 
-  it('leads to the room rather than opening a camera of its own', async () => {
-    const wrapper = await mountSuspended(ChallengeBanner, { props: { room: room() } })
+  it('keeps the room one tap away, for reacting, replacing and removing', async () => {
+    const wrapper = await mountSuspended(ChallengeCard, { props: { room: room() } })
 
-    expect(wrapper.get('[data-testid="challenge-banner"]').attributes('href')).toBe('/challenge')
+    expect(wrapper.get('[data-testid="challenge-card-room"]').attributes('href')).toBe('/challenge')
+  })
+})
+
+describe('ChallengeStripTile', () => {
+  it('opens an uncovered picture full screen, with the prompt and whose it is', async () => {
+    const wrapper = await mountSuspended(ChallengeStripTile, {
+      props: { entry: entry(), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },
+    })
+
+    await wrapper.get('[data-testid="challenge-tile"]').trigger('click')
+
+    const opened = usePhotoViewer().current.value
+    expect(opened?.imageId).toBe('image-1')
+    expect(opened?.title).toBe('Zeig deinen Arbeitsplatz.')
+    expect(opened?.subtitle).toBe('Jonas Weber')
+    usePhotoViewer().close()
+  })
+
+  it('keeps the picture and the name out of Session Replay', async () => {
+    const wrapper = await mountSuspended(ChallengeStripTile, {
+      props: { entry: entry(), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },
+    })
+
+    expect(wrapper.get('[data-testid="challenge-tile"]').attributes()).toHaveProperty('data-q2-block')
+    expect(wrapper.get('[data-testid="challenge-tile-name"]').attributes()).toHaveProperty('data-q2-private')
   })
 })

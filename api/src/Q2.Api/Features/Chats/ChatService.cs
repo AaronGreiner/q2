@@ -147,9 +147,11 @@ public sealed class ChatService(
                     : null,
                 message?.ImageId is not null,
                 message?.SenderPersonId == me.Id,
+                message?.IsDeleted == true,
                 eventIsNewest ? lastEvent!.At : last?.SentAt,
                 unreadCounts.GetValueOrDefault(conversation.Id),
                 conversation.IsMutedFor(me.Id),
+                conversation.IsPinnedFor(me.Id),
                 eventIsNewest ? lastEvent!.Kind : null,
                 goal?.Id,
                 goal?.OwnerPersonId == me.Id,
@@ -160,13 +162,16 @@ public sealed class ChatService(
                 goal?.IsClosed == true));
         }
 
-        // Newest conversation first, and a brand-new empty one before an old
-        // silent one — which is what "sorted by last activity" has to mean when
-        // there has not been any yet.
+        // Pinned first (#24), then the newest conversation first, and a
+        // brand-new empty one before an old silent one — which is what "sorted
+        // by last activity" has to mean when there has not been any yet. The
+        // app splits this list into its sections in order, so a pinned chat
+        // stands at the top of its own section rather than above all of them.
         return
         [
             .. summaries
-                .OrderByDescending(s => s.LastMessageAt ?? DateTimeOffset.MinValue)
+                .OrderByDescending(s => s.IsPinned)
+                .ThenByDescending(s => s.LastMessageAt ?? DateTimeOffset.MinValue)
                 .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase),
         ];
     }
@@ -359,6 +364,7 @@ public sealed class ChatService(
                 message.SenderPersonId,
                 me.Id,
                 conversation.Id,
+                focusId: null,
                 cancellationToken);
         }
 
@@ -370,7 +376,138 @@ public sealed class ChatService(
         var people = await LoadPeopleAsync([message.SenderPersonId], cancellationToken);
         var photos = await LoadPhotosAsync([message], cancellationToken);
 
-        return DescribeMessage(message, conversation, me.Id, people, photos);
+        return DescribeMessage(message, conversation, me.Id, people, photos, timeProvider.GetUtcNow());
+    }
+
+    /// <summary>One message as it now is, wherever in the thread it lies.</summary>
+    /// <remarks>
+    /// For an open thread that was told one of its older lines changed (#25):
+    /// an edit or a deletion further back than the newest page is fetched on
+    /// its own rather than by reading every page loaded again.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such conversation or message.</exception>
+    public async Task<ChatMessageResponse> GetMessageAsync(Guid id, Guid messageId, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        var message = await database.ChatMessages
+            .AsNoTracking()
+            .Include(m => m.Reactions)
+            .SingleOrDefaultAsync(m => m.Id == messageId && m.ConversationId == conversation.Id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Message", messageId);
+
+        return await DescribeOneAsync(message, conversation, me.Id, cancellationToken);
+    }
+
+    /// <summary>Corrects the words of your own message, within its window (#25).</summary>
+    /// <exception cref="ResourceNotFoundException">No such conversation or message.</exception>
+    /// <exception cref="AccessDeniedException">It is somebody else's message.</exception>
+    /// <exception cref="DomainValidationException">
+    /// The window has passed, it was taken back, it has no words, or the new
+    /// words are empty or too long.
+    /// </exception>
+    public async Task<ChatMessageResponse> EditMessageAsync(
+        Guid id,
+        Guid messageId,
+        EditMessageRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        var message = await LoadMessageAsync(conversation, messageId, cancellationToken);
+
+        if (message.Edit(me.Id, request.Text, now))
+        {
+            await database.SaveChangesAsync(cancellationToken);
+            await AnnounceChangedAsync(conversation, message, cancellationToken);
+
+            // The id and nothing else — the words are the most personal thing
+            // q2 stores (docs/privacy.md).
+            logger.LogInformation("Message {MessageId} edited in conversation {ConversationId}", message.Id, conversation.Id);
+        }
+
+        return await DescribeOneAsync(message, conversation, me.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes back your own message (#25): its words, photograph and reactions
+    /// go for everybody, and "Nachricht gelöscht" keeps its place.
+    /// </summary>
+    /// <remarks>
+    /// The photograph's row goes in the same save and its bytes after it, so it
+    /// leaves the sender's allowance and the disk — the order the rest of q2
+    /// deletes pictures in (<see cref="ImageService.DeleteBytesAsync"/>).
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such conversation or message.</exception>
+    /// <exception cref="AccessDeniedException">It is somebody else's message.</exception>
+    public async Task<ChatMessageResponse> DeleteMessageAsync(Guid id, Guid messageId, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        var message = await LoadMessageAsync(conversation, messageId, cancellationToken);
+        var wasDeleted = message.IsDeleted;
+        var photo = message.Delete(me.Id, now);
+
+        if (!wasDeleted)
+        {
+            var removed = await images.RemoveChatPhotosAsync([photo], cancellationToken);
+            await database.SaveChangesAsync(cancellationToken);
+            await images.DeleteBytesAsync(removed, cancellationToken);
+            await AnnounceChangedAsync(conversation, message, cancellationToken);
+
+            logger.LogInformation("Message {MessageId} deleted in conversation {ConversationId}", message.Id, conversation.Id);
+        }
+
+        return await DescribeOneAsync(message, conversation, me.Id, cancellationToken);
+    }
+
+    private async Task<ChatMessage> LoadMessageAsync(Conversation conversation, Guid messageId, CancellationToken cancellationToken) =>
+        await database.ChatMessages
+            .Include(m => m.Reactions)
+            .SingleOrDefaultAsync(m => m.Id == messageId && m.ConversationId == conversation.Id, cancellationToken)
+        ?? throw new ResourceNotFoundException("Message", messageId);
+
+    private async Task<ChatMessageResponse> DescribeOneAsync(
+        ChatMessage message,
+        Conversation conversation,
+        Guid meId,
+        CancellationToken cancellationToken)
+    {
+        var people = await LoadPeopleAsync([message.SenderPersonId], cancellationToken);
+        var photos = await LoadPhotosAsync([message], cancellationToken);
+
+        return DescribeMessage(message, conversation, meId, people, photos, timeProvider.GetUtcNow());
+    }
+
+    /// <summary>
+    /// Tells everybody in the conversation that one of its lines changed: the
+    /// thread, for the newest page and the list's preview, and the line by its
+    /// id, for a thread that has it further back than its newest page (#25).
+    /// Nothing rings — a correction is not news.
+    /// </summary>
+    private async Task AnnounceChangedAsync(Conversation conversation, ChatMessage message, CancellationToken cancellationToken)
+    {
+        var everybody = conversation.Participants.Select(participant => participant.PersonId).ToList();
+
+        notifier.Touch(everybody, LiveArea.Chats, conversation.Id);
+        notifier.Touch(everybody, LiveArea.ChatMessage, message.Id);
+        await notifier.FlushAsync(cancellationToken);
     }
 
     /// <summary>
@@ -408,6 +545,115 @@ public sealed class ChatService(
         logger.LogInformation("Conversation {ConversationId} muted: {Muted}", conversation.Id, muted);
 
         return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>How many conversations one person may pin (#24).</summary>
+    /// <remarks>
+    /// A few, because a pin is only worth something while it is rare: a list
+    /// with everything pinned is the same list in a different order.
+    /// </remarks>
+    public const int MaxPinned = 3;
+
+    /// <summary>Pins a conversation to the top of its section, or unpins it (#24).</summary>
+    /// <exception cref="DomainValidationException">
+    /// Nothing was said, or <see cref="MaxPinned"/> are pinned already.
+    /// </exception>
+    public async Task<ChatDetailResponse> SetPinnedAsync(Guid id, PinChatRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Pinned is not { } pinned)
+        {
+            throw new DomainValidationException(nameof(request.Pinned), "Say whether to pin the conversation.");
+        }
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        if (pinned && !conversation.IsPinnedFor(me.Id))
+        {
+            var alreadyPinned = await database.ConversationParticipants
+                .CountAsync(participant => participant.PersonId == me.Id && participant.PinnedAt != null, cancellationToken);
+
+            if (alreadyPinned >= MaxPinned)
+            {
+                throw new DomainValidationException(
+                    nameof(request.Pinned),
+                    $"At most {MaxPinned} conversations can be pinned.",
+                    new(FieldErrorCodes.TooMany, Max: MaxPinned));
+            }
+        }
+
+        conversation.SetPinned(me.Id, pinned, now);
+        await database.SaveChangesAsync(cancellationToken);
+
+        // The list on this person's other devices moves too.
+        notifier.Touch([me.Id], LiveArea.Chats, conversation.Id);
+        await notifier.FlushAsync(cancellationToken);
+
+        logger.LogInformation("Conversation {ConversationId} pinned: {Pinned}", conversation.Id, pinned);
+
+        return await DescribeAsync(conversation, me.Id, now, cancellationToken);
+    }
+
+    /// <summary>How many photographs the info sheet's grid shows at most.</summary>
+    public const int MaxPhotos = 120;
+
+    /// <summary>
+    /// The photographs of a conversation, newest first (#24): those sent as
+    /// messages and, in a goal's conversation, the proofs delivered against
+    /// the goal.
+    /// </summary>
+    /// <remarks>
+    /// A read of its own rather than paging through the thread (ADR 0043). A
+    /// photograph whose image was deleted is left out, as on the profile's
+    /// gallery, and so is a message that was taken back (#25).
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">No such conversation, or not the reader's.</exception>
+    public async Task<IReadOnlyList<ChatPhotoResponse>> GetPhotosAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        var conversation = await LoadOneAsync(id, cancellationToken);
+        EnsureParticipant(conversation, me.Id);
+        await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
+
+        var sent = await database.ChatMessages
+            .AsNoTracking()
+            .Where(message => message.ConversationId == conversation.Id
+                && message.ImageId != null
+                && message.DeletedAt == null
+                && database.Images.Any(image => image.Id == message.ImageId))
+            .OrderByDescending(message => message.SentAt)
+            .Take(MaxPhotos)
+            .Select(message => new { message.Id, ImageId = message.ImageId!.Value, Author = message.SenderPersonId, At = message.SentAt })
+            .ToListAsync(cancellationToken);
+
+        var delivered = conversation.GoalId is { } goalId
+            ? await database.ProofPhotos
+                .AsNoTracking()
+                .Where(proof => database.GoalInstances.Any(instance => instance.Id == proof.GoalInstanceId && instance.GoalId == goalId)
+                    && database.Images.Any(image => image.Id == proof.ImageId))
+                .OrderByDescending(proof => proof.CreatedAt)
+                .Take(MaxPhotos)
+                .Select(proof => new { proof.Id, proof.ImageId, Author = proof.UploaderPersonId, At = proof.CreatedAt, proof.Source })
+                .ToListAsync(cancellationToken)
+            : [];
+
+        var people = await LoadPeopleAsync([.. sent.Select(photo => photo.Author), .. delivered.Select(photo => photo.Author)], cancellationToken);
+        string NameOf(Guid person) => people.GetValueOrDefault(person)?.DisplayName ?? string.Empty;
+
+        return
+        [
+            .. sent.Select(photo => new ChatPhotoResponse(photo.Id, photo.ImageId, IsProof: false, NameOf(photo.Author), photo.At, Source: null))
+                .Concat(delivered.Select(photo => new ChatPhotoResponse(photo.Id, photo.ImageId, IsProof: true, NameOf(photo.Author), photo.At, photo.Source)))
+                .OrderByDescending(photo => photo.At)
+                .Take(MaxPhotos),
+        ];
     }
 
     /// <summary>
@@ -659,6 +905,7 @@ public sealed class ChatService(
                     goal.OwnerPersonId == meId),
             page.Messages,
             conversation.IsMutedFor(meId),
+            conversation.IsPinnedFor(meId),
             page.Events,
 
             // The reader first, then everybody else by name — the order a
@@ -727,7 +974,7 @@ public sealed class ChatService(
         var photos = await LoadPhotosAsync(page.Messages, cancellationToken);
 
         return new DescribedPage(
-            [.. page.Messages.Select(message => DescribeMessage(message, conversation, meId, people, photos))],
+            [.. page.Messages.Select(message => DescribeMessage(message, conversation, meId, people, photos, now))],
             goal is null
                 ? []
                 : [
@@ -791,7 +1038,8 @@ public sealed class ChatService(
         Conversation conversation,
         Guid meId,
         IReadOnlyDictionary<Guid, Person> people,
-        IReadOnlyDictionary<Guid, StoredImage> photos) =>
+        IReadOnlyDictionary<Guid, StoredImage> photos,
+        DateTimeOffset now) =>
         new(
             message.Id,
             message.SenderPersonId,
@@ -808,7 +1056,10 @@ public sealed class ChatService(
                 : null,
             message.SenderPersonId == meId,
             message.SentAt,
-            SummariseReactions(message, meId));
+            SummariseReactions(message, meId),
+            message.EditedAt,
+            message.IsDeleted,
+            message.CanBeEditedBy(meId, now));
 
     private async Task<IReadOnlyDictionary<Guid, StoredImage>> LoadPhotosAsync(
         IEnumerable<ChatMessage> messages,

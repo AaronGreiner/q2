@@ -81,6 +81,15 @@ public static class FieldErrorCodes
 
     /// <summary>A one-off moved to a later day when its deadline is less than a day away.</summary>
     public const string TooLateToMove = "tooLateToMove";
+
+    /// <summary>The current password, given to change it, is not the account's (#40).</summary>
+    public const string WrongPassword = "wrongPassword";
+
+    /// <summary>Too many wrong passwords; the account is locked for a while (#40).</summary>
+    public const string LockedOut = "lockedOut";
+
+    /// <summary>A message older than <see cref="FieldErrorCode.Max"/> minutes, whose words can no longer be changed (#25).</summary>
+    public const string TooLateToEdit = "tooLateToEdit";
 }
 
 /// <summary>

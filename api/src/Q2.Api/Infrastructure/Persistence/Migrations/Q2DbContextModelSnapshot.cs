@@ -311,6 +311,12 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("ImageId")
                         .HasColumnType("TEXT");
 
@@ -383,6 +389,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PinnedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -940,6 +949,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("Amount")
                         .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("FocusId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Kind")
                         .IsRequired()

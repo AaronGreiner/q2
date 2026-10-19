@@ -15,6 +15,7 @@ import {
   localHour,
   notificationIcon,
   notificationLink,
+  checkersMeaning,
   notificationTag,
   notificationText,
   proofStatusLabel,
@@ -73,6 +74,7 @@ function line(overrides: Partial<NotificationLine> = {}): NotificationLine {
     amount: null,
     target: 'Goal',
     targetId: 'goal-1',
+    focusId: null,
     occurredAt: '2026-06-17T08:45:00Z',
     isNew: true,
     ...overrides,
@@ -184,11 +186,15 @@ describe('notificationLink', () => {
     ['a friend about to miss, to the friend rather than their goal', line({ kind: 'FriendWindowAtRisk' }), '/people/person-lena'],
     ['a proof to vote on, to the vote', line({ kind: 'ProofAwaitingVote' }), '/vote'],
     ['a verdict, to the goal', line({ kind: 'ProofConfirmed', actor: null }), '/goals/goal-1'],
+    ['a verdict, to the photograph it is about', line({ kind: 'ProofRefused', actor: null, focusId: 'proof-1' }), '/goals/goal-1?photo=proof-1'],
+    ['a confirmation, to the photograph it is about', line({ kind: 'ProofConfirmed', actor: null, focusId: 'proof-1' }), '/goals/goal-1?photo=proof-1'],
     ['an invitation, to the goal', line({ kind: 'GoalInvitation' }), '/goals/goal-1'],
     ['a reaction to a proof, to the goal', line(), '/goals/goal-1'],
+    ['a reaction to a proof, to the photograph', line({ focusId: 'proof-1' }), '/goals/goal-1?photo=proof-1'],
     ['a reaction to a message, to the conversation', line({ target: 'Conversation', targetId: 'chat-1' }), '/chats/chat-1'],
     ['a reaction to a contribution, to the challenge', line({ target: 'Challenge', targetId: 'challenge-1' }), '/challenge'],
-    ['kudos on the feed, to your own history', line({ target: 'Activity', targetId: 'activity-1' }), '/profile'],
+    ['kudos on a line with no goal, to your own history', line({ target: 'Activity', targetId: 'activity-1' }), '/profile'],
+    ['kudos on a line, to the goal the line came from', line({ target: 'Activity', targetId: 'activity-1', focusId: 'goal-2' }), '/goals/goal-2'],
     ['a new challenge, to the challenge', line({ kind: 'ChallengePublished', actor: null, target: 'Challenge' }), '/challenge'],
   ]
 
@@ -575,5 +581,16 @@ describe('groupByMonth', () => {
   it('speaks the chosen language and returns nothing for nothing', () => {
     expect(groupByMonth([{ createdAt: '2026-03-10T10:00:00+00:00' }], en)[0]?.label).toBe('March 2026')
     expect(groupByMonth([], de)).toEqual([])
+  })
+})
+
+describe('checkersMeaning', () => {
+  /** Said where checkers are chosen, so one friend is not mistaken for a veto (#97). */
+  it('says what the number of checkers means for a photograph', () => {
+    expect(checkersMeaning(0, de)).toBeNull()
+    expect(checkersMeaning(1, de)).toContain('Allein kann diese Person ein Foto nicht ablehnen')
+    expect(checkersMeaning(2, de)).toBe('Ein Foto wird nur abgelehnt, wenn beide zweifeln.')
+    expect(checkersMeaning(5, de)).toBe('Ein Foto wird abgelehnt, wenn mehr als ein Drittel zweifelt, mindestens aber zwei.')
+    expect(checkersMeaning(1, en)).toContain('One person alone cannot refuse a photo')
   })
 })

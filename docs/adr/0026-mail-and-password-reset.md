@@ -1,6 +1,6 @@
 # 0026 — Mail, and the way back into an account
 
-**Status:** Accepted
+**Status:** Accepted — extended on 2026-10-19 by [#40](https://github.com/AaronGreiner/q2/issues/40): a password can be changed while signed in, and that sends the second mail q2 writes (below).
 **Date:** 2026-09-15
 **Amends:** [0011 — Accounts with ASP.NET Core Identity and a session cookie](0011-authentication-with-identity.md),
 which left password reset out because q2 sent no mail.
@@ -112,15 +112,43 @@ language the account chose in its settings, as plain text, naming nobody.
   ([#5](https://github.com/AaronGreiner/q2/issues/5),
   [#6](https://github.com/AaronGreiner/q2/issues/6)). Both will use the token
   providers and the transport this adds; neither is part of getting back in.
-- **Changing the password while signed in.** A smaller change of its own, with
-  the same rule about sessions
-  ([#40](https://github.com/AaronGreiner/q2/issues/40)).
+- ~~**Changing the password while signed in.**~~ Built on 2026-10-19
+  ([#40](https://github.com/AaronGreiner/q2/issues/40)); see *Changing it
+  while signed in* below.
 - **HTML mail, a reply address and a durable outbox.** A reset mail is a few
   sentences and a link; nobody is there to answer a reply yet; and a mail lost
   to a restart is one somebody asks for again with a tap.
 - **Links that open the installed app.** They belong to the Capacitor build,
   which exists for iOS now ([0034](0034-bearer-tokens-for-the-native-app.md));
   opening a link in it is [#50](https://github.com/AaronGreiner/q2/issues/50).
+
+## Changing it while signed in
+
+Added with [#40](https://github.com/AaronGreiner/q2/issues/40).
+`POST /api/auth/password/change` takes the current password and a new one
+(`PasswordChangeService`), with the same password rule as registration and a
+reset.
+
+- **The same rule about sessions as a reset, except for this device.** The new
+  security stamp ends every other session within
+  `AccountPolicy.SessionRecheckInterval`. This one is renewed
+  (`RefreshSignInAsync`), because whoever just proved the current password is
+  the one person not to send back to the sign-in screen. The iOS app signs in
+  again for tokens bound to the new password (`useSession().changePassword`).
+- **A wrong current password counts towards the lockout**
+  (`CheckPasswordSignInAsync` with `lockoutOnFailure`). Deleting the account
+  checks the password without counting, but a stolen session could otherwise
+  guess here without limit, and the prize is the whole account.
+- **It is a field error, not a 401** (`wrongPassword`, and `lockedOut` once
+  locked). The session is fine and the answer is wrong. A 401 is also retried
+  once by the iOS app with a fresh token, which would count one wrong password
+  twice.
+- **A notice goes to the account's address** (`PasswordChangedMail`), in its
+  language, with no link in it. It is for the person who did *not* change it:
+  it tells them to reset the password, which ends every session including an
+  intruder's. A mail that says "your password was changed" and asks for a click
+  is what phishing looks like. A failed send is logged and never undoes the
+  change; a deployment without mail sends nothing.
 
 ## Consequences
 

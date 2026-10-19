@@ -140,6 +140,7 @@ public sealed class Notifier(
         Guid recipientPersonId,
         Guid actorPersonId,
         Guid targetId,
+        Guid? focusId,
         CancellationToken cancellationToken)
     {
         var seen = await database.People
@@ -153,6 +154,7 @@ public sealed class Notifier(
                 && line.Kind == kind
                 && line.ActorPersonId == actorPersonId
                 && line.TargetId == targetId
+                && (focusId == null || line.FocusId == focusId)
                 && line.OccurredAt > seen)
             .OrderByDescending(line => line.OccurredAt)
             .FirstOrDefaultAsync(cancellationToken);

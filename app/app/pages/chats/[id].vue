@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Image } from '~/api/types'
+import type { ApiFailure } from '~/api/errors'
+import type { ChatMessage, Image, ReportReason } from '~/api/types'
 import type { ThreadItem } from '~/utils/chatTimeline'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
@@ -67,10 +68,83 @@ const {
   react,
   vote,
   setMuted,
+  setPinned,
+  editMessage,
+  deleteMessage,
+  isChangingMessage,
   leave,
   isSending,
   isVoting,
 } = useChatThread(id)
+
+/*
+ * One message's menu, and what it leads to (#25, #104): correcting or taking
+ * back your own, reporting somebody else's. One of each for the whole screen,
+ * like the camera, rather than one per bubble — and each opens only once the
+ * menu has closed, because two drawers open at once deadlock (PhotoCapture).
+ */
+const actionsFor = ref<ChatMessage | null>(null)
+const isActionsOpen = ref(false)
+
+function openActions(message: ChatMessage) {
+  if (message.isDeleted) return
+
+  actionsFor.value = message
+  isActionsOpen.value = true
+}
+
+const editing = ref<ChatMessage | null>(null)
+const isEditOpen = ref(false)
+const editFailure = ref<ApiFailure | null>(null)
+
+function startEditing(message: ChatMessage) {
+  editing.value = message
+  editFailure.value = null
+  isEditOpen.value = true
+}
+
+async function saveEdit(text: string) {
+  if (!editing.value) return
+
+  editFailure.value = await editMessage(editing.value.id, text)
+  if (!editFailure.value) isEditOpen.value = false
+}
+
+const deleting = ref<ChatMessage | null>(null)
+const isDeleteOpen = ref(false)
+
+function askToDelete(message: ChatMessage) {
+  deleting.value = message
+  isDeleteOpen.value = true
+}
+
+async function confirmDelete() {
+  if (deleting.value) await deleteMessage(deleting.value.id)
+}
+
+const safety = useSafety()
+const reporting = ref<ChatMessage | null>(null)
+const isReportOpen = ref(false)
+
+function startReporting(message: ChatMessage) {
+  reporting.value = message
+  isReportOpen.value = true
+}
+
+async function onReport(reason: ReportReason, note: string) {
+  if (reporting.value && await safety.report('Message', reporting.value.id, reason, note)) isReportOpen.value = false
+}
+
+/*
+ * The info sheet's photographs and pin (#24). The photographs are read when
+ * the sheet opens rather than with the thread: most visits never open it.
+ */
+const chatPhotos = useChatPhotos(id)
+const pinFailure = ref<ApiFailure | null>(null)
+
+async function onPin(pinned: boolean) {
+  pinFailure.value = await setPinned(pinned)
+}
 
 /** Messages and what happened to the goal, as one thread by time — as far back as is loaded. */
 const items = computed(() => (chat.value ? threadItems(messages.value, events.value) : []))
@@ -214,6 +288,80 @@ async function loadOlderKeepingPlace() {
   return true
 }
 
+/*
+ * Arriving for one photograph (#112) — from a reaction to it or a verdict on
+ * it, by way of `middleware/goal-photo.ts`.
+ *
+ * Runs once the thread has drawn, after the scroll to the newest line above,
+ * and takes over from it: the photograph is brought to the middle and outlined
+ * for a moment — in grey, because being pointed at is not something to do. A
+ * photograph further back is paged towards, a page at a time, as far as
+ * `focusPages` goes; past that, or once the thread has begun, it opens full
+ * screen instead, so the tap always ends on the picture it was about.
+ *
+ * `?photo=` is taken off the address afterwards, so going back to this
+ * conversation later does not point at the photograph again.
+ */
+const focusPages = 10
+const focusedPhoto = ref<string | null>(null)
+const proofViewer = useProofViewer()
+let focusState: 'idle' | 'busy' | 'done' = 'idle'
+
+async function focusOnPhoto() {
+  const photo = typeof route.query.photo === 'string' ? route.query.photo : null
+  const element = thread.value
+  if (!photo || !element || focusState !== 'idle' || !chat.value) return
+
+  focusState = 'busy'
+  const title = chat.value.pinnedGoal?.title ?? chat.value.name
+
+  for (let page = 0; ; page++) {
+    // The thread may be reading a page of its own as the reader nears the
+    // top; this waits for it rather than racing it.
+    await olderSettled()
+
+    const card = element.querySelector<HTMLElement>(`[data-proof-id="${CSS.escape(photo)}"]`)
+
+    if (card) {
+      card.scrollIntoView({ block: 'center' })
+      atLatest = false
+      focusedPhoto.value = photo
+      setTimeout(() => {
+        if (focusedPhoto.value === photo) focusedPhoto.value = null
+      }, 2400)
+      break
+    }
+
+    if (page >= focusPages || !hasOlder.value || olderFailed.value) {
+      await proofViewer.show(photo, title)
+      break
+    }
+
+    await loadOlderKeepingPlace()
+  }
+
+  focusState = 'done'
+  const { photo: _, ...query } = route.query
+  await navigateTo({ path: route.path, query }, { replace: true })
+}
+
+/** Resolves once no page before is being read. */
+async function olderSettled() {
+  if (isLoadingOlder.value) {
+    await new Promise<void>((resolve) => {
+      const stop = watch(isLoadingOlder, (loading) => {
+        if (loading) return
+        stop()
+        resolve()
+      })
+    })
+  }
+
+  await nextTick()
+}
+
+watch([thread, () => items.value.length], () => void focusOnPhoto(), { flush: 'post' })
+
 function onScroll() {
   const element = thread.value
   if (!element) return
@@ -247,6 +395,12 @@ const isLeaveOpen = ref(false)
  */
 const isInfoOpen = ref(false)
 isInfoOpen.value = useReturnState('chatInfo', () => isInfoOpen.value || undefined) ?? false
+
+// Read each time it opens, so a photograph sent meanwhile is in it.
+watch(isInfoOpen, (isOpen) => {
+  if (isOpen) void chatPhotos.load()
+  else pinFailure.value = null
+}, { immediate: true })
 
 function askToLeave() {
   isInfoOpen.value = false
@@ -454,6 +608,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
               :message="item.message"
               :now="now"
               @react="react"
+              @actions="openActions"
             />
 
             <ChatEventLine
@@ -467,8 +622,13 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
                  friend's on the other, like the messages around it. -->
             <li
               v-else
-              class="my-1.5 w-[85%] list-none"
-              :class="item.event.isMine ? 'self-end' : 'self-start'"
+              class="my-1.5 w-[85%] list-none rounded-(--q2-radius-lg) outline-offset-4 transition-[outline-color] duration-(--q2-motion-normal)"
+              :class="[
+                item.event.isMine ? 'self-end' : 'self-start',
+                focusedPhoto === item.proof.id ? 'outline-2 outline-(--ui-border-accented)' : 'outline-transparent',
+              ]"
+              :data-proof-id="item.proof.id"
+              :data-focused="focusedPhoto === item.proof.id ? '' : undefined"
               data-testid="chat-proof"
             >
               <ProofCard
@@ -518,7 +678,44 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
       v-model:open="isInfoOpen"
       :chat="chat"
       :me-id="me?.id ?? null"
+      :photos="chatPhotos.photos.value"
+      :photos-failed="chatPhotos.failure.value !== null"
+      :pin-failure="pinFailure"
       @leave="askToLeave"
+      @pin="onPin"
+    />
+
+    <ChatMessageActions
+      v-model:open="isActionsOpen"
+      :message="actionsFor"
+      @edit="startEditing"
+      @delete="askToDelete"
+      @report="startReporting"
+    />
+
+    <ChatEditSheet
+      v-model:open="isEditOpen"
+      :message="editing"
+      :busy="isChangingMessage"
+      :failure="editFailure"
+      @save="saveEdit"
+    />
+
+    <AppConfirmDialog
+      v-model:open="isDeleteOpen"
+      :title="t.chats.deleteHeading"
+      :description="t.chats.deleteBody"
+      :confirm-label="t.chats.deleteConfirm"
+      @confirm="confirmDelete"
+    />
+
+    <ReportSheet
+      v-if="reporting"
+      v-model:open="isReportOpen"
+      target-kind="Message"
+      :target-id="reporting.id"
+      :busy="safety.isBusy.value"
+      @report="onReport"
     />
 
     <AppConfirmDialog

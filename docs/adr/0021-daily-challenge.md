@@ -1,6 +1,8 @@
 # 0021 — The daily challenge: one prompt, and nothing at stake
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0045](0045-what-waits-for-you-first.md):
+on the start screen the challenge is a card with a strip of the pictures and a
+camera of its own, rather than a banner that only leads into the room.
 **Date:** 2026-09-08
 
 ## Context

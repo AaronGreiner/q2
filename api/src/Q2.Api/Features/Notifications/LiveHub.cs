@@ -34,10 +34,16 @@ public enum LiveArea
 
     /// <summary>The friends' feed, and your own history under it.</summary>
     Feed,
+
+    /// <summary>
+    /// One message, by its id: edited or taken back, wherever an open thread
+    /// has it loaded (#25).
+    /// </summary>
+    ChatMessage,
 }
 
 /// <summary>"This part of your screen changed — read it again."</summary>
-/// <param name="Id">Which conversation or goal, when it is one in particular.</param>
+/// <param name="Id">Which conversation, goal or message, when it is one in particular.</param>
 public sealed record LiveChange(LiveArea Area, Guid? Id = null);
 
 /// <summary>The only four things the server ever says over a live connection.</summary>

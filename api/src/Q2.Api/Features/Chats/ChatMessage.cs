@@ -21,6 +21,16 @@ public sealed class ChatMessage
 {
     public const int MaxTextLength = 2000;
 
+    /// <summary>
+    /// How long after sending the words may still be corrected (#25).
+    /// </summary>
+    /// <remarks>
+    /// Long enough for a typo noticed on rereading, short enough that an answer
+    /// cannot be rewritten under the replies it got. Deleting has no such
+    /// limit: taking something back is always the sender's right.
+    /// </remarks>
+    public static readonly TimeSpan EditWindow = TimeSpan.FromMinutes(15);
+
     private readonly List<MessageReaction> _reactions = [];
 
     // EF Core materialisation only.
@@ -56,7 +66,109 @@ public sealed class ChatMessage
 
     public DateTimeOffset SentAt { get; private set; }
 
+    /// <summary>When the words were last corrected, or null if they never were.</summary>
+    public DateTimeOffset? EditedAt { get; private set; }
+
+    /// <summary>
+    /// When its sender took it back (#25), or null. A deleted message keeps its
+    /// row and its place in the thread, so the others see that something was
+    /// said and withdrawn; its words, photograph and reactions are gone.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
+    public bool IsDeleted => DeletedAt is not null;
+
     public IReadOnlyList<MessageReaction> Reactions => _reactions;
+
+    /// <summary>
+    /// Whether <paramref name="personId"/> may still correct the words: their
+    /// own message, not taken back, with words to correct, inside
+    /// <see cref="EditWindow"/>.
+    /// </summary>
+    public bool CanBeEditedBy(Guid personId, DateTimeOffset now) =>
+        personId == SenderPersonId && !IsDeleted && Text.Length > 0 && now - SentAt <= EditWindow;
+
+    /// <summary>
+    /// Corrects the words. Returns false when they are the same as before, so
+    /// nothing is marked as edited that was not.
+    /// </summary>
+    /// <exception cref="AccessDeniedException">It is somebody else's message.</exception>
+    /// <exception cref="DomainValidationException">
+    /// It was taken back, it is a photograph without words, the window has
+    /// passed, or the new words are empty or too long.
+    /// </exception>
+    public bool Edit(Guid personId, string? text, DateTimeOffset now)
+    {
+        if (personId != SenderPersonId)
+        {
+            throw new AccessDeniedException("Only its sender can change a message.");
+        }
+
+        if (IsDeleted || Text.Length == 0)
+        {
+            throw new DomainValidationException(nameof(Text), "There are no words here to change.");
+        }
+
+        if (now - SentAt > EditWindow)
+        {
+            throw new DomainValidationException(
+                nameof(Text),
+                $"A message can only be changed within {EditWindow.TotalMinutes} minutes of sending it.",
+                new(FieldErrorCodes.TooLateToEdit, Max: (int)EditWindow.TotalMinutes));
+        }
+
+        var normalised = text?.Trim() ?? string.Empty;
+
+        if (normalised.Length == 0)
+        {
+            throw new DomainValidationException(nameof(Text), "A message cannot be empty.", new(FieldErrorCodes.Required));
+        }
+
+        if (normalised.Length > MaxTextLength)
+        {
+            throw new DomainValidationException(
+                nameof(Text),
+                $"A message may be at most {MaxTextLength} characters long.",
+                new(FieldErrorCodes.TooLong, Max: MaxTextLength));
+        }
+
+        if (normalised == Text)
+        {
+            return false;
+        }
+
+        Text = normalised;
+        EditedAt = now;
+        return true;
+    }
+
+    /// <summary>
+    /// Takes the message back: the words, the photograph and the reactions go,
+    /// the place in the thread stays. Returns the photograph that has to go
+    /// with it, or null — and nothing at all when it was already taken back.
+    /// </summary>
+    /// <exception cref="AccessDeniedException">It is somebody else's message.</exception>
+    public Guid? Delete(Guid personId, DateTimeOffset now)
+    {
+        if (personId != SenderPersonId)
+        {
+            throw new AccessDeniedException("Only its sender can delete a message.");
+        }
+
+        if (IsDeleted)
+        {
+            return null;
+        }
+
+        var photo = ImageId;
+
+        Text = string.Empty;
+        ImageId = null;
+        DeletedAt = now;
+        _reactions.Clear();
+
+        return photo;
+    }
 
     /// <exception cref="DomainValidationException">
     /// There is neither text nor a photograph, or the text is too long.

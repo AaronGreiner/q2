@@ -5,7 +5,9 @@ live connection also carries the notification itself to somebody who is
 looking, and the open app shows it as a banner instead of their phone ringing.
 Amended by [0031](0031-todos-tab-and-a-bell-you-can-empty.md): a line in the
 bell can be deleted, one at a time or everything that was on the screen.
-Everything else stands as written.
+Amended on 2026-10-19 by [#112](https://github.com/AaronGreiner/q2/issues/112):
+a line can lead further than its target (`FocusId`, below). Everything else
+stands as written.
 **Date:** 2026-09-14
 
 Amends [0019](0019-warning-and-balance.md) — the bell now carries a count, and
@@ -163,6 +165,19 @@ where a person already decides that for every other app.
 A verdict and a lifted pause never carry a name, because doubt and objection
 are anonymous ([0018](0018-proof-and-vote.md)). A pause never carries its
 reason.
+
+**A line can lead further than what it is about**
+([#112](https://github.com/AaronGreiner/q2/issues/112)). `FocusId` sits beside
+the target. On a reaction to a photograph and on a verdict it is the
+photograph; on kudos for a line of your history it is the goal that line came
+from. The target stays what the sentence is about, and reactions are grouped by
+both, so two photographs of one goal are two lines. `notificationLink` sends a
+photograph to `/goals/{goal}?photo={photo}`, because a notification knows the
+goal, not its conversation. `middleware/goal-photo.ts` hands that on to the
+goal's conversation before the goal's screen draws. The thread pages back to
+the photograph, brings it into view and outlines it in grey for a moment. A
+goal with no conversation, or a photograph more than ten pages back, opens full
+screen instead.
 
 ## Consequences
 

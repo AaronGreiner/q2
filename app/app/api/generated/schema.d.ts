@@ -243,6 +243,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sets a new password with the current one. Keeps this session and ends every other. */
+        post: operations["ChangePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/password/reset": {
         parameters: {
             query?: never;
@@ -1190,6 +1207,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/chats/{id}/messages/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One message as it now is, wherever in the thread it lies. */
+        get: operations["GetChatMessage"];
+        /** Corrects the words of your own message, within fifteen minutes of sending it. */
+        put: operations["EditChatMessage"];
+        post?: never;
+        /** Takes back your own message for everybody; its place in the thread stays. */
+        delete: operations["DeleteChatMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/chats/{id}/messages/{messageId}/reactions": {
         parameters: {
             query?: never;
@@ -1201,6 +1237,40 @@ export interface paths {
         put?: never;
         /** Adds a reaction to a message, or takes it back, and returns the message. */
         post: operations["ToggleMessageReaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pins a conversation to the top of its section of the reader's list, or unpins it. At most three. */
+        put: operations["PinChat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/chats/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The photographs of a conversation, newest first: those sent as messages and a goal's proofs. */
+        get: operations["GetChatPhotos"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1342,6 +1412,10 @@ export interface components {
         ChallengeTodayResponse: {
             room: (null) | components["schemas"]["ChallengeRoomResponse"];
         };
+        ChangePasswordRequest: {
+            currentPassword?: string | null;
+            newPassword?: string | null;
+        };
         ChatDetailResponse: {
             /** Format: uuid */
             id: string;
@@ -1360,6 +1434,7 @@ export interface components {
             pinnedGoal: (null) | components["schemas"]["ChatPinnedGoalResponse"];
             messages: components["schemas"]["ChatMessageResponse"][];
             isMuted: boolean;
+            isPinned: boolean;
             events: components["schemas"]["GoalEventResponse"][];
             members: components["schemas"]["PersonSummary"][];
             olderCursor: string | null;
@@ -1376,11 +1451,26 @@ export interface components {
             /** Format: date-time */
             sentAt: string;
             reactions: components["schemas"]["MessageReactionResponse"][];
+            /** Format: date-time */
+            editedAt: string | null;
+            isDeleted: boolean;
+            canEdit: boolean;
         };
         ChatPageResponse: {
             messages: components["schemas"]["ChatMessageResponse"][];
             events: components["schemas"]["GoalEventResponse"][];
             olderCursor: string | null;
+        };
+        ChatPhotoResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            imageId: string;
+            isProof: boolean;
+            authorName: string;
+            /** Format: date-time */
+            at: string;
+            source: (null) | components["schemas"]["ProofSource"];
         };
         ChatPinnedGoalResponse: {
             /** Format: uuid */
@@ -1409,11 +1499,13 @@ export interface components {
             lastMessageSenderName: string | null;
             lastMessageHasPhoto: boolean;
             lastMessageIsMine: boolean;
+            lastMessageIsDeleted: boolean;
             /** Format: date-time */
             lastMessageAt: string | null;
             /** Format: int32 */
             unreadCount: number;
             isMuted: boolean;
+            isPinned: boolean;
             lastEvent: (null) | components["schemas"]["GoalEventKind"];
             /** Format: uuid */
             goalId: string | null;
@@ -1486,6 +1578,9 @@ export interface components {
             limit?: number | null;
             proofMode?: (null) | components["schemas"]["DontProofMode"];
             participantIds?: string[] | null;
+        };
+        EditMessageRequest: {
+            text?: string | null;
         };
         FeedProofResponse: {
             proof: components["schemas"]["ProofResponse"];
@@ -1829,6 +1924,8 @@ export interface components {
             target: components["schemas"]["NotificationTarget"];
             /** Format: uuid */
             targetId: string | null;
+            /** Format: uuid */
+            focusId: string | null;
             /** Format: date-time */
             occurredAt: string;
             isNew: boolean;
@@ -1871,6 +1968,9 @@ export interface components {
             goalTitle: string;
             goalIcon: string;
         };
+        PasswordChangeResponse: {
+            email: string;
+        };
         PasswordResetResponse: {
             email: string;
         };
@@ -1902,6 +2002,9 @@ export interface components {
             isOnline: boolean;
             /** Format: uuid */
             avatarImageId: string | null;
+        };
+        PinChatRequest: {
+            pinned?: boolean | null;
         };
         ProblemDetails: {
             type?: string | null;
@@ -1987,7 +2090,7 @@ export interface components {
             createdAt: string;
         };
         /** @enum {unknown} */
-        ReportTargetKind: "Person" | "Proof" | "ChallengeEntry" | null;
+        ReportTargetKind: "Person" | "Proof" | "ChallengeEntry" | "Message" | null;
         RequestPauseRequest: {
             reason?: string | null;
             /** Format: int32 */
@@ -2109,6 +2212,7 @@ export interface components {
             confirmedBy: components["schemas"]["PersonSummary"][];
             myVote: (null) | components["schemas"]["VoteValue"];
             canIVote: boolean;
+            doubtCanRefuse: boolean;
         };
         /** @enum {unknown} */
         VoteValue: "Confirm" | "Doubt" | null;
@@ -2655,6 +2759,48 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ChangePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordChangeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4792,6 +4938,133 @@ export interface operations {
             };
         };
     };
+    GetChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    EditChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    DeleteChatMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     ToggleMessageReaction: {
         parameters: {
             query?: never;
@@ -4824,6 +5097,81 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PinChat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinChatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetChatPhotos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatPhotoResponse"][];
                 };
             };
             /** @description Not Found */

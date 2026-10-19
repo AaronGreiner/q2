@@ -33,7 +33,7 @@ function card(id: string): FeedProof {
       source: 'Live',
       createdAt: '2026-06-15T09:00:00+00:00',
       expiresAt: '2026-06-15T21:00:00+00:00',
-      votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: true },
+      votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: true, doubtCanRefuse: true },
       reactions: [],
     },
   }

@@ -1,6 +1,6 @@
 # 0020 — The exits: a pause, an ending, and a deletion
 
-**Status:** Accepted
+**Status:** Accepted — one-offs amended on 2026-10-19 (#129, below)
 **Date:** 2026-09-08
 
 ## Context
@@ -91,6 +91,18 @@ and handing somebody the deadline they were excused from would make it a
 punishment. Only an objection puts the window back — with its original deadline,
 including one that has since passed, which the next maintenance run turns into a
 miss. That is the honest consequence of an objection that carried.
+
+**A one-off gets its window back, later by the paused days**
+([#129](https://github.com/AaronGreiner/q2/issues/129), 2026-10-19). A repeating
+goal picks up with its next window; a one-off has none, so the rule above left
+it active with nothing to deliver into, nothing to miss and nothing to complete.
+Once its pause is over, by running out or ended early, `GoalMaintenance.Advance`
+reopens the window the pause set aside (`Goal.ReopenOneOffAfterPause`), with its
+deadline moved back by the days the pause covered — today included when it was
+ended early. The paused days do not count, so the time that was left when the
+pause began is what is left when it ends. A moved deadline that has meanwhile
+passed is missed like any other. The pause sheet of a one-off says that its
+deadline moves, instead of that its window counts as neither kept nor missed.
 
 ### Two exits, one timestamp
 

@@ -138,6 +138,75 @@ public class GoalMaintenanceTests
         Assert.Null(goal.CurrentInstance);
     }
 
+    /// <summary>
+    /// A one-off has no next window to pick up with after a pause, so it gets
+    /// the one the pause set aside back — later by exactly the days the pause
+    /// covered, because those days do not count (#129).
+    /// </summary>
+    [Fact]
+    public void AOneOffGetsItsWindowBackLaterByThePausedDays()
+    {
+        var saturday = Monday.AddDays(5);
+        var goal = Build(GoalSchedule.Once(), targetDate: saturday);
+        GoalMaintenance.Advance(goal, Berlin, Noon(Monday), Ids);
+
+        goal.RequestPause(Guid.CreateVersion7(), PauseReason, 3, Monday, Berlin.EndOfDay, Noon(Monday));
+
+        // Monday to Wednesday were paused; on Thursday the window is back.
+        Assert.True(GoalMaintenance.Advance(goal, Berlin, Noon(Monday.AddDays(3)), Ids));
+
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+        Assert.Equal(saturday.AddDays(3), window.DueOn);
+        Assert.Equal(Berlin.EndOfDay(saturday.AddDays(3)), window.DueAt);
+        Assert.Same(window, goal.CurrentInstance);
+
+        // Once is enough: the next pass has nothing left to hand back.
+        Assert.False(GoalMaintenance.Advance(goal, Berlin, Noon(Monday.AddDays(3)), Ids));
+        Assert.Equal(saturday.AddDays(3), window.DueOn);
+    }
+
+    /// <summary>
+    /// Ending a pause early moves the deadline by the days it actually took,
+    /// today included — not by the days it was asked for.
+    /// </summary>
+    [Fact]
+    public void AOneOffWhosePauseEndedEarlyIsMovedByTheDaysItTook()
+    {
+        var saturday = Monday.AddDays(5);
+        var goal = Build(GoalSchedule.Once(), targetDate: saturday);
+        GoalMaintenance.Advance(goal, Berlin, Noon(Monday), Ids);
+
+        goal.RequestPause(Guid.CreateVersion7(), PauseReason, 5, Monday, Berlin.EndOfDay, Noon(Monday));
+        var tuesday = Monday.AddDays(1);
+        goal.EndPause(tuesday, Noon(tuesday));
+
+        Assert.True(GoalMaintenance.Advance(goal, Berlin, Noon(tuesday), Ids));
+
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+        Assert.Equal(saturday.AddDays(2), window.DueOn);
+    }
+
+    /// <summary>
+    /// A host that was down past even the moved deadline catches up honestly:
+    /// the window comes back and is missed, rather than staying set aside.
+    /// </summary>
+    [Fact]
+    public void AOneOffWhoseMovedDeadlineHasPassedIsMissed()
+    {
+        var goal = Build(GoalSchedule.Once(), targetDate: Monday);
+        GoalMaintenance.Advance(goal, Berlin, Noon(Monday), Ids);
+
+        goal.RequestPause(Guid.CreateVersion7(), PauseReason, 1, Monday, Berlin.EndOfDay, Noon(Monday));
+
+        Assert.True(GoalMaintenance.Advance(goal, Berlin, Noon(Monday.AddDays(10)), Ids));
+
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(Monday.AddDays(1), window.DueOn);
+        Assert.Equal(GoalInstanceStatus.Missed, window.Status);
+    }
+
     [Fact]
     public void AnArchivedGoalIsLeftAlone()
     {
@@ -253,6 +322,8 @@ public class GoalMaintenanceTests
         Assert.Equal(0, goal.Balance.Done);
         Assert.Equal(0, goal.Balance.Missed);
     }
+
+    private const string PauseReason = "Grippe, seit Freitag im Bett.";
 
     private static Goal Build(GoalSchedule schedule, DateOnly? targetDate = null) =>
         Goal.Create(

@@ -83,6 +83,14 @@ public static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
+        group.MapPost("/password/change", ChangePassword)
+            .RequireAuthorization()
+            .WithName("ChangePassword")
+            .WithSummary("Sets a new password with the current one. Keeps this session and ends every other.")
+            .Produces<PasswordChangeResponse>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         group.MapPost("/password/reset", ResetPassword)
             .AllowAnonymous()
             .WithName("ResetPassword")
@@ -113,6 +121,12 @@ public static class AccountEndpoints
         ResetPasswordRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await resets.ResetAsync(request, cancellationToken));
+
+    private static async Task<Ok<PasswordChangeResponse>> ChangePassword(
+        PasswordChangeService passwords,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await passwords.ChangeAsync(request, cancellationToken));
 
     private static async Task<Ok<SessionResponse>> Register(
         AccountService accounts,

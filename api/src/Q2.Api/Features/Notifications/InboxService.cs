@@ -106,6 +106,7 @@ public sealed class InboxService(
                 ? rows.Where(row => row.Kind == NotificationKind.ReactionReceived
                     && row.Target == line.Target
                     && row.TargetId == line.TargetId
+                    && row.FocusId == line.FocusId
                     && row.OccurredAt <= line.OccurredAt)
                 : rows.Where(row => row.Id == line.Id))
             .ExecuteDeleteAsync(cancellationToken);
@@ -205,7 +206,9 @@ public static class InboxLines
         ArgumentNullException.ThrowIfNull(newestFirst);
 
         var lines = new List<(Notification Latest, List<Guid> People, bool IsNew)>();
-        var reactions = new Dictionary<(NotificationTarget Target, Guid? TargetId, bool IsNew), int>();
+        // By the photograph as well as by the goal (#112): reactions to two
+        // different pictures are two lines, each leading to its own picture.
+        var reactions = new Dictionary<(NotificationTarget Target, Guid? TargetId, Guid? FocusId, bool IsNew), int>();
 
         foreach (var row in newestFirst)
         {
@@ -213,7 +216,7 @@ public static class InboxLines
 
             if (row.Kind == NotificationKind.ReactionReceived)
             {
-                var key = (row.Target, row.TargetId, isNew);
+                var key = (row.Target, row.TargetId, row.FocusId, isNew);
 
                 if (reactions.TryGetValue(key, out var index))
                 {

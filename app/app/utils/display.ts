@@ -1,5 +1,6 @@
 import type { Messages } from '~/i18n/messages'
 import type { Activity, Goal, GoalKind, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
+import { voteRules } from '~/api/types'
 
 /**
  * Presentation logic.
@@ -682,11 +683,18 @@ function reactionText(line: NotificationLine, name: string, subject: string, t: 
  * is about and this decides the path. A warning about a friend leads to the
  * friend rather than to the goal: their goal is not necessarily one you are
  * on, and it is them you can do something for.
+ *
+ * A reaction to a photograph and a verdict on one lead to that photograph
+ * (#112): the goal's screen hands `?photo=` on to the goal's conversation, which
+ * scrolls to it — see `photoLink`.
  */
 export function notificationLink(line: NotificationLine): string {
   const id = line.targetId
 
   switch (line.kind) {
+    case 'ProofConfirmed':
+    case 'ProofRefused':
+      return id ? photoLink(id, line.focusId) : '/notifications'
     case 'MessageReceived':
       return id ? `/chats/${id}` : '/chats'
     case 'FriendRequestReceived':
@@ -714,16 +722,28 @@ function reactionLink(line: NotificationLine): string {
 
   switch (line.target) {
     case 'Goal':
-      return id ? `/goals/${id}` : '/goals'
+      return id ? photoLink(id, line.focusId) : '/goals'
     case 'Conversation':
       return id ? `/chats/${id}` : '/chats'
     case 'Challenge':
       return '/challenge'
+    // Where the line itself leads, which is the goal it came from (#103), and
+    // the profile only for a line that has none.
     case 'Activity':
-      return '/profile'
+      return line.focusId ? `/goals/${line.focusId}` : '/profile'
     default:
       return '/notifications'
   }
+}
+
+/**
+ * A goal's screen, asked to show one of its photographs.
+ *
+ * The goal rather than its conversation, because a notification knows the goal
+ * and not the thread; the goal's screen knows both and passes the photograph on.
+ */
+function photoLink(goalId: string, photoId: string | null | undefined): string {
+  return photoId ? `/goals/${goalId}?photo=${encodeURIComponent(photoId)}` : `/goals/${goalId}`
 }
 
 /**
@@ -791,4 +811,16 @@ export function notificationTag(line: NotificationLine): string {
  */
 export function isNotificationOnScreen(line: NotificationLine, path: string): boolean {
   return path === notificationLink(line) || (line.kind === 'MessageReceived' && path === '/chats')
+}
+
+/**
+ * What the number of checkers chosen means for a photograph, said where they
+ * are chosen (#97) — so nobody picks one friend believing that friend can say
+ * no. Null before anybody is chosen.
+ */
+export function checkersMeaning(count: number, t: Messages): string | null {
+  if (count <= 0) return null
+  if (count < voteRules.minDoubts) return t.create.checkersAlone
+  if (count === voteRules.minDoubts) return t.create.checkersAll(count)
+  return t.create.checkersShare
 }

@@ -155,6 +155,7 @@ describe('a spot check, as a notification', () => {
     amount: null,
     target: 'Goal',
     targetId: 'dont-1',
+    focusId: null,
     occurredAt: '2026-06-17T14:00:00Z',
     isNew: true,
   }

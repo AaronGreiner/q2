@@ -34,6 +34,9 @@ const feedback = useFeedback()
 const { profile, isSaving, rename, chooseAvatar, removeAvatar } = useProfile()
 const isEditingProfile = ref(false)
 
+/** Changing the password, with the current one (#40). */
+const isChangingPassword = ref(false)
+
 async function onSaveProfile(value: { displayName: string }) {
   if (await rename(value.displayName)) isEditingProfile.value = false
 }
@@ -162,6 +165,13 @@ useHead({ title: () => t.value.settings.heading })
           @activate="isEditingProfile = true"
         />
 
+        <SettingsActionRow
+          icon="i-lucide-key-round"
+          :label="t.settings.changePassword"
+          data-testid="settings-change-password"
+          @activate="isChangingPassword = true"
+        />
+
         <!--
           Not buttons: there is nothing behind them yet, and a control that
           reacts to a tap by doing nothing is worse than one that is visibly
@@ -285,6 +295,8 @@ useHead({ title: () => t.value.settings.heading })
     </AppContentPanel>
 
     <DeleteAccountSheet v-model:open="isDeleting" />
+
+    <ChangePasswordSheet v-model:open="isChangingPassword" />
 
     <ProfileEditor
       v-if="profile"

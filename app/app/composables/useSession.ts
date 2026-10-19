@@ -99,6 +99,19 @@ export function useSession() {
     return await api.accounts.session()
   }
 
+  /**
+   * Changes the password and keeps this device signed in (#40).
+   *
+   * The browser's cookie is renewed by the server with the answer. The iOS
+   * app's tokens were issued against the old password and stop refreshing, so
+   * it signs in again for a new pair with the password it was just given.
+   */
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const { email } = await api.accounts.changePassword({ currentPassword, newPassword })
+
+    if (tokens) await tokens.adopt(await api.accounts.issueTokens({ email, password: newPassword }))
+  }
+
   async function login(request: LoginRequest): Promise<Session> {
     const result = await signIn(request)
     clearPersonalData()
@@ -182,6 +195,7 @@ export function useSession() {
     register,
     completeOnboarding,
     chooseHandle,
+    changePassword,
   }
 }
 

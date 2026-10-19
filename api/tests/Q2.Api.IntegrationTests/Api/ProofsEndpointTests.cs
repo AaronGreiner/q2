@@ -87,6 +87,10 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.True(before.Votes.CanIVote);
         Assert.Null(before.Votes.MyVote);
 
+        // The only friend on it: their doubt alone could never refuse it, and
+        // the card is told so (#97).
+        Assert.False(before.Votes.DoubtCanRefuse);
+
         var after = await (await VoteAsync(friend, proof.Id, VoteValue.Confirm)).ReadAsync<ProofDocument>();
 
         Assert.Equal(VoteValue.Confirm, after.Votes.MyVote);

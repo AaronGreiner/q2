@@ -54,6 +54,11 @@ public sealed record UnsubscribeRequest(string? Endpoint = null);
 /// A number the sentence needs — days, proofs, attempts. For a line of
 /// reactions, how many different people reacted.
 /// </param>
+/// <param name="FocusId">
+/// Where inside the target a tap leads, when that is narrower than the target:
+/// the photograph a reaction or verdict is about, or the goal of a line of
+/// your history that got kudos (#112).
+/// </param>
 /// <param name="IsNew">Arrived after the bell was last opened. Always true in a push.</param>
 /// <param name="Language">
 /// The language the recipient chose in q2. Only ever in a push: the service
@@ -70,6 +75,7 @@ public sealed record NotificationResponse(
     int? Amount,
     NotificationTarget Target,
     Guid? TargetId,
+    Guid? FocusId,
     DateTimeOffset OccurredAt,
     bool IsNew,
     LanguagePreference? Language = null)
@@ -96,6 +102,7 @@ public sealed record NotificationResponse(
             amount,
             line.Target,
             line.TargetId,
+            line.FocusId,
             line.OccurredAt,
             isNew);
     }
@@ -113,6 +120,7 @@ public sealed record NotificationResponse(
             notification.Amount,
             notification.Target,
             notification.TargetId,
+            notification.FocusId,
             occurredAt,
             IsNew: true);
     }

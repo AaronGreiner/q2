@@ -294,7 +294,7 @@ function back() {
           :label="t.create.friendsLabel"
           name="participantIds"
           required
-          :help="t.edit.checkersHint"
+          :help="[t.edit.checkersHint, checkersMeaning(participantIds.length, t)].filter(Boolean).join(' ')"
           :error="fieldError('participantIds')"
         >
           <CheckerPicker

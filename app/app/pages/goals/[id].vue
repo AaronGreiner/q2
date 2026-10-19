@@ -9,7 +9,7 @@ import { pauseLimits } from '~/api/types'
  * Loaded on the server so the page is meaningful without JavaScript and a
  * shared link has the right title.
  */
-definePageMeta({ layout: 'plain' })
+definePageMeta({ layout: 'plain', middleware: ['goal-photo'] })
 
 const route = useRoute()
 const t = useMessages()
@@ -24,6 +24,22 @@ const zone = useTimeZoneOffset()
 
 /** The reader's day, for a Don't's run. */
 const today = computed(() => localDay(now.value, zone.value))
+
+/*
+ * Asked to show one of this goal's photographs (#112). A goal with a
+ * conversation never gets here with `?photo=` — `middleware/goal-photo.ts`
+ * hands that on to the thread — so this is a goal with none, and the
+ * photograph opens full screen over it. Once: closing it leaves the goal.
+ */
+const proofViewer = useProofViewer()
+let shownPhoto: string | null = null
+
+watch([() => route.query.photo, detail], ([photo, loaded]) => {
+  if (!import.meta.client || typeof photo !== 'string' || !loaded || shownPhoto === photo) return
+
+  shownPhoto = photo
+  void proofViewer.show(photo, loaded.goal.title)
+}, { immediate: true })
 
 const capturing = ref(false)
 
@@ -651,6 +667,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       :min-reason="pauseLimits.minReason"
       :submitting="lifecycle.isBusy.value"
       :failure="lifecycle.error.value"
+      :one-off="goal?.schedule.kind === 'Once'"
       @submit="onPause"
     />
 

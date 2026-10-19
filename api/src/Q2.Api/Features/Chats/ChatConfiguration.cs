@@ -75,6 +75,9 @@ public sealed class ConversationParticipantConfiguration : IEntityTypeConfigurat
         builder.Property(p => p.MutedAt)
             .HasConversion(InstantConversion.Optional);
 
+        builder.Property(p => p.PinnedAt)
+            .HasConversion(InstantConversion.Optional);
+
         builder.HasOne<Person>()
             .WithMany()
             .HasForeignKey(p => p.PersonId)
@@ -98,6 +101,12 @@ public sealed class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMess
         builder.Property(m => m.SentAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);
+
+        builder.Property(m => m.EditedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Property(m => m.DeletedAt)
+            .HasConversion(InstantConversion.Optional);
 
         builder.HasOne<Person>()
             .WithMany()

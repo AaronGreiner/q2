@@ -802,6 +802,54 @@ public sealed class Goal
         return changed;
     }
 
+    /// <summary>
+    /// Gives a one-off back the window a pause set aside, once that pause is
+    /// over, with its deadline moved back by the days the pause covered (#129).
+    /// Returns false when there was nothing to give back.
+    /// </summary>
+    /// <remarks>
+    /// A repeating goal picks up with its next window after a pause; a one-off
+    /// has no next window, so without this it stayed active with nothing to
+    /// deliver into, nothing to miss and nothing to complete.
+    ///
+    /// Later by the paused days rather than with its old deadline: the pause
+    /// says those days do not count, so the time that was left when it began is
+    /// what is left when it ends. A deadline that has meanwhile passed anyway —
+    /// a host that was down, say — is missed by the next step of maintenance,
+    /// as any other would be. An objection that carried never gets here: it put
+    /// the window back with its old deadline the moment it carried, because it
+    /// says the pause should not have happened (docs/adr/0020-pause-and-archive.md).
+    /// </remarks>
+    public bool ReopenOneOffAfterPause(Func<DateOnly, DateTimeOffset> endOfDay, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(endOfDay);
+
+        if (Schedule.Repeats || IsClosed || ActivePauseAt(now) is not null
+            || _instances.FirstOrDefault(instance => instance.Status == GoalInstanceStatus.Paused) is not { } window)
+        {
+            return false;
+        }
+
+        // The pause that set this window aside: the latest one that ended and
+        // names it. Each ended pause hands the window back, so there is never
+        // an older one still owed.
+        var pause = _pauses
+            .Where(candidate => candidate.Status == PauseStatus.Ended && candidate.GoalInstanceId == window.Id)
+            .OrderByDescending(candidate => candidate.StartsAt)
+            .FirstOrDefault();
+
+        if (pause is null)
+        {
+            return false;
+        }
+
+        var from = pause.StartsOn > window.StartsOn ? pause.StartsOn : window.StartsOn;
+        var paused = Math.Max(0, pause.EndsOn.DayNumber - from.DayNumber + 1);
+        var dueOn = window.DueOn.AddDays(paused);
+
+        return window.MoveDeadline(dueOn, endOfDay(dueOn)) && window.Resume();
+    }
+
     /// <summary>A one-off's window while it can still be moved: running, or set aside by a pause.</summary>
     private GoalInstance? OneOffWindow => Schedule.Repeats
         ? null

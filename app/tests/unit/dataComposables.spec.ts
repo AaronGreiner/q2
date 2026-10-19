@@ -1,7 +1,7 @@
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { de } from '~/i18n/messages'
-import { useChatThread, useChats } from '~/composables/useChats'
+import { useChatPhotos, useChatThread, useChats } from '~/composables/useChats'
 import type { Image } from '~/api/types'
 import { useFriends, usePersonProfile, usePersonSearch, useProfile } from '~/composables/useFriends'
 import { useGoalArchive, useGoalLifecycle } from '~/composables/useGoalLifecycle'
@@ -566,6 +566,11 @@ describe('chat composables', () => {
         older: vi.fn().mockResolvedValue({ messages: [], events: [], olderCursor: null }),
         mute: vi.fn().mockResolvedValue(chat({ isMuted: true })),
         leave: vi.fn().mockResolvedValue(undefined),
+        edit: vi.fn().mockResolvedValue(line('message-1', { text: 'Bis morgen', editedAt: '2026-10-19T09:01:00Z' })),
+        remove: vi.fn().mockResolvedValue(line('message-1', { text: '', isDeleted: true })),
+        pin: vi.fn().mockResolvedValue(chat({ isPinned: true })),
+        photos: vi.fn().mockResolvedValue([{ id: 'message-1', imageId: 'image-1' }]),
+        message: vi.fn().mockResolvedValue(line('message-0', { text: 'gelöscht', isDeleted: true })),
       },
       proofs: {
         vote: vi.fn().mockResolvedValue({ id: 'proof-1' }),
@@ -575,6 +580,65 @@ describe('chat composables', () => {
       },
     }
   }
+
+  /** Correcting, taking back and pinning (#25, #24): each puts the server's answer in place. */
+  it('corrects, takes back and pins, and says why when the server would not', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ messages: [line('message-1', { text: 'Bis morgn' })] }))
+    vi.stubGlobal('useGoBack', () => vi.fn())
+    const { show, refreshNuxtData } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+
+    await expect(state.editMessage('message-1', 'Bis morgen')).resolves.toBeNull()
+    expect(api.chats.edit).toHaveBeenCalledWith('chat-1', 'message-1', 'Bis morgen')
+    expect(state.messages.value[0]).toMatchObject({ text: 'Bis morgen' })
+
+    await state.deleteMessage('message-1')
+    expect(api.chats.remove).toHaveBeenCalledWith('chat-1', 'message-1')
+    expect(state.messages.value[0]).toMatchObject({ isDeleted: true })
+    expect(show).toHaveBeenCalledWith(de.toast.messageDeleted)
+
+    await expect(state.setPinned(true)).resolves.toBeNull()
+    expect(state.chat.value).toMatchObject({ isPinned: true })
+    expect(refreshNuxtData).toHaveBeenCalledWith('chats')
+
+    // A refusal comes back to the sheet that asked, to be said under its field.
+    api.chats.edit.mockRejectedValueOnce(new Error('too late'))
+    await expect(state.editMessage('message-1', 'Später')).resolves.not.toBeNull()
+  })
+
+  /** A line further back that changed is fetched on its own (#25), not with every page. */
+  it('reads one older line again when the live connection names it', async () => {
+    const api = chatsApi()
+    api.chats.get.mockResolvedValue(chat({ olderCursor: 'cursor-1', messages: [line('message-1')] }))
+    api.chats.older.mockResolvedValue({ messages: [line('message-0', { text: 'Früher' })], events: [], olderCursor: null })
+    vi.stubGlobal('useGoBack', () => vi.fn())
+    const { hooks } = installFeatureGlobals(api)
+    const state = useChatThread(ref('chat-1'))
+    await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
+    await state.loadOlder()
+
+    await hooks.get('app:data:refresh')!(['chat-message:message-0'])
+
+    expect(api.chats.message).toHaveBeenCalledWith('chat-1', 'message-0')
+    expect(state.messages.value[0]).toMatchObject({ id: 'message-0', isDeleted: true })
+
+    // A line not loaded at all is nobody's business here.
+    await hooks.get('app:data:refresh')!(['chat-message:message-9'])
+    expect(api.chats.message).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads the photographs for the info sheet when asked', async () => {
+    const api = chatsApi()
+    installFeatureGlobals(api)
+    const photos = useChatPhotos(ref('chat-1'))
+
+    expect(photos.photos.value).toBeNull()
+    await photos.load()
+    expect(api.chats.photos).toHaveBeenCalledWith('chat-1')
+    expect(photos.photos.value).toEqual([{ id: 'message-1', imageId: 'image-1' }])
+  })
 
   it('sends an uploaded photograph, and deletes it again when the message fails', async () => {
     const api = chatsApi()

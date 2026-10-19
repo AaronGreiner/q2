@@ -114,7 +114,7 @@ public sealed class ActivityService(
         {
             activity.WithdrawKudos(me.Id);
             actor.WithdrawKudos();
-            await notifier.RetractAsync(NotificationKind.ReactionReceived, actor.Id, me.Id, activity.Id, cancellationToken);
+            await notifier.RetractAsync(NotificationKind.ReactionReceived, actor.Id, me.Id, activity.Id, focusId: null, cancellationToken);
         }
         else
         {
@@ -129,7 +129,11 @@ public sealed class ActivityService(
                     me.Id,
                     NotificationTarget.Activity,
                     activity.Id,
-                    activity.Subject),
+                    activity.Subject,
+
+                    // Where the line itself leads, which is the goal it came
+                    // from (#103) — not the whole profile it is a line of (#112).
+                    FocusId: activity.SourceId),
                 [actor.Id],
                 cancellationToken);
         }

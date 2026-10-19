@@ -504,7 +504,9 @@ defineExpose({ reset })
           :label="t.create.friendsLabel"
           name="participantIds"
           required
-          :help="participantIds.length > 0 ? t.create.friendsChosen(participantIds.length) : t.create.friendsHint"
+          :help="participantIds.length > 0
+            ? `${t.create.friendsChosen(participantIds.length)}. ${checkersMeaning(participantIds.length, t)}`
+            : t.create.friendsHint"
           :error="fieldError('participantIds')"
         >
           <CheckerPicker

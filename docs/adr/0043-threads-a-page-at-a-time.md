@@ -1,6 +1,6 @@
 # 0043 — A thread is read a page at a time
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0046](0046-looking-after-a-conversation.md): a message can be corrected and taken back, and a changed line further back is fetched by its id
 **Date:** 2026-10-18
 **Issues:** [#44](https://github.com/AaronGreiner/q2/issues/44)
 **Amends:** [0027 — Every goal is checked in its own conversation](0027-goal-conversations.md),

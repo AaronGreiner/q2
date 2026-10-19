@@ -110,6 +110,24 @@ public static class AccountRequestValidator
         return errors;
     }
 
+    /// <remarks>
+    /// The same rule for the new password as registration and a reset, so
+    /// there is one password policy however a password is set.
+    /// </remarks>
+    public static FieldErrors Validate(ChangePasswordRequest request)
+    {
+        var errors = new FieldErrors();
+
+        if (string.IsNullOrEmpty(request.CurrentPassword))
+        {
+            errors.Add(nameof(request.CurrentPassword), new(FieldErrorCodes.Required), "The current password is required.");
+        }
+
+        AddNewPasswordErrors(request.NewPassword, nameof(request.NewPassword), errors);
+
+        return errors;
+    }
+
     private static void AddNewPasswordErrors(string? value, string field, FieldErrors errors)
     {
         var password = value ?? string.Empty;

@@ -70,6 +70,12 @@ describe('keysFor', () => {
     expect(keysFor({ area: 'Goals', id: 'goal-1' })).toContain('goal:goal-1')
   })
 
+  /** An edited or deleted line is fetched on its own by a thread that has it further back (#25). */
+  it('names a changed message by its id, and nothing else', () => {
+    expect(keysFor({ area: 'ChatMessage', id: 'message-1' })).toEqual(['chat-message:message-1'])
+    expect(keysFor({ area: 'ChatMessage', id: null })).toEqual([])
+  })
+
   it('refreshes only the list when no single thing changed', () => {
     expect(keysFor({ area: 'Chats', id: null })).toEqual(['chats'])
     expect(keysFor({ area: 'Goals', id: null })).not.toContain('goal:null')

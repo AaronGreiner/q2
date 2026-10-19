@@ -1,6 +1,8 @@
 # 0041 — The streak beside the name, and a start screen of your own goals only
 
-**Status:** Accepted
+**Status:** Accepted — amended by [0045](0045-what-waits-for-you-first.md):
+the start screen opens on a spot check, then the vote stack, then the
+challenge, and only then on your own day.
 **Date:** 2026-10-16
 **Issues:** [#121](https://github.com/AaronGreiner/q2/issues/121),
 [#78](https://github.com/AaronGreiner/q2/issues/78),
