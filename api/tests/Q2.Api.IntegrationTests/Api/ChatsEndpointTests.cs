@@ -31,7 +31,8 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Guid? GoalId,
         bool IsMyGoal,
         bool AwaitingMyVote,
-        WindowDocument? GoalCurrent);
+        WindowDocument? GoalCurrent,
+        bool GoalEnded);
 
     private sealed record ReactionDocument(KudosKind Kind, int Count, bool IsMine);
 
@@ -147,6 +148,27 @@ public class ChatsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
             [AutomatedTestSeed.DirectConversationId, AutomatedTestSeed.SharedGoalConversationId],
             chats.Select(chat => chat.Id).Order());
         Assert.DoesNotContain(chats, chat => chat.Id == AutomatedTestSeed.ForeignConversationId);
+    }
+
+    /// <summary>
+    /// A goal that has ended keeps its conversation, and the row says so, for
+    /// both ends — that is what the list folds away under "Beendet" (#101).
+    /// </summary>
+    [Fact]
+    public async Task AnEndedGoalsConversationSaysSoOnBothEnds()
+    {
+        Assert.All(await ListAsync(), chat => Assert.False(chat.GoalEnded));
+
+        (await Client.PostJsonAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}/close", new { completed = true }))
+            .EnsureSuccessStatusCode();
+
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+
+        foreach (var chats in new[] { await ListAsync(), await ListAsync(friend) })
+        {
+            Assert.True(chats.Single(chat => chat.Id == AutomatedTestSeed.SharedGoalConversationId).GoalEnded);
+            Assert.False(chats.Single(chat => chat.Id == AutomatedTestSeed.DirectConversationId).GoalEnded);
+        }
     }
 
     [Fact]

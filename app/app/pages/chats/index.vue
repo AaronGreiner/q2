@@ -10,6 +10,11 @@
  * where you deliver; friends' goals, where you check; and conversations about
  * no goal at all. Each keeps the server's order — newest first — and search
  * runs across all of them (docs/adr/0027-goal-conversations.md).
+ *
+ * The conversations of goals that have ended are in none of them, but folded
+ * away at the end under "Beendet" (#101): every goal keeps its conversation,
+ * and after a year the two goal sections would otherwise be mostly finished
+ * things, with what needs attention further down.
  */
 const t = useMessages()
 const now = useNow()
@@ -43,26 +48,43 @@ onScopeDispose(() => clearTimeout(debounce))
 
 const { chats, error, isLoading, refresh } = useChats(search)
 
+const running = computed(() => chats.value.filter(chat => !chat.goalEnded))
+const ended = computed(() => chats.value.filter(chat => chat.goalEnded))
+
 const sections = computed(() => [
   {
     key: 'mine',
     title: t.value.chats.sectionMine,
     hint: t.value.chats.sectionMineHint,
-    chats: chats.value.filter(chat => chat.kind === 'Goal' && chat.isMyGoal),
+    chats: running.value.filter(chat => chat.kind === 'Goal' && chat.isMyGoal),
   },
   {
     key: 'friends',
     title: t.value.chats.sectionFriends,
     hint: t.value.chats.sectionFriendsHint,
-    chats: chats.value.filter(chat => chat.kind === 'Goal' && !chat.isMyGoal),
+    chats: running.value.filter(chat => chat.kind === 'Goal' && !chat.isMyGoal),
   },
   {
     key: 'conversations',
     title: t.value.chats.sectionConversations,
     hint: null,
-    chats: chats.value.filter(chat => chat.kind !== 'Goal'),
+    chats: running.value.filter(chat => chat.kind !== 'Goal'),
   },
 ].filter(section => section.chats.length > 0))
+
+/*
+ * Folded until somebody opens it, and kept open when they come back from one
+ * of its threads (#118). A search shows it unfolded: what was typed is looked
+ * for everywhere, and a match hidden behind a fold would read as no match.
+ * Something unread in it is said on the fold itself, so a new message in an
+ * ended goal's conversation is not missed.
+ */
+const isEndedOpen = ref(false)
+if (useReturnState('chatEndedOpen', () => isEndedOpen.value || undefined)) isEndedOpen.value = true
+
+const isSearching = computed(() => search.value.trim().length > 0)
+const showEnded = computed(() => isEndedOpen.value || isSearching.value)
+const endedUnread = computed(() => ended.value.reduce((total, chat) => total + chat.unreadCount, 0))
 
 // The picker only ever offers friends, which is also the server's rule.
 const { friends } = useFriends()
@@ -185,6 +207,71 @@ useHead({ title: () => t.value.chats.heading })
           <ul class="list-none p-0">
             <li
               v-for="chat in section.chats"
+              :key="chat.id"
+            >
+              <ChatListRow
+                :chat="chat"
+                :now="now"
+              />
+            </li>
+          </ul>
+        </section>
+
+        <section
+          v-if="ended.length > 0"
+          aria-labelledby="chat-section-ended"
+          data-testid="chat-section-ended"
+        >
+          <!-- While searching there is nothing to fold: the results are shown
+               under a plain heading, like the other sections. -->
+          <h2
+            v-if="isSearching"
+            id="chat-section-ended"
+            class="flex items-baseline justify-between gap-2 px-0.5 pb-1"
+          >
+            <span class="q2-eyebrow">{{ t.chats.sectionEnded }}</span>
+            <span class="text-[11px] font-semibold text-(--ui-text-dimmed)">{{ t.chats.sectionEndedHint }}</span>
+          </h2>
+
+          <h2
+            v-else
+            id="chat-section-ended"
+          >
+            <button
+              type="button"
+              class="flex min-h-11 w-full items-center justify-between gap-2 rounded-(--q2-radius-md) px-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
+              :aria-expanded="isEndedOpen"
+              aria-controls="chat-ended-list"
+              data-testid="chat-ended-toggle"
+              @click="isEndedOpen = !isEndedOpen"
+            >
+              <span class="flex items-center gap-2">
+                <span class="q2-eyebrow">{{ t.chats.sectionEnded }} · {{ ended.length }}</span>
+                <span
+                  v-if="endedUnread > 0"
+                  class="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--q2-accent-solid) px-1.5 text-[11px] font-extrabold text-(--q2-accent-contrast)"
+                  data-testid="chat-ended-unread"
+                >{{ endedUnread }}</span>
+              </span>
+              <span class="flex items-center gap-1.5 text-[11px] font-semibold text-(--ui-text-dimmed)">
+                {{ t.chats.sectionEndedHint }}
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-4 transition-transform duration-(--q2-motion-normal)"
+                  :class="isEndedOpen ? 'rotate-180' : ''"
+                  aria-hidden="true"
+                />
+              </span>
+            </button>
+          </h2>
+
+          <ul
+            v-show="showEnded"
+            id="chat-ended-list"
+            class="list-none p-0"
+          >
+            <li
+              v-for="chat in ended"
               :key="chat.id"
             >
               <ChatListRow

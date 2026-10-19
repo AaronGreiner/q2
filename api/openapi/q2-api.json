@@ -4157,7 +4157,8 @@
           "goalId",
           "isMyGoal",
           "awaitingMyVote",
-          "goalCurrent"
+          "goalCurrent",
+          "goalEnded"
         ],
         "type": "object",
         "properties": {
@@ -4251,6 +4252,9 @@
                 "$ref": "#/components/schemas/GoalInstanceResponse"
               }
             ]
+          },
+          "goalEnded": {
+            "type": "boolean"
           }
         }
       },

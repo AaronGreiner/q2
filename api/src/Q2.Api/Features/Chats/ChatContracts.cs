@@ -63,6 +63,12 @@ namespace Q2.Api.Features.Chats;
 /// <paramref name="UnreadCount"/> on purpose: unread says "something new is
 /// here", this says "something here is waiting for you".
 /// </param>
+/// <param name="GoalEnded">
+/// Whether that goal has stopped — carried through or given up. The list folds
+/// such conversations away at its end, so that after a year it is not mostly
+/// finished things (#101). Still a conversation: it opens, and it can be
+/// written in.
+/// </param>
 public sealed record ChatSummaryResponse(
     Guid Id,
     ConversationKind Kind,
@@ -83,7 +89,8 @@ public sealed record ChatSummaryResponse(
     Guid? GoalId,
     bool IsMyGoal,
     bool AwaitingMyVote,
-    GoalInstanceResponse? GoalCurrent);
+    GoalInstanceResponse? GoalCurrent,
+    bool GoalEnded);
 
 /// <summary>A reaction, rolled up: which kind, how many, and whether it is yours.</summary>
 public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsMine);

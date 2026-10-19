@@ -1420,6 +1420,7 @@ export interface components {
             isMyGoal: boolean;
             awaitingMyVote: boolean;
             goalCurrent: (null) | components["schemas"]["GoalInstanceResponse"];
+            goalEnded: boolean;
         };
         CloseGoalRequest: {
             completed?: boolean | null;

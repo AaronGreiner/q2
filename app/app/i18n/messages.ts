@@ -485,6 +485,9 @@ export const de = {
     sectionFriends: 'Von Freunden',
     sectionFriendsHint: 'Du prüfst',
     sectionConversations: 'Unterhaltungen',
+    // Ended Dos & Don'ts, folded away at the end of the list (#101).
+    sectionEnded: 'Beendet',
+    sectionEndedHint: 'Abgeschlossen oder aufgegeben',
     awaitingVote: 'Wartet auf dein Urteil',
     openGoal: 'Details ansehen',
 
@@ -1828,6 +1831,8 @@ export const en: Messages = {
     sectionFriends: 'From friends',
     sectionFriendsHint: 'You check',
     sectionConversations: 'Conversations',
+    sectionEnded: 'Ended',
+    sectionEndedHint: 'Completed or given up',
     awaitingVote: 'Waiting for your verdict',
     openGoal: 'View details',
 

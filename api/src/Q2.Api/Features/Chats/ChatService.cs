@@ -156,7 +156,8 @@ public sealed class ChatService(
                 goal is not null && goal.Instances.Any(instance => waitingInWindows.Contains(instance.Id)),
                 goal?.OwnerPersonId == me.Id && goal.CurrentInstance is { } open
                     ? GoalInstanceResponse.From(open)
-                    : null));
+                    : null,
+                goal?.IsClosed == true));
         }
 
         // Newest conversation first, and a brand-new empty one before an old
