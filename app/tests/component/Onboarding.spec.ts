@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AppTour from '~/components/layout/AppTour.vue'
 import GoalDraftCard from '~/components/goals/GoalDraftCard.vue'
 import GoalDraftForm from '~/components/goals/GoalDraftForm.vue'
@@ -745,6 +745,15 @@ describe('AppTour', () => {
     }
   }
 
+  // Ending the tour replaces the route, which passes the global guard first.
+  // How long that takes depends on how busy the machine is, so the tests wait
+  // for the navigation to have happened rather than for a fixed time (#128);
+  // the dialog is checked only once the address no longer carries `?tour`.
+  async function untilNavigated(assertion: () => void) {
+    await vi.waitFor(assertion, { timeout: 4000, interval: 10 })
+    await nextTick()
+  }
+
   // Mounted on an open route: the guard would otherwise send a test without a
   // session to the sign-in screen, taking the parameter with it. Even there it
   // asks the server who is signed in, so the answer — nobody — is given here;
@@ -772,9 +781,8 @@ describe('AppTour', () => {
     expect(document.querySelector('[data-testid="app-tour-next"]')?.textContent?.trim()).toBe(de.tour.done)
 
     document.querySelector<HTMLButtonElement>('[data-testid="app-tour-next"]')!.click()
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await untilNavigated(() => expect(useRoute().query.tour).toBeUndefined())
 
-    expect(useRoute().query.tour).toBeUndefined()
     expect(tour()).toBeNull()
     wrapper.unmount()
   })
@@ -785,7 +793,7 @@ describe('AppTour', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
 
     document.querySelector<HTMLButtonElement>('[data-testid="app-tour-skip"]')!.click()
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await untilNavigated(() => expect(useRoute().query.tour).toBeUndefined())
 
     expect(document.querySelector('[data-testid="app-tour"]')).toBeNull()
     wrapper.unmount()
