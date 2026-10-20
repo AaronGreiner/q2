@@ -146,6 +146,9 @@ public sealed class ActivityService(
         if (activity.HasKudosFrom(me.Id) && await badges.AwardEarnedAsync(me.Id, cancellationToken))
         {
             await database.SaveChangesAsync(cancellationToken);
+
+            // The badge's line in the giver's bell (#139).
+            await notifier.FlushAsync(cancellationToken);
         }
 
         logger.LogInformation(

@@ -114,6 +114,28 @@ describe('GoalCard', () => {
     expect(kept.get('[data-testid="goal-window"]').text()).toBe('Geschafft')
   })
 
+  it('says a daily Do delivered today is done, not "Aktiv" (#140)', async () => {
+    // The server keeps today's delivered window as the shown one until it ends.
+    const delivered = window({
+      startsOn: '2026-05-25',
+      dueOn: '2026-05-25',
+      dueAt: '2026-05-25T21:59:59+00:00',
+      requiredProofs: 1,
+      confirmedProofs: 1,
+      remainingProofs: 0,
+      status: 'Done',
+      acceptsProof: false,
+    })
+    const wrapper = await mountSuspended(GoalCard, {
+      props: {
+        goal: goal({ current: delivered, schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null } }),
+        today: '2026-05-25',
+      },
+    })
+
+    expect(wrapper.get('[data-testid="goal-window"]').text()).toBe('Geschafft')
+  })
+
   it('shows the streak and the reminder', async () => {
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 

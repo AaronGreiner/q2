@@ -151,6 +151,26 @@ describe('BalanceCard', () => {
     expect(wrapper.text()).toContain('verpasst')
   })
 
+  it('says this week on your own profile, and only there (#27)', async () => {
+    const week = { from: '2026-10-19', to: '2026-10-25', done: 3, missed: 1, relapsed: 0, open: 2 }
+    const own = await mountSuspended(BalanceCard, {
+      props: { balance: { done: 47, missed: 5, relapsed: 0 }, week },
+    })
+
+    expect(own.get('[data-testid="balance-week"]').text()).toContain('Diese Woche')
+    expect(own.get('[data-testid="balance-week"]').text()).toContain('3 geschafft · 1 verpasst · 2 offen')
+
+    const withRelapse = await mountSuspended(BalanceCard, {
+      props: { balance: { done: 47, missed: 5, relapsed: 1 }, week: { ...week, relapsed: 1 } },
+    })
+    expect(withRelapse.get('[data-testid="balance-week"]').text()).toContain('1 Rückfall')
+
+    const theirs = await mountSuspended(BalanceCard, {
+      props: { balance: { done: 2, missed: 0, relapsed: 0 }, sharedGoals: [] },
+    })
+    expect(theirs.find('[data-testid="balance-week"]').exists()).toBe(false)
+  })
+
   it('says so when there is nothing missed yet', async () => {
     const wrapper = await mountSuspended(BalanceCard, {
       props: { balance: { done: 12, missed: 0 } },

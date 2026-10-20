@@ -80,6 +80,16 @@ public sealed class FriendsService(
         var excluded = new HashSet<Guid>(connectedIds) { me.Id };
         excluded.UnionWith(hidden);
 
+        // Somebody findable only by their handle or their link is not offered
+        // to strangers by name either (#106) — a suggestion is a search that
+        // nobody typed. Excluded the same way, before the suggestions are cut.
+        var candidates = friendIds.SelectMany(graph.FriendsOf).Where(id => !excluded.Contains(id)).ToHashSet();
+        excluded.UnionWith(await database.People
+            .AsNoTracking()
+            .Where(p => candidates.Contains(p.Id) && p.Findability != Findability.Everyone)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken));
+
         var suggestions = graph.SuggestionsFor(me.Id, excluded, SuggestionLimit);
 
         var wanted = connectedIds.Concat(suggestions.Select(s => s.PersonId)).ToHashSet();
@@ -94,7 +104,7 @@ public sealed class FriendsService(
             .Select(person => new FriendResponse(
                 PersonSummary.From(person, now),
                 streaks.GetValueOrDefault(person.Id),
-                person.LastSeenAt))
+                person.VisibleLastSeenAt))
             .ToList();
 
         var requests = mine
@@ -131,7 +141,9 @@ public sealed class FriendsService(
     /// </summary>
     /// <remarks>
     /// The whole directory is searchable, which is what makes it possible to
-    /// add somebody who is not already a friend of a friend. A result carries
+    /// add somebody who is not already a friend of a friend — as far as each
+    /// person lets it be (<see cref="Findability"/>, #106): by any part of
+    /// their name, by their whole handle only, or not at all. A result carries
     /// no more than a row needs: a name, an avatar, and where the two of you
     /// stand. Not an email address — that is the credential, and searching by
     /// one would turn this into a way to check whether a given address has an
@@ -154,16 +166,28 @@ public sealed class FriendsService(
         var now = timeProvider.GetUtcNow();
         var pattern = $"%{Escape(term)}%";
 
+        // The whole handle, with or without its "@": what somebody findable
+        // only by handle has to be looked up by. LIKE without a wildcard is an
+        // exact match that ignores case, as handles are compared everywhere.
+        var handle = Escape("@" + term.TrimStart('@'));
+
         // The directory is searchable by everybody, which makes this the most
         // likely way a blocked person would reappear — by being looked up.
         var hidden = await blockList.HiddenFromMeAsync(cancellationToken);
+
+        // Who somebody lets find them is about strangers (#106): a friend, or
+        // somebody with a request open either way, is found as before.
+        var mine = await MyFriendshipsAsync(me.Id, cancellationToken);
+        var connected = mine.Select(f => f.OtherThan(me.Id)).ToHashSet();
 
         var matches = await database.People
             .AsNoTracking()
             .Where(p => p.Id != me.Id
                 && !hidden.Contains(p.Id)
-                && (EF.Functions.Like(p.DisplayName, pattern, LikeEscape)
-                    || EF.Functions.Like(p.Handle, pattern, LikeEscape)))
+                && (((connected.Contains(p.Id) || p.Findability == Findability.Everyone)
+                        && (EF.Functions.Like(p.DisplayName, pattern, LikeEscape)
+                            || EF.Functions.Like(p.Handle, pattern, LikeEscape)))
+                    || (p.Findability == Findability.Handle && EF.Functions.Like(p.Handle, handle, LikeEscape))))
             .OrderBy(p => p.DisplayName)
             .ThenBy(p => p.Id)
             .Take(SearchLimit)
@@ -174,7 +198,6 @@ public sealed class FriendsService(
             return [];
         }
 
-        var mine = await MyFriendshipsAsync(me.Id, cancellationToken);
         var byOther = mine.ToDictionary(f => f.OtherThan(me.Id));
 
         var friendIds = mine
@@ -301,7 +324,7 @@ public sealed class FriendsService(
 
         // On their own day, as their profile counts it (#134).
         var today = timeZones.For(person.TimeZoneId).Today(now);
-        return new FriendResponse(PersonSummary.From(person, now), person.StreakOn(today), person.LastSeenAt);
+        return new FriendResponse(PersonSummary.From(person, now), person.StreakOn(today), person.VisibleLastSeenAt);
     }
 
     /// <summary>

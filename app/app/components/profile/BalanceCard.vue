@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Balance, SharedGoal } from '~/api/types'
+import type { Balance, SharedGoal, Week } from '~/api/types'
 
 /**
  * "47 geschafft · 5 verpasst".
@@ -20,18 +20,38 @@ import type { Balance, SharedGoal } from '~/api/types'
  * sentences that would otherwise both read as "0 · 0". It names each of those
  * goals and opens it (#86): "1 gemeinsames Do" with no way to it left the
  * reader to guess which one the record was about.
+ *
+ * On your own profile it also says this week (#27): the windows of your own
+ * goals that end between Monday and Sunday, done, missed and still open — all
+ * grey, because they are states, not something to press (ADR 0015).
  */
 const props = withDefaults(defineProps<{
   balance: Balance
   /** The goals the two people share, as the server scoped them. Omit on your own profile. */
   sharedGoals?: readonly SharedGoal[] | null
+  /** This week, on your own profile only (#27). */
+  week?: Week | null
 }>(), {
   sharedGoals: null,
+  week: null,
 })
 
 const t = useMessages()
 
 const hasNothingShared = computed(() => props.sharedGoals?.length === 0)
+
+/** "3 geschafft · 1 verpasst · 2 offen", and a relapse only when there is one. */
+const weekLine = computed(() => {
+  const week = props.week
+  if (!week) return ''
+
+  return [
+    `${week.done} ${t.value.balance.done}`,
+    `${week.missed} ${t.value.balance.missed}`,
+    `${week.open} ${t.value.balance.open}`,
+    ...(week.relapsed > 0 ? [t.value.balance.relapsed(week.relapsed)] : []),
+  ].join(' · ')
+})
 </script>
 
 <template>
@@ -102,6 +122,19 @@ const hasNothingShared = computed(() => props.sharedGoals?.length === 0)
       >
         {{ t.balance.clean }}
       </p>
+
+      <div
+        v-if="week"
+        class="mt-3 border-t border-(--ui-border-muted) pt-3"
+        data-testid="balance-week"
+      >
+        <p class="text-[11px] font-bold tracking-wide text-(--ui-text-muted) uppercase">
+          {{ t.balance.thisWeek }}
+        </p>
+        <p class="mt-1 text-sm font-bold">
+          {{ weekLine }}
+        </p>
+      </div>
 
       <template v-if="sharedGoals !== null">
         <p

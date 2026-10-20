@@ -79,11 +79,21 @@ line is their own.
 - Opening a thread reads at most 31 messages, their reactions and their
   photographs, however long it is. The chat list reads one message per
   conversation.
-- **The goal is still read whole** for a goal's conversation — for the banner,
-  the streak and the timeline it derives. That is the goal's own read, shared
-  with its screen, and paging it is a change to how a goal is loaded rather
-  than to the conversation
-  ([#127](https://github.com/AaronGreiner/q2/issues/127)).
+- ~~**The goal is still read whole** for a goal's conversation — for the banner,
+  the streak and the timeline it derives.~~ Since
+  [#127](https://github.com/AaronGreiner/q2/issues/127) a goal's conversation
+  and the chat list read the goal's **windows** whole — one narrow row each,
+  because the streak a kept window carries and the balance are counted over the
+  chain and stay derived — but what hangs off them (photographs with their
+  votes and reactions, logged uses, spot checks) only for the windows the page
+  or the row reaches (`GoalWindowDetails`). Everything those details put into
+  the timeline happens by its window's deadline, so a page whose oldest line is
+  later than the newest unread deadline is exactly the page a whole read cuts;
+  one that reaches further reads twice as many windows and is cut again.
+  `GoalConversationReadTests` compares every page of a 160-day goal with a
+  whole read, and counts what opening it reads: at most a page's worth of
+  photographs, where reading every window read 144. The goal's own screen
+  (`GoalService`) still reads it whole.
 - A line that changes pages back from the newest — another person's reaction
   on an old message, a vote cast elsewhere on an old photograph — shows when
   the thread is opened again; the live connection reads the newest page only.

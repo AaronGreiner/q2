@@ -107,6 +107,15 @@ public enum NotificationKind
     /// to do, and yesterday's reminder means nothing (#82).
     /// </summary>
     ReminderDue,
+
+    /// <summary>
+    /// The reader earned a badge (#139). <c>Detail</c> is its
+    /// <see cref="Q2.Api.Features.People.BadgeKey"/>, which the client names in
+    /// the reader's language. Never an actor — the record earned it — and kept
+    /// in the bell: it is the one moment worth keeping. Friends learn of it
+    /// from the feed (<c>ActivityKind.BadgeEarned</c>), not from a push.
+    /// </summary>
+    BadgeEarned,
 }
 
 /// <summary>What a notification leads to when it is tapped.</summary>
@@ -157,4 +166,5 @@ public enum NotificationSwitch
     Challenge,
     SpotChecks,
     Reminders,
+    Badges,
 }

@@ -27,7 +27,7 @@ const when = computed(() => {
   const window = props.goal.current
   if (!window) return ''
 
-  const label = windowLabel(window, t.value)
+  const label = windowLabel(window, t.value, props.goal.dueBy)
   const left = deadlineLeft(window.dueAt, props.now, t.value)
   return left ? t.value.chats.nextStep(label, left) : label
 })

@@ -89,7 +89,7 @@ const state = computed<{ text: string, icon: string | null }>(() => {
   if (window.pendingProofId) return { text: t.value.proof.waiting, icon: 'i-lucide-hourglass' }
   if (!isDont.value && window.remainingProofs === 0) return { text: t.value.window.done, icon: 'i-lucide-check' }
 
-  return { text: windowLabel(window, t.value), icon: null }
+  return { text: windowLabel(window, t.value, props.goal.dueBy), icon: null }
 })
 </script>
 

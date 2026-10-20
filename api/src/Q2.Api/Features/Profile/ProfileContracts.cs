@@ -34,6 +34,10 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
 /// <param name="Bio">A few words of their own under the name (#20), or null.</param>
+/// <param name="ThisWeek">
+/// The same count over the windows of their own goals that end in this
+/// Monday-to-Sunday week, in their zone — with the ones still open (#27).
+/// </param>
 public sealed record ProfileResponse(
     PersonSummary Person,
     string? Bio,
@@ -43,7 +47,18 @@ public sealed record ProfileResponse(
     IReadOnlyList<BadgeResponse> Badges,
     IReadOnlyList<ActivityResponse> RecentActivity,
     BalanceResponse Balance,
-    IReadOnlyList<GoalResponse> AtRisk);
+    IReadOnlyList<GoalResponse> AtRisk,
+    WeekResponse ThisWeek);
+
+/// <summary>
+/// This week's windows of somebody's own goals, by how they ended (#27).
+/// </summary>
+/// <remarks>
+/// A window belongs to the week its last day falls in: a monthly quota counts
+/// in the week it is due, not in every week it runs through. States, not
+/// actions — the screen shows them in grey (docs/adr/0015-qdos-design-language.md).
+/// </remarks>
+public sealed record WeekResponse(DateOnly From, DateOnly To, int Done, int Missed, int Relapsed, int Open);
 
 /// <summary>
 /// Changes to the signed-in person's own profile. Omitted properties keep

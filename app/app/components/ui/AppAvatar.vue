@@ -35,6 +35,9 @@ const props = withDefaults(defineProps<{
 })
 
 const t = useMessages()
+
+// Nobody's dot for somebody who hides their own activity (#106).
+const seesActivity = useSeesActivity()
 const picture = useImageSource(() => (props.icon ? null : props.imageId))
 
 /*
@@ -127,7 +130,7 @@ const style = computed(() => ({
       "Online" or when somebody was last active in words.
     -->
     <span
-      v-if="online"
+      v-if="online && seesActivity"
       class="absolute end-0 bottom-0 rounded-full ring-2 ring-(--ui-bg)"
       :style="{
         width: `${Math.max(9, Math.round(size * 0.26))}px`,

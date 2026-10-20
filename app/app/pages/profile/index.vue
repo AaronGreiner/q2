@@ -177,6 +177,7 @@ async function onSave(value: { displayName: string, bio: string }) {
         <BalanceCard
           class="mt-3"
           :balance="profile.balance"
+          :week="profile.thisWeek"
         />
 
         <BadgeGrid

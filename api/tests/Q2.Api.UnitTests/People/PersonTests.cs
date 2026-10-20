@@ -136,4 +136,36 @@ public class PersonTests
         Assert.Throws<DomainValidationException>(() => person.SetBio(new string('a', Person.MaxBioLength + 1)));
         Assert.Equal(Person.MaxBioLength, person.Bio!.Length);
     }
+
+    [Fact]
+    public void EverybodyCanFindThemAndSeeTheirActivityUntilTheyChooseOtherwise()
+    {
+        var person = Build();
+
+        Assert.Equal(Findability.Everyone, person.Findability);
+        Assert.True(person.ShowsActivity);
+    }
+
+    [Fact]
+    public void HiddenActivityIsNeitherOnlineNorLastSeen()
+    {
+        var person = Build();
+        person.SetLastSeen(Now.AddMinutes(-1));
+
+        person.SetPrivacy(Findability.Handle, showsActivity: false);
+
+        Assert.False(person.IsOnlineAt(Now));
+        Assert.Null(person.VisibleLastSeenAt);
+
+        // Kept, not forgotten: shown again the moment they say so.
+        person.SetPrivacy(Findability.Handle, showsActivity: true);
+        Assert.True(person.IsOnlineAt(Now));
+        Assert.Equal(Now.AddMinutes(-1), person.VisibleLastSeenAt);
+    }
+
+    [Fact]
+    public void AFindabilityThatDoesNotExistIsRefused()
+    {
+        Assert.Throws<DomainValidationException>(() => Build().SetPrivacy((Findability)7, showsActivity: true));
+    }
 }

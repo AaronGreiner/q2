@@ -110,6 +110,28 @@ public sealed class LocalCalendar
             ? null
             : new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, Zone), TimeSpan.Zero);
     }
+
+    /// <summary>
+    /// The instant a local clock time falls on, or the first one after it that
+    /// exists — a deadline at 02:30 on the night the clock jumps to 03:00 is
+    /// 03:00 (#98).
+    /// </summary>
+    /// <remarks>
+    /// Nudged forward like <see cref="StartOfDay"/>, not skipped like
+    /// <see cref="At"/>: a deadline has to fall somewhere, and later rather than
+    /// earlier is the side that takes nothing away from anybody.
+    /// </remarks>
+    public DateTimeOffset AtOrAfter(DateOnly day, TimeOnly time)
+    {
+        var local = day.ToDateTime(time, DateTimeKind.Unspecified);
+
+        while (Zone.IsInvalidTime(local))
+        {
+            local = local.AddMinutes(1);
+        }
+
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, Zone), TimeSpan.Zero);
+    }
 }
 
 /// <summary>

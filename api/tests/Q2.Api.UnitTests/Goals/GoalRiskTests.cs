@@ -168,4 +168,20 @@ public sealed class GoalRiskTests
         Assert.Equal(2, assessment.Value.MissingProofs);
         Assert.Equal(3, assessment.Value.RequiredProofs);
     }
+
+    /// <summary>
+    /// A window that ends at seven (#98): warned about from four hours before,
+    /// but not before six in the morning.
+    /// </summary>
+    [Fact]
+    public void ADayThatEndsAtSevenIsWarnedAboutAtSixNotAtThree()
+    {
+        var goal = Goal.Create(Guid.CreateVersion7(), Guid.CreateVersion7(), "Vor 7 Uhr aufstehen", null, null, GoalSchedule.EveryNDays(1), false, null, null, At(Monday, 0), dueBy: new TimeOnly(7, 0));
+        var window = goal.OpenWindow(Guid.CreateVersion7(), new GoalWindow(Monday, Monday, 1), Berlin.StartOfDay(Monday), goal.DueAtOn(Monday, Berlin))!;
+
+        Assert.Null(GoalRisk.Assess(window, Berlin, At(Monday, 3)));
+        Assert.Null(GoalRisk.Assess(window, Berlin, At(Monday, 5)));
+        Assert.Equal(RiskReason.LastDay, GoalRisk.Assess(window, Berlin, At(Monday, 6))?.Reason);
+        Assert.Null(GoalRisk.Assess(window, Berlin, At(Monday, 7)));
+    }
 }

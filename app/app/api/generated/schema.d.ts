@@ -209,6 +209,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/account/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Downloads everything q2 holds about the signed-in person: their data as JSON and their own pictures, as one ZIP file. */
+        get: operations["ExportData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -1353,7 +1370,7 @@ export interface components {
             challengeEntries: number;
         };
         /** @enum {unknown} */
-        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalCreated";
+        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalCreated" | "BadgeEarned";
         ActivityResponse: {
             /** Format: uuid */
             id: string;
@@ -1567,6 +1584,8 @@ export interface components {
             proofMode?: (null) | components["schemas"]["DontProofMode"];
             /** Format: date */
             startsOn?: string | null;
+            /** Format: time */
+            dueBy?: string | null;
         };
         CreateGroupChatRequest: {
             title?: string | null;
@@ -1618,6 +1637,8 @@ export interface components {
             goalDescription: string | null;
             goalIcon: string;
         };
+        /** @enum {unknown} */
+        Findability: "Everyone" | "Handle" | "Link";
         ForgotPasswordRequest: {
             email?: string | null;
         };
@@ -1827,6 +1848,8 @@ export interface components {
             targetDate: string | null;
             /** Format: date */
             startsOn: string | null;
+            /** Format: time */
+            dueBy: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1948,7 +1971,7 @@ export interface components {
             muted?: boolean | null;
         };
         /** @enum {unknown} */
-        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue" | "GoalChangeProposed" | "GoalChangeLifted" | "ReminderDue";
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue" | "GoalChangeProposed" | "GoalChangeLifted" | "ReminderDue" | "BadgeEarned";
         NotificationResponse: {
             /** Format: uuid */
             id: string | null;
@@ -1984,6 +2007,7 @@ export interface components {
             quietHoursTo: string | null;
             spotChecks: boolean;
             reminders: boolean;
+            badges: boolean;
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
@@ -2079,6 +2103,7 @@ export interface components {
             recentActivity: components["schemas"]["ActivityResponse"][];
             balance: components["schemas"]["BalanceResponse"];
             atRisk: components["schemas"]["GoalResponse"][];
+            thisWeek: components["schemas"]["WeekResponse"];
         };
         ProofResponse: {
             /** Format: uuid */
@@ -2203,6 +2228,8 @@ export interface components {
             language: components["schemas"]["LanguagePreference"];
             notifications: components["schemas"]["NotificationSettingsResponse"];
             timeZone: string;
+            findability: components["schemas"]["Findability"];
+            showActivity: boolean;
         };
         SharedGoalResponse: {
             /** Format: uuid */
@@ -2254,6 +2281,7 @@ export interface components {
             quietHoursTo?: string | null;
             spotChecks?: boolean | null;
             reminders?: boolean | null;
+            badges?: boolean | null;
         };
         UpdateProfileRequest: {
             displayName?: string | null;
@@ -2266,6 +2294,8 @@ export interface components {
             language?: (null) | components["schemas"]["LanguagePreference"];
             notifications?: (null) | components["schemas"]["UpdateNotificationSettingsRequest"];
             timeZone?: string | null;
+            findability?: (null) | components["schemas"]["Findability"];
+            showActivity?: boolean | null;
         };
         VoteSummaryResponse: {
             /** Format: int32 */
@@ -2281,6 +2311,20 @@ export interface components {
         };
         /** @enum {unknown} */
         VoteValue: "Confirm" | "Doubt" | null;
+        WeekResponse: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: int32 */
+            done: number;
+            /** Format: int32 */
+            missed: number;
+            /** Format: int32 */
+            relapsed: number;
+            /** Format: int32 */
+            open: number;
+        };
         /** @enum {unknown} */
         Weekday: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
     };
@@ -2743,6 +2787,33 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ExportData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {

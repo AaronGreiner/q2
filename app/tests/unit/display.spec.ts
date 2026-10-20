@@ -103,6 +103,7 @@ const everyKind: readonly NotificationKind[] = [
   'ChallengePublished',
   'SpotCheckDue',
   'ReminderDue',
+  'BadgeEarned',
 ]
 
 /**
@@ -505,6 +506,28 @@ describe('windowLabel', () => {
     expect(windowLabel(later, de)).toBe('Bis 21.6.')
   })
 
+  it('says the time a day ends at instead of "fällig" (#98)', () => {
+    const today = window({ requiredProofs: 1, confirmedProofs: 0, remainingProofs: 1, startsOn: '2026-06-21' })
+
+    expect(windowLabel(today, de, '07:00:00')).toBe('Heute bis 07:00')
+    expect(windowLabel(today, en, '07:00:00')).toBe('Today by 07:00')
+    expect(goalScheduleLabel({ kind: 'Do', limit: null, schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null }, dueBy: '07:00:00' }, de))
+      .toBe('Jeden Tag · bis 07:00')
+    expect(scheduleExplanation({ kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null }, de, '07:00'))
+      .toBe('Jeden Tag ein Nachweis, bis 07:00.')
+    expect(scheduleExplanation({ kind: 'Weekdays', everyDays: null, weekdays: ['Monday'], times: null, period: null }, en, '18:30:00'))
+      .toBe('One proof on each chosen day, by 18:30.')
+  })
+
+  it('says a delivered window is done rather than due again (#140)', () => {
+    const delivered = window({ requiredProofs: 1, confirmedProofs: 1, remainingProofs: 0, startsOn: '2026-06-21', status: 'Done' })
+    const met = window({ confirmedProofs: 3, remainingProofs: 0 })
+
+    expect(windowLabel(delivered, de)).toBe('Geschafft')
+    expect(windowLabel(delivered, en)).toBe('Kept')
+    expect(windowLabel(met, de)).toBe('Geschafft')
+  })
+
   it('derives how full it is rather than being told', () => {
     expect(windowPercent(window())).toBe(33)
     expect(windowPercent(window({ confirmedProofs: 3, remainingProofs: 0 }))).toBe(100)
@@ -553,8 +576,15 @@ describe('activitySentence', () => {
     expect(activitySentence(entry, en)).toContain('7')
   })
 
+  it('names an earned badge in the reader\'s language (#139)', () => {
+    const entry = activity({ kind: 'BadgeEarned', subject: 'Bookworm' })
+
+    expect(activitySentence(entry, de)).toBe('hat das Abzeichen „Bücherwurm“ verdient')
+    expect(activitySentence(entry, en)).toBe('earned the “Bookworm” badge')
+  })
+
   it('covers every kind the contract can produce', () => {
-    for (const kind of ['TaskCompleted', 'StreakReached', 'GoalCreated'] as const) {
+    for (const kind of ['TaskCompleted', 'StreakReached', 'GoalCreated', 'BadgeEarned'] as const) {
       expect(activitySentence(activity({ kind, amount: 5 }), de)).not.toBe('')
     }
   })
@@ -598,6 +628,24 @@ describe('checkersMeaning', () => {
     expect(checkersMeaning(2, de)).toBe('Ein Foto wird nur abgelehnt, wenn beide zweifeln.')
     expect(checkersMeaning(5, de)).toBe('Ein Foto wird abgelehnt, wenn mehr als ein Drittel zweifelt, mindestens aber zwei.')
     expect(checkersMeaning(1, en)).toContain('One person alone cannot refuse a photo')
+  })
+})
+
+describe('an earned badge, as a notification (#139)', () => {
+  const earned = line({ kind: 'BadgeEarned', actor: null, subject: null, target: 'Person', targetId: 'me', detail: 'WeeklyWinner' })
+
+  it('says which badge, with nobody behind it', () => {
+    const text = notificationText(earned, de)
+
+    expect(text.title).toBe('Abzeichen')
+    expect(text.who).toBeNull()
+    expect(text.body).toBe('Du hast das Abzeichen „Wochensieger“ verdient.')
+    expect(notificationText(earned, en).body).toBe('You earned the “Weekly winner” badge.')
+  })
+
+  it('opens the profile, with an icon of its own', () => {
+    expect(notificationLink(earned)).toBe('/profile')
+    expect(notificationIcon(earned)).toBe('i-lucide-award')
   })
 })
 

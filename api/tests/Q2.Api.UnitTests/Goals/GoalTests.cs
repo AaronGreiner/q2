@@ -175,6 +175,96 @@ public class GoalTests
         Assert.Equal(GoalStatus.Active, goal.Status);
     }
 
+    [Fact]
+    public void ADoOnSetDaysCanEndItsDayAtATime()
+    {
+        var daily = Goal.Create(Guid.CreateVersion7(), Owner, "Vor 7 Uhr aufstehen", null, GoalCategory.Other, GoalSchedule.EveryNDays(1), false, null, null, Created, dueBy: new TimeOnly(7, 0, 42));
+        var weekdays = Goal.Create(Guid.CreateVersion7(), Owner, "Laufen", null, GoalCategory.Sport, GoalSchedule.OnWeekdays([Weekday.Monday]), false, null, null, Created, dueBy: new TimeOnly(18, 0));
+
+        // To the minute.
+        Assert.Equal(new TimeOnly(7, 0), daily.DueBy);
+        Assert.Equal(new TimeOnly(18, 0), weekdays.EffectiveDueBy);
+    }
+
+    [Theory]
+    [InlineData("quota")]
+    [InlineData("once")]
+    [InlineData("dont")]
+    public void OnlyADoOnSetDaysEndsItsDayAtATime(string shape)
+    {
+        var error = Assert.Throws<DomainValidationException>(() => shape switch
+        {
+            "quota" => Goal.Create(Guid.CreateVersion7(), Owner, "Laufen", null, null, GoalSchedule.TimesPer(3, QuotaPeriod.Week), false, null, null, Created, dueBy: new TimeOnly(7, 0)),
+            "once" => Goal.Create(Guid.CreateVersion7(), Owner, "Abgabe", null, null, GoalSchedule.Once(), false, null, Today, Created, dueBy: new TimeOnly(7, 0)),
+            _ => Goal.Create(Guid.CreateVersion7(), Owner, "Kein Zucker", null, null, GoalSchedule.Per(QuotaPeriod.Day), false, null, null, Created, GoalKind.Dont, 0, DontProofMode.HonestOnly, dueBy: new TimeOnly(7, 0)),
+        });
+
+        Assert.Contains(nameof(Goal.DueBy), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void ADayDoesNotEndAtMidnightTwiceAndAReminderComesBeforeItsEnd()
+    {
+        var midnight = Assert.Throws<DomainValidationException>(() =>
+            Goal.Create(Guid.CreateVersion7(), Owner, "Lesen", null, null, GoalSchedule.EveryNDays(1), false, null, null, Created, dueBy: TimeOnly.MinValue));
+        Assert.Contains(nameof(Goal.DueBy), midnight.Errors.Keys);
+
+        var late = Assert.Throws<DomainValidationException>(() =>
+            Goal.Create(Guid.CreateVersion7(), Owner, "Lesen", null, null, GoalSchedule.EveryNDays(1), false, new TimeOnly(9, 0), null, Created, dueBy: new TimeOnly(7, 0)));
+        Assert.Contains(nameof(Goal.ReminderAt), late.Errors.Keys);
+
+        var goal = Goal.Create(Guid.CreateVersion7(), Owner, "Lesen", null, null, GoalSchedule.EveryNDays(1), false, new TimeOnly(6, 0), null, Created, dueBy: new TimeOnly(7, 0));
+        Assert.Throws<DomainValidationException>(() => goal.SetReminder(new TimeOnly(7, 0)));
+        Assert.True(goal.SetReminder(new TimeOnly(6, 45)));
+    }
+
+    /// <summary>
+    /// #140: today's delivered window is what a reader is shown until it ends,
+    /// so the card says "Geschafft" rather than falling back to "Aktiv".
+    /// </summary>
+    [Fact]
+    public void ADeliveredWindowIsShownUntilItEnds()
+    {
+        var goal = Build();
+        var window = Open(goal, Today)!;
+        var noon = Utc.StartOfDay(Today).AddHours(12);
+
+        Assert.True(Deliver(goal, noon));
+
+        Assert.Null(goal.CurrentInstance);
+        Assert.Same(window, goal.ShownInstanceAt(noon));
+        Assert.Null(goal.ShownInstanceAt(Utc.EndOfDay(Today).AddTicks(1)));
+    }
+
+    [Fact]
+    public void AMetQuotaIsShownUntilItsWeekEnds()
+    {
+        var schedule = GoalSchedule.TimesPer(3, QuotaPeriod.Week);
+        var goal = Build(schedule: schedule);
+        var week = Open(goal, Today, schedule)!;
+        var noon = Utc.StartOfDay(Today).AddHours(12);
+
+        Assert.True(Deliver(goal, noon));
+        Assert.True(Deliver(goal, noon));
+        Assert.True(Deliver(goal, noon));
+
+        Assert.Equal(GoalInstanceStatus.Done, week.Status);
+        Assert.Same(week, goal.ShownInstanceAt(noon.AddDays(2)));
+    }
+
+    [Fact]
+    public void AFinishedOneOffShowsNoWindow()
+    {
+        var goal = Build(schedule: GoalSchedule.Once(), targetDate: Today);
+        Open(goal, Today, GoalSchedule.Once());
+        var noon = Utc.StartOfDay(Today).AddHours(12);
+
+        Assert.True(Deliver(goal, noon));
+
+        Assert.Equal(GoalStatus.Completed, goal.Status);
+        Assert.Null(goal.ShownInstanceAt(noon));
+    }
+
     /// <summary>
     /// The chain, and what breaks it. This is the number the whole product
     /// hangs on, so it is asserted rather than assumed.

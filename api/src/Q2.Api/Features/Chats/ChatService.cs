@@ -69,6 +69,16 @@ public sealed class ChatService(
 
         var goals = await LoadGoalsAsync(conversations, me.Id, cancellationToken);
 
+        // The open window and the one before it, for every goal at once: where
+        // a row's newest line nearly always is, and what "due next" is about.
+        var details = new GoalWindowDetails(database);
+        await details.ReadAsync(
+            goals.Values.SelectMany(goal => goal.Instances
+                .OrderByDescending(window => window.DueAt)
+                .ThenByDescending(window => window.Id)
+                .Take(ListedWindows)),
+            cancellationToken);
+
         // A goal's conversation is listed only while its goal can be read. The
         // two memberships are the same set of people by construction; this is
         // the guard for a row that somehow is not.
@@ -121,9 +131,7 @@ public sealed class ChatService(
             // came before it; the owner's row says what is due next instead.
             // A Don't's relapse and its logged uses are held back the same way:
             // owning up must not be what tops everybody's list.
-            var lastEvent = goal is null
-                ? null
-                : GoalTimeline.For(goal, now).LastOrDefault(entry => entry.Kind is not (GoalEventKind.WindowMissed or GoalEventKind.WindowRelapse or GoalEventKind.UseLogged));
+            var lastEvent = goal is null ? null : await LastListedEventAsync(goal, details, now, cancellationToken);
             var eventIsNewest = lastEvent is not null && (last is null || lastEvent.At > last.SentAt);
             var message = eventIsNewest ? null : last;
 
@@ -892,14 +900,14 @@ public sealed class ChatService(
             identity.AvatarImageId,
             identity.IsOnline,
             conversation.Participants.Count,
-            other?.LastSeenAt,
+            other?.VisibleLastSeenAt,
             goal is null
                 ? null
                 : new ChatPinnedGoalResponse(
                     goal.Id,
                     goal.Title,
                     goal.Description,
-                    (goal.CurrentInstance ?? goal.RelapsedInstanceAt(now)) is { } window ? GoalInstanceResponse.From(window) : null,
+                    goal.ShownInstanceAt(now) is { } window ? GoalInstanceResponse.From(window) : null,
                     goal.Streak,
                     goal.ActivePauseAt(now)?.EndsOn,
                     goal.OwnerPersonId == meId),
@@ -928,8 +936,9 @@ public sealed class ChatService(
     /// <remarks>
     /// Reads one more message than fits and nothing else of the thread, so the
     /// cost of opening it does not grow with its length. The goal's own lines
-    /// are derived from the goal, which is read whole either way for the
-    /// banner and the streak; only the photographs on this page are described.
+    /// are derived from the goal: its windows whole, for the streak each kept
+    /// one carries, and what hangs off them only as far back as the page
+    /// reaches (<see cref="CutWithGoalAsync"/>, #127).
     /// </remarks>
     private async Task<DescribedPage> DescribePageAsync(
         Conversation conversation,
@@ -945,7 +954,9 @@ public sealed class ChatService(
             .Take(ThreadPage.Size + 1)
             .ToListAsync(cancellationToken);
 
-        var page = ThreadPage.Cut(newest, goal is null ? [] : GoalTimeline.For(goal, now), before);
+        var page = goal is null
+            ? ThreadPage.Cut(newest, [], before)
+            : await CutWithGoalAsync(newest, goal, now, before, cancellationToken);
         var proofs = page.Events.Select(entry => entry.Proof).OfType<ProofPhoto>().ToList();
 
         var proofPeopleIds = goal is null ? [] : ProofService.PeopleShownWith(proofs, [goal]);
@@ -1169,14 +1180,88 @@ public sealed class ChatService(
         Guid? AvatarImageId,
         bool IsOnline);
 
+    /// <summary>How many of a goal's newest windows the list reads the details of up front.</summary>
+    private const int ListedWindows = 2;
+
+    /// <summary>
+    /// The newest line of a goal's timeline a row shows: anything but a miss,
+    /// a relapse or a logged use (see the list).
+    /// </summary>
+    /// <remarks>
+    /// Exact once the line found is later than anything an unread window could
+    /// still add (<see cref="GoalWindowDetails.Horizon"/>); until then the
+    /// next, twice as many windows are read. A goal whose newest windows were
+    /// all missed is the one that reads further back.
+    /// </remarks>
+    private static async Task<GoalEvent?> LastListedEventAsync(
+        Goal goal,
+        GoalWindowDetails details,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        for (var count = ListedWindows; ; count *= 2)
+        {
+            var last = GoalTimeline.For(goal, now)
+                .LastOrDefault(entry => entry.Kind is not (GoalEventKind.WindowMissed or GoalEventKind.WindowRelapse or GoalEventKind.UseLogged));
+
+            if (details.Horizon(goal, by: null) is not { } horizon || (last is not null && last.At > horizon))
+            {
+                return last;
+            }
+
+            await details.ReadNewestAsync(goal, count, by: null, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Cuts a page of a goal's conversation, reading the details of only as
+    /// many of its windows as the page reaches back to (#127).
+    /// </summary>
+    /// <remarks>
+    /// Starts with the window shown on the banner and the newest windows that
+    /// began before the page ends — one more than a page of lines, since every
+    /// window that ended adds a line. The page is exact when it does not begin
+    /// the thread and its oldest line is later than anything an unread window
+    /// could add; otherwise twice as many windows are read and it is cut again.
+    /// </remarks>
+    private async Task<ThreadPage> CutWithGoalAsync(
+        IReadOnlyList<ChatMessage> newest,
+        Goal goal,
+        DateTimeOffset now,
+        ThreadPosition? before,
+        CancellationToken cancellationToken)
+    {
+        var details = new GoalWindowDetails(database);
+        var by = before?.At;
+
+        if (goal.ShownInstanceAt(now) is { } shown)
+        {
+            await details.ReadAsync([shown], cancellationToken);
+        }
+
+        for (var count = ThreadPage.Size + 1; ; count *= 2)
+        {
+            await details.ReadNewestAsync(goal, count, by, cancellationToken);
+
+            var page = ThreadPage.Cut(newest, GoalTimeline.For(goal, now), before);
+
+            if (details.Horizon(goal, by) is not { } horizon || (page.Older is { } oldest && oldest.At > horizon))
+            {
+                return page;
+            }
+        }
+    }
+
     private static Goal? GoalOf(Conversation conversation, IReadOnlyDictionary<Guid, Goal> goals) =>
         conversation.Kind == ConversationKind.Goal && conversation.GoalId is { } goalId
             ? goals.GetValueOrDefault(goalId)
             : null;
 
     /// <summary>
-    /// The goals of these conversations that <paramref name="meId"/> may read,
-    /// with everything their timeline is made of.
+    /// The goals of these conversations that <paramref name="meId"/> may read:
+    /// each with its windows, pauses and edits, but not yet with what hangs off
+    /// the windows — <see cref="GoalWindowDetails"/> reads that for the windows
+    /// a page or a row needs (#127).
     /// </summary>
     /// <remarks>
     /// Conversation membership does not grant goal access; being on the goal
@@ -1205,19 +1290,12 @@ public sealed class ChatService(
             return [];
         }
 
+        // Tracked, unlike most reads here: the windows' details are read
+        // afterwards, and only a tracked window takes them in. Nothing read
+        // here is changed, so nothing of it is ever saved.
         return await database.Goals
-            .AsNoTracking()
             .Include(g => g.Participants)
             .Include(g => g.Instances)
-            .ThenInclude(instance => instance.Proofs)
-            .ThenInclude(proof => proof.Votes)
-            .Include(g => g.Instances)
-            .ThenInclude(instance => instance.UseLog)
-            .Include(g => g.Instances)
-            .ThenInclude(instance => instance.SpotChecks)
-            .Include(g => g.Instances)
-            .ThenInclude(instance => instance.Proofs)
-            .ThenInclude(proof => proof.Reactions)
             .Include(g => g.Pauses)
             .Include(g => g.Changes)
             .ThenInclude(change => change.Checkers)

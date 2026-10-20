@@ -1,8 +1,9 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
+import { useNuxtData } from '#imports'
 import FriendRow from '~/components/friends/FriendRow.vue'
 import SentRequestRow from '~/components/friends/SentRequestRow.vue'
-import type { Friend, Person, SentRequest } from '~/api/types'
+import type { Friend, Person, SentRequest, Settings } from '~/api/types'
 
 const now = Date.parse('2026-06-15T09:00:00Z')
 
@@ -44,6 +45,26 @@ describe('FriendRow', () => {
     })
 
     expect(wrapper.text()).toContain('Online')
+  })
+
+  it('shows nobody\'s presence to somebody who hides their own (#106)', async () => {
+    // The reader's own choice, as the app has loaded it.
+    const { data } = useNuxtData<Settings | null>('settings')
+    data.value = { showActivity: false } as Settings
+
+    try {
+      const wrapper = await mountSuspended(FriendRow, {
+        props: { friend: friend({ person: person({ isOnline: true }), lastSeenAt: '2026-06-15T08:51:00Z' }), now },
+      })
+
+      expect(wrapper.text()).not.toContain('Online')
+      expect(wrapper.text()).not.toContain('aktiv')
+      expect(wrapper.text()).toContain('@jonas.w')
+      expect(wrapper.find('[style*="--q2-online"]').exists()).toBe(false)
+    }
+    finally {
+      data.value = null
+    }
   })
 
   it('offers a message, labelled with the person, and no way to end the friendship', async () => {

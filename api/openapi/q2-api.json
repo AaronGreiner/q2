@@ -585,6 +585,30 @@
         }
       }
     },
+    "/api/auth/account/export": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Downloads everything q2 holds about the signed-in person: their data as JSON and their own pictures, as one ZIP file.",
+        "operationId": "ExportData",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/session": {
       "get": {
         "tags": [
@@ -4013,7 +4037,8 @@
         "enum": [
           "TaskCompleted",
           "StreakReached",
-          "GoalCreated"
+          "GoalCreated",
+          "BadgeEarned"
         ]
       },
       "ActivityResponse": {
@@ -4888,6 +4913,11 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "dueBy": {
+            "type": "string",
+            "format": "time",
+            "nullable": true
           }
         }
       },
@@ -5112,6 +5142,13 @@
             "type": "string"
           }
         }
+      },
+      "Findability": {
+        "enum": [
+          "Everyone",
+          "Handle",
+          "Link"
+        ]
       },
       "ForgotPasswordRequest": {
         "type": "object",
@@ -5855,6 +5892,7 @@
           "reminderAt",
           "targetDate",
           "startsOn",
+          "dueBy",
           "createdAt",
           "closedAt",
           "participants",
@@ -5964,6 +6002,11 @@
           "startsOn": {
             "type": "string",
             "format": "date",
+            "nullable": true
+          },
+          "dueBy": {
+            "type": "string",
+            "format": "time",
             "nullable": true
           },
           "createdAt": {
@@ -6455,7 +6498,8 @@
           "SpotCheckDue",
           "GoalChangeProposed",
           "GoalChangeLifted",
-          "ReminderDue"
+          "ReminderDue",
+          "BadgeEarned"
         ]
       },
       "NotificationResponse": {
@@ -6560,7 +6604,8 @@
           "quietHoursFrom",
           "quietHoursTo",
           "spotChecks",
-          "reminders"
+          "reminders",
+          "badges"
         ],
         "type": "object",
         "properties": {
@@ -6602,6 +6647,9 @@
             "type": "boolean"
           },
           "reminders": {
+            "type": "boolean"
+          },
+          "badges": {
             "type": "boolean"
           }
         }
@@ -6899,7 +6947,8 @@
           "badges",
           "recentActivity",
           "balance",
-          "atRisk"
+          "atRisk",
+          "thisWeek"
         ],
         "type": "object",
         "properties": {
@@ -6942,6 +6991,9 @@
             "items": {
               "$ref": "#/components/schemas/GoalResponse"
             }
+          },
+          "thisWeek": {
+            "$ref": "#/components/schemas/WeekResponse"
           }
         }
       },
@@ -7365,7 +7417,9 @@
           "theme",
           "language",
           "notifications",
-          "timeZone"
+          "timeZone",
+          "findability",
+          "showActivity"
         ],
         "type": "object",
         "properties": {
@@ -7380,6 +7434,12 @@
           },
           "timeZone": {
             "type": "string"
+          },
+          "findability": {
+            "$ref": "#/components/schemas/Findability"
+          },
+          "showActivity": {
+            "type": "boolean"
           }
         }
       },
@@ -7570,6 +7630,10 @@
           "reminders": {
             "type": "boolean",
             "nullable": true
+          },
+          "badges": {
+            "type": "boolean",
+            "nullable": true
           }
         }
       },
@@ -7635,6 +7699,23 @@
           },
           "timeZone": {
             "type": "string",
+            "nullable": true
+          },
+          "findability": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/Findability"
+              }
+            ]
+          },
+          "showActivity": {
+            "type": "boolean",
             "nullable": true
           }
         }
@@ -7712,6 +7793,43 @@
           "Doubt",
           null
         ]
+      },
+      "WeekResponse": {
+        "required": [
+          "from",
+          "to",
+          "done",
+          "missed",
+          "relapsed",
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "relapsed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "Weekday": {
         "enum": [

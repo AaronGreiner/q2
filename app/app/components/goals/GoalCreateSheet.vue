@@ -79,6 +79,14 @@ const reminderTime = ref('09:00')
 const participantIds = ref<string[]>([])
 
 /*
+ * The time each day ends at instead of midnight — "bis 07:00" (#98). Only for
+ * a Do whose windows are single days; a quota's week and a one-off's day end
+ * at midnight.
+ */
+const withDueBy = ref(false)
+const dueByTime = ref('07:00')
+
+/*
  * Every day, which is what most people mean by a new habit and the one the
  * server assumes when a request says nothing about it.
  */
@@ -92,6 +100,24 @@ const dontLimit = ref<DontLimit>({ limit: 0, period: 'Day', proofMode: 'HonestOn
 
 const isDont = computed(() => kind.value === 'Dont')
 
+const takesDueBy = computed(() => !isDont.value && (schedule.value.kind === 'Interval' || schedule.value.kind === 'Weekdays'))
+const dueBy = computed(() => (takesDueBy.value && withDueBy.value && /^\d{2}:\d{2}$/.test(dueByTime.value) ? dueByTime.value : null))
+
+/** A reminder at or after the day's end would never come (#98). */
+const reminderTooLate = computed(() => Boolean(dueBy.value && withReminder.value && reminderTime.value >= dueBy.value!))
+
+/*
+ * Choosing a time for the day's end moves a reminder that would come after it
+ * to half an hour before — the template's 09:00 against "bis 07:00" — rather
+ * than leaving the person to find out from a refusal.
+ */
+watch(dueBy, (time) => {
+  if (!time || !withReminder.value || reminderTime.value < time) return
+  const [hours, minutes] = time.split(':').map(Number) as [number, number]
+  const before = Math.max(0, hours * 60 + minutes - 30)
+  reminderTime.value = `${String(Math.floor(before / 60)).padStart(2, '0')}:${String(before % 60).padStart(2, '0')}`
+})
+
 const kindOptions = computed(() => [
   { value: 'Do' as const, label: t.value.dont.kindDo },
   { value: 'Dont' as const, label: t.value.dont.kindDont },
@@ -101,6 +127,8 @@ function useTemplate(template: GoalTemplate) {
   title.value = t.value.create.templates[template.key]
   category.value = template.category
   schedule.value = { ...template.schedule }
+  withDueBy.value = Boolean(template.dueBy)
+  if (template.dueBy) dueByTime.value = template.dueBy
 }
 
 function useDontTemplate(template: DontTemplate) {
@@ -128,13 +156,16 @@ const scheduleText = computed(() => (isDont.value
   ? t.value.dont.limit(dontLimit.value.limit, t.value.schedule.period[dontLimit.value.period])
   : schedule.value.kind === 'Once' && targetDate.value
     ? t.value.schedule.onceBy(formatDay(targetDate.value))
-    : scheduleLabel({
-        kind: schedule.value.kind ?? 'Interval',
-        everyDays: schedule.value.everyDays ?? null,
-        weekdays: schedule.value.weekdays ?? [],
-        times: schedule.value.times ?? null,
-        period: schedule.value.period ?? null,
-      }, t.value)))
+    : [
+        scheduleLabel({
+          kind: schedule.value.kind ?? 'Interval',
+          everyDays: schedule.value.everyDays ?? null,
+          weekdays: schedule.value.weekdays ?? [],
+          times: schedule.value.times ?? null,
+          period: schedule.value.period ?? null,
+        }, t.value),
+        ...(dueBy.value ? [t.value.schedule.dueBy(dueBy.value)] : []),
+      ].join(' · ')))
 
 /** Whether the owner chose to start tomorrow (#96). A one-off has its own day. */
 const startsTomorrow = ref(false)
@@ -150,10 +181,20 @@ const start = computed<'today' | 'tomorrow'>({
   set: (value) => { startsTomorrow.value = value === 'tomorrow' },
 })
 
+/**
+ * Today's end has already passed for a day that ends at a time (#98): the
+ * server starts it tomorrow, and the summary says so instead of offering today.
+ */
+const dueByPassed = computed(() => {
+  if (!dueBy.value) return false
+  const clock = new Date(now.value + zone.value * 60_000).toISOString().slice(11, 16)
+  return clock >= dueBy.value
+})
+
 /** The first day the goal counts for. */
 const startDay = computed(() => {
   const today = localDay(now.value, zone.value)
-  return canStartTomorrow.value && startsTomorrow.value ? addDays(today, 1) : today
+  return canStartTomorrow.value && (startsTomorrow.value || dueByPassed.value) ? addDays(today, 1) : today
 })
 
 /**
@@ -175,7 +216,11 @@ const firstWindowText = computed(() => {
   const today = localDay(now.value, zone.value)
   const end = first.value.end
   const words = t.value.create.firstWindowWhen
-  const when = end === today ? words.today : end === addDays(today, 1) ? words.tomorrow : words.on(formatWeekdayDay(end, t.value))
+  const at = t.value.create.firstWindowAt
+  const time = dueBy.value
+  const when = time
+    ? (end === today ? at.today(time) : end === addDays(today, 1) ? at.tomorrow(time) : at.on(formatWeekdayDay(end, t.value), time))
+    : (end === today ? words.today : end === addDays(today, 1) ? words.tomorrow : words.on(formatWeekdayDay(end, t.value)))
 
   return isDont.value
     ? t.value.create.firstWindowLimit(firstAmount.value, when)
@@ -201,14 +246,18 @@ function fieldError(field: string): string | undefined {
 watch(() => props.error, (failure) => {
   if (!failure) return
   if (fieldError('title') || fieldError('description') || fieldError('category')) step.value = 0
-  else if (fieldError('schedule') || fieldError('targetDate') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
+  else if (fieldError('schedule') || fieldError('targetDate') || fieldError('reminderAt') || fieldError('dueBy') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
 
 /** Only blocks the obviously empty cases; the API remains the authority. */
 const canContinue = computed(() => {
   if (step.value === 0) return title.value.trim().length > 0
-  if (step.value === 1) return isDont.value || !withReminder.value || /^\d{2}:\d{2}$/.test(reminderTime.value)
+  if (step.value === 1) {
+    if (isDont.value) return true
+    if (takesDueBy.value && withDueBy.value && !dueBy.value) return false
+    return (!withReminder.value || /^\d{2}:\d{2}$/.test(reminderTime.value)) && !reminderTooLate.value
+  }
   if (step.value === 2) return participantIds.value.length > 0
   return !props.submitting
 })
@@ -249,7 +298,8 @@ function onSubmit() {
         ...described,
         schedule: schedule.value,
         ...(schedule.value.kind === 'Once' ? { targetDate: targetDate.value } : {}),
-        ...(canStartTomorrow.value && startsTomorrow.value ? { startsOn: startDay.value } : {}),
+        ...(canStartTomorrow.value && (startsTomorrow.value || dueByPassed.value) ? { startsOn: startDay.value } : {}),
+        ...(dueBy.value ? { dueBy: `${dueBy.value}:00` } : {}),
         category: category.value,
         reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
         participantIds: [...participantIds.value],
@@ -269,6 +319,8 @@ function reset() {
   dontLimit.value = { limit: 0, period: 'Day', proofMode: 'HonestOnly' }
   withReminder.value = true
   reminderTime.value = '09:00'
+  withDueBy.value = false
+  dueByTime.value = '07:00'
   participantIds.value = []
 }
 
@@ -307,6 +359,8 @@ function startFrom(goal: Goal) {
     }
     withReminder.value = Boolean(goal.reminderAt)
     reminderTime.value = goal.reminderAt?.slice(0, 5) ?? '09:00'
+    withDueBy.value = Boolean(goal.dueBy)
+    dueByTime.value = goal.dueBy?.slice(0, 5) ?? '07:00'
   }
 
   const friendIds = new Set(props.friends.map(friend => friend.person.id))
@@ -548,8 +602,48 @@ defineExpose({ reset, startFrom })
             <SchedulePicker
               v-model="schedule"
               v-model:target-date="targetDate"
+              :due-by="dueBy"
             />
           </UFormField>
+
+          <!-- Only for single days: a quota's week and a one-off's day end at midnight (#98). -->
+          <div
+            v-if="takesDueBy"
+            class="flex flex-col gap-3 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-4 py-3"
+            data-testid="goal-due-by"
+          >
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2.5">
+                <UIcon
+                  name="i-lucide-alarm-clock"
+                  class="size-5 text-(--ui-text-muted)"
+                  aria-hidden="true"
+                />
+                <span class="text-sm font-semibold">{{ t.create.dueByLabel }}</span>
+              </span>
+
+              <AppToggle
+                v-model="withDueBy"
+                :label="t.create.dueByLabel"
+              />
+            </div>
+
+            <UFormField
+              v-if="withDueBy"
+              :label="t.create.dueByTimeLabel"
+              :help="t.create.dueByHint"
+              name="dueBy"
+              :error="fieldError('dueBy')"
+            >
+              <UInput
+                v-model="dueByTime"
+                type="time"
+                size="lg"
+                class="w-full"
+                data-testid="goal-due-by-input"
+              />
+            </UFormField>
+          </div>
 
           <div class="flex flex-col gap-3 rounded-(--q2-radius-lg) border border-(--ui-border) bg-(--q2-surface) px-4 py-3">
             <div class="flex items-center justify-between">
@@ -572,7 +666,7 @@ defineExpose({ reset, startFrom })
               v-if="withReminder"
               :label="t.create.reminderTimeLabel"
               name="reminderAt"
-              :error="fieldError('reminderAt')"
+              :error="fieldError('reminderAt') || (reminderTooLate && dueBy ? t.create.reminderBeforeDueBy(dueBy) : undefined)"
             >
               <UInput
                 v-model="reminderTime"
@@ -677,8 +771,16 @@ defineExpose({ reset, startFrom })
             </div>
           </dl>
 
+          <p
+            v-if="canStartTomorrow && dueByPassed"
+            class="text-sm font-semibold text-(--ui-text-muted)"
+            data-testid="goal-start-after-due-by"
+          >
+            {{ t.create.startsTomorrowAfterDueBy(dueBy ?? '') }}
+          </p>
+
           <div
-            v-if="canStartTomorrow"
+            v-else-if="canStartTomorrow"
             class="flex flex-col gap-2"
             data-testid="goal-start"
           >
@@ -703,7 +805,7 @@ defineExpose({ reset, startFrom })
             />
             <span>
               {{ firstWindowText }}
-              <template v-if="startsTomorrow && canStartTomorrow">
+              <template v-if="(startsTomorrow || dueByPassed) && canStartTomorrow">
                 {{ t.create.startsTomorrowHint }}
               </template>
               <template v-else-if="isShare">

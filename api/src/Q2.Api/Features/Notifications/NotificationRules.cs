@@ -40,6 +40,7 @@ public static class NotificationRules
         NotificationKind.FriendWindowAtRisk => true,
         NotificationKind.GoalChangeProposed => true,
         NotificationKind.GoalChangeLifted => true,
+        NotificationKind.BadgeEarned => true,
 
         _ => throw Undecided(kind),
     };
@@ -63,6 +64,7 @@ public static class NotificationRules
         NotificationKind.ChallengePublished => NotificationSwitch.Challenge,
         NotificationKind.SpotCheckDue => NotificationSwitch.SpotChecks,
         NotificationKind.ReminderDue => NotificationSwitch.Reminders,
+        NotificationKind.BadgeEarned => NotificationSwitch.Badges,
 
         _ => throw Undecided(kind),
     };
@@ -90,6 +92,7 @@ public static class NotificationRules
         NotificationKind.ChallengePublished => LiveArea.Challenge,
         NotificationKind.SpotCheckDue => LiveArea.Goals,
         NotificationKind.ReminderDue => LiveArea.Goals,
+        NotificationKind.BadgeEarned => LiveArea.Notifications,
 
         NotificationKind.ReactionReceived => target switch
         {

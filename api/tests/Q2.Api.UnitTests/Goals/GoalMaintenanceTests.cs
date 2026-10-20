@@ -355,6 +355,39 @@ public class GoalMaintenanceTests
         Assert.Equal(0, goal.Balance.Missed);
     }
 
+    /// <summary>
+    /// A Do that ends at a time of day (#98): its window's deadline is that
+    /// time in the owner's zone, and it is missed then rather than at midnight.
+    /// </summary>
+    [Fact]
+    public void ADayThatEndsAtSevenEndsAtSevenInTheOwnersZone()
+    {
+        var goal = Goal.Create(
+            Guid.CreateVersion7(),
+            Owner,
+            "Vor 7 Uhr aufstehen",
+            null,
+            GoalCategory.Other,
+            GoalSchedule.EveryNDays(1),
+            isGroup: false,
+            reminderAt: new TimeOnly(6, 30),
+            targetDate: null,
+            new DateTimeOffset(Monday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            dueBy: new TimeOnly(7, 0));
+
+        GoalMaintenance.Advance(goal, Berlin, Berlin.StartOfDay(Monday).AddHours(6), Ids);
+
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(Berlin.AtOrAfter(Monday, new TimeOnly(7, 0)), window.DueAt);
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+
+        // A minute past seven, local: missed, and tomorrow's has not begun.
+        GoalMaintenance.Advance(goal, Berlin, Berlin.StartOfDay(Monday).AddHours(7).AddMinutes(1), Ids);
+
+        Assert.Equal(GoalInstanceStatus.Missed, window.Status);
+        Assert.Single(goal.Instances);
+    }
+
     private const string PauseReason = "Grippe, seit Freitag im Bett.";
 
     private static Goal Build(GoalSchedule schedule, DateOnly? targetDate = null) =>

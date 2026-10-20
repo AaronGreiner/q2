@@ -45,7 +45,7 @@ aspirational.
 | Accounts | email address, password **hash**, security stamp, lockout state, the person it signs in as | ASP.NET Core Identity. No plain password is stored anywhere, ever. Nothing beyond what Identity requires — no phone number is collected, and the columns Identity creates for one stay empty. See [adr/0011-authentication-with-identity.md](adr/0011-authentication-with-identity.md). A reset link's token is not stored at all — Identity derives it from the security stamp, which changes with the password — and which account was last mailed one is kept in memory for two minutes, never on disk ([adr/0026-mail-and-password-reset.md](adr/0026-mail-and-password-reset.md)). |
 | Presence | last-seen timestamp | Written by the seeds, and updated when somebody signs in or registers. |
 | Social graph | friendships, who asked whom, and when | One row per pair, holding both ends. Mutual-friend counts are derived on read, never stored. |
-| Activity | what somebody did, when, and who cheered it | The subject is a goal's title, so it inherits its treatment. |
+| Activity | what somebody did, when, and who cheered it | The subject is a goal's title, so it inherits its treatment — or, for a badge earned, the badge's key, which friends see in the feed (#139). |
 | Conversations | who is in which conversation, a group's name and icon, the goal a conversation belongs to, and each member's read marker, mute and pin | Every goal has one, made of its owner and the friends invited to check it; it is removed with the goal and with its owner's account ([adr/0027](adr/0027-goal-conversations.md)). Nobody else can read it. |
 | Messages | text or a photograph, sender, timestamp, reactions, when it was corrected or taken back | The words and pictures people send each other ([adr/0029](adr/0029-photographs-in-conversations.md)). A message its sender takes back keeps only its row and its time: the words are emptied, the photograph is deleted with its bytes, and the reactions go ([adr/0046](adr/0046-looking-after-a-conversation.md)). |
 | Images | the bytes of a picture somebody uploaded, plus its owner, purpose (profile picture, proof, challenge contribution, chat photograph), media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
@@ -122,6 +122,11 @@ the credential and nothing else: it is never shown to another person, never
 searchable — `GET /api/friends/search` matches display names and handles only,
 which is deliberate, because matching addresses would turn it into a way to
 check whether a given address has an account here — and never sent to Sentry.
+How far the name and handle themselves are searchable is each person's choice
+(#106): by everybody, by the whole handle only, or only through their invite
+link; and whether others see when they were last active, which the server then
+withholds from every response
+([adr/0057-who-can-find-you-and-whether-your-activity-shows.md](adr/0057-who-can-find-you-and-whether-your-activity-shows.md)).
 It is also where a reset link goes: asking for one hands the address and the
 link to the mail provider, a processor with the same need for an agreement as
 Sentry ([#33](https://github.com/AaronGreiner/q2/issues/33)). The mail names
@@ -341,8 +346,11 @@ far it has got.
    database, backups and error-reporting data. The database and the image files
    are covered (item 8); backups and Sentry are not
    ([#35](https://github.com/AaronGreiner/q2/issues/35)).
-7. **Right to data portability** (Art. 20): export in a machine-readable
-   format ([#36](https://github.com/AaronGreiner/q2/issues/36)).
+7. **Right to data portability** (Art. 20): done for the database and the
+   image files — `GET /api/auth/account/export`, "Meine Daten herunterladen" in
+   settings, a ZIP of JSON and the person's own pictures
+   ([adr/0058-your-data-as-one-file.md](adr/0058-your-data-as-one-file.md),
+   [#36](https://github.com/AaronGreiner/q2/issues/36)).
 8. **Account recovery and deletion.** Deletion exists: `DELETE /api/auth/account`
    erases the person and everything of theirs, asks for the password again, and
    reaches the image files as well as the rows. Recovery exists too: a link
@@ -361,8 +369,12 @@ far it has got.
 12. **Erasure and export are tested, not only documented.**
     `AccountDeletionTests` demonstrates the erasure over every table that
     pointed at somebody, and it is the test that found the images not
-    cascading. The export needs the same
-    ([#36](https://github.com/AaronGreiner/q2/issues/36)).
+    cascading. Both are now driven by one inventory, `PersonalData`, which a
+    test holds against the model: `DataExportTests` checks the export has a
+    section for every column that names a person, and `AccountDeletionTests`
+    that none of them names the person after an erasure — the test that found
+    votes and reactions left behind
+    ([#141](https://github.com/AaronGreiner/q2/issues/141)).
 13. **Re-decide `sendDefaultPii` and Session Replay** (section 4). Both are
     switched on unconditionally — `sendDefaultPii` in both halves, Session
     Replay for every frontend session — so they apply wherever a DSN is

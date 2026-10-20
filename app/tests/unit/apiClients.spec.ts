@@ -96,6 +96,7 @@ describe('the API modules', () => {
     await api.resetPassword(reset)
     await api.issueTokens(login)
     await api.refreshTokens('refresh.token')
+    await api.exportData()
 
     expect(call.mock.calls).toEqual([
       ['/api/auth/register', { method: 'POST', body: registration }],
@@ -106,6 +107,8 @@ describe('the API modules', () => {
       ['/api/auth/password/reset', { method: 'POST', body: reset }],
       ['/api/auth/token', { method: 'POST', body: login }],
       ['/api/auth/token/refresh', { method: 'POST', body: { refreshToken: 'refresh.token' } }],
+      // A file, read whole and given longer than the client's ten seconds (#36).
+      ['/api/auth/account/export', { method: 'GET', responseType: 'blob', headers: { Accept: 'application/zip' }, timeout: 120_000 }],
     ])
   })
 

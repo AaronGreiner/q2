@@ -62,7 +62,8 @@ public sealed class ProfileService(
             badges,
             await activity.ListOwnAsync(RecentActivityLimit, cancellationToken),
             await BalanceOfAsync(me.Id, cancellationToken),
-            await goals.ListAtRiskAsync(cancellationToken));
+            await goals.ListAtRiskAsync(cancellationToken),
+            await WeekOfAsync(me.Id, today, cancellationToken));
     }
 
     /// <summary>
@@ -129,6 +130,32 @@ public sealed class ProfileService(
                 .ThenByDescending(goal => goal.CreatedAt)
                 .Select(goal => new SharedGoalResponse(goal.Id, goal.Title, goal.Icon, goal.Status))
                 .ToList());
+    }
+
+    /// <summary>
+    /// This week's windows of this person's own goals (#27): those whose last
+    /// day is between this Monday and this Sunday, in their zone.
+    /// </summary>
+    private async Task<WeekResponse> WeekOfAsync(Guid personId, DateOnly today, CancellationToken cancellationToken)
+    {
+        var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var sunday = monday.AddDays(6);
+
+        var windows = await database.GoalInstances
+            .AsNoTracking()
+            .Where(instance => instance.DueOn >= monday
+                && instance.DueOn <= sunday
+                && database.Goals.Any(goal => goal.Id == instance.GoalId && goal.OwnerPersonId == personId))
+            .Select(instance => instance.Status)
+            .ToListAsync(cancellationToken);
+
+        return new WeekResponse(
+            monday,
+            sunday,
+            windows.Count(status => status == GoalInstanceStatus.Done),
+            windows.Count(status => status == GoalInstanceStatus.Missed),
+            windows.Count(status => status == GoalInstanceStatus.Relapse),
+            windows.Count(status => status == GoalInstanceStatus.Open));
     }
 
     /// <summary>Every window this person has ever had, over their own goals.</summary>

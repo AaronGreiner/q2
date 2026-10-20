@@ -210,6 +210,19 @@ public sealed class GoalService(
             throw new DomainValidationException(nameof(request.StartsOn), late.Message, late.Code);
         }
 
+        // A day that ends at seven, made at eleven, is over before it began
+        // (#98): it starts tomorrow, as the summary already said.
+        var startsOn = request.StartsOn;
+        var today = calendar.Today(now);
+
+        if (request.DueBy is { } dueBy
+            && Goal.TakesDueBy(kind, schedule)
+            && (startsOn ?? today) == today
+            && calendar.AtOrAfter(today, new TimeOnly(dueBy.Hour, dueBy.Minute)) <= now)
+        {
+            startsOn = today.AddDays(1);
+        }
+
         var goal = Goal.Create(
             idGenerator.NewId(),
             me.Id,
@@ -224,7 +237,8 @@ public sealed class GoalService(
             kind,
             request.Limit,
             request.ProofMode,
-            request.StartsOn);
+            startsOn,
+            request.DueBy);
 
         // Only friends can be added to a goal. Without that check, a goal is a
         // way to put your name into a stranger's app.

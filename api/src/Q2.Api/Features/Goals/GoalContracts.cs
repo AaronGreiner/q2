@@ -100,9 +100,15 @@ public sealed record GoalInstanceResponse(
 /// The window that is open now, if there is one. Null for a goal that is
 /// finished or archived. For a Don't that relapsed this period it is that
 /// window, decided, until the period is over — "this week" is still the week
-/// of the relapse.
+/// of the relapse. Likewise for a running Do whose window was delivered: that
+/// window, done, until it ends, so a daily Do delivered at noon says
+/// "Geschafft" rather than nothing until midnight (#140).
 /// </param>
 /// <param name="WindowsRelapsed">Don't windows that ended in a relapse; never counted as missed.</param>
+/// <param name="DueBy">
+/// The local time each day of this Do ends at instead of midnight — "bis 07:00"
+/// (#98). Null for the ordinary end of the day, and for a schedule that takes none.
+/// </param>
 /// <param name="RunStartedOn">
 /// For a Don't: the first local day of its current clean run, in the owner's
 /// zone — what "seit X Tagen" counts from. Null for a Do, and when the owner's
@@ -183,6 +189,7 @@ public sealed record GoalResponse(
     TimeOnly? ReminderAt,
     DateOnly? TargetDate,
     DateOnly? StartsOn,
+    TimeOnly? DueBy,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt,
     IReadOnlyList<PersonSummary> Participants,
@@ -205,7 +212,7 @@ public sealed record GoalResponse(
     {
         var (done, missed, relapsed) = goal.Balance;
         var isMine = goal.OwnerPersonId == viewerId;
-        var current = goal.CurrentInstance ?? goal.RelapsedInstanceAt(now);
+        var current = goal.ShownInstanceAt(now);
 
         return new GoalResponse(
             goal.Id,
@@ -228,6 +235,7 @@ public sealed record GoalResponse(
             goal.ReminderAt,
             goal.TargetDate,
             goal.StartsOn,
+            goal.EffectiveDueBy,
             goal.CreatedAt,
             goal.ClosedAt,
 
@@ -620,6 +628,10 @@ public sealed record SetReminderRequest(TimeOnly? ReminderAt = null);
 /// A repeating goal only: the first day it counts for — the owner's today, the
 /// default, or tomorrow (#96).
 /// </param>
+/// <param name="DueBy">
+/// A Do on set days only: the local time each day ends at instead of midnight —
+/// "bis 07:00" (#98). A reminder has to come before it.
+/// </param>
 /// <remarks>
 /// Every property is nullable on purpose: a missing title should produce our
 /// own field-level validation message, not a model-binding failure.
@@ -636,7 +648,8 @@ public sealed record CreateGoalRequest(
     GoalKind? Kind = null,
     int? Limit = null,
     DontProofMode? ProofMode = null,
-    DateOnly? StartsOn = null);
+    DateOnly? StartsOn = null,
+    TimeOnly? DueBy = null);
 
 /// <summary>
 /// Request body for editing a running goal.

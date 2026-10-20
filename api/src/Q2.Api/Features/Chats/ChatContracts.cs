@@ -139,7 +139,9 @@ public sealed record EditMessageRequest(string? Text = null);
 /// <summary>The goal a conversation belongs to, drawn at the top of it.</summary>
 /// <param name="Current">
 /// The window that is open now, so the banner can say "noch 2 von 3" rather
-/// than a percentage of nothing in particular. Null when the goal is finished.
+/// than a percentage of nothing in particular — or, until it ends, the one that
+/// was just delivered or relapsed (<c>Goal.ShownInstanceAt</c>). Null when the
+/// goal is finished.
 /// </param>
 /// <param name="PausedUntil">
 /// The last local day a running pause covers, or null when the goal is not

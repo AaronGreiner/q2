@@ -74,6 +74,18 @@ public static class GoalRisk
     public const int AlertHour = 20;
 
     /// <summary>
+    /// How long before a deadline that is not midnight a window may be reported
+    /// as at risk (#98): the four hours 20:00 is before midnight.
+    /// </summary>
+    public static readonly TimeSpan AlertLead = TimeSpan.FromHours(24 - AlertHour);
+
+    /// <summary>
+    /// The local hour before which no window is reported as at risk, however
+    /// early its deadline: a "bis 07:00" is warned about at six, not at three.
+    /// </summary>
+    public const int EarliestAlertHour = 6;
+
+    /// <summary>
     /// Assesses one window, or returns null when there is nothing worth saying.
     /// </summary>
     /// <param name="calendar">
@@ -110,7 +122,7 @@ public static class GoalRisk
             return null;
         }
 
-        if (calendar.HourOf(now) < AlertHour)
+        if (!IsLate(instance, calendar, now))
         {
             return null;
         }
@@ -129,4 +141,15 @@ public static class GoalRisk
             ? new RiskAssessment(RiskReason.Tight, missing, instance.RequiredProofs, remainingDays)
             : null;
     }
+
+    /// <summary>
+    /// "Late" for this window: from <see cref="AlertHour"/> for one that runs to
+    /// midnight; for one that ends at a time of day (#98), from
+    /// <see cref="AlertLead"/> before it, but never before
+    /// <see cref="EarliestAlertHour"/>.
+    /// </summary>
+    private static bool IsLate(GoalInstance instance, LocalCalendar calendar, DateTimeOffset now) =>
+        instance.DueAt < calendar.EndOfDay(instance.DueOn)
+            ? now >= instance.DueAt - AlertLead && calendar.HourOf(now) >= EarliestAlertHour
+            : calendar.HourOf(now) >= AlertHour;
 }

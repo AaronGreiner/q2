@@ -1,4 +1,5 @@
 using Q2.Api.Features.Notifications;
+using Q2.Api.Features.People;
 
 namespace Q2.Api.Features.Settings;
 
@@ -11,21 +12,31 @@ namespace Q2.Api.Features.Settings;
 /// The zone this person's days are counted in (#9): every deadline, the
 /// streak's day and the quiet hours.
 /// </param>
+/// <param name="Findability">Who can find this person through the search (#106).</param>
+/// <param name="ShowActivity">
+/// Whether others see when this person was last active and whether they are
+/// online — and, the app's half, whether they see anybody else's (#106).
+/// </param>
 public sealed record SettingsResponse(
     ThemePreference Theme,
     LanguagePreference Language,
     NotificationSettingsResponse Notifications,
-    string TimeZone)
+    string TimeZone,
+    Findability Findability,
+    bool ShowActivity)
 {
-    public static SettingsResponse From(UserSettings settings, string timeZone)
+    public static SettingsResponse From(UserSettings settings, Person person, string timeZone)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(person);
 
         return new SettingsResponse(
             settings.Theme,
             settings.Language,
             NotificationSettingsResponse.From(settings.Notifications),
-            timeZone);
+            timeZone,
+            person.Findability,
+            person.ShowsActivity);
     }
 }
 
@@ -53,7 +64,8 @@ public sealed record NotificationSettingsResponse(
     TimeOnly? QuietHoursFrom,
     TimeOnly? QuietHoursTo,
     bool SpotChecks,
-    bool Reminders)
+    bool Reminders,
+    bool Badges)
 {
     public static NotificationSettingsResponse From(NotificationPreferences preferences)
     {
@@ -71,7 +83,8 @@ public sealed record NotificationSettingsResponse(
             preferences.QuietHoursFrom,
             preferences.QuietHoursTo,
             preferences.SpotChecks,
-            preferences.Reminders);
+            preferences.Reminders,
+            preferences.Badges);
     }
 }
 
@@ -93,7 +106,9 @@ public sealed record UpdateSettingsRequest(
     ThemePreference? Theme = null,
     LanguagePreference? Language = null,
     UpdateNotificationSettingsRequest? Notifications = null,
-    string? TimeZone = null);
+    string? TimeZone = null,
+    Findability? Findability = null,
+    bool? ShowActivity = null);
 
 /// <summary>The notification half of <see cref="UpdateSettingsRequest"/>.</summary>
 /// <param name="QuietHoursEnabled">
@@ -114,4 +129,5 @@ public sealed record UpdateNotificationSettingsRequest(
     TimeOnly? QuietHoursFrom = null,
     TimeOnly? QuietHoursTo = null,
     bool? SpotChecks = null,
-    bool? Reminders = null);
+    bool? Reminders = null,
+    bool? Badges = null);

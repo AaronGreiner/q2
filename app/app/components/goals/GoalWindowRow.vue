@@ -151,7 +151,7 @@ const left = computed(() => {
           v-if="currentWindow && !(left && currentWindow.requiredProofs === 1)"
           class="text-[11px] font-bold text-(--ui-text-muted)"
           data-testid="window-remaining"
-        >{{ windowLabel(currentWindow, t) }}</span>
+        >{{ windowLabel(currentWindow, t, goal.dueBy) }}</span>
 
         <span
           v-if="left"
@@ -188,7 +188,7 @@ const left = computed(() => {
       v-if="currentWindow && currentWindow.requiredProofs > 1"
       :percent="windowPercent(currentWindow)"
       :size="34"
-      :label="windowLabel(currentWindow, t)"
+      :label="windowLabel(currentWindow, t, goal.dueBy)"
     >
       <span class="text-[10px] font-extrabold">{{ currentWindow.confirmedProofs }}</span>
     </AppProgressRing>

@@ -53,6 +53,7 @@ export type GoalWindow = Schemas['GoalInstanceResponse']
 export type GoalWindowStatus = Schemas['GoalInstanceStatus']
 
 export type Balance = Schemas['BalanceResponse']
+export type Week = Schemas['WeekResponse']
 export type PersonProfile = Schemas['PersonProfileResponse']
 export type SharedGoal = Schemas['SharedGoalResponse']
 export type Risk = Schemas['RiskResponse']
@@ -155,6 +156,7 @@ export type Profile = Schemas['ProfileResponse']
 export type UpdateProfileRequest = Schemas['UpdateProfileRequest']
 export type Badge = Schemas['BadgeResponse']
 export type BadgeKey = Schemas['BadgeKey']
+export type Findability = Schemas['Findability']
 
 export type PushKey = Schemas['PushKeyResponse']
 

@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { BadgeKey, DontProofMode, DoubtReason, GoalCategory, GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
+import type { BadgeKey, DontProofMode, Findability, DoubtReason, GoalCategory, GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -343,6 +343,11 @@ export const de = {
     friendsSearch: 'Freunde durchsuchen',
     friendsNoMatch: 'Niemand mit diesem Namen.',
     reminderTimeLabel: 'Uhrzeit der Erinnerung',
+    dueByLabel: 'Bis zu einer Uhrzeit',
+    dueByTimeLabel: 'Erledigt bis',
+    dueByHint: 'Danach zählt der Tag als verpasst — für „vor 7 Uhr aufstehen“ zum Beispiel.',
+    reminderBeforeDueBy: (time: string) => `Die Erinnerung muss vor ${time} liegen.`,
+    startsTomorrowAfterDueBy: (time: string) => `Heute ist es schon nach ${time} — es geht morgen los.`,
     reviewTitle: 'Was',
     reviewDescription: 'Was zählt',
     reviewSchedule: 'Rhythmus',
@@ -354,6 +359,11 @@ export const de = {
       today: 'heute um Mitternacht',
       tomorrow: 'morgen um Mitternacht',
       on: (day: string) => `${day} um Mitternacht`,
+    },
+    firstWindowAt: {
+      today: (time: string) => `heute um ${time}`,
+      tomorrow: (time: string) => `morgen um ${time}`,
+      on: (day: string, time: string) => `${day} um ${time}`,
     },
     firstWindowProofs: (count: number, when: string) => (count === 1
       ? `Dein erstes Fenster: 1 Nachweis bis ${when}.`
@@ -378,6 +388,7 @@ export const de = {
   schedule: {
     once: 'Einmalig',
     onceBy: (day: string) => `Einmalig · bis ${day}`,
+    dueBy: (time: string) => `bis ${time}`,
     everyDay: 'Jeden Tag',
     everyNDays: (days: number) => (days === 1 ? 'Jeden Tag' : days === 7 ? 'Jede Woche' : `Alle ${days} Tage`),
     timesPer: (times: number, period: string) => `${times}× pro ${period}`,
@@ -398,6 +409,9 @@ export const de = {
     explainDaily: 'Jeden Tag ein Nachweis, bis Mitternacht.',
     explainInterval: 'Im gewählten Abstand ein Nachweis, jeweils bis Mitternacht.',
     explainWeekdays: 'An den gewählten Tagen ein Nachweis, jeweils bis Mitternacht.',
+    explainDailyBy: (time: string) => `Jeden Tag ein Nachweis, bis ${time}.`,
+    explainIntervalBy: (time: string) => `Im gewählten Abstand ein Nachweis, jeweils bis ${time}.`,
+    explainWeekdaysBy: (time: string) => `An den gewählten Tagen ein Nachweis, jeweils bis ${time}.`,
     explainTimes: (times: number, period: string) =>
       `${times} Nachweise pro ${period} — wann genau, ist dir überlassen.`,
   },
@@ -474,6 +488,7 @@ export const de = {
   window: {
     remaining: (remaining: number, required: number) => `Noch ${remaining} von ${required}`,
     dueToday: 'Heute fällig',
+    dueTodayBy: (time: string) => `Heute bis ${time}`,
     dueBy: (day: string) => `Bis ${day}`,
     on: (day: string) => `Am ${day}`,
     from: (day: string) => `Ab ${day}`,
@@ -1223,6 +1238,7 @@ export const de = {
       risk: 'Wird knapp',
       spotCheck: 'Stichprobe',
       reminder: 'Erinnerung',
+      badge: 'Abzeichen',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'Neue Nachricht',
@@ -1256,6 +1272,7 @@ export const de = {
       : `droht „${goal}“ zu verpassen — es fehlen noch ${missing} Nachweise.`),
     spotCheckDue: (goal: string) => `„${goal}“: Zeig in den nächsten drei Minuten live, was du gerade machst.`,
     reminderDue: (goal: string) => `„${goal}“ ist heute noch offen.`,
+    badgeEarned: (badge: string) => `Du hast das Abzeichen „${badge}“ verdient.`,
   },
 
   /**
@@ -1280,6 +1297,7 @@ export const de = {
     spotChecks: 'Stichproben bei deinen Don’ts',
     reminders: 'Deine täglichen Erinnerungen',
     reactions: 'Kudos & Reaktionen',
+    badges: 'Deine Abzeichen',
     dailyChallenge: 'Challenge des Tages',
     switchesNote: 'Die Schalter entscheiden, was dich unterbrechen darf: ein Push auf dem Handy oder ein Hinweis oben in der offenen App. In der Glocke steht trotzdem alles.',
   },
@@ -1316,6 +1334,8 @@ export const de = {
     nothingShared: 'Ihr habt noch nichts gemeinsam.',
     nothingSharedHint: 'Die Bilanz zeigt nur Dos & Don’ts, auf die ihr beide eingeladen seid.',
     sharedGoals: (count: number) => (count === 1 ? '1 gemeinsames Do oder Don’t' : `${count} gemeinsame Dos & Don’ts`),
+    thisWeek: 'Diese Woche',
+    open: 'offen',
   },
 
   person: {
@@ -1388,8 +1408,24 @@ export const de = {
     editProfile: 'Profil bearbeiten',
     changePassword: 'Passwort ändern',
     privacy: 'Privatsphäre',
+    privacyNote: 'Freunde und offene Anfragen finden dich immer. Wer nicht über den Namen zu finden ist, wird auch nicht als Freund von Freunden vorgeschlagen.',
+    findabilityLabel: 'Wer kann dich finden?',
+    findability: {
+      Everyone: 'Alle',
+      Handle: 'Per Handle',
+      Link: 'Per Link',
+    } satisfies Record<Findability, string>,
+    findabilityEveryone: 'Jeder findet dich über deinen Namen oder dein Handle.',
+    findabilityHandle: (handle: string) => `Nur wer dein ganzes Handle kennt – ${handle} – findet dich in der Suche.`,
+    findabilityLink: 'Niemand findet dich über die Suche, nur über deinen Einladungslink.',
+    showActivity: 'Zuletzt aktiv zeigen',
+    showActivityNote: 'Aus: Niemand sieht, ob du online bist oder wann du zuletzt aktiv warst – und du siehst es bei anderen auch nicht.',
     help: 'Hilfe & Support',
-    accountNote: 'Privatsphäre-Einstellungen und Hilfe gibt es noch nicht.',
+    accountNote: 'Hilfe gibt es noch nicht.',
+    dataHeading: 'Deine Daten',
+    dataNote: 'Alles, was Qdos über dich speichert, als ZIP-Datei: deine Daten als JSON und deine eigenen Bilder. Nachrichten und Bilder anderer gehören nicht dazu.',
+    exportData: 'Meine Daten herunterladen',
+    exportFailed: 'Der Export hat nicht geklappt. Versuch es gleich noch einmal.',
     version: (version: string) => `${productName} · ${version}`,
   },
 
@@ -1421,6 +1457,7 @@ export const de = {
     taskCompleted: (subject: string) => `hat bei „${subject}“ geliefert`,
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht`,
     goalCreated: (subject: string) => `hat sich etwas vorgenommen: ${subject}`,
+    badgeEarned: (badge: string) => `hat das Abzeichen „${badge}“ verdient`,
     /** Named after the line, so five buttons on one screen are five different buttons (#103). */
     giveKudos: (line: string) => `Kudos geben: ${line}`,
     takeBackKudos: (line: string) => `Kudos zurücknehmen: ${line}`,
@@ -1855,6 +1892,11 @@ export const en: Messages = {
     friendsSearch: 'Search friends',
     friendsNoMatch: 'Nobody by that name.',
     reminderTimeLabel: 'Reminder time',
+    dueByLabel: 'By a time of day',
+    dueByTimeLabel: 'Done by',
+    dueByHint: 'After that the day counts as missed — for “up before 7”, say.',
+    reminderBeforeDueBy: (time: string) => `The reminder has to come before ${time}.`,
+    startsTomorrowAfterDueBy: (time: string) => `It is already past ${time} today — it starts tomorrow.`,
     reviewTitle: 'What',
     reviewDescription: 'What counts',
     reviewSchedule: 'Rhythm',
@@ -1865,6 +1907,11 @@ export const en: Messages = {
       today: 'midnight tonight',
       tomorrow: 'midnight tomorrow',
       on: (day: string) => `midnight on ${day}`,
+    },
+    firstWindowAt: {
+      today: (time: string) => `${time} today`,
+      tomorrow: (time: string) => `${time} tomorrow`,
+      on: (day: string, time: string) => `${time} on ${day}`,
     },
     firstWindowProofs: (count: number, when: string) => (count === 1
       ? `Your first window: 1 proof by ${when}.`
@@ -1882,6 +1929,7 @@ export const en: Messages = {
   schedule: {
     once: 'Once',
     onceBy: (day: string) => `Once · by ${day}`,
+    dueBy: (time: string) => `by ${time}`,
     everyDay: 'Every day',
     everyNDays: (days: number) => (days === 1 ? 'Every day' : days === 7 ? 'Every week' : `Every ${days} days`),
     timesPer: (times: number, period: string) => `${times}× per ${period}`,
@@ -1902,6 +1950,9 @@ export const en: Messages = {
     explainDaily: 'One proof every day, by midnight.',
     explainInterval: 'One proof at the chosen interval, each by midnight.',
     explainWeekdays: 'One proof on each chosen day, by midnight.',
+    explainDailyBy: (time: string) => `One proof every day, by ${time}.`,
+    explainIntervalBy: (time: string) => `One proof at the chosen interval, each by ${time}.`,
+    explainWeekdaysBy: (time: string) => `One proof on each chosen day, by ${time}.`,
     explainTimes: (times: number, period: string) =>
       `${times} proofs per ${period} — when exactly is up to you.`,
   },
@@ -1965,6 +2016,7 @@ export const en: Messages = {
   window: {
     remaining: (remaining: number, required: number) => `${remaining} of ${required} left`,
     dueToday: 'Due today',
+    dueTodayBy: (time: string) => `Today by ${time}`,
     dueBy: (day: string) => `By ${day}`,
     on: (day: string) => `On ${day}`,
     from: (day: string) => `From ${day}`,
@@ -2596,6 +2648,7 @@ export const en: Messages = {
       risk: 'Getting tight',
       spotCheck: 'Spot check',
       reminder: 'Reminder',
+      badge: 'Badge',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'New message',
@@ -2629,6 +2682,7 @@ export const en: Messages = {
       : `is about to miss “${goal}” — ${missing} proofs still missing.`),
     spotCheckDue: (goal: string) => `“${goal}”: show, live, what you are doing — within three minutes.`,
     reminderDue: (goal: string) => `“${goal}” is still open today.`,
+    badgeEarned: (badge: string) => `You earned the “${badge}” badge.`,
   },
 
   notificationSettings: {
@@ -2648,6 +2702,7 @@ export const en: Messages = {
     spotChecks: 'Spot checks on your Don’ts',
     reminders: 'Your daily reminders',
     reactions: 'Kudos & reactions',
+    badges: 'Your badges',
     dailyChallenge: 'Challenge of the day',
     switchesNote: 'The switches decide what may interrupt you: a push on your phone, or a banner at the top of the open app. The bell keeps everything either way.',
   },
@@ -2683,6 +2738,8 @@ export const en: Messages = {
     nothingShared: 'You have nothing together yet.',
     nothingSharedHint: 'A record only covers Dos & Don’ts you are both on.',
     sharedGoals: (count: number) => (count === 1 ? '1 shared Do or Don’t' : `${count} shared Dos & Don’ts`),
+    thisWeek: 'This week',
+    open: 'open',
   },
 
   person: {
@@ -2755,8 +2812,24 @@ export const en: Messages = {
     editProfile: 'Edit profile',
     changePassword: 'Change password',
     privacy: 'Privacy',
+    privacyNote: 'Friends and open requests always find you. Whoever cannot be found by name is not suggested as a friend of a friend either.',
+    findabilityLabel: 'Who can find you?',
+    findability: {
+      Everyone: 'Everyone',
+      Handle: 'By handle',
+      Link: 'By link',
+    } satisfies Record<Findability, string>,
+    findabilityEveryone: 'Anyone finds you by your name or your handle.',
+    findabilityHandle: (handle: string) => `Only someone who knows your whole handle – ${handle} – finds you in the search.`,
+    findabilityLink: 'Nobody finds you through the search, only through your invite link.',
+    showActivity: 'Show when you were last active',
+    showActivityNote: 'Off: nobody sees whether you are online or when you were last active – and you do not see it for others either.',
     help: 'Help & support',
-    accountNote: 'Privacy settings and help do not exist yet.',
+    accountNote: 'Help does not exist yet.',
+    dataHeading: 'Your data',
+    dataNote: 'Everything Qdos keeps about you, as a ZIP file: your data as JSON and your own pictures. Other people’s messages and pictures are not part of it.',
+    exportData: 'Download my data',
+    exportFailed: 'The export did not work. Try again in a moment.',
     version: (version: string) => `${productName} · ${version}`,
   },
 
@@ -2783,6 +2856,7 @@ export const en: Messages = {
     taskCompleted: (subject: string) => `delivered for “${subject}”`,
     streakReached: (days: number) => `reached a ${days}-day streak`,
     goalCreated: (subject: string) => `made a new commitment: ${subject}`,
+    badgeEarned: (badge: string) => `earned the “${badge}” badge`,
     giveKudos: (line: string) => `Give kudos: ${line}`,
     takeBackKudos: (line: string) => `Take kudos back: ${line}`,
     openPerson: (name: string) => `Open ${name}'s profile`,

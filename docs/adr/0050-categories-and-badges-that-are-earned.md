@@ -3,7 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-19
 **Issues:** [#18](https://github.com/AaronGreiner/q2/issues/18),
-[#22](https://github.com/AaronGreiner/q2/issues/22)
+[#22](https://github.com/AaronGreiner/q2/issues/22),
+[#139](https://github.com/AaronGreiner/q2/issues/139) (announcing them)
 **Amends:** [0032 — The next step first](0032-the-next-step-first.md), which
 hid the badges "until something awards them", and
 [0015 — The Qdos design language](0015-qdos-design-language.md), whose goal
@@ -70,6 +71,13 @@ Each of the six is earned with windows, photographs or kudos
 - The contract: `category` on goals, waiting Dos and their requests;
   `categoryFrom`/`categoryTo` instead of `iconFrom`/`iconTo` on an edit. An
   unknown category name does not bind and is a 400.
-- Earning a badge is not announced — no notification, no line in the feed.
-  That would be a decision of its own.
+- ~~Earning a badge is not announced — no notification, no line in the feed.
+  That would be a decision of its own.~~ Decided in
+  [#139](https://github.com/AaronGreiner/q2/issues/139): the earner gets a line
+  in their bell (`NotificationKind.BadgeEarned`, kept, behind a switch of its
+  own, "Deine Abzeichen", on by default) and their friends a line in the feed
+  (`ActivityKind.BadgeEarned`, which takes kudos like any other). Both carry
+  the badge's key, which the client names in the reader's language, and both
+  are staged by `BadgeAwarder` in the same unit of work as the badge. Nobody
+  is told of a badge somebody *lacks*, and nothing counts or ranks them.
 - Badges are shown on your own profile only, as before.

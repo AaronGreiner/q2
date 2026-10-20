@@ -86,6 +86,10 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
 
         builder.Property(g => g.StartsOn);
 
+        // The time a Do's day ends at instead of midnight (#98).
+        builder.Property(g => g.DueBy);
+        builder.Ignore(g => g.EffectiveDueBy);
+
         builder.Property(g => g.CreatedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);

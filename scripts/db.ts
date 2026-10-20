@@ -15,9 +15,10 @@
  * database file both look like a local test database — see
  * api/src/Q2.Api/Infrastructure/Persistence/DatabaseResetGuard.cs.
  */
-import { join } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { envFileDefaults } from './lib/dotenv.ts'
-import { apiDir, apiProjectDir, dotnetRunApi, repoRoot } from './lib/paths.ts'
+import { apiDir, apiProjectDir, apiSolution, dotnetRunApi, repoRoot } from './lib/paths.ts'
 import { failure, info, run } from './lib/proc.ts'
 
 const KNOWN_COMMANDS = ['migrate', 'seed', 'reset', 'reset-and-seed', 'add-migration'] as const
@@ -65,6 +66,9 @@ if (command === 'add-migration') {
   })
   if (restore !== 0) process.exit(restore)
 
+  const migrationsDir = join(apiProjectDir, 'Infrastructure', 'Persistence', 'Migrations')
+  const existing = new Set(readdirSync(migrationsDir))
+
   const code = await run({
     label: `ef migrations add ${name}`,
     cmd: 'dotnet',
@@ -81,7 +85,24 @@ if (command === 'add-migration') {
     cwd: repoRoot,
     env,
   })
-  process.exit(code)
+  if (code !== 0) process.exit(code)
+
+  // EF writes block-scoped namespaces and a byte-order mark, and the style
+  // gate (`dotnet format --verify-no-changes` in `validate`) rejects both.
+  // Only the files this scaffold wrote are formatted: the new migration, its
+  // designer file and the snapshot it rewrote.
+  const written = [
+    ...readdirSync(migrationsDir).filter(file => !existing.has(file)),
+    'Q2DbContextModelSnapshot.cs',
+  ].map(file => relative(repoRoot, join(migrationsDir, file)))
+
+  const formatted = await run({
+    label: 'dotnet format (the new migration)',
+    cmd: 'dotnet',
+    args: ['format', apiSolution, '--include', ...written],
+    cwd: repoRoot,
+  })
+  process.exit(formatted)
 }
 
 const code = await run({

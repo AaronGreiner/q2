@@ -370,9 +370,13 @@ function onScroll() {
   void loadOlderNearTop()
 }
 
+// Somebody who hides their own activity sees nobody's (#106).
+const seesActivity = useSeesActivity()
+
 const status = computed(() => {
   if (!chat.value) return ''
   if (chat.value.kind !== 'Direct') return t.value.chats.members(chat.value.memberCount)
+  if (!seesActivity.value) return ''
   if (chat.value.isOnline) return t.value.chats.online
   if (chat.value.otherLastSeenAt) {
     return t.value.chats.lastSeen(formatRelativeTime(chat.value.otherLastSeenAt, now.value, t.value))
@@ -451,7 +455,10 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
             data-q2-private
           >
             <span class="block truncate text-[15px] font-extrabold">{{ chat.name }}</span>
-            <span class="block truncate text-[11px] font-bold text-(--ui-text-muted)">{{ status }}</span>
+            <span
+              v-if="status"
+              class="block truncate text-[11px] font-bold text-(--ui-text-muted)"
+            >{{ status }}</span>
             <span class="sr-only">{{ t.chats.openInfo }}</span>
           </span>
         </button>

@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Activity;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
@@ -23,6 +25,12 @@ namespace Q2.Api.Features.People;
 /// notices a week that has ended. Nothing here saves; it returns whether there
 /// is anything to save.
 ///
+/// A badge awarded is announced in the same unit of work (#139): a line in the
+/// person's own bell, through the badge switch, and a line in their friends'
+/// feed, which takes kudos like any other. Both are staged here and land with
+/// the caller's save; the caller flushes the notifier after it, as it does for
+/// everything else it staged.
+///
 /// Only what is still missing is asked about, and somebody who has every
 /// badge costs one read.
 /// </remarks>
@@ -30,7 +38,9 @@ public sealed class BadgeAwarder(
     Q2DbContext database,
     TimeZoneResolver timeZones,
     IIdGenerator idGenerator,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ActivityRecorder activity,
+    Notifier notifier)
 {
     /// <summary>Awards what each of these people has earned. True when anybody got one.</summary>
     public async Task<bool> AwardEarnedAsync(IEnumerable<Guid> personIds, CancellationToken cancellationToken)
@@ -71,8 +81,9 @@ public sealed class BadgeAwarder(
             return false;
         }
 
+        var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(person.TimeZoneId);
-        var today = calendar.Today(timeProvider.GetUtcNow());
+        var today = calendar.Today(now);
         var earned = new List<BadgeKey>();
 
         if (missing.Contains(BadgeKey.StreakHero) && BadgeRules.IsStreakHero(person.CheckIns.Select(day => day.Date)))
@@ -148,6 +159,17 @@ public sealed class BadgeAwarder(
         foreach (var badge in earned)
         {
             person.AwardBadge(idGenerator.NewId(), badge, today);
+            activity.Publish(person.Id, ActivityKind.BadgeEarned, badge.ToString(), null, now);
+
+            await notifier.StageAsync(
+                new NotificationEvent(
+                    NotificationKind.BadgeEarned,
+                    ActorPersonId: null,
+                    NotificationTarget.Person,
+                    person.Id,
+                    Detail: badge.ToString()),
+                [person.Id],
+                cancellationToken);
         }
 
         return earned.Count > 0;

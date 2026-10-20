@@ -51,6 +51,7 @@ const friendsAtRisk = toggle('friendsAtRisk')
 const spotChecks = toggle('spotChecks')
 const reminders = toggle('reminders')
 const reactions = toggle('reactions')
+const badges = toggle('badges')
 const challenge = toggle('challenge')
 
 /*
@@ -185,6 +186,13 @@ useHead({ title: () => t.value.notificationSettings.heading })
           v-model="reactions"
           icon="i-lucide-hand-heart"
           :label="t.notificationSettings.reactions"
+        />
+        <!-- A badge your record earned (#139); friends see it in the feed
+             whatever this says. -->
+        <SettingsToggleRow
+          v-model="badges"
+          icon="i-lucide-award"
+          :label="t.notificationSettings.badges"
         />
       </SettingsSection>
 

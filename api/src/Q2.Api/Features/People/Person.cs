@@ -121,6 +121,24 @@ public sealed class Person
     /// </summary>
     public string? Bio { get; private set; }
 
+    /// <summary>Who can find this person through the search (#106).</summary>
+    public Findability Findability { get; private set; } = Findability.Everyone;
+
+    /// <summary>
+    /// Whether others may see when this person was last active, and whether
+    /// they are online (#106). On by default, as it always was.
+    /// </summary>
+    /// <remarks>
+    /// Off withholds both from every response that would carry them
+    /// (<see cref="IsOnlineAt"/>, <see cref="VisibleLastSeenAt"/>). The other
+    /// half of the deal — whoever hides theirs does not see anybody else's —
+    /// is the app's, which knows its reader's choice (ADR 0057).
+    /// </remarks>
+    public bool ShowsActivity { get; private set; } = true;
+
+    /// <summary>When this person was last active, unless they keep it to themselves.</summary>
+    public DateTimeOffset? VisibleLastSeenAt => ShowsActivity ? LastSeenAt : null;
+
     /// <summary>
     /// The IANA zone this person's days are counted in — "Europe/Berlin".
     /// </summary>
@@ -348,6 +366,19 @@ public sealed class Person
 
     public void SetLastSeen(DateTimeOffset lastSeenAt) => LastSeenAt = lastSeenAt;
 
+    /// <summary>Who can find this person, and whether their activity shows (#106).</summary>
+    /// <exception cref="DomainValidationException">A findability that does not exist.</exception>
+    public void SetPrivacy(Findability findability, bool showsActivity)
+    {
+        if (!Enum.IsDefined(findability))
+        {
+            throw new DomainValidationException(nameof(Findability), "That is not a choice.");
+        }
+
+        Findability = findability;
+        ShowsActivity = showsActivity;
+    }
+
     /// <summary>Records that the bell was opened. Never moves backwards.</summary>
     public void MarkNotificationsSeen(DateTimeOffset seenAt)
     {
@@ -405,8 +436,9 @@ public sealed class Person
 
     public void WithdrawKudos() => KudosReceived = Math.Max(0, KudosReceived - 1);
 
+    /// <summary>Online now, as others are told — never for somebody who hides it (#106).</summary>
     public bool IsOnlineAt(DateTimeOffset now) =>
-        LastSeenAt is { } seen && now - seen <= OnlineWindow;
+        ShowsActivity && LastSeenAt is { } seen && now - seen <= OnlineWindow;
 
     /// <summary>
     /// Records that this person did something towards a goal on

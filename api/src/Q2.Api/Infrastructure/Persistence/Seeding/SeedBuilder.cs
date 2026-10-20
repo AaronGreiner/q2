@@ -197,6 +197,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         TimeOnly? reminderAt = null,
         DateOnly? targetDate = null,
         Person? owner = null,
+        TimeOnly? dueBy = null,
         params Person[] participants)
     {
         var goal = Goal.Create(
@@ -209,7 +210,8 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             isGroup,
             reminderAt,
             targetDate,
-            Context.DaysAgo(createdDaysAgo));
+            Context.DaysAgo(createdDaysAgo),
+            dueBy: dueBy);
 
         return Register(goal, schedule, history, confirmedNow, targetDate, participants);
     }
@@ -363,11 +365,14 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
         for (var index = 0; index < past.Count; index++)
         {
             var window = past[index];
+
+            // Midnight, or the time this goal's day ends at (#98).
+            var due = goal.DueAtOn(window.End, calendar);
             var instance = goal.OpenWindow(
                 NextId(SeedEntity.GoalInstance),
                 window,
                 calendar.StartOfDay(window.Start),
-                calendar.EndOfDay(window.End));
+                due);
 
             if (instance is null)
             {
@@ -378,12 +383,12 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             {
                 for (var proof = 0; proof < instance.RequiredProofs; proof++)
                 {
-                    instance.RecordProof(calendar.EndOfDay(window.End));
+                    instance.RecordProof(due);
                 }
 
                 // A Don't is kept by its period running out, not by the
                 // photograph.
-                instance.Expire(calendar.EndOfDay(window.End).AddTicks(1));
+                instance.Expire(due.AddTicks(1));
             }
             else if (outcomes[index] == 's' && instance.IsDont)
             {
@@ -401,7 +406,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             }
             else
             {
-                instance.Miss(calendar.EndOfDay(window.End).AddTicks(1));
+                instance.Miss(due.AddTicks(1));
             }
         }
 
@@ -409,7 +414,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             NextId(SeedEntity.GoalInstance),
             current,
             calendar.StartOfDay(current.Start),
-            calendar.EndOfDay(current.End));
+            goal.DueAtOn(current.End, calendar));
 
         for (var proof = 0; open is not null && proof < confirmedNow; proof++)
         {

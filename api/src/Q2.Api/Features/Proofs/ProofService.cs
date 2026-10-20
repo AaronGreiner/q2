@@ -498,6 +498,9 @@ public sealed class ProofService(
         if (proof.Status == ProofStatus.Confirmed && await badges.AwardEarnedAsync(ownerId, cancellationToken))
         {
             await database.SaveChangesAsync(cancellationToken);
+
+            // The badge's line in the owner's bell (#139).
+            await notifier.FlushAsync(cancellationToken);
         }
     }
 

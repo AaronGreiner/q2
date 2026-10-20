@@ -25,6 +25,16 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
         builder.Property(p => p.Bio)
             .HasMaxLength(Person.MaxBioLength);
 
+        builder.Property(p => p.Findability)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>()
+            .HasDefaultValue(Findability.Everyone);
+
+        builder.Property(p => p.ShowsActivity)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(p => p.Handle)
             .IsRequired()
             .HasMaxLength(Person.MaxHandleLength);

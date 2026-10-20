@@ -12,13 +12,16 @@ export interface GoalTemplate {
   key: 'run' | 'read' | 'water' | 'early' | 'gym' | 'tidy'
   category: GoalCategory
   schedule: GoalScheduleRequest
+  /** The time each day ends at, for an idea that is about the time (#98). */
+  dueBy?: string
 }
 
 export const goalTemplates: readonly GoalTemplate[] = [
   { key: 'run', category: 'Sport', schedule: { kind: 'Times', times: 3, period: 'Week' } },
   { key: 'read', category: 'Reading', schedule: { kind: 'Interval', everyDays: 1 } },
   { key: 'water', category: 'Other', schedule: { kind: 'Interval', everyDays: 1 } },
-  { key: 'early', category: 'Other', schedule: { kind: 'Interval', everyDays: 1 } },
+  // "Vor 7 Uhr" is checked, not only said: the day ends at seven (#98).
+  { key: 'early', category: 'Other', schedule: { kind: 'Interval', everyDays: 1 }, dueBy: '07:00' },
   { key: 'gym', category: 'Sport', schedule: { kind: 'Times', times: 2, period: 'Week' } },
   { key: 'tidy', category: 'Other', schedule: { kind: 'Weekdays', weekdays: ['Sunday'] } },
 ]

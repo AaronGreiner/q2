@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, DoubtReason, Goal, GoalCategory, GoalKind, PauseAllResult, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
+import type { Activity, BadgeKey, DoubtReason, Goal, GoalCategory, GoalKind, PauseAllResult, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
 import { voteRules } from '~/api/types'
 
 /**
@@ -207,9 +207,21 @@ export function activitySentence(activity: Activity, t: Messages): string {
       return t.activity.streakReached(activity.amount ?? 0)
     case 'GoalCreated':
       return t.activity.goalCreated(activity.subject ?? '')
+    case 'BadgeEarned':
+      return t.activity.badgeEarned(badgeName(activity.subject, t))
     default:
       return activity.subject ?? ''
   }
+}
+
+/**
+ * A badge's name in the reader's language, from the key the server sends
+ * (#139). A key this build does not know yet is shown as it came rather than
+ * as nothing.
+ */
+export function badgeName(key: string | null | undefined, t: Messages): string {
+  if (!key) return ''
+  return key in t.badges.name ? t.badges.name[key as BadgeKey] : key
 }
 
 /**
@@ -266,12 +278,15 @@ export function scheduleLabel(schedule: GoalSchedule, t: Messages): string {
  * by when: "Einmalig · bis 31.10.".
  */
 export function goalScheduleLabel(
-  goal: Pick<Goal, 'kind' | 'limit' | 'schedule'> & Partial<Pick<Goal, 'targetDate'>>,
+  goal: Pick<Goal, 'kind' | 'limit' | 'schedule'> & Partial<Pick<Goal, 'targetDate' | 'dueBy'>>,
   t: Messages,
 ): string {
   // A one-off says by when, which is the only thing about it that varies (#94).
   if (goal.schedule.kind === 'Once' && goal.targetDate) return t.schedule.onceBy(formatDay(goal.targetDate))
-  if (goal.kind !== 'Dont') return scheduleLabel(goal.schedule, t)
+
+  // A day that ends at a time says so next to its rhythm (#98).
+  const dueBy = formatClock(goal.dueBy ?? null)
+  if (goal.kind !== 'Dont') return dueBy ? `${scheduleLabel(goal.schedule, t)} · ${t.schedule.dueBy(dueBy)}` : scheduleLabel(goal.schedule, t)
 
   return t.dont.limit(goal.limit ?? 0, t.schedule.period[goal.schedule.period ?? 'Day'])
 }
@@ -292,14 +307,18 @@ export function runDays(runStartedOn: string, today: string): number {
 }
 
 /** The sentence under the picker, which says what the choice actually means. */
-export function scheduleExplanation(schedule: GoalSchedule, t: Messages): string {
+export function scheduleExplanation(schedule: GoalSchedule, t: Messages, dueBy: string | null = null): string {
+  // A day that ends at a time says so instead of midnight (#98).
+  const time = formatClock(dueBy)
+
   switch (schedule.kind) {
     case 'Once':
       return t.schedule.explainOnce
     case 'Interval':
+      if (time) return schedule.everyDays === 1 ? t.schedule.explainDailyBy(time) : t.schedule.explainIntervalBy(time)
       return schedule.everyDays === 1 ? t.schedule.explainDaily : t.schedule.explainInterval
     case 'Weekdays':
-      return t.schedule.explainWeekdays
+      return time ? t.schedule.explainWeekdaysBy(time) : t.schedule.explainWeekdays
     case 'Times':
       return t.schedule.explainTimes(schedule.times ?? 1, t.schedule.period[schedule.period ?? 'Week'])
     default:
@@ -342,18 +361,26 @@ const weekdayOrder: readonly Weekday[] = [
  * What is left of the open window: "Noch 2 von 3" — or "Heute fällig" when one
  * proof is the whole of it, because "noch 1 von 1" says nothing.
  */
-export function windowLabel(window: GoalWindow, t: Messages): string {
+export function windowLabel(window: GoalWindow, t: Messages, dueBy: string | null = null): string {
   // A Don't's window is about its uses, not its proofs: "1 von 3 genutzt",
   // "Bisher durchgehalten", or the relapse that decided it.
   if (window.limit !== null && window.limit !== undefined) {
     return window.status === 'Relapse' ? t.window.relapse : t.dont.used(window.uses, window.limit)
   }
 
+  // Delivered: today's window of a daily Do stays the shown one until it ends
+  // (#140), and "Heute fällig" would ask again for what is done.
+  if (window.status === 'Done' || window.remainingProofs === 0) return t.window.done
+
   if (window.requiredProofs > 1) {
     return t.window.remaining(window.remainingProofs, window.requiredProofs)
   }
 
-  return window.startsOn === window.dueOn ? t.window.dueToday : t.window.dueBy(formatDay(window.dueOn))
+  // A day that ends at a time says the time rather than "fällig" (#98).
+  const time = formatClock(dueBy)
+  if (window.startsOn === window.dueOn) return time ? t.window.dueTodayBy(time) : t.window.dueToday
+
+  return t.window.dueBy(formatDay(window.dueOn))
 }
 
 /**
@@ -683,6 +710,9 @@ export function notificationText(line: NotificationLine, t: Messages): Notificat
     // The owner's own nudge (#82): nobody else did anything.
     case 'ReminderDue':
       return said(t.notify.titles.reminder, null, t.notify.reminderDue(subject))
+    // Nobody did this either: the record earned it.
+    case 'BadgeEarned':
+      return said(t.notify.titles.badge, null, t.notify.badgeEarned(badgeName(line.detail, t)))
     default:
       return said(t.app.name, null, t.push.generic)
   }
@@ -748,6 +778,9 @@ export function notificationLink(line: NotificationLine): string {
     // The start screen too: what is still to do today, with its camera.
     case 'ReminderDue':
       return '/'
+    // The profile, where the badge now stands lit among the others.
+    case 'BadgeEarned':
+      return '/profile'
     case 'ReactionReceived':
       return reactionLink(line)
     default:
@@ -826,6 +859,8 @@ export function notificationIcon(line: NotificationLine): string {
       return 'i-lucide-camera'
     case 'ReminderDue':
       return 'i-lucide-bell-ring'
+    case 'BadgeEarned':
+      return 'i-lucide-award'
     default:
       return 'i-lucide-bell'
   }

@@ -427,6 +427,27 @@ public sealed class AccountService(
         }
 
         /*
+         * What they left on other people's things: votes on friends'
+         * photographs, and reactions to photographs and challenge
+         * contributions (#141).
+         *
+         * None of these has a foreign key to a person — a vote and a reaction
+         * die with the thing they hang off, not with whoever gave them — so
+         * nothing cascades and they are removed here. A vote on a photograph
+         * still being voted on goes with them, like a friend who left before
+         * deciding; a verdict already reached is stored and stays.
+         */
+        database.ProofVotes.RemoveRange(await database.ProofVotes
+            .Where(vote => vote.VoterPersonId == personId)
+            .ToListAsync(cancellationToken));
+        database.ProofReactions.RemoveRange(await database.ProofReactions
+            .Where(reaction => reaction.PersonId == personId)
+            .ToListAsync(cancellationToken));
+        database.ChallengeReactions.RemoveRange(await database.ChallengeReactions
+            .Where(reaction => reaction.PersonId == personId)
+            .ToListAsync(cancellationToken));
+
+        /*
          * Their pictures: the rows now, the bytes after the commit.
          *
          * Removed explicitly, and this is the one place in the erasure where

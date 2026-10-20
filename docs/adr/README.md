@@ -23,13 +23,13 @@ so the reasoning at the time stays readable.
 | [0013](0013-app-like-input.md) | App-like input: no zoom, no selection, a capped safe area | Accepted |
 | [0014](0014-user-feedback.md) | User feedback: anonymous, from our own controls | Accepted |
 | [0015](0015-qdos-design-language.md) | The Qdos design language: black, one accent, no emoji | Amended by [0028](0028-ruhe-design-system.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md), [0047](0047-one-name-on-screen.md) and [0050](0050-categories-and-badges-that-are-earned.md) |
-| [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted, amended by [0037](0037-donts.md), [0049](0049-streak-milestones-in-the-feed.md), [0051](0051-a-first-window-that-can-be-met.md) and [0054](0054-the-zone-your-days-are-counted-in.md) |
+| [0016](0016-windows-instead-of-steps.md) | Windows instead of steps: a goal you can miss | Accepted, amended by [0037](0037-donts.md), [0049](0049-streak-milestones-in-the-feed.md), [0051](0051-a-first-window-that-can-be-met.md), [0054](0054-the-zone-your-days-are-counted-in.md) and [0059](0059-a-do-that-ends-at-a-time-of-day.md) |
 | [0017](0017-image-storage.md) | Images: bytes on disk, behind a session | Accepted |
 | [0018](0018-proof-and-vote.md) | A window is closed by other people | Accepted, amended by [0027](0027-goal-conversations.md), [0030](0030-swipe-vote-and-full-screen-photos.md), [0036](0036-live-or-screenshot.md), [0037](0037-donts.md) and [0055](0055-why-a-photograph-was-doubted.md) |
-| [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md) and [0037](0037-donts.md) |
+| [0019](0019-warning-and-balance.md) | The warning before, and the record after | Accepted, amended by [0024](0024-one-notification-pipeline.md), [0037](0037-donts.md) and [0059](0059-a-do-that-ends-at-a-time-of-day.md) |
 | [0020](0020-pause-and-archive.md) | The exits: a pause, an ending, and a deletion | Accepted, amended by [0027](0027-goal-conversations.md) and [0052](0052-pauses-planned-ahead-and-for-everything.md); a one-off after a pause by [#129](https://github.com/AaronGreiner/q2/issues/129) |
 | [0021](0021-daily-challenge.md) | The daily challenge: one prompt, and nothing at stake | Accepted, amended by [0045](0045-what-waits-for-you-first.md) and [0056](0056-the-challenge-has-a-moment.md) |
-| [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted, amended by [0033](0033-invite-links-for-new-and-existing-accounts.md) |
+| [0022](0022-blocking-reporting-and-erasure.md) | Getting away, asking for help, and leaving | Accepted, amended by [0033](0033-invite-links-for-new-and-existing-accounts.md) and [0058](0058-your-data-as-one-file.md) |
 | [0023](0023-web-push.md) | Notifications: a delivery route, not a second product | Accepted, amended by [0024](0024-one-notification-pipeline.md) and [0056](0056-the-challenge-has-a-moment.md) |
 | [0024](0024-one-notification-pipeline.md) | One notification pipeline: the bell, a live connection, and push | Accepted, amended by [0025](0025-banners-in-the-open-app.md), [0031](0031-todos-tab-and-a-bell-you-can-empty.md), [0038](0038-spot-checks.md) and [0048](0048-the-daily-reminder-is-sent.md) |
 | [0025](0025-banners-in-the-open-app.md) | Banners in the open app: the push for somebody who is looking | Accepted |
@@ -64,3 +64,6 @@ so the reasoning at the time stays readable.
 | [0054](0054-the-zone-your-days-are-counted-in.md) | The zone your days are counted in | Accepted |
 | [0055](0055-why-a-photograph-was-doubted.md) | Why a photograph was doubted, said anonymously | Accepted |
 | [0056](0056-the-challenge-has-a-moment.md) | The daily challenge has a moment | Accepted |
+| [0057](0057-who-can-find-you-and-whether-your-activity-shows.md) | Who can find you, and whether your activity shows | Accepted |
+| [0058](0058-your-data-as-one-file.md) | Your data as one file | Accepted |
+| [0059](0059-a-do-that-ends-at-a-time-of-day.md) | A Do that ends at a time of day | Accepted |

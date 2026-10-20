@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LanguagePreference, ThemePreference } from '~/api/types'
+import type { Findability, LanguagePreference, ThemePreference } from '~/api/types'
 
 /**
  * Preferences.
@@ -12,8 +12,9 @@ import type { LanguagePreference, ThemePreference } from '~/api/types'
  * kind, this device, and the quiet hours are three questions, and together
  * they would bury appearance and account under a dozen toggles.
  *
- * The two greyed-out account rows are still settings for features that do not
- * exist, and saying so is better than a row that quietly does nothing. Editing
+ * The greyed-out account row is still a feature that does not exist, and
+ * saying so is better than a row that quietly does nothing. Privacy was the
+ * other one until #106 gave it two choices of its own. Editing
  * the profile does exist, and opens the same sheet as the pencil on the profile
  * (#92) — this is where most apps put it, and where people look first.
  */
@@ -55,6 +56,37 @@ function chooseZone(zone: string) {
   if (zone && zone !== timeZone.value) void update({ timeZone: zone })
 }
 
+/*
+ * Who can find this person, and whether their activity shows (#106). Both
+ * are the person's own and read by everybody else's search and screens; the
+ * defaults are what everybody always had.
+ */
+const findabilityOptions = computed(() => (['Everyone', 'Handle', 'Link'] as const).map(value => ({
+  value,
+  label: t.value.settings.findability[value],
+})))
+
+const findability = computed<Findability>({
+  get: () => settings.value?.findability ?? 'Everyone',
+  set: value => update({ findability: value }),
+})
+
+const findabilityHint = computed(() => {
+  switch (findability.value) {
+    case 'Handle':
+      return t.value.settings.findabilityHandle(person.value?.handle ?? '')
+    case 'Link':
+      return t.value.settings.findabilityLink
+    default:
+      return t.value.settings.findabilityEveryone
+  }
+})
+
+const showActivity = computed<boolean>({
+  get: () => settings.value?.showActivity ?? true,
+  set: value => update({ showActivity: value }),
+})
+
 const config = useRuntimeConfig()
 const { person, logout } = useSession()
 
@@ -81,6 +113,9 @@ const isSigningOut = ref(false)
  */
 const invite = useInvite()
 const isConfirmingReplace = ref(false)
+
+/** Everything of this person's, as a ZIP (#36). */
+const dataExport = useDataExport()
 
 async function onSignOut() {
   if (isSigningOut.value) return
@@ -121,7 +156,6 @@ const selectedLanguage = computed<LanguagePreference>({
 })
 
 const unavailableAccountRows = computed(() => [
-  { icon: 'i-lucide-lock', label: t.value.settings.privacy },
   { icon: 'i-lucide-circle-help', label: t.value.settings.help },
 ])
 
@@ -215,6 +249,47 @@ useHead({ title: () => t.value.settings.heading })
       </SettingsSection>
 
       <SettingsSection
+        :title="t.settings.privacy"
+        :note="t.settings.privacyNote"
+      >
+        <div
+          class="border-b border-(--ui-border) px-4 py-3.5"
+          data-testid="findability"
+        >
+          <p class="mb-2.5 text-sm font-bold">
+            {{ t.settings.findabilityLabel }}
+          </p>
+          <AppSegmented
+            v-model="findability"
+            :options="findabilityOptions"
+            :label="t.settings.findabilityLabel"
+          />
+          <p
+            class="mt-2.5 text-xs font-semibold text-(--ui-text-muted)"
+            data-testid="findability-hint"
+          >
+            {{ findabilityHint }}
+          </p>
+        </div>
+
+        <!-- The switch and what it means, together: the row is the last in
+             its own wrapper, so no divider falls between the two. -->
+        <div>
+          <div>
+            <SettingsToggleRow
+              v-model="showActivity"
+              icon="i-lucide-eye"
+              :label="t.settings.showActivity"
+              data-testid="show-activity"
+            />
+          </div>
+          <p class="-mt-1 px-4 pb-3.5 text-xs font-semibold text-(--ui-text-muted)">
+            {{ t.settings.showActivityNote }}
+          </p>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
         :title="t.settings.notifications"
         :note="t.settings.notificationsNote"
       >
@@ -266,6 +341,19 @@ useHead({ title: () => t.value.settings.heading })
           </span>
           <span class="min-w-0 flex-1 text-sm font-semibold">{{ row.label }}</span>
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        :title="t.settings.dataHeading"
+        :note="t.settings.dataNote"
+      >
+        <SettingsActionRow
+          icon="i-lucide-download"
+          :label="t.settings.exportData"
+          :busy="dataExport.isExporting.value"
+          data-testid="export-data"
+          @activate="dataExport.exportData()"
+        />
       </SettingsSection>
 
       <!--

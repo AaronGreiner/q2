@@ -234,6 +234,68 @@ describe('GoalCreateSheet', () => {
     wrapper.unmount()
   })
 
+  it('ends an early riser\'s day at seven and keeps the reminder before it (#98)', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    element<HTMLButtonElement>('[data-testid="goal-template-early"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    expect(element<HTMLInputElement>('[data-testid="goal-due-by-input"]').value).toBe('07:00')
+    // The template's 09:00 would never come: half an hour before instead.
+    expect(element<HTMLInputElement>('[data-testid="goal-reminder-input"]').value).toBe('06:30')
+
+    // A reminder after the day's end is refused before the server is asked.
+    type(element<HTMLInputElement>('[data-testid="goal-reminder-input"]'), '08:00')
+    await wrapper.vm.$nextTick()
+    expect(element<HTMLButtonElement>('[data-testid="goal-next"]').disabled).toBe(true)
+    expect(document.body.textContent).toContain('Die Erinnerung muss vor 07:00 liegen.')
+
+    type(element<HTMLInputElement>('[data-testid="goal-reminder-input"]'), '06:45')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    element<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    expect(element('[data-testid="goal-create-review"]').textContent).toContain('Jeden Tag · bis 07:00')
+    expect(element('[data-testid="goal-first-window"]').textContent).toMatch(/um 07:00/)
+
+    element<HTMLButtonElement>('[data-testid="goal-submit"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      title: 'Vor 7 Uhr aufstehen',
+      schedule: { kind: 'Interval', everyDays: 1 },
+      dueBy: '07:00:00',
+      reminderAt: '06:45:00',
+    })
+    wrapper.unmount()
+  })
+
+  it('offers no time of day for a quota, whose week ends at midnight', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), 'Laufen')
+    await wrapper.vm.$nextTick()
+    await next(wrapper)
+
+    expect(document.querySelector('[data-testid="goal-due-by"]')).not.toBeNull()
+
+    element<HTMLButtonElement>('[data-testid="schedule-kind-Times"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(document.querySelector('[data-testid="goal-due-by"]')).toBeNull()
+    wrapper.unmount()
+  })
+
   it('keeps the names of the friends to choose from out of Session Replay', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
       props: { open: true, friends: [friend()] },

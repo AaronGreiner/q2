@@ -21,6 +21,11 @@ export type ApiFetch = <T>(url: string, options?: {
    * because an `<img>` in the iOS app cannot send one (`useImageSource`).
    */
   responseType?: 'blob'
+  /**
+   * Milliseconds, over the client's ten seconds — for the one call that
+   * writes somebody's whole account into a file, pictures and all (#36).
+   */
+  timeout?: number
 }) => Promise<T>
 
 /**

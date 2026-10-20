@@ -663,10 +663,14 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         var after = await OneAsync(AutomatedTestSeed.ActiveGoalId);
 
-        // A daily window takes one proof, so it closes on the first believed one.
+        // A daily window takes one proof, so it closes on the first believed one —
+        // and stays the shown window, done, until the day ends (#140): the card
+        // says "Geschafft" rather than nothing.
         Assert.Equal(before.Streak + 1, after.Streak);
         Assert.Equal(before.WindowsDone + 1, after.WindowsDone);
-        Assert.Null(after.Current);
+        Assert.Equal(GoalInstanceStatus.Done, after.Current!.Status);
+        Assert.Equal(0, after.Current.RemainingProofs);
+        Assert.False(after.Current.AcceptsProof);
     }
 
     [Fact]

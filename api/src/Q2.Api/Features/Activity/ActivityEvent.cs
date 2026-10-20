@@ -38,6 +38,13 @@ public enum ActivityKind
     /// never announced ("kein Nachtreten").
     /// </remarks>
     GoalCreated,
+
+    /// <summary>
+    /// Earned a badge (#139). <c>Subject</c> is its
+    /// <see cref="Q2.Api.Features.People.BadgeKey"/>, named by the client in
+    /// the reader's language.
+    /// </summary>
+    BadgeEarned,
 }
 
 /// <summary>

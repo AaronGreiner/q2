@@ -474,6 +474,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<TimeOnly?>("DueBy")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsGroup")
                         .HasColumnType("INTEGER");
 
@@ -1146,6 +1149,13 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Findability")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Everyone");
+
                     b.Property<int>("GoalsCompleted")
                         .HasColumnType("INTEGER");
 
@@ -1174,6 +1184,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("OnboardedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ShowsActivity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("TimeZoneId")
                         .HasMaxLength(64)
@@ -1335,6 +1350,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Notifications", "Q2.Api.Features.Settings.UserSettings.Notifications#NotificationPreferences", b1 =>
                         {
                             b1.IsRequired();
+
+                            b1.Property<bool>("Badges")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("NotifyBadges");
 
                             b1.Property<bool>("Challenge")
                                 .HasColumnType("INTEGER")

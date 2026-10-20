@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Accounts;
 using Q2.Api.Features.Chats;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -28,6 +29,8 @@ public class AccountDeletionTests(Q2ApiFactory factory) : ApiTestBase(factory)
         int Conversations,
         int Messages,
         int ChallengeEntries);
+
+    private sealed record CreatedGoalDocument(Guid Id);
 
     private static Task<HttpResponseMessage> DeleteAsync(HttpClient client, string password) =>
         client.DeleteJsonAsync("/api/auth/account", new { password });
@@ -76,6 +79,55 @@ public class AccountDeletionTests(Q2ApiFactory factory) : ApiTestBase(factory)
             Assert.False(await database.Friendships.AnyAsync(
                 friendship => friendship.RequesterId == id || friendship.AddresseeId == id, token));
         });
+    }
+
+    /// <summary>
+    /// The same inventory the export is driven by (#36): after an erasure, no
+    /// column in it names the person any more.
+    /// </summary>
+    [Fact]
+    public async Task NoColumnThatNamesAPersonStillNamesThemAfterwards()
+    {
+        // Something of theirs in the tables nothing cascades into: a vote, a
+        // reaction to a photograph and to a challenge contribution.
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var goal = await (await friend.PostJsonAsync("/api/goals", new
+        {
+            title = "Automated test: a goal of the friend's",
+            category = "Other",
+            schedule = new { kind = "Interval", everyDays = 1 },
+            participantIds = new[] { AutomatedTestSeed.CurrentPersonId },
+        })).ReadAsync<CreatedGoalDocument>();
+        var theirs = await friend.DeliverAcceptedProofAsync(goal.Id);
+        (await Client.PostJsonAsync($"/api/proofs/{theirs.Id}/vote", new { value = "Confirm" })).EnsureSuccessStatusCode();
+        (await Client.PostJsonAsync($"/api/proofs/{theirs.Id}/reactions", new { kind = "Fire" })).EnsureSuccessStatusCode();
+
+        (await DeleteAsync(Client, SeedAccounts.Password)).EnsureSuccessStatusCode();
+
+        var left = new List<string>();
+
+        await Factory.WithDatabaseAsync(async database =>
+        {
+            foreach (var column in PersonalData.Columns)
+            {
+                var entity = database.Model.GetEntityTypes().Single(type => type.ClrType.Name == column.Entity);
+                var table = entity.GetTableName();
+                var name = entity.FindProperty(column.Property)!.GetColumnName();
+
+                // Names from the model, not from anybody's input; the id is a parameter.
+                var sql = $"SELECT COUNT(*) AS \"Value\" FROM \"{table}\" WHERE \"{name}\" = {{0}}";
+                var count = await database.Database
+                    .SqlQueryRaw<int>(sql, AutomatedTestSeed.CurrentPersonId)
+                    .SingleAsync(TestContext.Current.CancellationToken);
+
+                if (count > 0)
+                {
+                    left.Add($"{column.Entity}.{column.Property}: {count}");
+                }
+            }
+        });
+
+        Assert.Empty(left);
     }
 
     /// <summary>

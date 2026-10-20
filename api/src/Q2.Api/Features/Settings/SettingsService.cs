@@ -27,7 +27,7 @@ public sealed class SettingsService(
         var settings = await LoadAsync(cancellationToken);
         var me = await currentPerson.GetAsync(cancellationToken);
 
-        return SettingsResponse.From(settings, timeZones.EffectiveId(me.TimeZoneId));
+        return SettingsResponse.From(settings, me, timeZones.EffectiveId(me.TimeZoneId));
     }
 
     public async Task<SettingsResponse> UpdateAsync(UpdateSettingsRequest request, CancellationToken cancellationToken)
@@ -55,6 +55,13 @@ public sealed class SettingsService(
             me.SetTimeZone(zone.Trim());
         }
 
+        // Who can find this person and whether their activity shows (#106):
+        // the person's own, read by everybody else's search and screens.
+        if (request.Findability is not null || request.ShowActivity is not null)
+        {
+            me.SetPrivacy(request.Findability ?? me.Findability, request.ShowActivity ?? me.ShowsActivity);
+        }
+
         // An omitted property keeps its current value, so a client that only
         // knows about some of the switches cannot silently reset the rest.
         settings.Update(
@@ -66,7 +73,7 @@ public sealed class SettingsService(
 
         logger.LogInformation("Settings updated for {PersonId}", settings.PersonId);
 
-        return SettingsResponse.From(settings, timeZones.EffectiveId(me.TimeZoneId));
+        return SettingsResponse.From(settings, me, timeZones.EffectiveId(me.TimeZoneId));
     }
 
     private static NotificationPreferences Merge(
@@ -104,6 +111,7 @@ public sealed class SettingsService(
             Challenge = change.Challenge ?? current.Challenge,
             SpotChecks = change.SpotChecks ?? current.SpotChecks,
             Reminders = change.Reminders ?? current.Reminders,
+            Badges = change.Badges ?? current.Badges,
         };
 
         return switches.WithQuietHours(quiet.From, quiet.To);

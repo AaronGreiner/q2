@@ -52,6 +52,12 @@ export interface AccountsApi {
   remove: (password: string) => Promise<AccountDeletion>
 
   /**
+   * Everything q2 holds about the signed-in person, as one ZIP: their data as
+   * JSON and their own pictures (#36). A blob, because it is a file.
+   */
+  exportData: () => Promise<Blob>
+
+  /**
    * Asks for a reset link.
    *
    * Resolves the same for every well-formed address, whether or not it has an
@@ -97,6 +103,13 @@ export function createAccountsApi(call: ApiCaller): AccountsApi {
     remove: password => call<AccountDeletion>('/api/auth/account', {
       method: 'DELETE',
       body: { password },
+    }),
+
+    exportData: () => call<Blob>('/api/auth/account/export', {
+      method: 'GET',
+      responseType: 'blob',
+      headers: { Accept: 'application/zip' },
+      timeout: 120_000,
     }),
 
     // 202 Accepted with no body, for an address with an account and without.

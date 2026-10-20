@@ -1,6 +1,7 @@
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.Features.Goals;
 
@@ -141,7 +142,7 @@ public sealed class Goal
     /// <summary>Local time of the daily reminder, when there is one.</summary>
     /// <remarks>
     /// A reminder, never a deadline. The deadline is the end of the window's
-    /// last day; this is only when to be nudged during it.
+    /// last day, or <see cref="DueBy"/>; this is only when to be nudged before it.
     /// </remarks>
     public TimeOnly? ReminderAt { get; private set; }
 
@@ -217,11 +218,31 @@ public sealed class Goal
         GoalKind kind = GoalKind.Do,
         int? limit = null,
         DontProofMode? proofMode = null,
-        DateOnly? startsOn = null)
+        DateOnly? startsOn = null,
+        TimeOnly? dueBy = null)
     {
         ArgumentNullException.ThrowIfNull(schedule);
 
         var errors = new Dictionary<string, string[]>();
+
+        // To the minute, as every clock in the app is shown.
+        dueBy = dueBy is { } time ? new TimeOnly(time.Hour, time.Minute) : null;
+
+        if (dueBy is { } deadline)
+        {
+            if (!TakesDueBy(kind, schedule))
+            {
+                errors[nameof(DueBy)] = ["Only a Do on set days ends at a time of day."];
+            }
+            else if (deadline == TimeOnly.MinValue)
+            {
+                errors[nameof(DueBy)] = ["A day ends at midnight by itself."];
+            }
+            else if (reminderAt is { } reminder && reminder >= deadline)
+            {
+                errors[nameof(ReminderAt)] = ["A reminder has to come before the deadline."];
+            }
+        }
 
         if (!Enum.IsDefined(kind))
         {
@@ -305,7 +326,42 @@ public sealed class Goal
 
         // A one-off has its day; only what repeats starts on one of its own.
         goal.StartsOn = schedule.Repeats ? startsOn : null;
+        goal.DueBy = dueBy;
         return goal;
+    }
+
+    /// <summary>
+    /// The local time a Do's day ends at instead of midnight — "bis 07:00"
+    /// (#98, docs/adr/0059-a-do-that-ends-at-a-time-of-day.md). Null for the
+    /// ordinary deadline, the end of the day.
+    /// </summary>
+    /// <remarks>
+    /// Only for a Do whose windows are single days — every day, every few days,
+    /// set weekdays. A quota's week and a one-off's day end at midnight; an edit
+    /// that turns this goal into one of those leaves this stored but without
+    /// effect (<see cref="EffectiveDueBy"/>).
+    /// </remarks>
+    public TimeOnly? DueBy { get; private set; }
+
+    /// <summary><see cref="DueBy"/>, where the goal's schedule takes one.</summary>
+    public TimeOnly? EffectiveDueBy => TakesDueBy(Kind, Schedule) ? DueBy : null;
+
+    /// <summary>Whether a goal of this kind and schedule can end its day at a time.</summary>
+    public static bool TakesDueBy(GoalKind kind, GoalSchedule schedule)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+        return kind == GoalKind.Do && schedule.Kind is ScheduleKind.Interval or ScheduleKind.Weekdays;
+    }
+
+    /// <summary>
+    /// The deadline of a window whose last day is <paramref name="day"/>: that
+    /// day's <see cref="EffectiveDueBy"/> in the owner's zone, or its end.
+    /// </summary>
+    public DateTimeOffset DueAtOn(DateOnly day, LocalCalendar calendar)
+    {
+        ArgumentNullException.ThrowIfNull(calendar);
+
+        return EffectiveDueBy is { } time ? calendar.AtOrAfter(day, time) : calendar.EndOfDay(day);
     }
 
     /// <summary>True for something to stop doing.</summary>
@@ -318,6 +374,26 @@ public sealed class Goal
     public GoalInstance? RelapsedInstanceAt(DateTimeOffset now) =>
         _instances.FirstOrDefault(instance =>
             instance.Status == GoalInstanceStatus.Relapse && instance.StartsAt <= now && now <= instance.DueAt);
+
+    /// <summary>
+    /// The window a reader is shown: the open one, or else a decided one whose
+    /// period is still running — a Don't's relapse, or a running Do's window
+    /// that was delivered (#140).
+    /// </summary>
+    /// <remarks>
+    /// Without the delivered one, a daily Do delivered at noon had no window
+    /// until midnight and its card fell back to "Aktiv", while a quota met on
+    /// Tuesday still said "Geschafft" — the same fact said two ways, and the
+    /// daily one said nothing. A finished one-off is not shown one: it is
+    /// "Abgeschlossen", not done for today.
+    /// </remarks>
+    public GoalInstance? ShownInstanceAt(DateTimeOffset now) =>
+        CurrentInstance
+        ?? RelapsedInstanceAt(now)
+        ?? (Status == GoalStatus.Active
+            ? _instances.FirstOrDefault(instance =>
+                instance.Status == GoalInstanceStatus.Done && instance.StartsAt <= now && now <= instance.DueAt)
+            : null);
 
     /// <summary>
     /// Logs one use of a Don't into the window running now. Returns null when
@@ -674,11 +750,19 @@ public sealed class Goal
     /// no line in the conversation. A stopped goal keeps whatever it had,
     /// because there is nothing left to be reminded of. Returns false then.
     /// </remarks>
+    /// <exception cref="DomainValidationException">
+    /// The reminder would come at or after the time the day ends (#98).
+    /// </exception>
     public bool SetReminder(TimeOnly? reminderAt)
     {
         if (IsClosed)
         {
             return false;
+        }
+
+        if (reminderAt is { } reminder && EffectiveDueBy is { } deadline && reminder >= deadline)
+        {
+            throw new DomainValidationException(nameof(ReminderAt), "A reminder has to come before the deadline.");
         }
 
         ReminderAt = reminderAt;

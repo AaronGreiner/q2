@@ -18,13 +18,16 @@ const emit = defineEmits<{
 }>()
 
 const t = useMessages()
+const seesActivity = useSeesActivity()
 
 /**
  * Their streak if they have one, otherwise when they were last around. Presence
- * is never conveyed by the green dot alone.
+ * is never conveyed by the green dot alone. Somebody who hides their own
+ * activity sees nobody's (#106): their handle instead, which says nothing.
  */
 const subtitle = computed(() => {
   if (props.friend.streak > 0) return t.value.friends.streak(props.friend.streak)
+  if (!seesActivity.value) return props.friend.person.handle
   if (props.friend.person.isOnline) return t.value.chats.online
   if (props.friend.lastSeenAt) {
     return t.value.chats.lastSeen(formatRelativeTime(props.friend.lastSeenAt, props.now, t.value))

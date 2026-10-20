@@ -221,11 +221,12 @@ public static class GoalMaintenance
                 break;
             }
 
+            // Midnight, or the time the owner's day ends at for this goal (#98).
             var instance = goal.OpenWindow(
                 ids.NewId(),
                 window,
                 calendar.StartOfDay(window.Start),
-                calendar.EndOfDay(window.End));
+                goal.DueAtOn(window.End, calendar));
 
             if (instance is null)
             {

@@ -24,8 +24,11 @@ const props = withDefaults(defineProps<{
    * one-off, whose day could pass before anybody arrives (docs/adr/0039).
    */
   kinds?: readonly ScheduleKind[]
+  /** The time each day ends at, when one was chosen next to the picker (#98). */
+  dueBy?: string | null
 }>(), {
   kinds: () => scheduleKinds,
+  dueBy: null,
 })
 
 const model = defineModel<GoalScheduleRequest>({ required: true })
@@ -105,7 +108,7 @@ const explanation = computed(() => scheduleExplanation({
   weekdays: model.value.weekdays ?? [],
   times: model.value.times ?? null,
   period: model.value.period ?? null,
-}, t.value))
+}, t.value, props.dueBy))
 
 /** How many times a quota may ask for. More than seven a week is not a habit. */
 const timesChoices = computed(() => (model.value.period === 'Month' ? [1, 2, 3, 4, 5, 6, 8, 10] : [1, 2, 3, 4, 5, 6, 7]))

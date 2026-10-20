@@ -408,7 +408,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             id="goal-window-heading"
             class="sr-only"
           >
-            {{ currentWindow ? windowLabel(currentWindow, t) : t.status[goal.status] }}
+            {{ currentWindow ? windowLabel(currentWindow, t, goal.dueBy) : t.status[goal.status] }}
           </h2>
 
           <!-- The ring is the open window, not the goal. A goal has no
@@ -419,13 +419,13 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
             class="mx-auto"
             :percent="windowPercent(currentWindow)"
             :size="130"
-            :label="windowLabel(currentWindow, t)"
+            :label="windowLabel(currentWindow, t, goal.dueBy)"
           >
             <span
               class="text-[34px] leading-none font-extrabold"
               data-q2-private
             >{{ currentWindow.confirmedProofs }}/{{ currentWindow.requiredProofs }}</span>
-            <span class="mt-0.5 text-[11px] font-bold text-(--ui-text-muted)">{{ windowLabel(currentWindow, t) }}</span>
+            <span class="mt-0.5 text-[11px] font-bold text-(--ui-text-muted)">{{ windowLabel(currentWindow, t, goal.dueBy) }}</span>
           </AppProgressRing>
 
           <p

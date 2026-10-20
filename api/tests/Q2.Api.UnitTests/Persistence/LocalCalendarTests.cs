@@ -106,4 +106,25 @@ public class LocalCalendarTests
     {
         Assert.Equal(known, TimeZoneResolver.IsKnown(zone));
     }
+
+    /// <summary>
+    /// A deadline at a time of day (#98) that the clock skips is the first
+    /// moment after it that exists; any other is that time, local.
+    /// </summary>
+    [Fact]
+    public void ADeadlineTheClockSkipsFallsOnTheNextMomentThatExists()
+    {
+        if (Berlin is null)
+        {
+            return;
+        }
+
+        var calendar = new LocalCalendar(Berlin);
+
+        // 29 March 2026: Berlin goes from 02:00 straight to 03:00 (01:00 UTC).
+        Assert.Equal(new DateTimeOffset(2026, 3, 29, 1, 0, 0, TimeSpan.Zero), calendar.AtOrAfter(new DateOnly(2026, 3, 29), new TimeOnly(2, 30)));
+
+        // Summer: seven in Berlin is five UTC.
+        Assert.Equal(new DateTimeOffset(2026, 6, 15, 5, 0, 0, TimeSpan.Zero), calendar.AtOrAfter(new DateOnly(2026, 6, 15), new TimeOnly(7, 0)));
+    }
 }

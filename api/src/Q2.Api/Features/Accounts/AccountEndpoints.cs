@@ -67,6 +67,18 @@ public static class AccountEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        /*
+         * Everything of the signed-in person's, as a ZIP of JSON and their own
+         * pictures (#36). A GET with a session, like every read: it changes
+         * nothing, and a download link has to be something a browser can follow.
+         */
+        group.MapGet("/account/export", ExportData)
+            .RequireAuthorization()
+            .WithName("ExportData")
+            .WithSummary("Downloads everything q2 holds about the signed-in person: their data as JSON and their own pictures, as one ZIP file.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/zip")
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/session", Session)
             .RequireAuthorization()
             .WithName("GetSession")
@@ -182,6 +194,19 @@ public static class AccountEndpoints
         [FromBody] DeleteAccountRequest request,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await accounts.DeleteAsync(request, cancellationToken));
+
+    private static async Task<FileStreamHttpResult> ExportData(
+        DataExportService export,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var (archive, fileName) = await export.ExportAsync(cancellationToken);
+
+        // Somebody's whole account: never kept by anything between here and them.
+        context.Response.Headers.CacheControl = "no-store";
+
+        return TypedResults.File(archive, "application/zip", fileName);
+    }
 
     private static async Task<NoContent> Logout(AccountService accounts)
     {
