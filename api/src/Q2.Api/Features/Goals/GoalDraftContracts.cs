@@ -6,6 +6,7 @@ namespace Q2.Api.Features.Goals;
 public sealed record GoalDraftResponse(
     Guid Id,
     string Title,
+    GoalCategory Category,
     string Icon,
     GoalScheduleResponse Schedule,
     TimeOnly? ReminderAt,
@@ -14,6 +15,7 @@ public sealed record GoalDraftResponse(
     public static GoalDraftResponse From(GoalDraft draft) => new(
         draft.Id,
         draft.Title,
+        draft.Category,
         draft.Icon,
         GoalScheduleResponse.From(draft.Schedule),
         draft.ReminderAt,
@@ -42,6 +44,6 @@ public sealed record GoalDraftStateResponse(GoalDraftResponse? Draft, bool HasFr
 /// </remarks>
 public sealed record SaveGoalDraftRequest(
     string? Title = null,
-    string? Icon = null,
+    GoalCategory? Category = null,
     GoalScheduleRequest? Schedule = null,
     TimeOnly? ReminderAt = null);

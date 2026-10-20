@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { Friend, GoalDraft, GoalScheduleRequest, ScheduleKind } from '~/api/types'
-import { goalIcons } from '~/api/types'
+import type { Friend, GoalCategory, GoalDraft, GoalScheduleRequest, ScheduleKind } from '~/api/types'
 import { goalTemplates, type GoalTemplate } from '~/utils/goalTemplates'
 
 /**
@@ -14,8 +13,9 @@ import { goalTemplates, type GoalTemplate } from '~/utils/goalTemplates'
  * ordinary goal. The form does not decide which — it says what was chosen and
  * the screen sends it where it belongs.
  *
- * Shorter than the create sheet on purpose. No icon grid, no Don't: an idea
- * fills the icon, and a first commitment is easier to make than to configure.
+ * Shorter than the create sheet on purpose. No category choice, no Don't: an
+ * idea fills the category, and a first commitment is easier to make than to
+ * configure.
  * No one-off either — it would need a day, and a waiting Do could miss it.
  *
  * The submit button is the screen's, outside this form, and reaches it through
@@ -24,7 +24,7 @@ import { goalTemplates, type GoalTemplate } from '~/utils/goalTemplates'
  */
 export interface DraftFormValue {
   title: string
-  icon: string
+  category: GoalCategory
   schedule: GoalScheduleRequest
   reminderAt: string | null
   participantIds: string[]
@@ -51,7 +51,7 @@ const maxTitleLength = 120
 const kinds: readonly ScheduleKind[] = ['Interval', 'Weekdays', 'Times']
 
 const title = ref(props.initial?.title ?? '')
-const icon = ref<string>(props.initial?.icon ?? goalIcons[0]!)
+const category = ref<GoalCategory>(props.initial?.category ?? 'Other')
 const schedule = ref<GoalScheduleRequest>(props.initial
   ? {
       kind: props.initial.schedule.kind,
@@ -70,7 +70,7 @@ const participantIds = ref<string[]>(props.friends.length === 1 ? [props.friends
 
 function useIdea(template: GoalTemplate) {
   title.value = t.value.create.templates[template.key]
-  icon.value = template.icon
+  category.value = template.category
   schedule.value = { ...template.schedule }
 }
 
@@ -104,7 +104,7 @@ function onSubmit() {
 
   emit('submit', {
     title: title.value.trim(),
-    icon: icon.value,
+    category: category.value,
     schedule: schedule.value,
     reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
     participantIds: props.friends.length > 0 ? [...participantIds.value] : [],
@@ -155,7 +155,7 @@ function onSubmit() {
               @click="useIdea(template)"
             >
               <UIcon
-                :name="goalIconName(template.icon)"
+                :name="categoryIconName(template.category)"
                 class="size-4 text-(--ui-text-muted)"
                 aria-hidden="true"
               />

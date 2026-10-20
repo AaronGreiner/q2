@@ -1,6 +1,6 @@
 import type { Messages } from '~/i18n/messages'
 import type { GoalChange } from '~/api/types'
-import { formatClock, formatDay, formatWeekdayDay, goalIconName, localDay, scheduleLabel } from './display'
+import { categoryIconName, formatClock, formatDay, formatWeekdayDay, localDay, scheduleLabel } from './display'
 
 /** One line of an edit: what changed, from what to what. */
 export interface GoalChangeItem {
@@ -9,7 +9,7 @@ export interface GoalChangeItem {
   text: string
 
   /**
-   * Whether it applied the moment it was made — the title, the icon, a
+   * Whether it applied the moment it was made — the title, the category, a
    * checker added, an earlier day — or waits for the next window.
    */
   now: boolean
@@ -32,8 +32,13 @@ export function goalChangeItems(change: GoalChange, t: Messages): GoalChangeItem
     items.push({ key: 'title', icon: 'i-lucide-type', text: words.title(change.titleFrom ?? '', change.titleTo), now: true })
   }
 
-  if (change.iconTo) {
-    items.push({ key: 'icon', icon: goalIconName(change.iconTo), text: words.icon, now: true })
+  if (change.categoryTo) {
+    items.push({
+      key: 'category',
+      icon: categoryIconName(change.categoryTo),
+      text: words.category(t.goalCategory[change.categoryFrom ?? 'Other'], t.goalCategory[change.categoryTo]),
+      now: true,
+    })
   }
 
   if (change.descriptionChanged) {

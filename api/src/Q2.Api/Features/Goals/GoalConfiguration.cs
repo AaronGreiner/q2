@@ -27,9 +27,13 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
         builder.Property(g => g.Description)
             .HasMaxLength(Goal.MaxDescriptionLength);
 
-        builder.Property(g => g.Icon)
+        // The category is stored; the icon is derived from it and is not.
+        builder.Property(g => g.Category)
             .IsRequired()
-            .HasMaxLength(40);
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Ignore(g => g.Icon);
 
         // Enums are stored as text: readable in the database and stable if the
         // members are ever reordered.
@@ -79,6 +83,8 @@ public sealed class GoalConfiguration : IEntityTypeConfiguration<Goal>
 
         builder.Property(g => g.ReminderAt);
         builder.Property(g => g.TargetDate);
+
+        builder.Property(g => g.StartsOn);
 
         builder.Property(g => g.CreatedAt)
             .IsRequired()
@@ -197,8 +203,13 @@ public sealed class GoalChangeConfiguration : IEntityTypeConfiguration<GoalChang
         // User content, the same bounds as the goal's own columns.
         builder.Property(change => change.TitleFrom).HasMaxLength(Goal.MaxTitleLength);
         builder.Property(change => change.TitleTo).HasMaxLength(Goal.MaxTitleLength);
-        builder.Property(change => change.IconFrom).HasMaxLength(40);
-        builder.Property(change => change.IconTo).HasMaxLength(40);
+        builder.Property(change => change.CategoryFrom)
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Property(change => change.CategoryTo)
+            .HasMaxLength(16)
+            .HasConversion<string>();
         builder.Property(change => change.DescriptionChanged).IsRequired();
         builder.Property(change => change.DescriptionFrom).HasMaxLength(Goal.MaxDescriptionLength);
         builder.Property(change => change.DescriptionTo).HasMaxLength(Goal.MaxDescriptionLength);
@@ -320,6 +331,11 @@ public sealed class GoalPauseConfiguration : IEntityTypeConfiguration<GoalPause>
             .IsRequired()
             .HasConversion(InstantConversion.Required);
 
+        builder.Property(pause => pause.AnnouncedAt)
+            .HasConversion(InstantConversion.Optional);
+
+        builder.Ignore(pause => pause.WasWithdrawn);
+
         builder.Property(pause => pause.Status)
             .IsRequired()
             .HasMaxLength(32)
@@ -396,6 +412,8 @@ public sealed class GoalInstanceConfiguration : IEntityTypeConfiguration<GoalIns
 
         builder.Property(i => i.RiskNotifiedAt)
             .HasConversion(InstantConversion.Optional);
+
+        builder.Property(i => i.RemindedOn);
 
         builder.Property(i => i.RequiredProofs).IsRequired();
         builder.Property(i => i.ConfirmedProofs).IsRequired();

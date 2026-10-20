@@ -1,4 +1,5 @@
 using Q2.Api.Features.People;
+using Q2.Api.Infrastructure.Time;
 
 namespace Q2.Api.Features.Accounts;
 
@@ -16,10 +17,32 @@ namespace Q2.Api.Features.Accounts;
 /// nothing about how the session was established is any of the client's
 /// business.
 /// </remarks>
-public sealed record SessionResponse(PersonSummary Person, string Email, bool IsOnboarded)
+/// <param name="TimeZone">The zone this person's days are counted in (#9).</param>
+/// <param name="UtcOffsetMinutes">
+/// How far that zone is ahead of UTC right now, so the first server-rendered
+/// paint of a time is already in it rather than in UTC until the page hydrates.
+/// </param>
+public sealed record SessionResponse(
+    PersonSummary Person,
+    string Email,
+    bool IsOnboarded,
+    string TimeZone,
+    int UtcOffsetMinutes)
 {
-    public static SessionResponse For(Person person, string email, DateTimeOffset now) =>
-        new(PersonSummary.From(person, now), email, person.IsOnboarded);
+    public static SessionResponse For(Person person, string email, DateTimeOffset now, TimeZoneResolver timeZones)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+        ArgumentNullException.ThrowIfNull(timeZones);
+
+        var calendar = timeZones.For(person.TimeZoneId);
+
+        return new(
+            PersonSummary.From(person, now),
+            email,
+            person.IsOnboarded,
+            timeZones.EffectiveId(person.TimeZoneId),
+            (int)calendar.Zone.GetUtcOffset(now).TotalMinutes);
+    }
 }
 
 /// <summary>Request body for creating an account.</summary>
@@ -36,11 +59,17 @@ public sealed record SessionResponse(PersonSummary Person, string Email, bool Is
 /// rather than refused — registration is the worst possible moment to fail over
 /// a stale link somebody was forwarded.
 /// </remarks>
+/// <param name="TimeZone">
+/// The zone the browser is in (<c>Intl.DateTimeFormat().resolvedOptions().timeZone</c>),
+/// a better guess than the deployment's (#9). One the server does not know is
+/// ignored, like a stale invite code.
+/// </param>
 public sealed record RegisterRequest(
     string? Name = null,
     string? Email = null,
     string? Password = null,
-    string? InviteCode = null);
+    string? InviteCode = null,
+    string? TimeZone = null);
 
 /// <summary>Request body for signing in.</summary>
 public sealed record LoginRequest(string? Email = null, string? Password = null);

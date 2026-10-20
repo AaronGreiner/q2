@@ -119,10 +119,18 @@ describe('language and time state', () => {
   it('applies the browser time-zone offset only after mounting', () => {
     const mounted = vi.fn((callback: () => void) => callback())
     vi.stubGlobal('onMounted', mounted)
+    vi.stubGlobal('useSession', () => ({ session: ref(null) }))
     const offset = useTimeZoneOffset()
 
     expect(mounted).toHaveBeenCalledOnce()
     expect(offset.value).toBe(-new Date().getTimezoneOffset())
+  })
+
+  it('paints first in the signed-in person\'s stored zone, before anything is mounted (#9)', () => {
+    vi.stubGlobal('onMounted', vi.fn())
+    vi.stubGlobal('useSession', () => ({ session: ref({ utcOffsetMinutes: 540 }) }))
+
+    expect(useTimeZoneOffset().value).toBe(540)
   })
 })
 

@@ -110,7 +110,11 @@ function react(kind: KudosKind) {
         {{ entry.author.displayName }}
       </p>
 
-      <span class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)">{{ age }}</span>
+      <span class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)">
+        <template v-if="entry.isLate">
+          <span data-testid="challenge-entry-late">{{ t.challenge.late }}</span> ·
+        </template>{{ age }}
+      </span>
     </header>
 
     <!--

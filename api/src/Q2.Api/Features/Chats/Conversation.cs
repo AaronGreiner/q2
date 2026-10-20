@@ -303,9 +303,10 @@ public sealed class ConversationParticipant
 /// <remarks>
 /// A closed list of icon names, mirrored in the frontend's bundled icon set —
 /// an icon in one list but not the other renders as nothing at all. The same
-/// arrangement as <see cref="Q2.Api.Features.Goals.GoalIcons"/>, and for the
-/// same reason: the client draws what the server allows, and neither gets to
-/// invent a name.
+/// arrangement as a goal category's icon
+/// (<see cref="Q2.Api.Features.Goals.GoalCategories"/>), and for the same
+/// reason: the client draws what the server allows, and neither gets to invent
+/// a name.
 /// </remarks>
 public static class ConversationIcons
 {

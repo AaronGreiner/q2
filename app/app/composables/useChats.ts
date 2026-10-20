@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatDetail, ChatMessage, ChatPhoto, ChatSummary, Image, KudosKind, ProofVoteValue } from '~/api/types'
+import type { ChatDetail, ChatMessage, ChatPhoto, ChatSummary, DoubtReason, Image, KudosKind, ProofVoteValue } from '~/api/types'
 import { carryOver, prependPage, withMessage, withProof } from '~/utils/chatPages'
 import type { ThreadHistory } from '~/utils/chatPages'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
@@ -329,13 +329,13 @@ export function useChatThread(id: Ref<string>) {
    * to the vote itself is put where that one is. The vote screen's queue and
    * the badges move too.
    */
-  async function vote(proofId: string, value: ProofVoteValue) {
+  async function vote(proofId: string, value: ProofVoteValue, reason: DoubtReason | null = null) {
     if (isVoting.value) return
 
     isVoting.value = true
 
     try {
-      const proof = await api.proofs.vote(proofId, value)
+      const proof = await api.proofs.vote(proofId, value, reason)
       if (history.value) history.value = withProof(history.value, proof)
     }
     catch (caught) {

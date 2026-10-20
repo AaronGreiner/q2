@@ -124,7 +124,7 @@ Current components, by folder:
 | `GoalReminderSheet` | moving or removing a goal's daily reminder |
 | `GoalCreateSheet` | the bottom sheet that creates a goal, in four steps with ideas, a searchable friend list and a summary — a Do or a Don't; without a friend it keeps a Do waiting instead |
 | `GoalEditSheet` `GoalChangeBanner` `GoalChangeList` | editing a running goal in the create sheet's steps, with a summary the server previews; the change waiting for the next window on the goal, with "Zurückziehen" for the owner and the objection for a checker; and what an edit changed, line by line, worded by `utils/goalChange.ts` ([0044](../docs/adr/0044-editing-a-running-goal.md)) |
-| `GoalIconPicker` `CheckerPicker` | the icon grid and the list of people who check a goal, shared by both sheets |
+| `GoalCategoryPicker` `CheckerPicker` | the five categories a goal can be in, each with the icon it brings, and the list of people who check a goal, shared by both sheets ([0050](../docs/adr/0050-categories-and-badges-that-are-earned.md)) |
 | `GoalDraftCard` `GoalDraftForm` | a Do that waits for its owner's first friend, and the short form a first Do is made in — a waiting Do without friends, a goal with them ([0039](../docs/adr/0039-first-run-onboarding.md)) |
 | `SpotCheckCard` | an open spot check: its countdown in seconds and the live-only camera, first on the start screen and on the Don't's screen ([0038](../docs/adr/0038-spot-checks.md)) |
 | `DontWindowRow` `DontHero` `DontLogButton` `DontLimitPicker` | a Don't: its row on today's list, the top of its own screen with the run, the one tap that logs a use (and asks first when it would be the relapse), and its limit, period and proof mode in the create sheet ([0037](../docs/adr/0037-donts.md)) |
@@ -145,6 +145,7 @@ Current components, by folder:
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
 | `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
 | `ProfileEditor` `ProfileEditSheet` | editing your own name and picture, from the profile's pencil and from settings: the sheet, and the camera it hands over to, never both at once |
+| `BadgeGrid` | the six badges on your own profile, earned or dimmed, each with what it takes ([0050](../docs/adr/0050-categories-and-badges-that-are-earned.md)) |
 | `ProofGalleryTile` `ProofPhotoViewer` | one of your own photographs in the profile's gallery, with its outcome in words, and the same photograph full size with its goal |
 | `ChatCreateSheet` | starting a direct chat, or making a group |
 | `SettingsSection` `SettingsToggleRow` | the settings list |

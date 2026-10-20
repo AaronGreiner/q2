@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Activity;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
@@ -71,6 +72,7 @@ public sealed class SpotCheckWorker(
         var ids = scope.ServiceProvider.GetRequiredService<IIdGenerator>();
         var timeZones = scope.ServiceProvider.GetRequiredService<TimeZoneResolver>();
         var notifier = scope.ServiceProvider.GetRequiredService<Notifier>();
+        var activity = scope.ServiceProvider.GetRequiredService<ActivityRecorder>();
         var now = timeProvider.GetUtcNow();
 
         var goals = await database.Goals
@@ -123,7 +125,7 @@ public sealed class SpotCheckWorker(
             // is the one today's check belongs to — then drawn, then asked.
             var moved = GoalMaintenance.Advance(goal, calendar, now, ids, owner);
             moved |= SpotChecks.Draw(goal, calendar, preferences.GetValueOrDefault(goal.OwnerPersonId) ?? NotificationPreferences.Default, now, ids);
-            moved |= await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, ids, owner, cancellationToken);
+            moved |= await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, ids, owner, cancellationToken);
 
             if (moved)
             {

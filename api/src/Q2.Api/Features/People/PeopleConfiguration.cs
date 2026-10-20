@@ -22,6 +22,9 @@ public sealed class PersonConfiguration : IEntityTypeConfiguration<Person>
             .IsRequired()
             .HasMaxLength(Person.MaxDisplayNameLength);
 
+        builder.Property(p => p.Bio)
+            .HasMaxLength(Person.MaxBioLength);
+
         builder.Property(p => p.Handle)
             .IsRequired()
             .HasMaxLength(Person.MaxHandleLength);

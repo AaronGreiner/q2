@@ -72,6 +72,10 @@ async function onSubmit() {
       // than refused: registration is the worst moment to fail over a stale
       // link somebody was forwarded.
       inviteCode: inviteCode ?? undefined,
+
+      // The zone this browser is in, a better guess than the deployment's
+      // (#9). One the server does not know is ignored, like a stale code.
+      timeZone: deviceTimeZone() ?? undefined,
     })
 
     // The start screen does not show a new friendship, so this is the one

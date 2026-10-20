@@ -1,5 +1,5 @@
 import type { Messages } from '~/i18n/messages'
-import type { Activity, Goal, GoalKind, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
+import type { Activity, DoubtReason, Goal, GoalCategory, GoalKind, PauseAllResult, GoalSchedule, GoalStatus, GoalWindow, KudosKind, NotificationLine, ProofStatus, Risk, Weekday } from '~/api/types'
 import { voteRules } from '~/api/types'
 
 /**
@@ -46,6 +46,26 @@ export function clampProgress(percent: number): number {
  */
 export function goalIconName(icon: string): string {
   return `i-lucide-${icon}`
+}
+
+/**
+ * The icon a category is drawn with, before there is a goal to ask.
+ *
+ * A goal's own `icon` comes from the server, worked out from its category by
+ * `GoalCategories.IconFor`; this mirror is for the picker and the ideas, which
+ * show a category nobody has saved yet. Both lists, and the bundle in
+ * nuxt.config.ts, have to agree — a unit test holds this one to the bundle.
+ */
+export const categoryIcons: Readonly<Record<GoalCategory, string>> = {
+  Sport: 'dumbbell',
+  Learning: 'graduation-cap',
+  Reading: 'book-open',
+  Mindfulness: 'leaf',
+  Other: 'target',
+}
+
+export function categoryIconName(category: GoalCategory): string {
+  return goalIconName(categoryIcons[category])
 }
 
 /** The same, for a group conversation's avatar. */
@@ -185,8 +205,6 @@ export function activitySentence(activity: Activity, t: Messages): string {
       return t.activity.taskCompleted(activity.subject ?? '')
     case 'StreakReached':
       return t.activity.streakReached(activity.amount ?? 0)
-    case 'GoalProgress':
-      return t.activity.goalProgress(activity.subject ?? '', activity.amount ?? 0)
     case 'GoalCreated':
       return t.activity.goalCreated(activity.subject ?? '')
     default:
@@ -565,6 +583,19 @@ export function localHour(instant: number, offsetMinutes = 0): number {
 }
 
 /** `YYYY-MM-DD` moved by whole days. */
+/**
+ * The IANA zone this device is in — "Europe/Berlin" — or null where the
+ * browser will not say (#9).
+ */
+export function deviceTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  }
+  catch {
+    return null
+  }
+}
+
 export function addDays(day: string, days: number): string {
   const [year, month, date] = day.split('-').map(Number)
   return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (date ?? 1) + days)).toISOString().slice(0, 10)
@@ -622,12 +653,13 @@ export function notificationText(line: NotificationLine, t: Messages): Notificat
       return said(t.notify.titles.vote, name, t.notify.proofAwaitingVote(subject))
     case 'ProofConfirmed':
       return said(t.notify.titles.result, null, t.notify.proofConfirmed(subject))
-    case 'ProofRefused':
-      return said(
-        t.notify.titles.result,
-        null,
-        (line.amount ?? 0) > 0 ? t.notify.proofRefusedRetry(subject) : t.notify.proofRefused(subject),
-      )
+    case 'ProofRefused': {
+      const refused = (line.amount ?? 0) > 0 ? t.notify.proofRefusedRetry(subject) : t.notify.proofRefused(subject)
+
+      // The reason most doubters gave, as a code the server counted (#111).
+      const reason = isDoubtReason(line.detail) ? t.notify.proofRefusedReason(t.proof.doubtReason[line.detail]) : null
+      return said(t.notify.titles.result, null, reason ? `${refused} ${reason}` : refused)
+    }
     case 'ReactionReceived':
       return reactionText(line, name, subject, t)
     case 'GoalInvitation':
@@ -648,6 +680,9 @@ export function notificationText(line: NotificationLine, t: Messages): Notificat
     // Nobody did this; the server drew the moment.
     case 'SpotCheckDue':
       return said(t.notify.titles.spotCheck, null, t.notify.spotCheckDue(subject))
+    // The owner's own nudge (#82): nobody else did anything.
+    case 'ReminderDue':
+      return said(t.notify.titles.reminder, null, t.notify.reminderDue(subject))
     default:
       return said(t.app.name, null, t.push.generic)
   }
@@ -709,6 +744,9 @@ export function notificationLink(line: NotificationLine): string {
     // The start screen, where the open check is the first thing, with its
     // countdown and the camera (docs/adr/0038-spot-checks.md).
     case 'SpotCheckDue':
+      return '/'
+    // The start screen too: what is still to do today, with its camera.
+    case 'ReminderDue':
       return '/'
     case 'ReactionReceived':
       return reactionLink(line)
@@ -786,6 +824,8 @@ export function notificationIcon(line: NotificationLine): string {
       return 'i-lucide-zap'
     case 'SpotCheckDue':
       return 'i-lucide-camera'
+    case 'ReminderDue':
+      return 'i-lucide-bell-ring'
     default:
       return 'i-lucide-bell'
   }
@@ -823,4 +863,45 @@ export function checkersMeaning(count: number, t: Messages): string | null {
   if (count < voteRules.minDoubts) return t.create.checkersAlone
   if (count === voteRules.minDoubts) return t.create.checkersAll(count)
   return t.create.checkersShare
+}
+
+/**
+ * What "alle aussetzen" says when it is done (#99): how many were set aside,
+ * and which were not — by title, the owner's own.
+ */
+export function pauseAllMessage(result: PauseAllResult, t: Messages): { icon: string, text: string } {
+  const done = result.paused.length > 0 ? t.pause.allDone(result.paused.length) : t.pause.allNone
+  const left = result.skipped.map(skip => t.pause.quoted(skip.title)).join(', ')
+
+  return { icon: 'i-lucide-pause', text: left ? `${done} · ${t.pause.allSkipped(left)}` : done }
+}
+
+/** Whether a notification's detail is one of the reasons a doubter can give (#111). */
+export function isDoubtReason(value: string | null | undefined): value is DoubtReason {
+  return value === 'NotWhatWasPromised' || value === 'OldPicture' || value === 'Unrecognisable'
+}
+
+/**
+ * What a challenge's clock says (#136): the minutes left of "the moment"
+ * while it lasts, then that it is late but still possible, and for one
+ * without a moment the hours left of its day, as before.
+ */
+export function challengeClock(
+  challenge: { expiresAt: string, momentEndsAt?: string | null },
+  now: number,
+  t: Messages,
+): string {
+  const leftOfDay = new Date(challenge.expiresAt).getTime() - now
+  if (leftOfDay <= 0) return t.challenge.over
+
+  const hours = Math.floor(leftOfDay / 3_600_000)
+
+  if (challenge.momentEndsAt) {
+    const leftOfMoment = new Date(challenge.momentEndsAt).getTime() - now
+    return leftOfMoment > 0
+      ? t.challenge.momentLeft(Math.max(1, Math.ceil(leftOfMoment / 60_000)))
+      : t.challenge.lateRemaining(hours)
+  }
+
+  return t.challenge.remaining(hours)
 }

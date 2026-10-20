@@ -26,6 +26,12 @@ namespace Q2.Api.Features.Notifications;
 /// Null for everything a person wrote, which has the one language it was
 /// written in.
 /// </param>
+/// <param name="Detail">
+/// A code the client words, for the one kind that needs more than a number:
+/// the reason most doubters gave for refusing a photograph (#111) — a
+/// <see cref="Q2.Api.Features.Proofs.DoubtReason"/> name, never anybody's words
+/// and never anybody's name.
+/// </param>
 /// <param name="FocusId">
 /// Where inside <see cref="Target"/> the line leads, when that is narrower than
 /// the target itself (#112): the photograph a reaction or a verdict is about,
@@ -42,7 +48,8 @@ public sealed record NotificationEvent(
     int? Amount = null,
     string? Excerpt = null,
     string? EnglishSubject = null,
-    Guid? FocusId = null);
+    Guid? FocusId = null,
+    string? Detail = null);
 
 /// <summary>
 /// One line in somebody's bell.
@@ -85,7 +92,8 @@ public sealed class Notification
         NotificationTarget target,
         Guid? targetId,
         Guid? focusId,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt,
+        string? detail)
     {
         Id = id;
         RecipientPersonId = recipientPersonId;
@@ -98,6 +106,7 @@ public sealed class Notification
         TargetId = targetId;
         FocusId = focusId;
         OccurredAt = occurredAt;
+        Detail = detail;
     }
 
     public Guid Id { get; private set; }
@@ -151,6 +160,9 @@ public sealed class Notification
 
     public DateTimeOffset OccurredAt { get; private set; }
 
+    /// <summary>A code the client words — see <see cref="NotificationEvent.Detail"/>.</summary>
+    public string? Detail { get; private set; }
+
     /// <exception cref="ArgumentException">The bell does not keep this kind.</exception>
     public static Notification Create(
         Guid id,
@@ -181,8 +193,12 @@ public sealed class Notification
             notification.Target,
             notification.TargetId,
             notification.FocusId,
-            occurredAt);
+            occurredAt,
+            Shorten(notification.Detail, MaxDetailLength));
     }
+
+    /// <summary>Long enough for any code it carries.</summary>
+    public const int MaxDetailLength = 32;
 
     /// <summary>
     /// Text cut to what one line can hold, ending in an ellipsis rather than

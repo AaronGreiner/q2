@@ -37,13 +37,13 @@ public sealed class ChallengeQueueWorker(
     /// How often to look.
     /// </summary>
     /// <remarks>
-    /// Hourly, and there is no setting for it. The queue is a week deep, so
-    /// this is already several hundred times more often than it could possibly
-    /// run dry; the only thing a shorter interval would buy is a prompt
-    /// appearing sooner after somebody edited the configuration, and that needs
-    /// a restart anyway.
+    /// Every minute, and there is no setting for it. The queue is a week deep
+    /// and would be served by an hourly pass; the announcement is not. A
+    /// challenge appears at a moment of the day, the same for everybody
+    /// (#136), and its push has to go out then rather than up to an hour
+    /// later. A pass is two small reads, so a minute costs nothing.
     /// </remarks>
-    public static readonly TimeSpan Interval = TimeSpan.FromHours(1);
+    public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -123,7 +123,8 @@ public sealed class ChallengeQueueWorker(
                 item.Prompt.German,
                 item.Prompt.English,
                 item.PublishedAt,
-                item.ExpiresAt));
+                item.ExpiresAt,
+                item.MomentEndsAt));
         }
 
         var translated = await TranslateEarlierRowsAsync(database, settings.Prompts, cancellationToken);

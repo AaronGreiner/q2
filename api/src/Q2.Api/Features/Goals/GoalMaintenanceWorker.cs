@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.Activity;
 using Q2.Api.Features.Chats;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
@@ -16,7 +17,8 @@ namespace Q2.Api.Features.Goals;
 /// the app, so this is not what keeps <em>their</em> screen honest. It is what
 /// keeps everybody else's: a friend has to be able to see that you missed
 /// yesterday even if you have not opened q2 since, the evening warning goes out
-/// to people who are not the one who is running late, and a photograph whose
+/// to people who are not the one who is running late, a Do's daily reminder
+/// reaches an owner who has not opened the app, and a photograph whose
 /// twelve hours ran out overnight is decided — and its owner told — without
 /// anybody looking.
 ///
@@ -102,10 +104,16 @@ public sealed class GoalMaintenanceWorker(
          * else's push service feels like taking (docs/adr/0023-web-push.md).
          */
         var notifier = scope.ServiceProvider.GetRequiredService<Notifier>();
+        var activity = scope.ServiceProvider.GetRequiredService<ActivityRecorder>();
+        var badges = scope.ServiceProvider.GetRequiredService<BadgeAwarder>();
 
         var now = timeProvider.GetUtcNow();
         var changed = 0;
         var warned = 0;
+        var reminded = 0;
+
+        // Whose goals moved in the batch being worked through.
+        var moved = new HashSet<Guid>();
         var lastId = Guid.Empty;
 
         var opened = await GoalConversations.OpenMissingAsync(database, ids, now, cancellationToken);
@@ -166,9 +174,31 @@ public sealed class GoalMaintenanceWorker(
                 var owner = owners.GetValueOrDefault(goal.OwnerPersonId);
                 var calendar = timeZones.For(owner?.TimeZoneId);
 
-                if (await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, ids, owner, cancellationToken))
+                if (await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, ids, owner, cancellationToken))
                 {
                     changed++;
+                    moved.Add(goal.OwnerPersonId);
+                }
+
+                // The owner's own daily reminder, once a day while the window
+                // still needs a photograph (#82). Here, like the warning, and
+                // never on a read: the owner opening the app is exactly when it
+                // is not needed.
+                if (owner is not null
+                    && GoalReminders.Due(goal, calendar, now) is { } window
+                    && window.Remind(calendar.Today(now)))
+                {
+                    reminded++;
+
+                    await notifier.StageAsync(
+                        new NotificationEvent(
+                            NotificationKind.ReminderDue,
+                            ActorPersonId: null,
+                            NotificationTarget.Goal,
+                            goal.Id,
+                            goal.Title),
+                        [owner.Id],
+                        cancellationToken);
                 }
 
                 if (owner is not null && WarnIfAtRisk(goal, calendar, now) is { } missing)
@@ -202,6 +232,16 @@ public sealed class GoalMaintenanceWorker(
             }
 
             await database.SaveChangesAsync(cancellationToken);
+
+            // A window that closed, or a week that ended, may have earned the
+            // owner a badge (#22). After the save, because the awarder reads
+            // what was just written.
+            if (await badges.AwardEarnedAsync(moved, cancellationToken))
+            {
+                await database.SaveChangesAsync(cancellationToken);
+            }
+
+            moved.Clear();
         }
 
         // A checker an edit removed in this pass — or in a request that did not
@@ -225,6 +265,11 @@ public sealed class GoalMaintenanceWorker(
         if (warned > 0)
         {
             logger.LogInformation("Goal maintenance warned about {WindowCount} window(s)", warned);
+        }
+
+        if (reminded > 0)
+        {
+            logger.LogInformation("Goal maintenance reminded about {WindowCount} window(s)", reminded);
         }
 
         await notifier.FlushAsync(cancellationToken);

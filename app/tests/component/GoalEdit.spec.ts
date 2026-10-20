@@ -34,8 +34,8 @@ function change(overrides: Partial<GoalChange> = {}): GoalChange {
     resolvedAt: null,
     titleFrom: null,
     titleTo: null,
-    iconFrom: null,
-    iconTo: null,
+    categoryFrom: null,
+    categoryTo: null,
     descriptionChanged: false,
     descriptionTo: null,
     scheduleFrom: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
@@ -61,7 +61,8 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     id: 'goal-1',
     title: 'Laufen',
     description: null,
-    icon: 'medal',
+    category: 'Sport',
+    icon: 'dumbbell',
     schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     status: 'Active',
     isGroup: false,
@@ -135,7 +136,7 @@ describe('GoalEditSheet', () => {
     const [request] = wrapper.emitted('preview')![0] as [Record<string, unknown>]
     expect(request).toMatchObject({
       title: 'Joggen',
-      icon: 'medal',
+      category: 'Sport',
       schedule: { kind: 'Times', times: 2, period: 'Week' },
       participantIds: ['person-lena', 'person-jonas'],
     })

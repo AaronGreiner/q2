@@ -2,9 +2,9 @@
 import type { Person } from '~/api/types'
 
 /**
- * Changing your own name and picture.
+ * Changing your own name, picture and bio (#20).
  *
- * Two fields, and one of them is a photograph — which is why this is a sheet
+ * Three fields, and one of them is a photograph — which is why this is a sheet
  * rather than a screen: everything it changes is visible behind it, and the
  * result is the point.
  *
@@ -24,11 +24,13 @@ import type { Person } from '~/api/types'
  */
 const props = defineProps<{
   person: Person
+  /** A few words of their own under the name, or null. */
+  bio: string | null
   submitting: boolean
 }>()
 
 const emit = defineEmits<{
-  save: [value: { displayName: string }]
+  save: [value: { displayName: string, bio: string }]
   capture: []
   remove: []
 }>()
@@ -37,14 +39,21 @@ const open = defineModel<boolean>('open', { required: true })
 
 const t = useMessages()
 
+/** `Person.MaxBioLength` on the server, which stays the authority. */
+const maxBioLength = 160
+
 const name = ref(props.person.displayName)
+const bio = ref(props.bio ?? '')
 const confirmingRemoval = ref(false)
 
 // The sheet is kept mounted between openings, so the draft has to be put back
 // to what is actually stored each time — otherwise a cancelled rename is still
 // sitting in the field the next time it opens.
 watch(open, (isOpen) => {
-  if (isOpen) name.value = props.person.displayName
+  if (isOpen) {
+    name.value = props.person.displayName
+    bio.value = props.bio ?? ''
+  }
 })
 
 watch(() => props.person.displayName, (updated) => {
@@ -56,7 +65,9 @@ const canSave = computed(() => trimmed.value.length > 0 && !props.submitting)
 
 function onSave() {
   if (!canSave.value) return
-  emit('save', { displayName: trimmed.value })
+
+  // Always sent, so clearing the field takes the bio away.
+  emit('save', { displayName: trimmed.value, bio: bio.value.trim() })
 }
 
 function onRemove() {
@@ -136,6 +147,21 @@ function onRemove() {
         <p class="text-[13px] font-semibold text-(--ui-text-muted)">
           {{ t.profileEdit.handleFixed }}
         </p>
+
+        <UFormField
+          :label="t.profileEdit.bio"
+          :help="t.profileEdit.bioHelp(maxBioLength - bio.length)"
+        >
+          <UTextarea
+            v-model="bio"
+            :rows="2"
+            autoresize
+            :maxlength="maxBioLength"
+            :placeholder="t.profileEdit.bioPlaceholder"
+            class="w-full"
+            data-testid="profile-bio"
+          />
+        </UFormField>
 
         <UButton
           block

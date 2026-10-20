@@ -254,7 +254,7 @@ public class DontTests
     public void ADoHasNoUsesToLog()
     {
         var goal = Goal.Create(
-            Guid.CreateVersion7(), Owner, "Laufen", null, "target", GoalSchedule.EveryNDays(1), false, null, null, Start);
+            Guid.CreateVersion7(), Owner, "Laufen", null, GoalCategory.Other, GoalSchedule.EveryNDays(1), false, null, null, Start);
         GoalMaintenance.Advance(goal, Utc, Noon(Monday), Ids);
 
         Assert.Null(goal.LogUse(Ids.NewId(), null, Noon(Monday)));
@@ -279,7 +279,7 @@ public class DontTests
     public void ADontNeedsALimitAndAProofMode(int? limit, DontProofMode? mode)
     {
         Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Kein Alkohol", null, "target", GoalSchedule.Per(QuotaPeriod.Day), false, null, null, Start,
+            Guid.CreateVersion7(), Owner, "Kein Alkohol", null, GoalCategory.Other, GoalSchedule.Per(QuotaPeriod.Day), false, null, null, Start,
             GoalKind.Dont, limit, mode));
     }
 
@@ -287,10 +287,10 @@ public class DontTests
     public void OnlyADontIsCountedPerPeriodAndOnlyADontIsCountedPerDay()
     {
         Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Laufen", null, "target", GoalSchedule.Per(QuotaPeriod.Week), false, null, null, Start));
+            Guid.CreateVersion7(), Owner, "Laufen", null, GoalCategory.Other, GoalSchedule.Per(QuotaPeriod.Week), false, null, null, Start));
 
         Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Owner, "Kein Alkohol", null, "target", GoalSchedule.EveryNDays(1), false, null, null, Start,
+            Guid.CreateVersion7(), Owner, "Kein Alkohol", null, GoalCategory.Other, GoalSchedule.EveryNDays(1), false, null, null, Start,
             GoalKind.Dont, 0, DontProofMode.HonestOnly));
 
         Assert.Throws<DomainValidationException>(() => GoalSchedule.TimesPer(3, QuotaPeriod.Day));
@@ -325,6 +325,25 @@ public class DontTests
         Assert.Null(relapse.ActorPersonId);
     }
 
+    /// <summary>
+    /// "Höchstens 3× pro Woche" made on a Sunday holds its share of the limit
+    /// for the one day left, not the week's three (#96).
+    /// </summary>
+    [Fact]
+    public void AFirstPeriodStartedLateHoldsItsShareOfTheLimit()
+    {
+        var sunday = Monday.AddDays(6);
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), Owner, "Bier", null, GoalCategory.Other, GoalSchedule.Per(QuotaPeriod.Week), false, null, null,
+            new DateTimeOffset(sunday.ToDateTime(new TimeOnly(9, 0)), TimeSpan.Zero),
+            GoalKind.Dont, 3, DontProofMode.HonestOnly);
+
+        GoalMaintenance.Advance(goal, Utc, Noon(sunday), Ids);
+
+        Assert.Equal(sunday, goal.CurrentInstance!.StartsOn);
+        Assert.Equal(1, goal.CurrentInstance.Limit);
+    }
+
     private static readonly DateTimeOffset Start = new(Monday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
 
     private static Goal Dont(int limit, QuotaPeriod period, DontProofMode mode, int voters = 0)
@@ -334,7 +353,7 @@ public class DontTests
             Owner,
             "Kein Alkohol",
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.Per(period),
             isGroup: false,
             reminderAt: null,

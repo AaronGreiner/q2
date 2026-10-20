@@ -34,6 +34,38 @@ public class GoalMaintenanceTests
         Assert.Equal(GoalInstanceStatus.Open, window.Status);
     }
 
+    /// <summary>
+    /// "Ab morgen" (#96): nothing to deliver into today, and tomorrow's window
+    /// is the first — not today's, missed on the way.
+    /// </summary>
+    [Fact]
+    public void AGoalStartingTomorrowOpensNothingTodayAndTomorrowsWindowFirst()
+    {
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), Owner, "Anything", null, GoalCategory.Other, GoalSchedule.EveryNDays(1), false, null, null,
+            new DateTimeOffset(Monday.ToDateTime(new TimeOnly(20, 50)), TimeSpan.Zero),
+            startsOn: Monday.AddDays(1));
+
+        Assert.False(GoalMaintenance.Advance(goal, Berlin, Noon(Monday).AddHours(9), Ids));
+        Assert.Empty(goal.Instances);
+
+        Assert.True(GoalMaintenance.Advance(goal, Berlin, Noon(Monday.AddDays(1)), Ids));
+        var window = Assert.Single(goal.Instances);
+        Assert.Equal(Monday.AddDays(1), window.StartsOn);
+        Assert.Equal(GoalInstanceStatus.Open, window.Status);
+    }
+
+    [Fact]
+    public void AOneOffIgnoresAStartDay()
+    {
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), Owner, "Anything", null, GoalCategory.Other, GoalSchedule.Once(), false, null, Monday.AddDays(3),
+            new DateTimeOffset(Monday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
+            startsOn: Monday.AddDays(1));
+
+        Assert.Null(goal.StartsOn);
+    }
+
     [Fact]
     public void NothingHappensWhileTheWindowIsStillRunning()
     {
@@ -304,7 +336,7 @@ public class GoalMaintenanceTests
             Owner,
             "Anything",
             null,
-            "target",
+            GoalCategory.Other,
             kind == GoalKind.Dont ? GoalSchedule.Per(QuotaPeriod.Day) : GoalSchedule.EveryNDays(1),
             isGroup: false,
             reminderAt: null,
@@ -331,7 +363,7 @@ public class GoalMaintenanceTests
             Owner,
             "Anything",
             null,
-            "target",
+            GoalCategory.Other,
             schedule,
             isGroup: false,
             reminderAt: null,

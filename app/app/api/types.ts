@@ -13,6 +13,7 @@ type Schemas = components['schemas']
 export type Person = Schemas['PersonSummary']
 
 export type Goal = Schemas['GoalResponse']
+export type GoalCategory = Schemas['GoalCategory']
 export type OpenSpotCheck = Schemas['OpenSpotCheckResponse']
 export type GoalDetail = Schemas['GoalDetailResponse']
 export type GoalTeamMember = Schemas['GoalTeamMemberResponse']
@@ -43,6 +44,8 @@ export type GoalChangeStatus = Schemas['GoalChangeStatus']
 export type EditGoalRequest = Schemas['EditGoalRequest']
 export type GoalEditPreview = Schemas['GoalEditPreviewResponse']
 export type RequestPauseRequest = Schemas['RequestPauseRequest']
+export type PauseAllResult = Schemas['PauseAllResponse']
+export type PauseRefusal = Schemas['PauseRefusal']
 export type CloseGoalRequest = Schemas['CloseGoalRequest']
 export type SetReminderRequest = Schemas['SetReminderRequest']
 
@@ -75,6 +78,7 @@ export type ReactionSummary = Schemas['ReactionSummaryResponse']
  * something else the moment this product has anything else to vote on.
  */
 export type ProofVoteValue = Schemas['VoteValue']
+export type DoubtReason = NonNullable<Schemas['DoubtReason']>
 
 export type Challenge = Schemas['ChallengeResponse']
 export type ChallengeRoom = Schemas['ChallengeRoomResponse']
@@ -229,6 +233,8 @@ export const pauseLimits = {
   maxDays: 7,
   minReason: 10,
   maxReason: 280,
+  /** How far ahead a pause may start (#99). */
+  maxDaysAhead: 30,
 } as const
 
 /**
@@ -274,25 +280,18 @@ export const maxTargetDaysAhead = 365
 export const intervalChoices: readonly number[] = [1, 2, 3, 7, 14] as const
 
 /**
- * The icons a goal may use.
+ * The categories a goal can be in (#18), in the order they are offered.
  *
- * Must match `GoalIcons` in api/src/Q2.Api/Features/Goals/Goal.cs and the
- * bundle list in nuxt.config.ts. The server rejects anything else, and an icon
- * missing from the bundle renders as empty space.
+ * The same five as `GoalCategory` on the server; the type would not compile
+ * with one the server does not know. Each brings its icon — see
+ * `categoryIconName` in app/utils/display.ts.
  */
-export const goalIcons: readonly string[] = [
-  'target',
-  'medal',
-  'book-open',
-  'sunrise',
-  'droplet',
-  'flame',
-  'trophy',
-  'sparkles',
-  'calendar',
-  'alarm-clock',
-  'hand-heart',
-  'users',
+export const goalCategories: readonly GoalCategory[] = [
+  'Sport',
+  'Learning',
+  'Reading',
+  'Mindfulness',
+  'Other',
 ] as const
 
 /**
@@ -327,3 +326,10 @@ export const groupIcons = [
 export function isGoalStatus(value: unknown): value is GoalStatus {
   return typeof value === 'string' && (goalStatuses as readonly string[]).includes(value)
 }
+
+/**
+ * What a doubter can say was missing, in the order the card offers them
+ * (#111). The same three as `DoubtReason` on the server; optional, anonymous,
+ * and never free text.
+ */
+export const doubtReasons: readonly DoubtReason[] = ['NotWhatWasPromised', 'OldPicture', 'Unrecognisable'] as const

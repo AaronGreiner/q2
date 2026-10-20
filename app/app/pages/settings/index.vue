@@ -23,7 +23,37 @@ const t = useMessages()
 const theme = useTheme()
 const accent = useAccent()
 const language = useLanguage()
-const { update } = useAppSettings()
+const { settings, update } = useAppSettings()
+
+/*
+ * The zone this person's days are counted in (#9). The list is the browser's
+ * own, read once mounted: the server and the browser may know different ones,
+ * and a select rendered twice from two lists would not hydrate.
+ */
+const zones = ref<string[]>([])
+const deviceZone = ref<string | null>(null)
+
+onMounted(() => {
+  deviceZone.value = deviceTimeZone()
+  try {
+    zones.value = Intl.supportedValuesOf('timeZone')
+  }
+  catch {
+    zones.value = []
+  }
+})
+
+const timeZone = computed(() => settings.value?.timeZone ?? null)
+
+const zoneOptions = computed(() => {
+  const all = new Set(zones.value)
+  if (timeZone.value) all.add(timeZone.value)
+  return [...all]
+})
+
+function chooseZone(zone: string) {
+  if (zone && zone !== timeZone.value) void update({ timeZone: zone })
+}
 
 const config = useRuntimeConfig()
 const { person, logout } = useSession()
@@ -31,14 +61,14 @@ const { person, logout } = useSession()
 const isDeleting = ref(false)
 const feedback = useFeedback()
 
-const { profile, isSaving, rename, chooseAvatar, removeAvatar } = useProfile()
+const { profile, isSaving, saveProfile, chooseAvatar, removeAvatar } = useProfile()
 const isEditingProfile = ref(false)
 
 /** Changing the password, with the current one (#40). */
 const isChangingPassword = ref(false)
 
-async function onSaveProfile(value: { displayName: string }) {
-  if (await rename(value.displayName)) isEditingProfile.value = false
+async function onSaveProfile(value: { displayName: string, bio: string }) {
+  if (await saveProfile(value.displayName, value.bio)) isEditingProfile.value = false
 }
 
 const isSigningOut = ref(false)
@@ -137,6 +167,49 @@ useHead({ title: () => t.value.settings.heading })
             v-model="selectedLanguage"
             :options="languageOptions"
             :label="t.settings.language"
+          />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        :title="t.settings.timeZone"
+        :note="t.settings.timeZoneNote"
+      >
+        <div
+          class="flex flex-col gap-2.5 px-4 py-3.5"
+          data-testid="time-zone"
+        >
+          <label
+            for="time-zone-select"
+            class="text-sm font-bold"
+          >
+            {{ t.settings.timeZoneLabel }}
+          </label>
+          <select
+            id="time-zone-select"
+            class="min-h-11 w-full rounded-(--q2-radius-md) border border-(--ui-border) bg-(--q2-surface) px-3 text-sm font-semibold"
+            :value="timeZone ?? ''"
+            data-testid="time-zone-select"
+            @change="event => chooseZone((event.target as HTMLSelectElement).value)"
+          >
+            <option
+              v-for="zone in zoneOptions"
+              :key="zone"
+              :value="zone"
+            >
+              {{ zone }}
+            </option>
+          </select>
+
+          <UButton
+            v-if="deviceZone && timeZone && deviceZone !== timeZone"
+            class="min-h-11 self-start"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-locate-fixed"
+            :label="t.settings.timeZoneUseDevice(deviceZone)"
+            data-testid="time-zone-use-device"
+            @click="chooseZone(deviceZone)"
           />
         </div>
       </SettingsSection>
@@ -302,6 +375,7 @@ useHead({ title: () => t.value.settings.heading })
       v-if="profile"
       v-model:open="isEditingProfile"
       :person="profile.person"
+      :bio="profile.bio ?? null"
       :submitting="isSaving"
       @save="onSaveProfile"
       @photo="image => chooseAvatar(image.id)"

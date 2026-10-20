@@ -23,7 +23,7 @@ public class CreateGoalRequestValidatorTests
         var errors = CreateGoalRequestValidator.Validate(new CreateGoalRequest(
             Title: "Halbmarathon im Mai",
             Description: "Drei Läufe pro Woche.",
-            Icon: "medal",
+            Category: GoalCategory.Sport,
             Schedule: new GoalScheduleRequest(Kind: ScheduleKind.Times, Times: 3, Period: QuotaPeriod.Week),
             IsGroup: false,
             ReminderAt: new TimeOnly(18, 0),
@@ -101,21 +101,21 @@ public class CreateGoalRequestValidatorTests
     ];
 
     [Fact]
-    public void AnUnknownIconIsReported()
+    public void AnUnknownCategoryIsReported()
     {
         var errors = CreateGoalRequestValidator.Validate(
-            new CreateGoalRequest(Title: "Anything", Icon: "rocket"));
+            new CreateGoalRequest(Title: "Anything", Category: (GoalCategory)42));
 
-        Assert.Contains(nameof(CreateGoalRequest.Icon), errors.Keys);
+        Assert.Contains(nameof(CreateGoalRequest.Category), errors.Keys);
     }
 
     [Fact]
-    public void EveryIconTheServerOffersPassesItsOwnValidator()
+    public void EveryCategoryPassesItsOwnValidator()
     {
-        foreach (var icon in GoalIcons.All)
+        foreach (var category in Enum.GetValues<GoalCategory>())
         {
             var errors = CreateGoalRequestValidator.Validate(
-                new CreateGoalRequest(Title: "Anything", Icon: icon, ParticipantIds: AFriend));
+                new CreateGoalRequest(Title: "Anything", Category: category, ParticipantIds: AFriend));
 
             Assert.Empty(errors);
         }

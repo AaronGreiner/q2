@@ -26,14 +26,14 @@ public class GoalEditTests
     private static IIdGenerator Ids { get; } = new SequentialIdGenerator();
 
     [Fact]
-    public void TheTitleAndIconApplyAtOnceAndAreRecorded()
+    public void TheTitleAndCategoryApplyAtOnceAndAreRecorded()
     {
         var goal = Running(GoalSchedule.EveryNDays(1));
 
-        var change = Edit(goal, new GoalEdit(Title: "Joggen", Icon: "flame"), Noon(Monday));
+        var change = Edit(goal, new GoalEdit(Title: "Joggen", Category: GoalCategory.Sport), Noon(Monday));
 
         Assert.Equal("Joggen", goal.Title);
-        Assert.Equal("flame", goal.Icon);
+        Assert.Equal(GoalCategory.Sport, goal.Category);
         Assert.NotNull(change);
         Assert.Equal("Anything", change.TitleFrom);
         Assert.Equal("Joggen", change.TitleTo);
@@ -411,7 +411,7 @@ public class GoalEditTests
             Owner,
             "Anything",
             null,
-            "target",
+            GoalCategory.Other,
             schedule,
             isGroup: false,
             reminderAt: null,
@@ -434,7 +434,7 @@ public class GoalEditTests
             Owner,
             "Anything",
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.Per(period),
             isGroup: false,
             reminderAt: null,

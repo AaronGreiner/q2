@@ -16,11 +16,16 @@ public enum ActivityKind
     /// </summary>
     TaskCompleted,
 
-    /// <summary>Reached a streak. <c>Amount</c> is the number of days.</summary>
+    /// <summary>
+    /// Reached a streak milestone (<see cref="StreakMilestones"/>).
+    /// <c>Amount</c> is the number of days.
+    /// </summary>
+    /// <remarks>
+    /// There was another kind, <c>GoalProgress</c> — "ist bei … auf 1 %" — from
+    /// the percentage model that windows replaced. Only the seeds ever produced
+    /// it; its rows were deleted with it (#90).
+    /// </remarks>
     StreakReached,
-
-    /// <summary>Got further on a goal. <c>Subject</c> is the goal, <c>Amount</c> the percentage.</summary>
-    GoalProgress,
 
     /// <summary>Started something new. <c>Subject</c> is the goal title.</summary>
     /// <remarks>
@@ -86,7 +91,7 @@ public sealed class ActivityEvent
     /// </summary>
     public string? Subject { get; private set; }
 
-    /// <summary>A number the sentence needs: days of streak, percent reached.</summary>
+    /// <summary>A number the sentence needs: the days of a streak, or how many photographs a window has.</summary>
     public int? Amount { get; private set; }
 
     /// <summary>

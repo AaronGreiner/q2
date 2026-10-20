@@ -49,6 +49,8 @@ function proof(overrides: Partial<Proof> = {}): Proof {
       myVote: null,
       canIVote: true,
       doubtCanRefuse: true,
+      myDoubtReason: null,
+      doubtReasons: [],
     },
     reactions: [],
     ...overrides,
@@ -63,7 +65,7 @@ describe('ProofCard', () => {
    */
   it('tells a lone checker that their doubt alone does not refuse the photograph', async () => {
     const alone = await mountSuspended(ProofCard, {
-      props: { proof: proof({ votes: { ...proof().votes, doubtCanRefuse: false } }) },
+      props: { proof: proof({ votes: { ...proof().votes, doubtCanRefuse: false, myDoubtReason: null, doubtReasons: [] } }) },
     })
 
     expect(alone.get('[data-testid="proof-doubt-alone"]').text())
@@ -160,14 +162,72 @@ describe('ProofCard', () => {
     expect(wrapper.text()).toContain('Wer zweifelt, bleibt anonym.')
   })
 
-  it.each(['Confirm', 'Doubt'] as const)('acknowledges and emits the %s verdict', async (value) => {
+  it('acknowledges and emits the Confirm verdict', async () => {
     const wrapper = await mountSuspended(ProofCard, { props: { proof: proof() } })
 
     expect(hapticTap).not.toHaveBeenCalled()
-    await wrapper.get(`[data-testid="proof-${value.toLowerCase()}"]`).trigger('click')
+    await wrapper.get('[data-testid="proof-confirm"]').trigger('click')
 
-    expect(wrapper.emitted('vote')?.[0]).toEqual([value])
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['Confirm', null])
     expect(hapticTap).toHaveBeenCalledOnce()
+  })
+
+  /**
+   * "Anzweifeln" asks what was missing first (#111): one of three fixed
+   * answers, or none. Anonymous, and the card says so.
+   */
+  it('asks what was missing before it doubts, and doubts with or without a reason', async () => {
+    const wrapper = await mountSuspended(ProofCard, { props: { proof: proof() } })
+
+    await wrapper.get('[data-testid="proof-doubt"]').trigger('click')
+    expect(wrapper.emitted('vote')).toBeUndefined()
+    expect(wrapper.get('[data-testid="proof-doubt-reasons"]').text()).toContain('Was fehlt? Anonym und freiwillig.')
+
+    await wrapper.get('[data-testid="proof-doubt-OldPicture"]').trigger('click')
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt', 'OldPicture'])
+    expect(hapticTap).toHaveBeenCalledOnce()
+
+    const plain = await mountSuspended(ProofCard, { props: { proof: proof() } })
+    await plain.get('[data-testid="proof-doubt"]').trigger('click')
+    await plain.get('[data-testid="proof-doubt-none"]').trigger('click')
+    expect(plain.emitted('vote')?.[0]).toEqual(['Doubt', null])
+  })
+
+  it('lets a doubt already cast say, or change, what was missing', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: {
+        proof: proof({
+          votes: { confirmCount: 0, doubtCount: 1, confirmedBy: [], myVote: 'Doubt', canIVote: true, doubtCanRefuse: true, myDoubtReason: 'Unrecognisable', doubtReasons: [] },
+        }),
+      },
+    })
+
+    expect(wrapper.get('[data-testid="proof-reason-Unrecognisable"]').attributes('aria-pressed')).toBe('true')
+    await wrapper.get('[data-testid="proof-reason-NotWhatWasPromised"]').trigger('click')
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt', 'NotWhatWasPromised'])
+  })
+
+  it('shows the owner the reasons counted, and names nobody', async () => {
+    const wrapper = await mountSuspended(ProofCard, {
+      props: {
+        proof: proof({
+          status: 'Rejected',
+          votes: {
+            confirmCount: 0,
+            doubtCount: 3,
+            confirmedBy: [],
+            myVote: null,
+            canIVote: false,
+            doubtCanRefuse: true,
+            myDoubtReason: null,
+            doubtReasons: [{ reason: 'OldPicture', count: 2 }, { reason: 'Unrecognisable', count: 1 }],
+          },
+        }),
+      },
+    })
+
+    expect(wrapper.get('[data-testid="proof-reasons"]').text())
+      .toBe('Was gefehlt hat: Altes Bild oder Screenshot (2) · Nicht erkennbar (1)')
   })
 
   /**
@@ -185,6 +245,8 @@ describe('ProofCard', () => {
             myVote: 'Confirm',
             canIVote: false,
             doubtCanRefuse: true,
+            myDoubtReason: null,
+            doubtReasons: [],
           },
         }),
       },
@@ -206,7 +268,7 @@ describe('ProofCard', () => {
     const wrapper = await mountSuspended(ProofCard, {
       props: {
         proof: proof({
-          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: true, doubtCanRefuse: true },
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: true, doubtCanRefuse: true, myDoubtReason: null, doubtReasons: [] },
         }),
       },
     })
@@ -219,7 +281,7 @@ describe('ProofCard', () => {
 
     await change.trigger('click')
 
-    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt'])
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['Doubt', null])
   })
 
   it('offers no change once the vote has closed', async () => {
@@ -227,7 +289,7 @@ describe('ProofCard', () => {
       props: {
         proof: proof({
           status: 'Confirmed',
-          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false, doubtCanRefuse: true },
+          votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false, doubtCanRefuse: true, myDoubtReason: null, doubtReasons: [] },
         }),
       },
     })
@@ -254,7 +316,7 @@ describe('ProofCard', () => {
   it('offers no verdict on your own photograph', async () => {
     const wrapper = await mountSuspended(ProofCard, {
       props: {
-        proof: proof({ votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: false, doubtCanRefuse: true } }),
+        proof: proof({ votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: false, doubtCanRefuse: true, myDoubtReason: null, doubtReasons: [] } }),
       },
     })
 

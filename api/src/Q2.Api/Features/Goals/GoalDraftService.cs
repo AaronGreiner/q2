@@ -76,7 +76,7 @@ public sealed class GoalDraftService(
                 idGenerator.NewId(),
                 me.Id,
                 request.Title ?? string.Empty,
-                request.Icon,
+                request.Category,
                 schedule,
                 request.ReminderAt,
                 timeProvider.GetUtcNow());
@@ -85,7 +85,7 @@ public sealed class GoalDraftService(
         }
         else
         {
-            draft.Describe(request.Title ?? string.Empty, request.Icon, schedule, request.ReminderAt);
+            draft.Describe(request.Title ?? string.Empty, request.Category, schedule, request.ReminderAt);
         }
 
         await database.SaveChangesAsync(cancellationToken);

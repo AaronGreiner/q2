@@ -305,7 +305,7 @@ test.describe('goals', () => {
 
     const title = `E2E created goal ${Date.now()}`
     await page.getByTestId('goal-title-input').fill(title)
-    await page.getByTestId('icon-flame').click()
+    await page.getByTestId('category-Sport').click()
     await page.getByTestId('goal-next').click()
 
     await page.getByTestId('schedule-kind-Times').click()
@@ -324,7 +324,8 @@ test.describe('goals', () => {
     // The summary says when the first window ends — a quota's is the end of
     // the week — before anything is committed.
     await expect(page.getByTestId('goal-create-review')).toContainText(title)
-    await expect(page.getByTestId('goal-first-window')).toContainText('Dein erstes Fenster endet')
+    // How many and until when (#96) — how many depends on the weekday it runs on.
+    await expect(page.getByTestId('goal-first-window')).toContainText(/Dein erstes Fenster: \d Nachweise? bis/)
 
     await page.getByTestId('goal-submit').click()
 
@@ -629,8 +630,15 @@ test.describe('profile and settings', () => {
     await expect(page.getByRole('heading', { name: seeded.me })).toBeVisible()
     await expect(page.getByText('Abgeschlossen', { exact: true })).toBeVisible()
 
-    // Badges are gone until something awards them.
-    await expect(page.getByTestId('badge-grid')).toHaveCount(0)
+    // Every badge, earned or not, with what it takes (#22). The E2E seed has
+    // given this person two; others are earned from the seeded record as the
+    // run goes on — a week kept in full, say — so the count is not fixed.
+    await expect(page.getByTestId('badge-grid')).toBeVisible()
+    await expect(page.getByTestId('badge-count')).toHaveText(/^[2-6] von 6$/)
+    await expect(page.getByTestId('badge-StreakHero')).toHaveAttribute('data-earned', 'true')
+    await expect(page.getByTestId('badge-Bookworm')).toHaveAttribute('data-earned', 'true')
+    await expect(page.getByTestId('badge-Marathon')).toHaveAttribute('data-earned', 'false')
+    await expect(page.getByTestId('badge-Marathon')).toContainText('42 Fenster im Sport')
     await expect(page.getByTestId('own-activity')).toBeVisible()
   })
 
@@ -751,6 +759,6 @@ test.describe('the shell', () => {
   test('the environment is on screen, so a screenshot is never ambiguous', async ({ page }) => {
     await page.goto('/settings')
 
-    await expect(page.getByText('Q2 · Qdos — e2e')).toBeVisible()
+    await expect(page.getByText('Qdos · e2e')).toBeVisible()
   })
 })

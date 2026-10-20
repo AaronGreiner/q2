@@ -1,3 +1,4 @@
+using System.Net;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
@@ -213,5 +214,40 @@ public class ProfileAndSettingsEndpointTests(Q2ApiFactory factory) : ApiTestBase
         var on = (await SettingsAsync()).Notifications;
         Assert.Equal(new TimeOnly(21, 30), on.QuietHoursFrom);
         Assert.Equal(new TimeOnly(7, 0), on.QuietHoursTo);
+    }
+
+    // -- a bio (#20) ------------------------------------------------------------
+
+    private sealed record BioDocument(string? Bio);
+
+    [Fact]
+    public async Task ABioIsSetShownToOthersAndTakenAwayAgain()
+    {
+        var saved = await Client.PutJsonAsync("/api/profile", new { bio = "  Läuft lieber morgens.  " });
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal("Läuft lieber morgens.", (await saved.ReadAsync<BioDocument>()).Bio);
+
+        // A friend opening the profile reads it.
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var seen = await (await friend.GetAsync($"/api/people/{AutomatedTestSeed.CurrentPersonId}", TestContext.Current.CancellationToken))
+            .ReadAsync<BioDocument>();
+        Assert.Equal("Läuft lieber morgens.", seen.Bio);
+
+        // A rename alone leaves it; a blank one takes it away.
+        await Client.PutJsonAsync("/api/profile", new { displayName = "Test Person Eins" });
+        Assert.Equal("Läuft lieber morgens.", (await (await Client.GetAsync("/api/profile", TestContext.Current.CancellationToken)).ReadAsync<BioDocument>()).Bio);
+
+        var cleared = await Client.PutJsonAsync("/api/profile", new { bio = "" });
+        Assert.Null((await cleared.ReadAsync<BioDocument>()).Bio);
+    }
+
+    [Fact]
+    public async Task ABioThatIsTooLongIsAFieldError()
+    {
+        var response = await Client.PutJsonAsync("/api/profile", new { bio = new string('a', Person.MaxBioLength + 1) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Bio", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
 }

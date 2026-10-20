@@ -19,6 +19,11 @@ defineProps<{
   /** True when the reader owns the goal: theirs to end, not to object to. */
   isMine: boolean
   busy?: boolean
+  /**
+   * A pause planned ahead and not begun (#99): only its owner ever sees it,
+   * and what there is to do about it is to take it back.
+   */
+  planned?: boolean
 }>()
 
 const emit = defineEmits<{ end: [], veto: [] }>()
@@ -41,7 +46,7 @@ const t = useMessages()
 
       <div class="min-w-0 flex-1">
         <p class="text-sm font-extrabold">
-          {{ t.pause.bannerTitle }} · {{ t.pause.until(formatDay(pause.endsOn)) }}
+          {{ planned ? t.pause.plannedTitle(formatDay(pause.startsOn)) : t.pause.bannerTitle }} · {{ t.pause.until(formatDay(pause.endsOn)) }}
         </p>
 
         <p
@@ -63,8 +68,8 @@ const t = useMessages()
         size="sm"
         color="neutral"
         variant="outline"
-        icon="i-lucide-play"
-        :label="t.pause.end"
+        :icon="planned ? 'i-lucide-undo-2' : 'i-lucide-play'"
+        :label="planned ? t.pause.withdraw : t.pause.end"
         :disabled="busy"
         data-testid="pause-end"
         @click="emit('end')"

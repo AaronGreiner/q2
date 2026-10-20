@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
 import GoalCard from '~/components/goals/GoalCard.vue'
+import GoalCreateSheet from '~/components/goals/GoalCreateSheet.vue'
 import GoalCloseSheet from '~/components/goals/GoalCloseSheet.vue'
 import GoalPauseBanner from '~/components/goals/GoalPauseBanner.vue'
 import GoalPauseSheet from '~/components/goals/GoalPauseSheet.vue'
@@ -36,7 +37,8 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     id: 'goal-1',
     title: 'Jeden Tag laufen',
     description: null,
-    icon: 'medal',
+    category: 'Sport',
+    icon: 'dumbbell',
     schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
     status: 'Active',
     isGroup: false,
@@ -96,8 +98,30 @@ describe('GoalPauseSheet', () => {
     submit.click()
 
     expect(wrapper.emitted('submit')?.[0]).toEqual([
-      { reason: 'Grippe, seit Freitag im Bett.', days: 3 },
+      { reason: 'Grippe, seit Freitag im Bett.', days: 3, startsOn: null, forAll: false },
     ])
+  })
+
+  it('starts tomorrow, or for every goal at once, when asked to (#99)', async () => {
+    const wrapper = await mountSuspended(GoalPauseSheet, {
+      props: { open: true, remaining: 2, maxDays: 7, minReason: 10, submitting: false, canPauseAll: true },
+      attachTo: document.body,
+    })
+
+    type(element<HTMLTextAreaElement>('[data-testid="pause-reason"]'), 'Urlaub an der Ostsee.')
+    element<HTMLButtonElement>('[data-testid="segment-tomorrow"]').click()
+    await wrapper.vm.$nextTick()
+
+    // Friends hear of it when it begins, and the sheet says so.
+    expect(document.body.textContent).toContain('wenn die Pause beginnt')
+
+    element<HTMLElement>('[data-testid="pause-for-all"] [role="switch"], [data-testid="pause-for-all"] button').click()
+    await wrapper.vm.$nextTick()
+    element<HTMLButtonElement>('[data-testid="pause-submit"]').click()
+
+    const [value] = wrapper.emitted('submit')![0] as [{ startsOn: string | null, forAll: boolean }]
+    expect(value.startsOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(value.forAll).toBe(true)
   })
 
   /**
@@ -286,5 +310,56 @@ describe('ChatGoalBanner', () => {
 
     const undescribed = await mountSuspended(ChatGoalBanner, { props: { goal: { ...pinned, description: null } } })
     expect(undescribed.find('[data-testid="chat-goal-description"]').exists()).toBe(false)
+  })
+})
+
+describe('GoalCreateSheet, starting an ended goal again (#102)', () => {
+  it('fills in everything from the goal and opens on the summary', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: {
+        open: true,
+        friends: [{ person: { id: 'person-lena', displayName: 'Lena', handle: '@lena', initials: 'L', avatarColor: '#4f46e5', isOnline: false, avatarImageId: null }, streak: 0, lastSeenAt: null }],
+      },
+      attachTo: document.body,
+    })
+
+    const ended = {
+      id: 'goal-old',
+      kind: 'Do',
+      title: 'Kalt duschen',
+      description: 'Mindestens 30 Sekunden.',
+      category: 'Mindfulness',
+      schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
+      reminderAt: '07:15:00',
+      limit: null,
+      proofMode: null,
+      participants: [
+        { id: 'person-lena', displayName: 'Lena', handle: '@lena', initials: 'L', avatarColor: '#4f46e5', isOnline: false, avatarImageId: null },
+        { id: 'person-gone', displayName: 'Nicht mehr befreundet', handle: '@gone', initials: 'G', avatarColor: '#4f46e5', isOnline: false, avatarImageId: null },
+      ],
+    }
+
+    ;(wrapper.vm as unknown as { startFrom: (goal: unknown) => void }).startFrom(ended)
+    await wrapper.vm.$nextTick()
+
+    const review = document.querySelector('[data-testid="goal-create-review"]')
+    expect(review?.textContent).toContain('Kalt duschen')
+    expect(review?.textContent).toContain('3× pro Woche')
+    expect(review?.textContent).toContain('07:15')
+
+    ;(document.querySelector('[data-testid="goal-submit"]') as HTMLButtonElement).click()
+    await wrapper.vm.$nextTick()
+
+    // Only the checker who is still a friend comes along.
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      title: 'Kalt duschen',
+      description: 'Mindestens 30 Sekunden.',
+      category: 'Mindfulness',
+      schedule: { kind: 'Times', times: 3, period: 'Week' },
+      reminderAt: '07:15:00',
+      participantIds: ['person-lena'],
+    })
+    wrapper.unmount()
+    document.body.replaceChildren()
   })
 })

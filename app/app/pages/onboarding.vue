@@ -212,7 +212,7 @@ const firstDoError = computed(() => (friends.value.length > 0 ? createError.valu
 async function onFirstDo(value: DraftFormValue) {
   const saved = friends.value.length > 0
     ? await create(value)
-    : await drafts.save({ title: value.title, icon: value.icon, schedule: value.schedule, reminderAt: value.reminderAt })
+    : await drafts.save({ title: value.title, category: value.category, schedule: value.schedule, reminderAt: value.reminderAt })
 
   if (saved) await next()
 }

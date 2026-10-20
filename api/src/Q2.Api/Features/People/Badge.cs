@@ -3,25 +3,30 @@ namespace Q2.Api.Features.People;
 /// <summary>
 /// The badges q2 can award. A closed set, because the profile screen shows
 /// every badge — earned or not — and "not earned yet" needs something to draw.
+/// Each is earned with windows, photographs or kudos, and given by
+/// <see cref="BadgeAwarder"/> (#22).
 /// </summary>
 public enum BadgeKey
 {
-    /// <summary>Kept a streak going for a fortnight.</summary>
+    /// <summary>Kept a streak going for a fortnight (<see cref="BadgeRules.StreakHeroDays"/>).</summary>
     StreakHero,
 
-    /// <summary>Checked in before seven in the morning, repeatedly.</summary>
+    /// <summary>
+    /// A believed photograph delivered before seven in the morning, on five
+    /// different days (<see cref="BadgeRules.EarlyBirdDays"/>).
+    /// </summary>
     EarlyBird,
 
-    /// <summary>Finished a reading goal.</summary>
+    /// <summary>Ten kept windows on one reading goal (<see cref="BadgeRules.BookwormWindows"/>).</summary>
     Bookworm,
 
-    /// <summary>Gave a hundred kudos to other people.</summary>
+    /// <summary>Gave a hundred kudos to other people (<see cref="BadgeRules.KudosGiverCount"/>).</summary>
     KudosGiver,
 
-    /// <summary>Completed a long-distance running goal.</summary>
+    /// <summary>Forty-two kept windows on one sport goal (<see cref="BadgeRules.MarathonWindows"/>).</summary>
     Marathon,
 
-    /// <summary>Kept every window of a week.</summary>
+    /// <summary>Kept every window due in one week, Monday to Sunday.</summary>
     WeeklyWinner,
 }
 

@@ -102,7 +102,10 @@ public sealed class GoalPause
     /// </remarks>
     public Guid? GoalInstanceId { get; private set; }
 
-    /// <summary>First local day the pause covers. Always the day it was asked for.</summary>
+    /// <summary>
+    /// First local day the pause covers: the day it was asked for, or a later
+    /// one for a pause planned ahead (#99).
+    /// </summary>
     public DateOnly StartsOn { get; private set; }
 
     /// <summary>Last local day it covers, inclusive.</summary>
@@ -118,6 +121,18 @@ public sealed class GoalPause
     /// <summary>When it was asked for, which is not the same as when it starts.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>
+    /// When the goal's friends were told it is set aside. Null for a pause
+    /// planned ahead until its first day comes.
+    /// </summary>
+    /// <remarks>
+    /// The key that makes "told once, when it begins" a property of the pause
+    /// rather than of whoever remembered (<see cref="GoalInstance.RiskNotifiedAt"/> on a
+    /// window works the same way). Friends hear of a holiday when it starts —
+    /// which is also when they can first object to it.
+    /// </remarks>
+    public DateTimeOffset? AnnouncedAt { get; private set; }
+
     /// <summary>The objections raised, never shown with a name.</summary>
     public IReadOnlyList<PauseVeto> Vetoes => _vetoes;
 
@@ -127,7 +142,23 @@ public sealed class GoalPause
     public int Days => EndsOn.DayNumber - StartsOn.DayNumber + 1;
 
     /// <summary>True while this pause is holding the goal.</summary>
-    public bool IsActiveAt(DateTimeOffset now) => Status == PauseStatus.Active && now <= EndsAt;
+    public bool IsActiveAt(DateTimeOffset now) => Status == PauseStatus.Active && StartsAt <= now && now <= EndsAt;
+
+    /// <summary>True for a pause planned ahead whose first day has not come yet (#99).</summary>
+    public bool IsPlannedAt(DateTimeOffset now) => Status == PauseStatus.Active && now < StartsAt;
+
+    /// <summary>
+    /// True when this pause holds, or will hold, any of the days from
+    /// <paramref name="from"/> to <paramref name="to"/>.
+    /// </summary>
+    public bool Overlaps(DateOnly from, DateOnly to) =>
+        Status == PauseStatus.Active && StartsOn <= to && from <= EndsOn;
+
+    /// <summary>
+    /// True for a planned pause its owner took back before it began. It covered
+    /// nothing, and it does not count against the allowance.
+    /// </summary>
+    public bool WasWithdrawn => EndsOn < StartsOn;
 
     /// <summary>
     /// True when this pause covered that local day.
@@ -152,7 +183,8 @@ public sealed class GoalPause
         int days,
         DateTimeOffset startsAt,
         Func<DateOnly, DateTimeOffset> endOfDay,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        bool announced = true)
     {
         ArgumentNullException.ThrowIfNull(endOfDay);
 
@@ -192,7 +224,10 @@ public sealed class GoalPause
             endsOn,
             startsAt,
             endOfDay(endsOn),
-            createdAt);
+            createdAt)
+        {
+            AnnouncedAt = announced ? createdAt : null,
+        };
     }
 
     /// <summary>
@@ -253,9 +288,48 @@ public sealed class GoalPause
             return false;
         }
 
+        // Planned and not begun: taken back, covering nothing at all.
+        if (now < StartsAt)
+        {
+            Status = PauseStatus.Ended;
+            EndsOn = StartsOn.AddDays(-1);
+            EndsAt = now;
+            return true;
+        }
+
         Status = PauseStatus.Ended;
         EndsOn = today < StartsOn ? StartsOn : today;
         EndsAt = now;
+        return true;
+    }
+
+    /// <summary>
+    /// Records the window a planned pause set aside when its first day came.
+    /// Returns false when it already holds one.
+    /// </summary>
+    internal bool Hold(Guid instanceId)
+    {
+        if (GoalInstanceId is not null)
+        {
+            return false;
+        }
+
+        GoalInstanceId = instanceId;
+        return true;
+    }
+
+    /// <summary>
+    /// Records that the goal's friends have been told. Returns false when they
+    /// already had been, or the pause has not begun.
+    /// </summary>
+    public bool Announce(DateTimeOffset now)
+    {
+        if (AnnouncedAt is not null || !IsActiveAt(now))
+        {
+            return false;
+        }
+
+        AnnouncedAt = now;
         return true;
     }
 

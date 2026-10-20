@@ -236,28 +236,52 @@ public sealed class GoalSchedule
     }
 
     /// <summary>
-    /// The first window, when the goal is created.
+    /// The first window of a goal that starts counting on <paramref name="from"/>.
     /// </summary>
-    /// <param name="today">The creator's local day.</param>
+    /// <remarks>
+    /// Never one it cannot meet (#96). A quota's period is cut to begin on the
+    /// day the goal does, and asks for its share, rounded up and at least one
+    /// photograph — the same rule a window cut by an edit follows
+    /// (<see cref="Prorate"/>, docs/adr/0044-editing-a-running-goal.md). "3× pro
+    /// Woche" made on a Sunday asks for one photograph that day, not three; a
+    /// Don't's limit is scaled the same way. Somebody who would rather start
+    /// tomorrow says so, and <paramref name="from"/> is tomorrow
+    /// (docs/adr/0051-a-first-window-that-can-be-met.md).
+    /// </remarks>
+    /// <param name="from">The first day the goal counts for: its creator's today, or tomorrow.</param>
     /// <param name="dueOn">
     /// Only meaningful for <see cref="ScheduleKind.Once"/>: the day it is due
     /// by. Ignored otherwise, because every other kind derives its own.
     /// </param>
-    public GoalWindow FirstWindow(DateOnly today, DateOnly? dueOn) => Kind switch
+    public GoalWindow FirstWindow(DateOnly from, DateOnly? dueOn) =>
+        Kind is ScheduleKind.Times or ScheduleKind.Limit
+            ? After(from.AddDays(-1), PeriodAround(from))
+            : WindowAround(from, dueOn);
+
+    /// <summary>
+    /// The whole window a day falls in, uncut: the period around it for a
+    /// quota, the day itself or the next due day otherwise.
+    /// </summary>
+    /// <remarks>
+    /// What a goal that has been running for a while has on that day. The seeds
+    /// lay a history out backwards from it; a goal that is new gets
+    /// <see cref="FirstWindow"/> instead.
+    /// </remarks>
+    public GoalWindow WindowAround(DateOnly day, DateOnly? dueOn) => Kind switch
     {
         // Open from today to the day it is due by: "by Friday" can be done on
         // Wednesday. A window on the due day alone could not take a proof
         // before it, and one without a day is due today (#94).
-        ScheduleKind.Once => dueOn is { } due && due > today
-            ? new GoalWindow(today, due, RequiredProofs)
-            : Day(dueOn ?? today),
+        ScheduleKind.Once => dueOn is { } due && due > day
+            ? new GoalWindow(day, due, RequiredProofs)
+            : Day(dueOn ?? day),
 
-        // Starts today. Somebody who commits to something today means today.
-        ScheduleKind.Interval => Day(today),
+        // Starts that day. Somebody who commits to something today means today.
+        ScheduleKind.Interval => Day(day),
 
-        ScheduleKind.Weekdays => Day(NextMatchingDay(today) ?? today),
-        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(today),
-        _ => Day(today),
+        ScheduleKind.Weekdays => Day(NextMatchingDay(day) ?? day),
+        ScheduleKind.Times or ScheduleKind.Limit => PeriodAround(day),
+        _ => Day(day),
     };
 
     /// <summary>

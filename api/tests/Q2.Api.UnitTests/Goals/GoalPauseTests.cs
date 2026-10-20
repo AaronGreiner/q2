@@ -255,6 +255,120 @@ public class GoalPauseTests
     public void ObjectionsRequiredIsTwoOrMoreThanAThird(int participants, int expected) =>
         Assert.Equal(expected, PauseRules.VetoesRequired(participants));
 
+    // -- planned ahead (#99) ------------------------------------------------
+
+    private static GoalPause Plan(Goal goal, DateOnly startsOn, int days = 3) =>
+        goal.RequestPause(Guid.CreateVersion7(), Reason, days, Today, Utc.EndOfDay, Noon, startsOn, Utc.StartOfDay);
+
+    [Fact]
+    public void APausePlannedAheadHoldsNothingUntilItsDayAndIsNotAnnouncedYet()
+    {
+        var goal = Build();
+        Open(goal, Today);
+
+        var pause = Plan(goal, Today.AddDays(2));
+
+        // Today's window runs as it would have, and nobody has been told.
+        Assert.Equal(GoalInstanceStatus.Open, goal.CurrentInstance!.Status);
+        Assert.Null(goal.ActivePauseAt(Noon));
+        Assert.Same(pause, goal.PlannedPauseAt(Noon));
+        Assert.Null(pause.AnnouncedAt);
+        Assert.Empty(goal.PausesToAnnounce(Noon));
+    }
+
+    [Fact]
+    public void OnItsFirstDayItSetsAsideTheWindowOpenThenAndIsDueToBeAnnounced()
+    {
+        // A week's quota, open since Monday; the pause covers Wednesday to Friday.
+        var goal = Goal.Create(
+            Guid.CreateVersion7(), Owner, "Laufen", null, GoalCategory.Sport, GoalSchedule.TimesPer(3, QuotaPeriod.Week),
+            false, null, null, Created);
+        var week = goal.OpenWindow(Guid.CreateVersion7(), new GoalWindow(Today, Today.AddDays(6), 3), Utc.StartOfDay(Today), Utc.EndOfDay(Today.AddDays(6)))!;
+        var pause = Plan(goal, Today.AddDays(2));
+
+        var wednesday = Utc.StartOfDay(Today.AddDays(2)).AddHours(8);
+        Assert.True(goal.BeginPause(wednesday));
+
+        Assert.Equal(GoalInstanceStatus.Paused, week.Status);
+        Assert.Equal(week.Id, pause.GoalInstanceId);
+        Assert.Same(pause, Assert.Single(goal.PausesToAnnounce(wednesday)));
+
+        // Once, however often it is asked.
+        Assert.False(goal.BeginPause(wednesday.AddMinutes(10)));
+        Assert.True(pause.Announce(wednesday));
+        Assert.Empty(goal.PausesToAnnounce(wednesday));
+    }
+
+    [Fact]
+    public void AWindowThatEndedBeforeThePauseBeganIsNotExcusedByIt()
+    {
+        var goal = Build();
+        Open(goal, Today);
+        Plan(goal, Today.AddDays(1));
+
+        // The pass that should have missed Monday's window comes on Tuesday.
+        Assert.False(goal.BeginPause(Utc.StartOfDay(Today.AddDays(1)).AddHours(9)));
+        Assert.Equal(GoalInstanceStatus.Open, goal.CurrentInstance!.Status);
+    }
+
+    [Fact]
+    public void APlannedPauseCountsInTheMonthItStarts()
+    {
+        var goal = Build();
+
+        // 15 June: a pause for 2 July uses July's allowance, not June's.
+        Plan(goal, new DateOnly(2026, 7, 2));
+
+        Assert.Equal(PauseRules.MaxPerMonth, goal.RemainingPauses(Today));
+        Assert.Equal(PauseRules.MaxPerMonth - 1, goal.RemainingPauses(new DateOnly(2026, 7, 1)));
+    }
+
+    [Fact]
+    public void TwoPausesOnTheSameDaysAreRefusedButOneAfterTheOtherIsFine()
+    {
+        var goal = Build();
+        Plan(goal, Today.AddDays(2), days: 3);
+
+        Assert.Equal(PauseRefusal.AlreadyPaused, goal.PauseRefusalFor(Today.AddDays(4), 2, Today, Noon));
+        Assert.Null(goal.PauseRefusalFor(Today.AddDays(5), 2, Today, Noon));
+        Assert.Throws<DomainValidationException>(() => Plan(goal, Today.AddDays(3)));
+    }
+
+    [Fact]
+    public void APauseStartsTodayOrWithinAMonth()
+    {
+        var goal = Build();
+
+        Assert.Equal(PauseRefusal.OutOfRange, goal.PauseRefusalFor(Today.AddDays(-1), 2, Today, Noon));
+        Assert.Equal(PauseRefusal.OutOfRange, goal.PauseRefusalFor(Today.AddDays(PauseRules.MaxDaysAhead + 1), 2, Today, Noon));
+        Assert.Null(goal.PauseRefusalFor(Today.AddDays(PauseRules.MaxDaysAhead), 2, Today, Noon));
+    }
+
+    [Fact]
+    public void APhotographBeingVotedOnTodayDoesNotStopAPauseNextWeek()
+    {
+        var goal = Build(participants: 3);
+        Open(goal, Today);
+        goal.SubmitProof(Guid.CreateVersion7(), Guid.CreateVersion7(), ProofSource.Live, Noon);
+
+        Assert.Equal(PauseRefusal.VoteRunning, goal.PauseRefusalFor(Today, 2, Today, Noon));
+        Assert.Null(goal.PauseRefusalFor(Today.AddDays(7), 2, Today, Noon));
+    }
+
+    [Fact]
+    public void APlannedPauseTakenBackCoversNothingAndCostsNothing()
+    {
+        var goal = Build();
+        var pause = Plan(goal, Today.AddDays(2));
+
+        Assert.True(goal.EndPause(Today, Noon));
+
+        Assert.True(pause.WasWithdrawn);
+        Assert.False(goal.IsPausedOn(Today.AddDays(2)));
+        Assert.Equal(PauseRules.MaxPerMonth, goal.RemainingPauses(Today));
+        Assert.Null(goal.PlannedPauseAt(Noon));
+    }
+
     private static Goal Build(int participants = 0)
     {
         var goal = Goal.Create(
@@ -262,7 +376,7 @@ public class GoalPauseTests
             Owner,
             "Kalt duschen",
             null,
-            "droplet",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             isGroup: false,
             reminderAt: null,

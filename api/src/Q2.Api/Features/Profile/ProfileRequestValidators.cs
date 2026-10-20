@@ -42,6 +42,14 @@ public static class UpdateProfileRequestValidator
             }
         }
 
+        if (request.Bio is { } bio && bio.Trim().Length > Person.MaxBioLength)
+        {
+            errors.Add(
+                nameof(request.Bio),
+                new(FieldErrorCodes.TooLong, Max: Person.MaxBioLength),
+                $"A bio may be at most {Person.MaxBioLength} characters long.");
+        }
+
         if (request.AvatarImageId == Guid.Empty)
         {
             errors.Add(nameof(request.AvatarImageId), new(FieldErrorCodes.Invalid), "An image id must not be empty.");

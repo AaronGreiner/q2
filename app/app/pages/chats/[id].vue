@@ -635,7 +635,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
                 :proof="item.proof"
                 :context="chat.pinnedGoal?.title ?? chat.name"
                 :busy="isVoting"
-                @vote="vote(item.proof.id, $event)"
+                @vote="(value, reason) => vote(item.proof.id, value, reason)"
               />
             </li>
           </template>

@@ -58,7 +58,8 @@ public sealed class Challenge
         string prompt,
         string promptEnglish,
         DateTimeOffset publishedAt,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        DateTimeOffset? momentEndsAt)
     {
         Id = id;
         Day = day;
@@ -66,6 +67,7 @@ public sealed class Challenge
         PromptEnglish = promptEnglish;
         PublishedAt = publishedAt;
         ExpiresAt = expiresAt;
+        MomentEndsAt = momentEndsAt;
     }
 
     public Guid Id { get; private set; }
@@ -113,6 +115,21 @@ public sealed class Challenge
     /// <summary>The end of its day — the last moment a contribution is taken.</summary>
     public DateTimeOffset ExpiresAt { get; private set; }
 
+    /// <summary>
+    /// The end of "the moment": the first stretch after it appears, when it is
+    /// the thing everybody does at once (#136). A contribution after it is
+    /// still taken until <see cref="ExpiresAt"/>, and said to be late.
+    /// </summary>
+    /// <remarks>
+    /// Null for a challenge without a moment — every row from before #136,
+    /// which went live at midnight, and the seeded ones, which stand for a
+    /// challenge that is simply running, so no test depends on the hour.
+    /// </remarks>
+    public DateTimeOffset? MomentEndsAt { get; private set; }
+
+    /// <summary>Whether a contribution made at <paramref name="contributedAt"/> came after the moment.</summary>
+    public bool IsLate(DateTimeOffset contributedAt) => MomentEndsAt is { } end && contributedAt > end;
+
     /// <summary>When the notification for it went out. Null until it has.</summary>
     /// <remarks>
     /// A challenge exists days before it runs, so "published" and "announced"
@@ -134,7 +151,8 @@ public sealed class Challenge
         string prompt,
         string promptEnglish,
         DateTimeOffset publishedAt,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        DateTimeOffset? momentEndsAt = null)
     {
         var german = Usable(prompt, nameof(Prompt));
         var english = Usable(promptEnglish, nameof(PromptEnglish));
@@ -146,7 +164,13 @@ public sealed class Challenge
                 "A challenge has to end after it starts.");
         }
 
-        return new Challenge(id, day, german, english, publishedAt, expiresAt);
+        // The moment lies inside the day: it cannot end before it began, nor
+        // after the challenge does.
+        var moment = momentEndsAt is { } end
+            ? (end < publishedAt ? publishedAt : end > expiresAt ? expiresAt : end)
+            : (DateTimeOffset?)null;
+
+        return new Challenge(id, day, german, english, publishedAt, expiresAt, moment);
     }
 
     /// <summary>Whether a text is fit to be one language's prompt.</summary>

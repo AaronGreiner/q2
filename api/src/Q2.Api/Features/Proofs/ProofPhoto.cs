@@ -174,7 +174,8 @@ public sealed class ProofPhoto
     /// The uploader is refused here rather than in the service because "you
     /// cannot vouch for yourself" is what the type is *for*.
     /// </remarks>
-    public bool CastVote(Guid id, Guid voterPersonId, VoteValue value, DateTimeOffset now)
+    /// <param name="reason">With a doubt, what was missing — optional, and dropped with a confirmation.</param>
+    public bool CastVote(Guid id, Guid voterPersonId, VoteValue value, DateTimeOffset now, DoubtReason? reason = null)
     {
         if (Status != ProofStatus.Voting || voterPersonId == UploaderPersonId)
         {
@@ -185,13 +186,31 @@ public sealed class ProofPhoto
 
         if (existing is not null)
         {
-            existing.Change(value, now);
+            existing.Change(value, now, reason);
             return true;
         }
 
-        _votes.Add(new ProofVote(id, Id, voterPersonId, value, now));
+        _votes.Add(new ProofVote(id, Id, voterPersonId, value, now, reason));
         return true;
     }
+
+    /// <summary>What this person said was missing, if they doubted it and said.</summary>
+    public DoubtReason? DoubtReasonOf(Guid personId) =>
+        _votes.FirstOrDefault(vote => vote.VoterPersonId == personId)?.Reason;
+
+    /// <summary>
+    /// The reasons doubters gave, counted, most given first (#111). Counts and
+    /// nothing else: which voter gave which is exactly what this never says.
+    /// </summary>
+    public IReadOnlyList<(DoubtReason Reason, int Count)> DoubtReasons =>
+    [
+        .. _votes
+            .Where(vote => vote.Value == VoteValue.Doubt && vote.Reason is not null)
+            .GroupBy(vote => vote.Reason!.Value)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .Select(group => (group.Key, group.Count())),
+    ];
 
     /// <summary>What this person voted, if they did.</summary>
     public VoteValue? VoteOf(Guid personId) =>
@@ -275,13 +294,14 @@ public sealed class ProofVote
     {
     }
 
-    internal ProofVote(Guid id, Guid proofPhotoId, Guid voterPersonId, VoteValue value, DateTimeOffset castAt)
+    internal ProofVote(Guid id, Guid proofPhotoId, Guid voterPersonId, VoteValue value, DateTimeOffset castAt, DoubtReason? reason = null)
     {
         Id = id;
         ProofPhotoId = proofPhotoId;
         VoterPersonId = voterPersonId;
         Value = value;
         CastAt = castAt;
+        Reason = value == VoteValue.Doubt ? reason : null;
     }
 
     public Guid Id { get; private set; }
@@ -295,11 +315,19 @@ public sealed class ProofVote
     /// <summary>When it was last cast — changing a vote moves this too.</summary>
     public DateTimeOffset CastAt { get; private set; }
 
+    /// <summary>
+    /// What a doubter said was missing, if they said (#111). Only ever on a
+    /// doubt, and only ever counted for the owner — never with the voter's
+    /// name, which is why it lives on the row that already cannot be shown.
+    /// </summary>
+    public DoubtReason? Reason { get; private set; }
+
     /// <summary>Replaces the verdict. Only <see cref="ProofPhoto.CastVote"/> decides whether that is allowed.</summary>
-    internal void Change(VoteValue value, DateTimeOffset now)
+    internal void Change(VoteValue value, DateTimeOffset now, DoubtReason? reason = null)
     {
         Value = value;
         CastAt = now;
+        Reason = value == VoteValue.Doubt ? reason : null;
     }
 }
 

@@ -82,11 +82,11 @@ public sealed class AccountService(
         // draws a green dot from.
         person.SetLastSeen(now);
 
-        // The deployment's zone, written onto the person rather than left
-        // implicit. Every deadline this account ever gets is counted in it, and
-        // "whatever the server thought at the time" is not something a streak
-        // should depend on.
-        person.SetTimeZone(timeZones.ConfiguredZoneId);
+        // The zone the browser said it is in, or the deployment's, written onto
+        // the person rather than left implicit. Every deadline this account
+        // ever gets is counted in it, and "whatever the server thought at the
+        // time" is not something a streak should depend on (#9).
+        person.SetTimeZone(TimeZoneResolver.IsKnown(request.TimeZone) ? request.TimeZone : timeZones.ConfiguredZoneId);
 
         database.People.Add(person);
         await database.SaveChangesAsync(cancellationToken);
@@ -139,7 +139,7 @@ public sealed class AccountService(
         logger.LogInformation("Account created for person {PersonId}", person.Id);
         metrics.CountAccountRegistered();
 
-        return SessionResponse.For(person, email, now);
+        return SessionResponse.For(person, email, now, timeZones);
     }
 
     /// <summary>Signs in with the session cookie — the browser's way.</summary>
@@ -270,7 +270,7 @@ public sealed class AccountService(
         logger.LogInformation("Signed in as person {PersonId}", person.Id);
         metrics.CountAccountSignedIn();
 
-        return SessionResponse.For(person, account.Email ?? email, now);
+        return SessionResponse.For(person, account.Email ?? email, now, timeZones);
     }
 
     /// <summary>
@@ -518,7 +518,7 @@ public sealed class AccountService(
             .Select(u => u.Email)
             .SingleOrDefaultAsync(cancellationToken);
 
-        return SessionResponse.For(person, email ?? string.Empty, now);
+        return SessionResponse.For(person, email ?? string.Empty, now, timeZones);
     }
 
     private static AuthenticationRequiredException InvalidCredentials() =>

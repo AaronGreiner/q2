@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  challengeClock,
+  pauseAllMessage,
+  categoryIconName,
+  categoryIcons,
   activitySentence,
   clampProgress,
   formatAmount,
@@ -26,6 +30,7 @@ import {
   windowPercent,
 } from '~/utils/display'
 import { de, en } from '~/i18n/messages'
+import { goalCategories } from '~/api/types'
 import type { Activity, GoalSchedule, GoalWindow, NotificationKind, NotificationLine } from '~/api/types'
 
 /**
@@ -97,6 +102,7 @@ const everyKind: readonly NotificationKind[] = [
   'FriendWindowAtRisk',
   'ChallengePublished',
   'SpotCheckDue',
+  'ReminderDue',
 ]
 
 /**
@@ -548,7 +554,7 @@ describe('activitySentence', () => {
   })
 
   it('covers every kind the contract can produce', () => {
-    for (const kind of ['TaskCompleted', 'StreakReached', 'GoalProgress', 'GoalCreated'] as const) {
+    for (const kind of ['TaskCompleted', 'StreakReached', 'GoalCreated'] as const) {
       expect(activitySentence(activity({ kind, amount: 5 }), de)).not.toBe('')
     }
   })
@@ -592,5 +598,80 @@ describe('checkersMeaning', () => {
     expect(checkersMeaning(2, de)).toBe('Ein Foto wird nur abgelehnt, wenn beide zweifeln.')
     expect(checkersMeaning(5, de)).toBe('Ein Foto wird abgelehnt, wenn mehr als ein Drittel zweifelt, mindestens aber zwei.')
     expect(checkersMeaning(1, en)).toContain('One person alone cannot refuse a photo')
+  })
+})
+
+describe('a Do\'s daily reminder, as a notification (#82)', () => {
+  const due = line({ kind: 'ReminderDue', actor: null, subject: 'Meditation', target: 'Goal', targetId: 'goal-1' })
+
+  it('says what is still open today, with nobody behind it', () => {
+    const text = notificationText(due, de)
+
+    expect(text.title).toBe('Erinnerung')
+    expect(text.who).toBeNull()
+    expect(text.body).toBe('„Meditation“ ist heute noch offen.')
+    expect(notificationText(due, en).body).toBe('“Meditation” is still open today.')
+  })
+
+  it('opens the start screen, and needs no banner while it is open', () => {
+    expect(notificationLink(due)).toBe('/')
+    expect(isNotificationOnScreen(due, '/')).toBe(true)
+  })
+})
+
+describe('categoryIconName (#18)', () => {
+  it('draws every category with its own icon, and only with bundled ones', async () => {
+    const config = await import('node:fs').then(fs => fs.readFileSync(new URL('../../nuxt.config.ts', import.meta.url), 'utf8'))
+    const icons = goalCategories.map(category => categoryIcons[category])
+
+    expect(new Set(icons).size).toBe(goalCategories.length)
+    for (const icon of icons) {
+      expect(config).toContain(`'lucide:${icon}'`)
+    }
+    expect(categoryIconName('Reading')).toBe('i-lucide-book-open')
+  })
+})
+
+describe('pauseAllMessage (#99)', () => {
+  it('says how many were set aside and names the ones left out', () => {
+    expect(pauseAllMessage({ paused: ['a', 'b'], skipped: [] }, de).text).toBe('2 Dos & Don’ts ausgesetzt')
+    expect(pauseAllMessage({ paused: ['a'], skipped: [{ goalId: 'c', title: 'Laufen', reason: 'VoteRunning' }] }, de).text)
+      .toBe('1 Do oder Don’t ausgesetzt · Nicht dabei: „Laufen“')
+    expect(pauseAllMessage({ paused: [], skipped: [{ goalId: 'c', title: 'Run', reason: 'NoneLeft' }] }, en).text)
+      .toBe('Nothing set aside · Not included: “Run”')
+  })
+})
+
+describe('a refusal with what was missing (#111)', () => {
+  it('names the reason most doubters gave, and nothing when none did', () => {
+    const refused = line({ kind: 'ProofRefused', actor: null, amount: 1, detail: 'OldPicture' })
+
+    expect(notificationText(refused, de).text)
+      .toBe('Dein Beweis für „Jeden Tag laufen“ wurde nicht anerkannt. Du hast noch einen Versuch. Am häufigsten genannt: Altes Bild oder Screenshot.')
+    expect(notificationText(line({ kind: 'ProofRefused', actor: null, amount: 0, detail: null }), de).text)
+      .toBe('Dein Beweis für „Jeden Tag laufen“ wurde nicht anerkannt.')
+
+    // A code the app does not know is not shown as if it were words.
+    expect(notificationText(line({ kind: 'ProofRefused', actor: null, amount: 0, detail: 'Something' }), de).text)
+      .not.toContain('Something')
+  })
+})
+
+describe('challengeClock (#136)', () => {
+  const at = (iso: string) => Date.parse(iso)
+  const day = { expiresAt: '2026-10-20T22:00:00Z', momentEndsAt: '2026-10-20T14:30:00Z' }
+
+  it('counts down the moment while it lasts', () => {
+    expect(challengeClock(day, at('2026-10-20T14:00:00Z'), de)).toBe('Jetzt · noch 30 Min.')
+    expect(challengeClock(day, at('2026-10-20T12:45:00Z'), de)).toBe('Jetzt · noch 1 Std. 45 Min.')
+  })
+
+  it('says it is late, and how long it is still possible, after the moment', () => {
+    expect(challengeClock(day, at('2026-10-20T16:00:00Z'), de)).toBe('Zu spät · noch 6 Std. möglich')
+    expect(challengeClock(day, at('2026-10-20T23:00:00Z'), de)).toBe(de.challenge.over)
+  })
+
+  it('keeps the hours of the day for a challenge without a moment', () => {
+    expect(challengeClock({ expiresAt: day.expiresAt, momentEndsAt: null }, at('2026-10-20T16:00:00Z'), de)).toBe('Noch 6 Stunden')
   })
 })

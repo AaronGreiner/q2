@@ -114,4 +114,26 @@ public class PersonTests
 
         Assert.Single(person.Badges);
     }
+
+    [Fact]
+    public void ABioIsTrimmedAndBlankTakesItAway()
+    {
+        var person = Build();
+
+        person.SetBio("  Läuft lieber morgens.  ");
+        Assert.Equal("Läuft lieber morgens.", person.Bio);
+
+        person.SetBio("   ");
+        Assert.Null(person.Bio);
+    }
+
+    [Fact]
+    public void ABioHasALimit()
+    {
+        var person = Build();
+
+        person.SetBio(new string('a', Person.MaxBioLength));
+        Assert.Throws<DomainValidationException>(() => person.SetBio(new string('a', Person.MaxBioLength + 1)));
+        Assert.Equal(Person.MaxBioLength, person.Bio!.Length);
+    }
 }

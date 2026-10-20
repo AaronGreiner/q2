@@ -43,7 +43,7 @@ public class PersistenceTests
     /// rather than of each individual assertion.
     /// </summary>
     private static Goal BuildGoal(Person owner, GoalSchedule? schedule = null) => Goal.Create(
-        Guid.CreateVersion7(), owner.Id, "Walk 8.000 steps a day", "Every day counts.", "target",
+        Guid.CreateVersion7(), owner.Id, "Walk 8.000 steps a day", "Every day counts.", GoalCategory.Other,
         schedule ?? GoalSchedule.EveryNDays(1), false, new TimeOnly(18, 0), null, Now);
 
     /// <summary>Opens one single-day window on <paramref name="day"/>.</summary>

@@ -37,6 +37,12 @@ public static class PauseRules
     public const int MinDays = 1;
 
     /// <summary>
+    /// How far ahead a pause may be planned, in days (#99): far enough for a
+    /// holiday booked a few weeks out, not so far that it is a standing excuse.
+    /// </summary>
+    public const int MaxDaysAhead = 30;
+
+    /// <summary>
     /// Pauses allowed per goal and calendar month.
     /// </summary>
     /// <remarks>
@@ -85,4 +91,27 @@ public static class PauseRules
     /// <summary>True when a reason passes as one.</summary>
     public static bool IsReasonValid(string? reason) =>
         reason is not null && reason.Trim().Length >= MinReasonLength;
+}
+
+/// <summary>Why a goal cannot be set aside on the days asked for (#99).</summary>
+/// <remarks>Travels as its name, so "alle aussetzen" can say per goal why one was left out.</remarks>
+public enum PauseRefusal
+{
+    /// <summary>It has stopped.</summary>
+    Stopped,
+
+    /// <summary>The first day is in the past, or further ahead than <see cref="PauseRules.MaxDaysAhead"/>.</summary>
+    OutOfRange,
+
+    /// <summary>A pause is running, or planned, on some of those days.</summary>
+    AlreadyPaused,
+
+    /// <summary>The month the pause would start in has no pause left (<see cref="PauseRules.MaxPerMonth"/>).</summary>
+    NoneLeft,
+
+    /// <summary>A spot check is waiting to be answered.</summary>
+    SpotCheckOpen,
+
+    /// <summary>A photograph is being voted on.</summary>
+    VoteRunning,
 }

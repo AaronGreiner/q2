@@ -159,8 +159,10 @@ public class NotificationEndpointTests(Q2ApiFactory factory) : ApiTestBase(facto
             && message.Payload.Kind == NotificationKind.FriendWindowAtRisk);
 
         // The one person who does not need telling that they are running out of
-        // time is the person running out of time.
-        Assert.DoesNotContain(sent, message => message.Endpoint == "https://push.example/owner");
+        // time is the person running out of time. (Their own daily reminder,
+        // set for 18:00 on this goal, is theirs to have; it is not the warning.)
+        Assert.DoesNotContain(sent, message => message.Endpoint == "https://push.example/owner"
+            && message.Payload.Kind == NotificationKind.FriendWindowAtRisk);
     }
 
     /// <summary>

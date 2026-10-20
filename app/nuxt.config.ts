@@ -203,10 +203,11 @@ export default defineNuxtConfig({
        * `scan` only sees literal strings, and two sets of icon names never
        * appear as one:
        *
-       *  - a goal's icon comes from the API (GoalIcons in the backend), so the
-       *    scanner cannot know it. The list below must stay in step with
-       *    api/src/Q2.Api/Features/Goals/Goal.cs — the server validates against
-       *    its list, this bundles against ours, and an icon in one but not the
+       *  - a goal's icon comes from the API, worked out from its category
+       *    (GoalCategories in the backend), so the scanner cannot know it. The
+       *    list below must stay in step with
+       *    api/src/Q2.Api/Features/Goals/GoalCategory.cs and with
+       *    `categoryIcons` in app/utils/display.ts — an icon in one but not the
        *    other renders as nothing at all;
        *  - the rest are produced by the presentation helpers in
        *    app/utils/display.ts.
@@ -215,19 +216,12 @@ export default defineNuxtConfig({
        * "failed to load icon" on every render.
        */
       icons: [
-        // GoalIcons, server-side.
-        'lucide:target',
-        'lucide:medal',
+        // GoalCategories, server-side: one icon per category (#18).
+        'lucide:dumbbell',
+        'lucide:graduation-cap',
         'lucide:book-open',
-        'lucide:sunrise',
-        'lucide:droplet',
-        'lucide:flame',
-        'lucide:trophy',
-        'lucide:sparkles',
-        'lucide:calendar',
-        'lucide:alarm-clock',
-        'lucide:hand-heart',
-        'lucide:users',
+        'lucide:leaf',
+        'lucide:target',
 
         // ConversationIcons, server-side — a group chat's avatar. Must stay in
         // step with api/src/Q2.Api/Features/Chats/Conversation.cs.
@@ -372,7 +366,7 @@ export default defineNuxtConfig({
 
     manifest: {
       id: '/',
-      name: `${de.app.name} (q2)`,
+      name: de.app.name,
       short_name: de.app.name,
       description: de.app.description,
 

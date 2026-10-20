@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { DeliveredProof, FeedProof, OwnProof, Proof, ProofSource, ProofVoteValue, KudosKind } from './types'
+import type { DeliveredProof, DoubtReason, FeedProof, OwnProof, Proof, ProofSource, ProofVoteValue, KudosKind } from './types'
 
 /**
  * Photographs and the votes on them.
@@ -39,7 +39,8 @@ export interface ProofsApi {
   mine: () => Promise<OwnProof[]>
 
   /** One say per person, and it stands. */
-  vote: (id: string, value: ProofVoteValue) => Promise<Proof>
+  /** With a doubt, optionally what was missing (#111). */
+  vote: (id: string, value: ProofVoteValue, reason?: DoubtReason | null) => Promise<Proof>
 
   /** The same kind twice takes it back. */
   react: (id: string, kind: KudosKind) => Promise<Proof>
@@ -67,7 +68,7 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
 
     mine: () => call<OwnProof[]>('/api/proofs/mine', { method: 'GET' }),
 
-    vote: (id, value) => call<Proof>(`${proof(id)}/vote`, { method: 'POST', body: { value } }),
+    vote: (id, value, reason) => call<Proof>(`${proof(id)}/vote`, { method: 'POST', body: { value, ...(reason ? { reason } : {}) } }),
 
     react: (id, kind) => call<Proof>(`${proof(id)}/reactions`, { method: 'POST', body: { kind } }),
   }

@@ -143,8 +143,10 @@ public sealed record BalanceResponse(int Done, int Missed, int Relapsed)
 /// the client tell "nothing shared" apart from "shared, and a clean record".
 /// </param>
 /// <param name="State">Where the person asking stands with them.</param>
+/// <param name="Bio">Their own few words under the name (#20), or null.</param>
 public sealed record PersonProfileResponse(
     PersonSummary Person,
+    string? Bio,
     FriendshipState State,
     int Streak,
     int KudosReceived,

@@ -286,7 +286,7 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
         var group = await (await Client.PostJsonAsync("/api/chats/groups", new
         {
             title = "Automated test: group",
-            icon = "sunrise",
+            category = "Other",
             memberIds = new[] { AutomatedTestSeed.FriendPersonId },
         })).ReadAsync<ChatDocument>();
 
@@ -590,7 +590,7 @@ public class NotificationPipelineTests(Q2ApiFactory factory) : ApiTestBase(facto
         await (await Client.PostJsonAsync("/api/goals", new
         {
             title,
-            icon = "flame",
+            category = "Other",
             schedule = new { kind = "Interval", everyDays = 1 },
             participantIds = participants,
         })).ReadAsync<CreatedGoal>();

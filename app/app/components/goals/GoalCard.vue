@@ -67,6 +67,11 @@ const state = computed<{ text: string, icon: string | null }>(() => {
   const window = props.goal.current
 
   if (!window) {
+    // Made to start tomorrow (#96): nothing is due yet, and the day says so.
+    if (props.today && props.goal.startsOn && props.goal.startsOn > props.today && props.goal.status === 'Active') {
+      return { text: t.value.window.from(formatDay(props.goal.startsOn)), icon: null }
+    }
+
     return {
       text: props.goal.pause ? t.value.pause.until(formatDay(props.goal.pause.endsOn)) : t.value.status[props.goal.status],
       icon: null,

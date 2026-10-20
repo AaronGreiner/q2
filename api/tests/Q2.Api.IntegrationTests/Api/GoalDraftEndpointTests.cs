@@ -26,7 +26,7 @@ public class GoalDraftEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
     private sealed record SessionPerson(Guid Id, string Handle);
 
-    private sealed record DraftDocument(Guid Id, string Title, string Icon, ScheduleDocument Schedule, string? ReminderAt);
+    private sealed record DraftDocument(Guid Id, string Title, string Category, string Icon, ScheduleDocument Schedule, string? ReminderAt);
 
     private sealed record ScheduleDocument(string Kind, int? EveryDays, int? Times, string? Period);
 
@@ -43,7 +43,7 @@ public class GoalDraftEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
     private static readonly object Reading = new
     {
         title = "Jeden Abend lesen",
-        icon = "book-open",
+        category = "Reading",
         schedule = new { kind = "Times", times = 3, period = "Week" },
         reminderAt = "19:30:00",
     };
@@ -101,6 +101,7 @@ public class GoalDraftEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.NotNull(draft);
         Assert.Equal("Jeden Abend lesen", draft.Title);
+        Assert.Equal("Reading", draft.Category);
         Assert.Equal("book-open", draft.Icon);
         Assert.Equal(new ScheduleDocument("Times", null, 3, "Week"), draft.Schedule);
         Assert.Equal("19:30:00", draft.ReminderAt);

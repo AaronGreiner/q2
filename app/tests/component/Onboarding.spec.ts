@@ -49,6 +49,7 @@ function draft(overrides: Partial<GoalDraft> = {}): GoalDraft {
   return {
     id: 'draft-1',
     title: 'Jeden Abend lesen',
+    category: 'Reading',
     icon: 'book-open',
     schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     reminderAt: '19:30:00',
@@ -387,7 +388,7 @@ describe('GoalDraftForm', () => {
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('submit')).toEqual([[{
       title: de.create.templates.run,
-      icon: 'medal',
+      category: 'Sport',
       schedule: { kind: 'Times', times: 3, period: 'Week' },
       reminderAt: '19:00:00',
       participantIds: [],
@@ -403,7 +404,7 @@ describe('GoalDraftForm', () => {
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
       title: 'Jeden Abend lesen',
-      icon: 'book-open',
+      category: 'Reading',
       schedule: { kind: 'Times', times: 3, period: 'Week' },
       reminderAt: '19:30:00',
     })

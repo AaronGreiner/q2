@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { CreateGoalRequest, Image, SaveGoalDraftRequest } from '~/api/types'
+import { pauseLimits } from '~/api/types'
+import type { PauseRequestValue } from '~/components/goals/GoalPauseSheet.vue'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
@@ -102,6 +104,24 @@ async function handIn(image: Image, origin: PhotoOrigin) {
 
 const sheet = useTemplateRef('sheet')
 
+/*
+ * Everything aside at once — ill, or away (#99). Offered once there is more
+ * than one running goal of your own to set aside; for one, its own screen
+ * does it.
+ */
+const ownRunning = computed(() => goals.value.filter(goal => goal.isMine && goal.status === 'Active').length)
+const pausingAll = ref(false)
+const lifecycle = useGoalLifecycle()
+
+async function onPauseAll(value: PauseRequestValue) {
+  const result = await lifecycle.pauseAll(value.reason, value.days, value.startsOn)
+  if (!result) return
+
+  pausingAll.value = false
+  toast.show(pauseAllMessage(result, t.value))
+  await refresh()
+}
+
 const tabs = computed(() => [
   { value: 'dos' as const, label: t.value.goals.tabDos },
   { value: 'donts' as const, label: t.value.goals.tabDonts },
@@ -139,6 +159,17 @@ useHead({ title: () => t.value.goals.heading })
          two of them would put the screen's loudest control in two places. -->
     <AppScreenHeader :title="t.goals.heading">
       <template #actions>
+        <UButton
+          v-if="ownRunning > 1"
+          icon="i-lucide-pause"
+          color="neutral"
+          variant="outline"
+          size="lg"
+          :ui="{ base: 'size-11 justify-center rounded-full' }"
+          :aria-label="t.pause.openAll"
+          data-testid="open-pause-all"
+          @click="pausingAll = true"
+        />
         <UButton
           icon="i-lucide-plus"
           size="lg"
@@ -275,6 +306,18 @@ useHead({ title: () => t.value.goals.heading })
       :draft-error="drafts.saveError.value"
       @submit="onCreate"
       @draft="onDraft"
+    />
+
+    <GoalPauseSheet
+      v-model:open="pausingAll"
+      :remaining="0"
+      :max-days="pauseLimits.maxDays"
+      :min-reason="pauseLimits.minReason"
+      :max-days-ahead="pauseLimits.maxDaysAhead"
+      :submitting="lifecycle.isBusy.value"
+      :failure="lifecycle.error.value"
+      all-only
+      @submit="onPauseAll"
     />
 
     <PhotoCapture

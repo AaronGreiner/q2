@@ -39,7 +39,7 @@ useHead({
   // the German one: a document title is read by the operating system's task
   // switcher and by a share sheet before anybody has chosen a language, and a
   // name is the same in both anyway.
-  titleTemplate: title => (title ? `${title} · ${de.app.name}` : `${de.app.name} (q2)`),
+  titleTemplate: title => (title ? `${title} · ${de.app.name}` : de.app.name),
   htmlAttrs: { 'lang': computed(() => languageKeys[language.value]), 'data-accent': accent },
   meta: [
     { name: 'description', content: () => t.value.app.description },

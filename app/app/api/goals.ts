@@ -1,5 +1,5 @@
 import type { ApiCaller } from './client'
-import type { CloseGoalRequest, CreateGoalRequest, EditGoalRequest, Goal, GoalDetail, GoalDraft, GoalDraftState, GoalEditPreview, GoalStatus, LogUseRequest, RequestPauseRequest, SaveGoalDraftRequest, SetReminderRequest } from './types'
+import type { CloseGoalRequest, CreateGoalRequest, EditGoalRequest, Goal, GoalDetail, GoalDraft, GoalDraftState, GoalEditPreview, GoalStatus, LogUseRequest, PauseAllResult, RequestPauseRequest, SaveGoalDraftRequest, SetReminderRequest } from './types'
 
 /**
  * The only place the frontend talks HTTP about goals.
@@ -22,6 +22,8 @@ export interface GoalsApi {
 
   /** Sets a goal aside for whole days, with a reason its friends read. */
   pause: (id: string, request: RequestPauseRequest) => Promise<Goal>
+  /** Sets every running goal of the caller's aside at once; says which were left out, and why (#99). */
+  pauseAll: (request: RequestPauseRequest) => Promise<PauseAllResult>
 
   /** Ends the running pause early. */
   endPause: (id: string) => Promise<Goal>
@@ -103,6 +105,7 @@ export function createGoalsApi(call: ApiCaller): GoalsApi {
     create: request => call<Goal>('/api/goals', { method: 'POST', body: request }),
 
     pause: (id, request) => call<Goal>(`${goal(id)}/pause`, { method: 'POST', body: request }),
+    pauseAll: request => call<PauseAllResult>('/api/goals/pauses', { method: 'POST', body: request }),
 
     endPause: id => call<Goal>(`${goal(id)}/pause`, { method: 'DELETE' }),
 

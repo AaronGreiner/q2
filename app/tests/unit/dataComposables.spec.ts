@@ -271,6 +271,7 @@ describe('the waiting Do', () => {
   const waiting = {
     id: 'draft-1',
     title: 'Lesen',
+    category: 'Reading',
     icon: 'book-open',
     schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
     reminderAt: null,
@@ -676,7 +677,7 @@ describe('chat composables', () => {
 
     await state.vote('proof-1', 'Confirm')
 
-    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Confirm')
+    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Confirm', null)
     expect(api.chats.get.mock.calls.length).toBe(reads + 1)
     expect(refreshNuxtData).toHaveBeenCalledWith(['counts', 'proofs-pending'])
     expect(state.isVoting.value).toBe(false)
@@ -887,7 +888,7 @@ describe('proof composables', () => {
 
     await state.vote('proof-1', 'Doubt')
 
-    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Doubt')
+    expect(api.proofs.vote).toHaveBeenCalledWith('proof-1', 'Doubt', null)
     expect(state.proofs.value.map(entry => entry.proof.id)).toEqual(['proof-2'])
     expect(show).not.toHaveBeenCalled()
   })

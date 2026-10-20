@@ -1,6 +1,6 @@
 # 0015 — The Qdos design language: black, one accent, no emoji
 
-**Status:** Accepted; palette and surfaces amended by [0028](0028-ruhe-design-system.md), the tab bar by [0031](0031-todos-tab-and-a-bell-you-can-empty.md)
+**Status:** Accepted; palette and surfaces amended by [0028](0028-ruhe-design-system.md), the tab bar by [0031](0031-todos-tab-and-a-bell-you-can-empty.md), the name a person is shown by [0047](0047-one-name-on-screen.md)
 **Date:** 2026-09-06
 
 ## Context

@@ -55,6 +55,7 @@ public sealed class ProfileService(
 
         return new ProfileResponse(
             PersonSummary.From(me, now),
+            me.Bio,
             me.StreakOn(today),
             me.KudosReceived,
             me.GoalsCompleted,
@@ -117,6 +118,7 @@ public sealed class ProfileService(
 
         return new PersonProfileResponse(
             PersonSummary.From(person, now),
+            person.Bio,
             await friends.StateBetweenAsync(me.Id, personId, cancellationToken),
             person.StreakOn(timeZones.For(person.TimeZoneId).Today(now)),
             person.KudosReceived,
@@ -200,6 +202,11 @@ public sealed class ProfileService(
         if (request.DisplayName is { } name && !string.IsNullOrWhiteSpace(name))
         {
             me.Rename(name, ProfileDefaults.Initials(name));
+        }
+
+        if (request.Bio is { } bio)
+        {
+            me.SetBio(bio);
         }
 
         // Remembered before it moves, because a replaced avatar is rubbish the

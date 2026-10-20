@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
-import type { Proof, ProofVoteValue } from '~/api/types'
+import type { DoubtReason, Proof, ProofVoteValue } from '~/api/types'
+import { doubtReasons } from '~/api/types'
 
 /**
  * Somebody's photograph, and the verdict on it.
@@ -33,6 +34,12 @@ import type { Proof, ProofVoteValue } from '~/api/types'
  *
  * The picture opens full screen on a tap, because a proof is judged on detail
  * and a square in a feed is not enough to see it.
+ *
+ * A doubt can say what was missing (#111): "Anzweifeln" asks which of three
+ * fixed answers, or none, and a doubt already cast can be given one or have
+ * it changed. Anonymous like the doubt — the owner of the photograph reads
+ * them counted, and nobody else reads them at all. A swipe in the stack
+ * doubts without a reason, the quick way.
  */
 const props = withDefaults(defineProps<{
   proof: Proof
@@ -53,7 +60,7 @@ const props = withDefaults(defineProps<{
   busy: false,
 })
 
-const emit = defineEmits<{ vote: [value: ProofVoteValue] }>()
+const emit = defineEmits<{ vote: [value: ProofVoteValue, reason: DoubtReason | null] }>()
 
 const t = useMessages()
 const now = useNow()
@@ -94,10 +101,23 @@ function enlarge() {
   })
 }
 
-function vote(value: ProofVoteValue) {
+/** Between "Anzweifeln" and the answer to "was fehlt?". */
+const choosingReason = ref(false)
+
+watch(() => props.proof.id, () => {
+  choosingReason.value = false
+})
+
+function vote(value: ProofVoteValue, reason: DoubtReason | null = null) {
   hapticTap()
-  emit('vote', value)
+  choosingReason.value = false
+  emit('vote', value, reason)
 }
+
+/** The reasons the owner's doubters gave, worded and counted — empty for anybody else. */
+const reasonsText = computed(() => props.proof.votes.doubtReasons
+  .flatMap(reason => (reason.reason ? [t.value.proof.reasonCount(t.value.proof.doubtReason[reason.reason], reason.count)] : []))
+  .join(' · '))
 </script>
 
 <template>
@@ -203,6 +223,15 @@ function vote(value: ProofVoteValue) {
     </div>
 
     <div class="flex flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
+      <!-- The owner's, counted: what would convince next time (#111). -->
+      <p
+        v-if="proof.votes.doubtReasons.length > 0"
+        class="text-[12px] font-semibold text-(--ui-text-muted)"
+        data-testid="proof-reasons"
+      >
+        <span class="font-bold">{{ t.proof.reasonsHeading }}:</span> {{ reasonsText }}
+      </p>
+
       <p
         class="text-[12px] font-semibold text-(--ui-text-muted)"
         data-testid="proof-tally"
@@ -228,6 +257,7 @@ function vote(value: ProofVoteValue) {
           />
 
           <UButton
+            v-if="!choosingReason"
             block
             size="lg"
             color="neutral"
@@ -236,8 +266,42 @@ function vote(value: ProofVoteValue) {
             :label="t.vote.doubt"
             :disabled="busy"
             data-testid="proof-doubt"
-            @click="vote('Doubt')"
+            @click="choosingReason = true"
           />
+
+          <div
+            v-else
+            class="flex flex-col gap-2"
+            data-testid="proof-doubt-reasons"
+          >
+            <p class="text-[12px] font-bold text-(--ui-text-muted)">
+              {{ t.proof.reasonPrompt }}
+            </p>
+            <div class="flex flex-wrap gap-1.5">
+              <UButton
+                v-for="reason in doubtReasons"
+                :key="reason"
+                class="min-h-11"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                :label="t.proof.doubtReason[reason]"
+                :disabled="busy"
+                :data-testid="`proof-doubt-${reason}`"
+                @click="vote('Doubt', reason)"
+              />
+              <UButton
+                class="min-h-11"
+                size="sm"
+                color="neutral"
+                variant="ghost"
+                :label="t.proof.reasonNone"
+                :disabled="busy"
+                data-testid="proof-doubt-none"
+                @click="vote('Doubt')"
+              />
+            </div>
+          </div>
         </div>
 
         <p class="text-center text-[11px] font-semibold text-(--ui-text-dimmed)">
@@ -288,6 +352,32 @@ function vote(value: ProofVoteValue) {
         <p class="text-[11px] font-semibold text-(--ui-text-dimmed)">
           {{ otherVote === 'Doubt' ? `${t.proof.changeHint} ${t.proof.doubtAnonymous}` : t.proof.changeHint }}
         </p>
+
+        <!-- A doubt already cast can say, or change, what was missing (#111). -->
+        <div
+          v-if="proof.votes.myVote === 'Doubt'"
+          class="flex flex-col gap-1.5"
+          data-testid="proof-my-reason"
+        >
+          <p class="text-[11px] font-bold text-(--ui-text-muted)">
+            {{ t.proof.reasonPrompt }}
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            <UButton
+              v-for="reason in doubtReasons"
+              :key="reason"
+              class="min-h-11"
+              size="sm"
+              color="neutral"
+              :variant="proof.votes.myDoubtReason === reason ? 'solid' : 'outline'"
+              :aria-pressed="proof.votes.myDoubtReason === reason"
+              :label="t.proof.doubtReason[reason]"
+              :disabled="busy || proof.votes.myDoubtReason === reason"
+              :data-testid="`proof-reason-${reason}`"
+              @click="vote('Doubt', reason)"
+            />
+          </div>
+        </div>
       </div>
 
       <p

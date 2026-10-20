@@ -33,8 +33,10 @@ public sealed record BadgeResponse(BadgeKey Key, bool IsEarned, DateOnly? Earned
 /// whole profile has no business being sent again for that
 /// ([0024](../../../../docs/adr/0024-one-notification-pipeline.md)).
 /// </remarks>
+/// <param name="Bio">A few words of their own under the name (#20), or null.</param>
 public sealed record ProfileResponse(
     PersonSummary Person,
+    string? Bio,
     int Streak,
     int KudosReceived,
     int GoalsCompleted,
@@ -63,9 +65,12 @@ public sealed record ProfileResponse(
 /// against the person's storage. One path rather than two, and the one that
 /// actually gets rid of the photograph.
 ///
-/// Both properties carry a default, so each is genuinely optional in the
+/// Every property carries a default, so each is genuinely optional in the
 /// contract — a request that only renames does not have to send a null picture,
 /// and the generated client does not make one required. Nullable as well, so a
 /// body that omits everything is an empty change rather than a binding failure.
 /// </remarks>
-public sealed record UpdateProfileRequest(string? DisplayName = null, Guid? AvatarImageId = null);
+/// <param name="Bio">
+/// A few words under the name (#20). Left out, it stays; blank, it goes.
+/// </param>
+public sealed record UpdateProfileRequest(string? DisplayName = null, Guid? AvatarImageId = null, string? Bio = null);

@@ -9,10 +9,10 @@ import {
   localDay,
   nextUp,
 } from '~/utils/display'
-import { firstWindowEnd } from '~/utils/firstWindow'
-import { goalTemplates } from '~/utils/goalTemplates'
+import { firstWindow, firstWindowEnd, prorate } from '~/utils/firstWindow'
+import { dontTemplates, goalTemplates } from '~/utils/goalTemplates'
 import { de, en } from '~/i18n/messages'
-import { goalIcons } from '~/api/types'
+import { goalCategories } from '~/api/types'
 import type { Goal, GoalWindow } from '~/api/types'
 
 /**
@@ -184,11 +184,45 @@ describe('firstWindowEnd', () => {
 })
 
 describe('goalTemplates', () => {
-  it('only offers icons the server accepts, and words in both languages', () => {
+  it('only offers categories the server knows, and words in both languages', () => {
+    for (const template of [...goalTemplates, ...dontTemplates]) {
+      expect(goalCategories).toContain(template.category)
+    }
+
     for (const template of goalTemplates) {
-      expect(goalIcons).toContain(template.icon)
       expect(de.create.templates[template.key]).toBeTruthy()
       expect(en.create.templates[template.key]).toBeTruthy()
     }
+  })
+})
+
+describe('firstWindow (#96)', () => {
+  // A Monday.
+  const monday = '2026-10-19'
+
+  it('cuts a quota that starts late in its week and asks for its share', () => {
+    const thursday = firstWindow({ kind: 'Times', times: 3, period: 'Week' }, '2026-10-22')
+    expect(thursday).toEqual({ start: '2026-10-22', end: '2026-10-25', days: 4, fullDays: 7 })
+    expect(prorate(3, thursday, 1)).toBe(2)
+
+    const sunday = firstWindow({ kind: 'Times', times: 3, period: 'Week' }, '2026-10-25')
+    expect(prorate(3, sunday, 1)).toBe(1)
+
+    // Started on the Monday: the whole week, all three.
+    expect(prorate(3, firstWindow({ kind: 'Times', times: 3, period: 'Week' }, monday), 1)).toBe(3)
+  })
+
+  it('cuts a month the same way, and a Don\'t\'s limit may come to nothing', () => {
+    const late = firstWindow({ kind: 'Times', times: 2, period: 'Month' }, '2026-10-30')
+    expect(late).toMatchObject({ start: '2026-10-30', end: '2026-10-31', days: 2, fullDays: 31 })
+    expect(prorate(2, late, 1)).toBe(1)
+
+    const never = firstWindow({ kind: 'Limit', period: 'Week' }, '2026-10-25')
+    expect(prorate(0, never, 0)).toBe(0)
+    expect(prorate(3, never, 0)).toBe(1)
+  })
+
+  it('starts a daily goal on the day it is told to', () => {
+    expect(firstWindow({ kind: 'Interval', everyDays: 1 }, '2026-10-20')).toEqual({ start: '2026-10-20', end: '2026-10-20', days: 1, fullDays: 1 })
   })
 })

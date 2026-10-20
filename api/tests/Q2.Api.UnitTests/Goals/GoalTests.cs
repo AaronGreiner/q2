@@ -69,17 +69,28 @@ public class GoalTests
     }
 
     [Fact]
-    public void AnUnknownIconIsRejectedAndAMissingOneFallsBack()
+    public void AnUnknownCategoryIsRejectedAndAMissingOneFallsBack()
     {
-        Assert.Throws<DomainValidationException>(() => Build(icon: "not-an-icon"));
-        Assert.Equal(GoalIcons.Default, Build(icon: null).Icon);
+        Assert.Throws<DomainValidationException>(() => Build(category: (GoalCategory)42));
+        Assert.Equal(GoalCategory.Other, Build(category: null).Category);
+    }
+
+    [Fact]
+    public void TheIconComesFromTheCategory()
+    {
+        // Derived, never chosen (#18): every category has exactly one.
+        Assert.Equal("book-open", Build(category: GoalCategory.Reading).Icon);
+        Assert.Equal("target", Build(category: GoalCategory.Other).Icon);
+        Assert.Equal(
+            Enum.GetValues<GoalCategory>().Length,
+            Enum.GetValues<GoalCategory>().Select(GoalCategories.IconFor).Distinct().Count());
     }
 
     [Fact]
     public void AGoalNeedsSomebodyItBelongsTo()
     {
         var error = Assert.Throws<DomainValidationException>(() => Goal.Create(
-            Guid.CreateVersion7(), Guid.Empty, "Anything", null, "target",
+            Guid.CreateVersion7(), Guid.Empty, "Anything", null, GoalCategory.Other,
             GoalSchedule.EveryNDays(1), false, null, null, Created));
 
         Assert.Contains(nameof(Goal.OwnerPersonId), error.Errors.Keys);
@@ -260,7 +271,7 @@ public class GoalTests
 
     private static Goal Build(
         string title = "Walk 8.000 steps a day",
-        string? icon = "target",
+        GoalCategory? category = GoalCategory.Other,
         GoalSchedule? schedule = null,
         DateOnly? targetDate = null) =>
         Goal.Create(
@@ -268,7 +279,7 @@ public class GoalTests
             Owner,
             title,
             null,
-            icon,
+            category,
             schedule ?? GoalSchedule.EveryNDays(1),
             isGroup: false,
             reminderAt: null,

@@ -99,6 +99,14 @@ public enum NotificationKind
     /// was. Never an actor: objecting is anonymous, as it is for a pause.
     /// </summary>
     GoalChangeLifted,
+
+    /// <summary>
+    /// The daily reminder the reader set on their own Do: its window still
+    /// needs a photograph today. <c>Subject</c> is the goal. Never an actor,
+    /// and not kept in the bell — the start screen already shows what is still
+    /// to do, and yesterday's reminder means nothing (#82).
+    /// </summary>
+    ReminderDue,
 }
 
 /// <summary>What a notification leads to when it is tapped.</summary>
@@ -148,4 +156,5 @@ public enum NotificationSwitch
     FriendsAtRisk,
     Challenge,
     SpotChecks,
+    Reminders,
 }

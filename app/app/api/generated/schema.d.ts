@@ -435,6 +435,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/pauses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sets every running goal of yours aside at once, with one reason and one length. */
+        post: operations["PauseAllGoals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/{id}/pause": {
         parameters: {
             query?: never;
@@ -1336,7 +1353,7 @@ export interface components {
             challengeEntries: number;
         };
         /** @enum {unknown} */
-        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalProgress" | "GoalCreated";
+        ActivityKind: "TaskCompleted" | "StreakReached" | "GoalCreated";
         ActivityResponse: {
             /** Format: uuid */
             id: string;
@@ -1375,6 +1392,7 @@ export interface components {
         };
         CastVoteRequest: {
             value?: (null) | components["schemas"]["VoteValue"];
+            reason?: (null) | components["schemas"]["DoubtReason"];
         };
         ChallengeArchiveEntryResponse: {
             challenge: components["schemas"]["ChallengeResponse"];
@@ -1391,6 +1409,7 @@ export interface components {
             createdAt: string;
             isMine: boolean;
             reactions: components["schemas"]["ReactionSummaryResponse"][];
+            isLate: boolean;
         };
         ChallengeResponse: {
             /** Format: uuid */
@@ -1400,6 +1419,8 @@ export interface components {
             publishedAt: string;
             /** Format: date-time */
             expiresAt: string;
+            /** Format: date-time */
+            momentEndsAt: string | null;
         };
         ChallengeRoomResponse: {
             challenge: components["schemas"]["ChallengeResponse"];
@@ -1532,7 +1553,7 @@ export interface components {
         CreateGoalRequest: {
             title?: string | null;
             description?: string | null;
-            icon?: string | null;
+            category?: (null) | components["schemas"]["GoalCategory"];
             schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
             isGroup?: boolean | null;
             /** Format: time */
@@ -1544,6 +1565,8 @@ export interface components {
             /** Format: int32 */
             limit?: number | null;
             proofMode?: (null) | components["schemas"]["DontProofMode"];
+            /** Format: date */
+            startsOn?: string | null;
         };
         CreateGroupChatRequest: {
             title?: string | null;
@@ -1567,10 +1590,17 @@ export interface components {
         };
         /** @enum {unknown} */
         DontProofMode: "SpotCheck" | "ProofAtEnd" | "HonestOnly" | null;
+        /** @enum {unknown} */
+        DoubtReason: "NotWhatWasPromised" | "OldPicture" | "Unrecognisable" | null;
+        DoubtReasonCountResponse: {
+            reason: components["schemas"]["DoubtReason"];
+            /** Format: int32 */
+            count: number;
+        };
         EditGoalRequest: {
             title?: string | null;
             description?: string | null;
-            icon?: string | null;
+            category?: (null) | components["schemas"]["GoalCategory"];
             schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
             /** Format: date */
             targetDate?: string | null;
@@ -1618,6 +1648,8 @@ export interface components {
         };
         /** @enum {unknown} */
         FriendshipState: "None" | "RequestSent" | "RequestReceived" | "Friends" | "Self";
+        /** @enum {unknown} */
+        GoalCategory: "Sport" | "Learning" | "Reading" | "Mindfulness" | "Other";
         GoalChangeResponse: {
             /** Format: uuid */
             id: string;
@@ -1633,8 +1665,8 @@ export interface components {
             resolvedAt: string | null;
             titleFrom: string | null;
             titleTo: string | null;
-            iconFrom: string | null;
-            iconTo: string | null;
+            categoryFrom: (null) | components["schemas"]["GoalCategory"];
+            categoryTo: (null) | components["schemas"]["GoalCategory"];
             descriptionChanged: boolean;
             descriptionTo: string | null;
             scheduleFrom: (null) | components["schemas"]["GoalScheduleResponse"];
@@ -1671,6 +1703,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            category: components["schemas"]["GoalCategory"];
             icon: string;
             schedule: components["schemas"]["GoalScheduleResponse"];
             /** Format: time */
@@ -1768,6 +1801,7 @@ export interface components {
             id: string;
             title: string;
             description: string | null;
+            category: components["schemas"]["GoalCategory"];
             icon: string;
             schedule: components["schemas"]["GoalScheduleResponse"];
             status: components["schemas"]["GoalStatus"];
@@ -1791,6 +1825,8 @@ export interface components {
             reminderAt: string | null;
             /** Format: date */
             targetDate: string | null;
+            /** Format: date */
+            startsOn: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1805,6 +1841,7 @@ export interface components {
             remainingPauses: number | null;
             spotCheck: (null) | components["schemas"]["OpenSpotCheckResponse"];
             pendingChange: (null) | components["schemas"]["GoalChangeResponse"];
+            plannedPause: (null) | components["schemas"]["GoalPauseResponse"];
         };
         GoalScheduleRequest: {
             kind?: (null) | components["schemas"]["ScheduleKind"];
@@ -1911,7 +1948,7 @@ export interface components {
             muted?: boolean | null;
         };
         /** @enum {unknown} */
-        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue" | "GoalChangeProposed" | "GoalChangeLifted";
+        NotificationKind: "MessageReceived" | "FriendRequestReceived" | "FriendshipStarted" | "ProofAwaitingVote" | "ProofConfirmed" | "ProofRefused" | "ReactionReceived" | "GoalInvitation" | "GoalPaused" | "PauseLifted" | "FriendWindowAtRisk" | "ChallengePublished" | "SpotCheckDue" | "GoalChangeProposed" | "GoalChangeLifted" | "ReminderDue";
         NotificationResponse: {
             /** Format: uuid */
             id: string | null;
@@ -1930,6 +1967,7 @@ export interface components {
             occurredAt: string;
             isNew: boolean;
             language?: (null) | components["schemas"]["LanguagePreference"];
+            detail?: string | null;
         };
         NotificationSettingsResponse: {
             messages: boolean;
@@ -1945,6 +1983,7 @@ export interface components {
             /** Format: time */
             quietHoursTo: string | null;
             spotChecks: boolean;
+            reminders: boolean;
         };
         /** @enum {unknown} */
         NotificationTarget: "None" | "Person" | "Goal" | "Conversation" | "Challenge" | "Activity";
@@ -1974,8 +2013,21 @@ export interface components {
         PasswordResetResponse: {
             email: string;
         };
+        PauseAllResponse: {
+            paused: string[];
+            skipped: components["schemas"]["PauseSkipResponse"][];
+        };
+        /** @enum {unknown} */
+        PauseRefusal: "Stopped" | "OutOfRange" | "AlreadyPaused" | "NoneLeft" | "SpotCheckOpen" | "VoteRunning";
+        PauseSkipResponse: {
+            /** Format: uuid */
+            goalId: string;
+            title: string;
+            reason: components["schemas"]["PauseRefusal"];
+        };
         PersonProfileResponse: {
             person: components["schemas"]["PersonSummary"];
+            bio: string | null;
             state: components["schemas"]["FriendshipState"];
             /** Format: int32 */
             streak: number;
@@ -2016,6 +2068,7 @@ export interface components {
         };
         ProfileResponse: {
             person: components["schemas"]["PersonSummary"];
+            bio: string | null;
             /** Format: int32 */
             streak: number;
             /** Format: int32 */
@@ -2080,6 +2133,7 @@ export interface components {
             email?: string | null;
             password?: string | null;
             inviteCode?: string | null;
+            timeZone?: string | null;
         };
         /** @enum {unknown} */
         ReportReason: "Faked" | "Inappropriate" | "Harassment" | "Spam" | "Other" | null;
@@ -2095,6 +2149,8 @@ export interface components {
             reason?: string | null;
             /** Format: int32 */
             days?: number | null;
+            /** Format: date */
+            startsOn?: string | null;
         };
         ResetPasswordRequest: {
             token?: string | null;
@@ -2113,7 +2169,7 @@ export interface components {
         };
         SaveGoalDraftRequest: {
             title?: string | null;
-            icon?: string | null;
+            category?: (null) | components["schemas"]["GoalCategory"];
             schedule?: (null) | components["schemas"]["GoalScheduleRequest"];
             /** Format: time */
             reminderAt?: string | null;
@@ -2134,6 +2190,9 @@ export interface components {
             person: components["schemas"]["PersonSummary"];
             email: string;
             isOnboarded: boolean;
+            timeZone: string;
+            /** Format: int32 */
+            utcOffsetMinutes: number;
         };
         SetReminderRequest: {
             /** Format: time */
@@ -2143,6 +2202,7 @@ export interface components {
             theme: components["schemas"]["ThemePreference"];
             language: components["schemas"]["LanguagePreference"];
             notifications: components["schemas"]["NotificationSettingsResponse"];
+            timeZone: string;
         };
         SharedGoalResponse: {
             /** Format: uuid */
@@ -2193,16 +2253,19 @@ export interface components {
             /** Format: time */
             quietHoursTo?: string | null;
             spotChecks?: boolean | null;
+            reminders?: boolean | null;
         };
         UpdateProfileRequest: {
             displayName?: string | null;
             /** Format: uuid */
             avatarImageId?: string | null;
+            bio?: string | null;
         };
         UpdateSettingsRequest: {
             theme?: (null) | components["schemas"]["ThemePreference"];
             language?: (null) | components["schemas"]["LanguagePreference"];
             notifications?: (null) | components["schemas"]["UpdateNotificationSettingsRequest"];
+            timeZone?: string | null;
         };
         VoteSummaryResponse: {
             /** Format: int32 */
@@ -2213,6 +2276,8 @@ export interface components {
             myVote: (null) | components["schemas"]["VoteValue"];
             canIVote: boolean;
             doubtCanRefuse: boolean;
+            myDoubtReason: (null) | components["schemas"]["DoubtReason"];
+            doubtReasons: components["schemas"]["DoubtReasonCountResponse"][];
         };
         /** @enum {unknown} */
         VoteValue: "Confirm" | "Doubt" | null;
@@ -3260,6 +3325,39 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    PauseAllGoals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestPauseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PauseAllResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HttpValidationProblemDetails"];
                 };
             };
         };

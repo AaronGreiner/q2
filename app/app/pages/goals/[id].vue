@@ -2,6 +2,7 @@
 import type { EditGoalRequest, Image } from '~/api/types'
 import type { PhotoOrigin } from '~/utils/proofSource'
 import { pauseLimits } from '~/api/types'
+import type { PauseRequestValue } from '~/components/goals/GoalPauseSheet.vue'
 
 /**
  * One goal: its open window, its team and its record.
@@ -92,6 +93,10 @@ const reminder = computed(() => (goal.value ? formatClock(goal.value.reminderAt)
 const currentWindow = computed(() => goal.value?.current ?? null)
 const pause = computed(() => goal.value?.pause ?? null)
 
+/** A pause its owner planned ahead (#99): theirs to see and to take back. */
+const plannedPause = computed(() => goal.value?.plannedPause ?? null)
+const toast = useToastMessage()
+
 /**
  * The exits, and who is offered them.
  *
@@ -133,8 +138,18 @@ const exits = computed(() => [
     : []),
 ])
 
-async function onPause(value: { reason: string, days: number }) {
-  if (!await lifecycle.pause(id.value, value.reason, value.days)) return
+async function onPause(value: PauseRequestValue) {
+  if (value.forAll) {
+    const result = await lifecycle.pauseAll(value.reason, value.days, value.startsOn)
+    if (!result) return
+
+    pausing.value = false
+    toast.show(pauseAllMessage(result, t.value))
+    await refresh()
+    return
+  }
+
+  if (!await lifecycle.pause(id.value, value.reason, value.days, value.startsOn)) return
 
   pausing.value = false
   await refresh()
@@ -335,6 +350,16 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
           :busy="lifecycle.isBusy.value"
           @end="onEndPause"
           @veto="onVeto"
+        />
+
+        <GoalPauseBanner
+          v-else-if="plannedPause"
+          class="mt-4"
+          :pause="plannedPause"
+          planned
+          :is-mine="goal.isMine"
+          :busy="lifecycle.isBusy.value"
+          @end="onEndPause"
         />
 
         <!-- An edit waiting for the next window: what, from when, and the
@@ -668,6 +693,8 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       :submitting="lifecycle.isBusy.value"
       :failure="lifecycle.error.value"
       :one-off="goal?.schedule.kind === 'Once'"
+      :max-days-ahead="pauseLimits.maxDaysAhead"
+      can-pause-all
       @submit="onPause"
     />
 

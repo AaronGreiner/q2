@@ -34,12 +34,12 @@ const now = useNow()
 const joined = computed(() => props.room.ownEntry !== null)
 const covered = computed(() => !props.room.isRevealed)
 
-/** Whole hours left, floored — "noch 2 Stunden" must never read as more than there is. */
-const hoursLeft = computed(() => {
-  const remaining = new Date(props.room.challenge.expiresAt).getTime() - now.value
-
-  return remaining <= 0 ? null : Math.floor(remaining / 3_600_000)
-})
+/**
+ * The minutes left of the moment while it lasts, then "zu spät" with the
+ * hours left of the day (#136). Whole hours floored — "noch 2 Stunden" must
+ * never read as more than there is.
+ */
+const clock = computed(() => challengeClock(props.room.challenge, now.value, t.value))
 
 const participation = computed(() => (props.room.friendCount === 0
   ? t.value.challenge.nobody
@@ -75,9 +75,10 @@ const tiles = computed(() => [
         >
           {{ t.challenge.heading }}
         </h2>
-        <span class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)">{{
-          hoursLeft === null ? t.challenge.over : t.challenge.remaining(hoursLeft)
-        }}</span>
+        <span
+          class="shrink-0 text-[11px] font-bold text-(--ui-text-dimmed)"
+          data-testid="challenge-card-clock"
+        >{{ clock }}</span>
         <UIcon
           name="i-lucide-chevron-right"
           class="-me-1 size-4 shrink-0 text-(--ui-text-dimmed)"

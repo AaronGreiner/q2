@@ -7,19 +7,25 @@ namespace Q2.Api.Features.Settings;
 /// What may reach this person's devices and when not — the screen under
 /// Profil → Einstellungen → Benachrichtigungen.
 /// </param>
+/// <param name="TimeZone">
+/// The zone this person's days are counted in (#9): every deadline, the
+/// streak's day and the quiet hours.
+/// </param>
 public sealed record SettingsResponse(
     ThemePreference Theme,
     LanguagePreference Language,
-    NotificationSettingsResponse Notifications)
+    NotificationSettingsResponse Notifications,
+    string TimeZone)
 {
-    public static SettingsResponse From(UserSettings settings)
+    public static SettingsResponse From(UserSettings settings, string timeZone)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         return new SettingsResponse(
             settings.Theme,
             settings.Language,
-            NotificationSettingsResponse.From(settings.Notifications));
+            NotificationSettingsResponse.From(settings.Notifications),
+            timeZone);
     }
 }
 
@@ -46,7 +52,8 @@ public sealed record NotificationSettingsResponse(
     bool Challenge,
     TimeOnly? QuietHoursFrom,
     TimeOnly? QuietHoursTo,
-    bool SpotChecks)
+    bool SpotChecks,
+    bool Reminders)
 {
     public static NotificationSettingsResponse From(NotificationPreferences preferences)
     {
@@ -63,7 +70,8 @@ public sealed record NotificationSettingsResponse(
             preferences.Challenge,
             preferences.QuietHoursFrom,
             preferences.QuietHoursTo,
-            preferences.SpotChecks);
+            preferences.SpotChecks,
+            preferences.Reminders);
     }
 }
 
@@ -76,10 +84,16 @@ public sealed record NotificationSettingsResponse(
 /// cannot reset the others. That is what lets two switches tapped in quick
 /// succession both stick.
 /// </remarks>
+/// <param name="TimeZone">
+/// An IANA zone, "Europe/Lisbon". One the server does not know is refused
+/// rather than counted in UTC. A window already open keeps its deadline; the
+/// new zone counts from the next one (#9).
+/// </param>
 public sealed record UpdateSettingsRequest(
     ThemePreference? Theme = null,
     LanguagePreference? Language = null,
-    UpdateNotificationSettingsRequest? Notifications = null);
+    UpdateNotificationSettingsRequest? Notifications = null,
+    string? TimeZone = null);
 
 /// <summary>The notification half of <see cref="UpdateSettingsRequest"/>.</summary>
 /// <param name="QuietHoursEnabled">
@@ -99,4 +113,5 @@ public sealed record UpdateNotificationSettingsRequest(
     bool? QuietHoursEnabled = null,
     TimeOnly? QuietHoursFrom = null,
     TimeOnly? QuietHoursTo = null,
-    bool? SpotChecks = null);
+    bool? SpotChecks = null,
+    bool? Reminders = null);

@@ -34,6 +34,7 @@ public sealed class ProofService(
     CurrentPerson currentPerson,
     ImageService images,
     ActivityRecorder activity,
+    BadgeAwarder badges,
     Notifier notifier,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
@@ -99,6 +100,7 @@ public sealed class ProofService(
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
+        await AwardBadgesAsync(proof, goal.OwnerPersonId, cancellationToken);
 
         logger.LogInformation("A spot check was answered on goal {GoalId}", goal.Id);
 
@@ -151,7 +153,7 @@ public sealed class ProofService(
 
         // Brought up to date first, so a photograph cannot land in a window
         // whose deadline passed while the screen was open.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.Source ?? ProofSource.Unknown, now)
             ?? throw new DomainValidationException(
@@ -178,6 +180,7 @@ public sealed class ProofService(
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
+        await AwardBadgesAsync(proof, goal.OwnerPersonId, cancellationToken);
 
         logger.LogInformation("A proof was delivered on goal {GoalId}", goal.Id);
         metrics.CountGoalProgress();
@@ -234,7 +237,7 @@ public sealed class ProofService(
          * let a vote cast — or changed — at hour thirteen decide it, which is
          * exactly what the deadline is for.
          */
-        if (proof.IsExpiredAt(now) || !proof.CastVote(idGenerator.NewId(), me.Id, value, now))
+        if (proof.IsExpiredAt(now) || !proof.CastVote(idGenerator.NewId(), me.Id, value, now, request.Reason))
         {
             throw new DomainValidationException("Vote", "This vote has closed.");
         }
@@ -264,6 +267,7 @@ public sealed class ProofService(
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
+        await AwardBadgesAsync(proof, goal.OwnerPersonId, cancellationToken);
 
         // No title, no names, no verdict: how many, and nothing about whose.
         logger.LogInformation("A vote was cast on proof {ProofId}", proof.Id);
@@ -464,7 +468,10 @@ public sealed class ProofService(
                 row.Proof.CreatedAt,
                 row.Goal.Id,
                 row.Goal.Title,
-                row.Goal.Icon))
+
+                // Derived, so not a column: worked out from the category
+                // once the row is read.
+                GoalCategories.IconFor(row.Goal.Category)))
             .ToListAsync(cancellationToken);
     }
 
@@ -480,6 +487,18 @@ public sealed class ProofService(
         }
 
         return await DescribeAsync(goal, proof, me.Id, timeProvider.GetUtcNow(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Gives the owner whatever badge a believed photograph earned them, once
+    /// it is saved — the awarder reads the record from the database.
+    /// </summary>
+    private async Task AwardBadgesAsync(ProofPhoto proof, Guid ownerId, CancellationToken cancellationToken)
+    {
+        if (proof.Status == ProofStatus.Confirmed && await badges.AwardEarnedAsync(ownerId, cancellationToken))
+        {
+            await database.SaveChangesAsync(cancellationToken);
+        }
     }
 
     /// <summary>
@@ -511,8 +530,10 @@ public sealed class ProofService(
             return;
         }
 
-        // A day only counts once, and only for a proof somebody believed.
+        // A day only counts once, and only for a proof somebody believed —
+        // and the day that carries the streak to a milestone tells the feed.
         owner.CheckIn(idGenerator.NewId(), calendar.DayOf(now));
+        activity.PublishStreakMilestones(owner, now);
 
         // A Don't's photograph finished nothing — the period still has to hold
         // — so there is nothing to tell the feed it "completed".
@@ -669,7 +690,14 @@ public sealed class ProofService(
             confirmedBy,
             proof.VoteOf(viewerId),
             proof.Status == ProofStatus.Voting && !proof.IsExpiredAt(now) && goal.CanVote(viewerId),
-            ProofVoting.DoubtCanRefuse(goal.VoterCount));
+            ProofVoting.DoubtCanRefuse(goal.VoterCount),
+            proof.DoubtReasonOf(viewerId),
+
+            // The owner's, to know what would convince next time; counted,
+            // and nobody else's business (#111).
+            proof.UploaderPersonId == viewerId
+                ? [.. proof.DoubtReasons.Select(reason => new DoubtReasonCountResponse(reason.Reason, reason.Count))]
+                : []);
 
         var reactions = proof.Reactions
             .GroupBy(reaction => reaction.Kind)

@@ -36,7 +36,7 @@ public static class CreateGoalRequestValidator
                 $"A description may be at most {Goal.MaxDescriptionLength} characters long.");
         }
 
-        AddIconErrors(request.Icon, nameof(request.Icon), errors);
+        AddCategoryErrors(request.Category, nameof(request.Category), errors);
 
         var kind = request.Kind ?? GoalKind.Do;
 
@@ -98,12 +98,12 @@ public static class CreateGoalRequestValidator
         }
     }
 
-    /// <summary>No icon is fine — the default is used — but one that is given has to exist.</summary>
-    internal static void AddIconErrors(string? icon, string field, FieldErrors errors)
+    /// <summary>No category is fine — "Sonstiges" is used — but one that is given has to exist.</summary>
+    internal static void AddCategoryErrors(GoalCategory? category, string field, FieldErrors errors)
     {
-        if (icon is not null && !string.IsNullOrWhiteSpace(icon) && !GoalIcons.IsValid(icon.Trim()))
+        if (category is { } value && !Enum.IsDefined(value))
         {
-            errors.Add(field, new(FieldErrorCodes.UnknownOption), "That icon is not one of the available goal icons.");
+            errors.Add(field, new(FieldErrorCodes.UnknownOption), "That is not one of the goal categories.");
         }
     }
 
@@ -233,6 +233,28 @@ public static class CreateGoalRequestValidator
     }
 
     /// <summary>
+    /// A start day other than today or tomorrow, on the owner's calendar (#96).
+    /// Null when it is fine — or when the goal is a one-off, which ignores it.
+    /// </summary>
+    public static (FieldErrorCode Code, string Message)? ValidateStartsOn(DateOnly? startsOn, GoalSchedule schedule, DateOnly today)
+    {
+        if (!schedule.Repeats || startsOn is not { } day)
+        {
+            return null;
+        }
+
+        // "Heute" chosen before midnight and sent after it.
+        if (day < today)
+        {
+            return (new(FieldErrorCodes.PastDay), "A goal cannot start on a day that has already passed.");
+        }
+
+        return day > today.AddDays(1)
+            ? (new(FieldErrorCodes.TooFarAhead, Max: 1), "A goal starts today or tomorrow.")
+            : null;
+    }
+
+    /// <summary>
     /// The domain schedule a validated request asks for.
     /// </summary>
     /// <remarks>
@@ -281,7 +303,7 @@ public static class EditGoalRequestValidator
                 $"A description may be at most {Goal.MaxDescriptionLength} characters long.");
         }
 
-        CreateGoalRequestValidator.AddIconErrors(request.Icon, nameof(request.Icon), errors);
+        CreateGoalRequestValidator.AddCategoryErrors(request.Category, nameof(request.Category), errors);
 
         // A Don't's period, or a Do's schedule; which of the two this goal
         // takes is the goal's to say.
@@ -369,7 +391,7 @@ public static class SaveGoalDraftRequestValidator
         var errors = new FieldErrors();
 
         CreateGoalRequestValidator.AddTitleErrors(request.Title, nameof(request.Title), errors);
-        CreateGoalRequestValidator.AddIconErrors(request.Icon, nameof(request.Icon), errors);
+        CreateGoalRequestValidator.AddCategoryErrors(request.Category, nameof(request.Category), errors);
         errors.Add(CreateGoalRequestValidator.ValidateSchedule(request.Schedule));
 
         if (request.Schedule?.Kind == ScheduleKind.Once)

@@ -36,7 +36,7 @@ public enum GoalChangeStatus
 /// than from messages somebody wrote (<see cref="GoalTimeline"/>,
 /// docs/adr/0044-editing-a-running-goal.md).
 ///
-/// **Two halves.** The title, the icon, a checker added and an earlier day for
+/// **Two halves.** The title, the category, a checker added and an earlier day for
 /// a one-off apply the moment the edit is saved: none of them lets the owner
 /// off anything. Everything else — the schedule, a Don't's limit and proof
 /// mode, a later day, the description and a checker removed — waits for the
@@ -81,9 +81,9 @@ public sealed class GoalChange
 
     public string? TitleTo { get; private set; }
 
-    public string? IconFrom { get; private set; }
+    public GoalCategory? CategoryFrom { get; private set; }
 
-    public string? IconTo { get; private set; }
+    public GoalCategory? CategoryTo { get; private set; }
 
     /// <summary>
     /// Whether the description changed. A flag of its own, because "no
@@ -183,8 +183,8 @@ public sealed class GoalChange
         {
             TitleFrom = plan.TitleTo is null ? null : plan.TitleFrom,
             TitleTo = plan.TitleTo,
-            IconFrom = plan.IconTo is null ? null : plan.IconFrom,
-            IconTo = plan.IconTo,
+            CategoryFrom = plan.CategoryTo is null ? null : plan.CategoryFrom,
+            CategoryTo = plan.CategoryTo,
             TargetDateFrom = plan.TargetDateTo is null ? null : plan.TargetDateFrom,
             TargetDateTo = plan.TargetDateTo,
         };

@@ -49,6 +49,7 @@ const proofResults = toggle('proofResults')
 const goalUpdates = toggle('goalUpdates')
 const friendsAtRisk = toggle('friendsAtRisk')
 const spotChecks = toggle('spotChecks')
+const reminders = toggle('reminders')
 const reactions = toggle('reactions')
 const challenge = toggle('challenge')
 
@@ -169,6 +170,13 @@ useHead({ title: () => t.value.notificationSettings.heading })
           v-model="spotChecks"
           icon="i-lucide-camera"
           :label="t.notificationSettings.spotChecks"
+        />
+        <!-- The time each Do's reminder was set for; this decides whether it
+             may interrupt at all (#82). -->
+        <SettingsToggleRow
+          v-model="reminders"
+          icon="i-lucide-bell-ring"
+          :label="t.notificationSettings.reminders"
         />
       </SettingsSection>
 

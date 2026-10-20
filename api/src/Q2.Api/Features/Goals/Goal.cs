@@ -55,7 +55,6 @@ public sealed class Goal
     private Goal()
     {
         Title = string.Empty;
-        Icon = GoalIcons.Default;
         Schedule = GoalSchedule.Once();
     }
 
@@ -64,7 +63,7 @@ public sealed class Goal
         Guid ownerPersonId,
         string title,
         string? description,
-        string icon,
+        GoalCategory category,
         GoalSchedule schedule,
         bool isGroup,
         TimeOnly? reminderAt,
@@ -81,7 +80,7 @@ public sealed class Goal
         OwnerPersonId = ownerPersonId;
         Title = title;
         Description = description;
-        Icon = icon;
+        Category = category;
         Schedule = schedule;
         IsGroup = isGroup;
         ReminderAt = reminderAt;
@@ -122,8 +121,14 @@ public sealed class Goal
 
     public string? Description { get; private set; }
 
-    /// <summary>One of <see cref="GoalIcons"/>, never a free-form icon name.</summary>
-    public string Icon { get; private set; }
+    /// <summary>What kind of thing this is about (#18).</summary>
+    public GoalCategory Category { get; private set; } = GoalCategories.Default;
+
+    /// <summary>
+    /// The icon it is drawn with: its category's, never chosen on its own
+    /// (<see cref="GoalCategories.IconFor"/>). Not stored.
+    /// </summary>
+    public string Icon => GoalCategories.IconFor(Category);
 
     /// <summary>When this is due, and how often it comes back.</summary>
     public GoalSchedule Schedule { get; private set; }
@@ -147,6 +152,19 @@ public sealed class Goal
     /// derives its own days from the schedule.
     /// </summary>
     public DateOnly? TargetDate { get; private set; }
+
+    /// <summary>
+    /// The first day a repeating goal counts for, when its owner chose one:
+    /// the day it was made, or the day after (#96). Null for a goal made before
+    /// there was a choice, and for a one-off — both start the day they were
+    /// made.
+    /// </summary>
+    /// <remarks>
+    /// Stored, because nothing else says it: a goal that starts tomorrow has no
+    /// window today, and the maintenance pass has to know tomorrow which window
+    /// comes first (<see cref="GoalMaintenance"/>).
+    /// </remarks>
+    public DateOnly? StartsOn { get; private set; }
 
     /// <summary>
     /// When this goal stopped running, either way. Null while it is still going.
@@ -190,7 +208,7 @@ public sealed class Goal
         Guid ownerPersonId,
         string title,
         string? description,
-        string? icon,
+        GoalCategory? category,
         GoalSchedule schedule,
         bool isGroup,
         TimeOnly? reminderAt,
@@ -198,7 +216,8 @@ public sealed class Goal
         DateTimeOffset createdAt,
         GoalKind kind = GoalKind.Do,
         int? limit = null,
-        DontProofMode? proofMode = null)
+        DontProofMode? proofMode = null,
+        DateOnly? startsOn = null)
     {
         ArgumentNullException.ThrowIfNull(schedule);
 
@@ -252,10 +271,10 @@ public sealed class Goal
             errors[nameof(Description)] = [$"A description may be at most {MaxDescriptionLength} characters long."];
         }
 
-        var normalisedIcon = string.IsNullOrWhiteSpace(icon) ? GoalIcons.Default : icon.Trim();
-        if (!GoalIcons.IsValid(normalisedIcon))
+        var normalisedCategory = category ?? GoalCategories.Default;
+        if (!Enum.IsDefined(normalisedCategory))
         {
-            errors[nameof(Icon)] = ["That icon is not one of the available goal icons."];
+            errors[nameof(Category)] = ["That is not one of the goal categories."];
         }
 
         if (errors.Count > 0)
@@ -269,12 +288,12 @@ public sealed class Goal
 
         var isDont = kind == GoalKind.Dont;
 
-        return new Goal(
+        var goal = new Goal(
             id,
             ownerPersonId,
             normalisedTitle,
             normalisedDescription,
-            normalisedIcon,
+            normalisedCategory,
             schedule,
             isGroup,
             reminderAt,
@@ -283,6 +302,10 @@ public sealed class Goal
             kind,
             isDont ? limit : null,
             isDont ? proofMode : null);
+
+        // A one-off has its day; only what repeats starts on one of its own.
+        goal.StartsOn = schedule.Repeats ? startsOn : null;
+        return goal;
     }
 
     /// <summary>True for something to stop doing.</summary>
@@ -673,53 +696,66 @@ public sealed class Goal
     public bool IsPausedOn(DateOnly day) => _pauses.Any(pause => pause.Covers(day));
 
     /// <summary>
-    /// How many pauses are left in the month <paramref name="today"/> lies in.
+    /// How many pauses are left in the month <paramref name="day"/> lies in.
     /// </summary>
     /// <remarks>
     /// Overturned pauses count against the allowance on purpose. An objection
     /// should not make the attempt free, or the allowance could be worked
-    /// around by simply trying again.
+    /// around by simply trying again. A pause counts in the month it starts —
+    /// a holiday entered in October for November uses November's (#99) — and
+    /// one planned and taken back before it began counts nowhere: it never
+    /// happened.
     /// </remarks>
-    public int RemainingPauses(DateOnly today) =>
+    public int RemainingPauses(DateOnly day) =>
         Math.Max(0, PauseRules.MaxPerMonth - _pauses.Count(pause =>
-            pause.StartsOn.Year == today.Year && pause.StartsOn.Month == today.Month));
+            !pause.WasWithdrawn && pause.StartsOn.Year == day.Year && pause.StartsOn.Month == day.Month));
+
+    /// <summary>The next pause planned ahead and not begun yet, if any (#99).</summary>
+    public GoalPause? PlannedPauseAt(DateTimeOffset now) =>
+        _pauses.Where(pause => pause.IsPlannedAt(now)).OrderBy(pause => pause.StartsOn).FirstOrDefault();
 
     /// <summary>
-    /// Sets the goal aside for whole local days, suspending the open window.
+    /// Why this goal cannot be set aside from <paramref name="startsOn"/> for
+    /// <paramref name="days"/> days, or null when it can.
     /// </summary>
     /// <remarks>
-    /// The one door a pause comes through, so the allowance and "never two at
-    /// once" are properties of the goal rather than of whoever remembered to
-    /// check.
+    /// One answer for a single pause and for "alle aussetzen", which skips the
+    /// goals this refuses rather than failing all of them (#99). The reason and
+    /// the length are the request's to get right and are checked when the
+    /// pause is made.
     /// </remarks>
-    /// <exception cref="DomainValidationException">
-    /// The goal has stopped, a pause is already running, the allowance is used
-    /// up, a photograph is being voted on, or the reason or length is not
-    /// acceptable.
-    /// </exception>
-    public GoalPause RequestPause(
-        Guid id,
-        string? reason,
-        int days,
-        DateOnly today,
-        Func<DateOnly, DateTimeOffset> endOfDay,
-        DateTimeOffset now)
+    public PauseRefusal? PauseRefusalFor(DateOnly startsOn, int days, DateOnly today, DateTimeOffset now)
     {
         if (Status != GoalStatus.Active)
         {
-            throw new DomainValidationException("Pause", "A goal that has stopped cannot be paused.");
+            return PauseRefusal.Stopped;
         }
 
-        if (ActivePauseAt(now) is not null)
+        if (startsOn < today || startsOn > today.AddDays(PauseRules.MaxDaysAhead))
         {
-            throw new DomainValidationException("Pause", "This goal is already paused.");
+            return PauseRefusal.OutOfRange;
         }
 
-        if (RemainingPauses(today) <= 0)
+        var endsOn = startsOn.AddDays(Math.Max(PauseRules.MinDays, days) - 1);
+
+        // Never two at once — running, planned, or one of each.
+        if ((startsOn == today && ActivePauseAt(now) is not null)
+            || _pauses.Any(pause => pause.Overlaps(startsOn, endsOn)))
         {
-            throw new DomainValidationException(
-                "Pause",
-                $"A goal may be paused {PauseRules.MaxPerMonth} times a month.");
+            return PauseRefusal.AlreadyPaused;
+        }
+
+        if (RemainingPauses(startsOn) <= 0)
+        {
+            return PauseRefusal.NoneLeft;
+        }
+
+        // A pause that begins later sets aside whatever window is open then,
+        // not the one running now — so only one that begins today is held up
+        // by what is happening in it.
+        if (startsOn > today)
+        {
+            return null;
         }
 
         // Nor may it be the way out of a spot check that has just been asked:
@@ -727,18 +763,78 @@ public sealed class Goal
         // was meant to answer.
         if (CurrentInstance?.OpenSpotCheckAt(now) is not null)
         {
-            throw new DomainValidationException(
-                "Pause",
-                "Answer the spot check first.");
+            return PauseRefusal.SpotCheckOpen;
         }
 
         // A vote in flight is the one thing a pause may not interrupt; see
         // GoalInstance.Suspend for why.
-        if (CurrentInstance?.PendingProof is not null)
+        return CurrentInstance?.PendingProof is not null ? PauseRefusal.VoteRunning : null;
+    }
+
+    /// <summary>
+    /// Sets the goal aside for whole local days — from today, suspending the
+    /// open window, or from a later day, planned ahead (#99).
+    /// </summary>
+    /// <remarks>
+    /// The one door a pause comes through, so the allowance and "never two at
+    /// once" are properties of the goal rather than of whoever remembered to
+    /// check. A planned pause is not announced and holds nothing until its
+    /// first day; <see cref="BeginPause"/> and the maintenance pass see to that.
+    /// </remarks>
+    /// <param name="startsOn">The first day it covers; today when left out.</param>
+    /// <param name="startOfDay">The first instant of a local day in the owner's zone; needed for a later start.</param>
+    /// <exception cref="DomainValidationException">
+    /// The goal has stopped, a pause is already running or planned for those
+    /// days, the allowance is used up, a photograph is being voted on, or the
+    /// reason, the length or the first day is not acceptable.
+    /// </exception>
+    public GoalPause RequestPause(
+        Guid id,
+        string? reason,
+        int days,
+        DateOnly today,
+        Func<DateOnly, DateTimeOffset> endOfDay,
+        DateTimeOffset now,
+        DateOnly? startsOn = null,
+        Func<DateOnly, DateTimeOffset>? startOfDay = null)
+    {
+        var first = startsOn ?? today;
+
+        if (PauseRefusalFor(first, days, today, now) is { } refusal)
         {
-            throw new DomainValidationException(
-                "Pause",
-                "Wait for the photograph that is being voted on to be decided.");
+            throw refusal switch
+            {
+                PauseRefusal.Stopped => new DomainValidationException("Pause", "A goal that has stopped cannot be paused."),
+                PauseRefusal.OutOfRange => new DomainValidationException(
+                    "StartsOn",
+                    $"A pause starts today or within {PauseRules.MaxDaysAhead} days.",
+                    first < today ? new FieldErrorCode(FieldErrorCodes.PastDay) : new FieldErrorCode(FieldErrorCodes.TooFarAhead, Max: PauseRules.MaxDaysAhead)),
+                PauseRefusal.AlreadyPaused => new DomainValidationException("Pause", "This goal is already paused on those days."),
+                PauseRefusal.NoneLeft => new DomainValidationException("Pause", $"A goal may be paused {PauseRules.MaxPerMonth} times a month."),
+                PauseRefusal.SpotCheckOpen => new DomainValidationException("Pause", "Answer the spot check first."),
+                _ => new DomainValidationException("Pause", "Wait for the photograph that is being voted on to be decided."),
+            };
+        }
+
+        if (first > today)
+        {
+            ArgumentNullException.ThrowIfNull(startOfDay);
+
+            var planned = GoalPause.Create(
+                id,
+                Id,
+                OwnerPersonId,
+                reason,
+                goalInstanceId: null,
+                first,
+                days,
+                startOfDay(first),
+                endOfDay,
+                now,
+                announced: false);
+
+            _pauses.Add(planned);
+            return planned;
         }
 
         var current = CurrentInstance;
@@ -759,6 +855,34 @@ public sealed class Goal
 
         return pause;
     }
+
+    /// <summary>
+    /// When a planned pause's first day has come, sets aside the window open
+    /// then, as asking for the pause that morning would have. Returns true when
+    /// it did.
+    /// </summary>
+    /// <remarks>
+    /// Only a window whose deadline falls inside the pause: one that ended
+    /// before it began is not excused by it, and stays to be missed once the
+    /// pause is over. Idempotent — the pause remembers the window it holds.
+    /// </remarks>
+    public bool BeginPause(DateTimeOffset now)
+    {
+        if (ActivePauseAt(now) is not { GoalInstanceId: null } pause
+            || CurrentInstance is not { } open
+            || open.DueAt < pause.StartsAt
+            || !open.Suspend())
+        {
+            return false;
+        }
+
+        pause.Hold(open.Id);
+        return true;
+    }
+
+    /// <summary>The running pauses the goal's friends have not been told about yet.</summary>
+    public IEnumerable<GoalPause> PausesToAnnounce(DateTimeOffset now) =>
+        _pauses.Where(pause => pause.AnnouncedAt is null && pause.IsActiveAt(now));
 
     /// <summary>
     /// Records one person's objection to the running pause, and lifts it when
@@ -782,9 +906,12 @@ public sealed class Goal
         return pause;
     }
 
-    /// <summary>Ends the running pause early. Returns false when none was running.</summary>
+    /// <summary>
+    /// Ends the running pause early, or takes back one planned ahead. Returns
+    /// false when there was neither.
+    /// </summary>
     public bool EndPause(DateOnly today, DateTimeOffset now) =>
-        ActivePauseAt(now)?.EndEarly(today, now) ?? false;
+        (ActivePauseAt(now) ?? PlannedPauseAt(now))?.EndEarly(today, now) ?? false;
 
     /// <summary>
     /// Closes any pause whose last day has passed. Returns true when one did,
@@ -901,16 +1028,16 @@ public sealed class Goal
             }
         }
 
-        string? iconTo = null;
-        if (edit.Icon?.Trim() is { } icon)
+        GoalCategory? categoryTo = null;
+        if (edit.Category is { } category)
         {
-            if (!GoalIcons.IsValid(icon))
+            if (!Enum.IsDefined(category))
             {
-                errors.Add(nameof(Icon), new(FieldErrorCodes.UnknownOption), "That icon is not one of the available goal icons.");
+                errors.Add(nameof(Category), new(FieldErrorCodes.UnknownOption), "That is not one of the goal categories.");
             }
-            else if (icon != Icon)
+            else if (category != Category)
             {
-                iconTo = icon;
+                categoryTo = category;
             }
         }
 
@@ -1075,8 +1202,8 @@ public sealed class Goal
         return new GoalEditPlan(
             Title,
             titleTo,
-            Icon,
-            iconTo,
+            Category,
+            categoryTo,
             dueFrom,
             earlier,
             [.. wanted.Except(checkers).Order()],
@@ -1124,9 +1251,9 @@ public sealed class Goal
             Title = title;
         }
 
-        if (plan.IconTo is { } icon)
+        if (plan.CategoryTo is { } category)
         {
-            Icon = icon;
+            Category = category;
         }
 
         foreach (var personId in plan.CheckersAdded)
@@ -1287,36 +1414,4 @@ public sealed class Goal
     /// </summary>
     public bool IsOverdueAt(DateTimeOffset now) =>
         Status == GoalStatus.Active && CurrentInstance is { } instance && now > instance.DueAt;
-}
-
-/// <summary>
-/// The icons a goal may use.
-/// </summary>
-/// <remarks>
-/// A closed set on purpose. The frontend bundles its icons at build time rather
-/// than fetching them (see app/nuxt.config.ts), so an icon name the server
-/// invented at runtime would simply not render. Adding one here means adding it
-/// to that bundle in the same change.
-/// </remarks>
-public static class GoalIcons
-{
-    public const string Default = "target";
-
-    public static readonly IReadOnlyList<string> All =
-    [
-        "target",
-        "medal",
-        "book-open",
-        "sunrise",
-        "droplet",
-        "flame",
-        "trophy",
-        "sparkles",
-        "calendar",
-        "alarm-clock",
-        "hand-heart",
-        "users",
-    ];
-
-    public static bool IsValid(string? value) => value is not null && All.Contains(value);
 }

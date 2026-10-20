@@ -80,7 +80,7 @@ test('a pasted link previews without naming anybody', async ({ request }) => {
   const html = await (await request.get(`/join/${code}`, { headers: { cookie: '' } })).text()
   const head = html.slice(0, html.indexOf('</head>'))
 
-  expect(head).toContain('property="og:title" content="Du bist zu q2 eingeladen"')
+  expect(head).toContain('property="og:title" content="Du bist zu Qdos eingeladen"')
   expect(head).toMatch(/property="og:image" content="http[^"]+\/pwa-512x512\.png"/)
   expect(head).toContain('name="robots" content="noindex, nofollow"')
   expect(head).not.toContain('E2E Mara')

@@ -50,6 +50,17 @@ public sealed class LocalCalendar
     public int HourOf(DateTimeOffset instant) => TimeZoneInfo.ConvertTime(instant, Zone).Hour;
 
     /// <summary>
+    /// The time on this person's clock at <paramref name="instant"/>.
+    /// </summary>
+    /// <remarks>
+    /// For a reminder somebody set for a time of day. Compared on the clock
+    /// rather than as an instant, so a reminder set for 02:30 on the night the
+    /// clocks skip from 02:00 to 03:00 still comes — at 03:00, the first time
+    /// the clock has passed it.
+    /// </remarks>
+    public TimeOnly TimeOf(DateTimeOffset instant) => TimeOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, Zone).DateTime);
+
+    /// <summary>
     /// The first instant of a local day.
     /// </summary>
     /// <remarks>
@@ -135,6 +146,43 @@ public sealed class TimeZoneResolver
 
     /// <summary>The zone new accounts are created in.</summary>
     public string ConfiguredZoneId { get; }
+
+    /// <summary>The zone a stored id stands for: itself, or the configured one for none.</summary>
+    public string EffectiveId(string? zoneId) => string.IsNullOrWhiteSpace(zoneId) ? ConfiguredZoneId : zoneId;
+
+    /// <summary>
+    /// Whether this platform knows the zone — "Europe/Lisbon", "UTC" — so a
+    /// person can be counted in it (#9).
+    /// </summary>
+    /// <remarks>
+    /// Asked before a zone is stored, so an unknown one is refused instead of
+    /// being counted, silently, in UTC by <see cref="For"/>.
+    /// </remarks>
+    public static bool IsKnown(string? zoneId)
+    {
+        if (string.IsNullOrWhiteSpace(zoneId) || zoneId.Length > MaxZoneIdLength)
+        {
+            return false;
+        }
+
+        if (string.Equals(zoneId, TimeZoneInfo.Utc.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        try
+        {
+            TimeZoneInfo.FindSystemTimeZoneById(zoneId);
+            return true;
+        }
+        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The longest zone id stored: the IANA names are well under it.</summary>
+    public const int MaxZoneIdLength = 64;
 
     /// <summary>The calendar for a stored zone id, falling back to the configured one.</summary>
     public LocalCalendar For(string? zoneId)

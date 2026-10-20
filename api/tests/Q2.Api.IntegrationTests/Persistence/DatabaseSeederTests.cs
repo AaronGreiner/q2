@@ -192,7 +192,7 @@ public class DatabaseSeederTests
 
             Assert.Contains(goals, goal => goal.Participants.Count > 0);
             Assert.Contains(goals, goal => goal.Instances.Count > 0);
-            Assert.All(goals, goal => Assert.Contains(goal.Icon, GoalIcons.All));
+            Assert.All(goals, goal => Assert.True(Enum.IsDefined(goal.Category)));
         }
     }
 }

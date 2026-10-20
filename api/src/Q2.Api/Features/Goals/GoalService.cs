@@ -37,6 +37,8 @@ public sealed class GoalService(
     GoalLauncher launcher,
     ImageService images,
     Notifier notifier,
+    ActivityRecorder activity,
+    BadgeAwarder badges,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     TimeZoneResolver timeZones,
@@ -203,12 +205,17 @@ public sealed class GoalService(
             throw new DomainValidationException(nameof(request.TargetDate), problem.Message, problem.Code);
         }
 
+        if (CreateGoalRequestValidator.ValidateStartsOn(request.StartsOn, schedule, calendar.Today(now)) is { } late)
+        {
+            throw new DomainValidationException(nameof(request.StartsOn), late.Message, late.Code);
+        }
+
         var goal = Goal.Create(
             idGenerator.NewId(),
             me.Id,
             request.Title ?? string.Empty,
             request.Description,
-            request.Icon,
+            request.Category,
             schedule,
             request.IsGroup ?? false,
             request.ReminderAt,
@@ -216,7 +223,8 @@ public sealed class GoalService(
             now,
             kind,
             request.Limit,
-            request.ProofMode);
+            request.ProofMode,
+            request.StartsOn);
 
         // Only friends can be added to a goal. Without that check, a goal is a
         // way to put your name into a stranger's app.
@@ -309,28 +317,9 @@ public sealed class GoalService(
 
         // Up to date first, so a pause cannot be granted for a window whose
         // deadline passed overnight — that window is a miss, not a pause.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
-        var pause = goal.RequestPause(
-            idGenerator.NewId(),
-            request.Reason,
-            request.Days ?? 0,
-            calendar.Today(now),
-            calendar.EndOfDay,
-            now);
-
-        database.GoalPauses.Add(pause);
-
-        /*
-         * The people it is announced to are the people who may object, so they
-         * are told — how long, and never why. The reason may say somebody is
-         * ill; it belongs on the goal's own screen, one tap away, for the
-         * people allowed to read it, and not on a lock screen.
-         */
-        await notifier.StageAsync(
-            new NotificationEvent(NotificationKind.GoalPaused, me.Id, NotificationTarget.Goal, goal.Id, goal.Title, pause.Days),
-            goal.Participants.Select(participant => participant.PersonId),
-            cancellationToken);
+        var pause = await PauseOneAsync(goal, me.Id, request, calendar, now, cancellationToken);
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
@@ -340,6 +329,109 @@ public sealed class GoalService(
         logger.LogInformation("Goal {GoalId} was paused for {Days} day(s)", goal.Id, pause.Days);
 
         return await DescribeAsync(goal, me.Id, calendar, now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets every running goal of the caller's aside with one reason and one
+    /// length — Dos and Don'ts — as separate pauses underneath, so each goal's
+    /// friends are told and may object as they always could (#99).
+    /// </summary>
+    /// <remarks>
+    /// A goal that cannot be set aside on those days is left out rather than
+    /// failing the rest — a holiday is not cancelled because one goal has a
+    /// photograph being voted on — and the answer says which, and why.
+    /// </remarks>
+    /// <exception cref="DomainValidationException">The first day is not one a pause may start on.</exception>
+    public async Task<PauseAllResponse> PauseAllAsync(RequestPauseRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var me = await currentPerson.GetAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var calendar = timeZones.For(me.TimeZoneId);
+        var today = calendar.Today(now);
+        var startsOn = request.StartsOn ?? today;
+
+        if (startsOn < today || startsOn > today.AddDays(PauseRules.MaxDaysAhead))
+        {
+            throw new DomainValidationException(
+                nameof(request.StartsOn),
+                $"A pause starts today or within {PauseRules.MaxDaysAhead} days.",
+                startsOn < today ? new FieldErrorCode(FieldErrorCodes.PastDay) : new FieldErrorCode(FieldErrorCodes.TooFarAhead, Max: PauseRules.MaxDaysAhead));
+        }
+
+        var mine = (await MineAsync(me.Id, cancellationToken))
+            .Where(goal => goal.OwnerPersonId == me.Id && goal.Status == GoalStatus.Active)
+            .ToList();
+
+        List<Guid> paused = [];
+        List<PauseSkipResponse> skipped = [];
+
+        foreach (var goal in mine)
+        {
+            await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
+
+            if (goal.PauseRefusalFor(startsOn, request.Days ?? 0, today, now) is { } refusal)
+            {
+                skipped.Add(new PauseSkipResponse(goal.Id, goal.Title, refusal));
+                continue;
+            }
+
+            await PauseOneAsync(goal, me.Id, request with { StartsOn = startsOn }, calendar, now, cancellationToken);
+            paused.Add(goal.Id);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        await notifier.FlushAsync(cancellationToken);
+
+        // How many, and nothing about which or why.
+        logger.LogInformation("{GoalCount} goal(s) were paused at once, {SkippedCount} left out", paused.Count, skipped.Count);
+
+        return new PauseAllResponse(paused, skipped);
+    }
+
+    /// <summary>
+    /// Asks the goal for the pause, and tells its friends if it begins now.
+    /// Nothing here saves.
+    /// </summary>
+    private async Task<GoalPause> PauseOneAsync(
+        Goal goal,
+        Guid ownerId,
+        RequestPauseRequest request,
+        LocalCalendar calendar,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var pause = goal.RequestPause(
+            idGenerator.NewId(),
+            request.Reason,
+            request.Days ?? 0,
+            calendar.Today(now),
+            calendar.EndOfDay,
+            now,
+            request.StartsOn,
+            calendar.StartOfDay);
+
+        database.GoalPauses.Add(pause);
+
+        /*
+         * The people it is announced to are the people who may object, so they
+         * are told — how long, and never why. The reason may say somebody is
+         * ill; it belongs on the goal's own screen, one tap away, for the
+         * people allowed to read it, and not on a lock screen.
+         *
+         * A pause planned for a later day is told when it begins, by the
+         * maintenance pass (ProofVerdicts.AdvanceAsync, #99).
+         */
+        if (pause.AnnouncedAt is not null)
+        {
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.GoalPaused, ownerId, NotificationTarget.Goal, goal.Id, goal.Title, pause.Days),
+                goal.Participants.Select(participant => participant.PersonId),
+                cancellationToken);
+        }
+
+        return pause;
     }
 
     /// <summary>Ends the running pause early, on its owner's say-so.</summary>
@@ -359,7 +451,7 @@ public sealed class GoalService(
 
         // The days already covered stay covered, today included, so this opens
         // the next window rather than reviving the one that was set aside.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
 
         notifier.Touch(goal.Participants.Select(participant => participant.PersonId), LiveArea.Goals, goal.Id);
@@ -401,7 +493,7 @@ public sealed class GoalService(
 
         // An overturned pause hands the window back with its original deadline.
         // If that has passed, this is the run that makes it a miss.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, owner, cancellationToken);
 
         /*
          * A single objection is silent; the owner hears only the consequence.
@@ -449,7 +541,7 @@ public sealed class GoalService(
 
         // Up to date first: an edit is judged against the window that is
         // really running, and a change that was due overnight has applied.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         var plan = await PlanEditAsync(goal, request, me, calendar, now, cancellationToken);
         var change = goal.Edit(idGenerator.NewId(), plan, idGenerator.NewId, calendar.EndOfDay, now);
@@ -533,7 +625,7 @@ public sealed class GoalService(
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
 
-        if (await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken))
+        if (await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken))
         {
             await database.SaveChangesAsync(cancellationToken);
             await notifier.FlushAsync(cancellationToken);
@@ -589,7 +681,7 @@ public sealed class GoalService(
 
         // Up to date first: a change that applied with this morning's window
         // can no longer be objected to.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, owner, cancellationToken);
 
         if (goal.VetoChange(idGenerator.NewId(), me.Id, now) is not { } change)
         {
@@ -627,7 +719,7 @@ public sealed class GoalService(
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
 
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         if (!goal.WithdrawChange(now))
         {
@@ -665,7 +757,7 @@ public sealed class GoalService(
         // Up to date first, so what is closed is the real state: a window whose
         // deadline passed last night is a miss, and stopping now must not
         // quietly turn it into a pause.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         if (!goal.Close(request.Completed ?? false, now))
         {
@@ -721,7 +813,7 @@ public sealed class GoalService(
 
         // Up to date first, so a use cannot land in a window whose period
         // ended while the screen was open.
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         var use = goal.LogUse(idGenerator.NewId(), request.ImageId, now)
             ?? throw new DomainValidationException("Use", "There is no running period to log this into.");
@@ -790,7 +882,7 @@ public sealed class GoalService(
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
 
-        await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, me, cancellationToken);
+        await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
         if (!goal.ScheduleSpotCheckNow(idGenerator.NewId(), calendar.Today(now), now))
         {
@@ -958,7 +1050,7 @@ public sealed class GoalService(
         var edit = new GoalEdit(
             request.Title,
             request.Description,
-            request.Icon,
+            request.Category,
             EditGoalRequestValidator.ToSchedule(request.Schedule, goal.Kind),
             request.TargetDate,
             request.Limit,
@@ -1066,12 +1158,19 @@ public sealed class GoalService(
 
         foreach (var goal in mine)
         {
-            changed |= await ProofVerdicts.AdvanceAsync(notifier, goal, calendar, now, idGenerator, owner, cancellationToken);
+            changed |= await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, owner, cancellationToken);
         }
 
         if (changed)
         {
             await database.SaveChangesAsync(cancellationToken);
+
+            // What moved may have earned a badge — a week that ended while
+            // nobody else looked (#22).
+            if (await badges.AwardEarnedAsync(owner.Id, cancellationToken))
+            {
+                await database.SaveChangesAsync(cancellationToken);
+            }
 
             // A change that applied may have removed a checker, who leaves
             // the conversation with it.

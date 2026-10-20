@@ -114,7 +114,8 @@ describe('the API modules', () => {
     const goalRequest = {
       title: 'Run',
       description: null,
-      icon: 'flame',
+      category: 'Other',
+      icon: 'target',
       schedule: { kind: 'Times' as const, times: 3, period: 'Week' as const },
       targetDate: null,
       reminderAt: null,

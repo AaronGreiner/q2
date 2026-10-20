@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { CreateGoalRequest, Friend, GoalDraft, GoalKind, GoalScheduleRequest, SaveGoalDraftRequest } from '~/api/types'
-import { goalIcons } from '~/api/types'
+import type { CreateGoalRequest, Friend, Goal, GoalCategory, GoalDraft, GoalKind, GoalScheduleRequest, SaveGoalDraftRequest } from '~/api/types'
 import type { DontLimit } from '~/components/donts/DontLimitPicker.vue'
 import type { DontTemplate, GoalTemplate } from '~/utils/goalTemplates'
 
@@ -73,7 +72,8 @@ const kind = ref<GoalKind>('Do')
 const title = ref('')
 /** What counts, in the owner's words: what the checkers judge a proof against (#95). */
 const description = ref('')
-const icon = ref<string>(goalIcons[0]!)
+/** What kind of thing it is about, which also draws its icon (#18). */
+const category = ref<GoalCategory>('Other')
 const withReminder = ref(true)
 const reminderTime = ref('09:00')
 const participantIds = ref<string[]>([])
@@ -99,13 +99,13 @@ const kindOptions = computed(() => [
 
 function useTemplate(template: GoalTemplate) {
   title.value = t.value.create.templates[template.key]
-  icon.value = template.icon
+  category.value = template.category
   schedule.value = { ...template.schedule }
 }
 
 function useDontTemplate(template: DontTemplate) {
   title.value = t.value.dont.templates[template.key]
-  icon.value = template.icon
+  category.value = template.category
   dontLimit.value = { limit: template.limit, period: template.period, proofMode: template.proofMode }
 }
 
@@ -136,17 +136,58 @@ const scheduleText = computed(() => (isDont.value
         period: schedule.value.period ?? null,
       }, t.value)))
 
-/** The sentence that says what happens the moment the goal exists. */
-const firstWindow = computed(() => {
-  const today = localDay(now.value, zone.value)
-  const end = isDont.value
-    ? firstWindowEnd(dontSchedule.value, today)
-    : firstWindowEnd(schedule.value, today, targetDate.value)
+/** Whether the owner chose to start tomorrow (#96). A one-off has its own day. */
+const startsTomorrow = ref(false)
+const canStartTomorrow = computed(() => isDont.value || schedule.value.kind !== 'Once')
 
-  if (end === today) return t.value.create.firstWindowToday
-  if (end === addDays(today, 1)) return t.value.create.firstWindowTomorrow
-  return t.value.create.firstWindowOn(formatWeekdayDay(end, t.value))
+const startOptions = computed(() => [
+  { value: 'today' as const, label: t.value.create.startToday },
+  { value: 'tomorrow' as const, label: t.value.create.startTomorrow },
+])
+
+const start = computed<'today' | 'tomorrow'>({
+  get: () => (startsTomorrow.value ? 'tomorrow' : 'today'),
+  set: (value) => { startsTomorrow.value = value === 'tomorrow' },
 })
+
+/** The first day the goal counts for. */
+const startDay = computed(() => {
+  const today = localDay(now.value, zone.value)
+  return canStartTomorrow.value && startsTomorrow.value ? addDays(today, 1) : today
+})
+
+/**
+ * The first window, as the server will cut it: from the day the goal starts,
+ * with its share of a period that has already begun (#96).
+ */
+const first = computed(() => isDont.value
+  ? firstWindow(dontSchedule.value, startDay.value)
+  : firstWindow(schedule.value, startDay.value, targetDate.value))
+
+/** What a full window asks, and what the first one asks — its share (#96). */
+const fullAmount = computed(() => (isDont.value
+  ? dontLimit.value.limit
+  : schedule.value.kind === 'Times' ? (schedule.value.times ?? 1) : 1))
+const firstAmount = computed(() => prorate(fullAmount.value, first.value, isDont.value ? 0 : 1))
+
+/** The sentence that says what the first window asks, and until when. */
+const firstWindowText = computed(() => {
+  const today = localDay(now.value, zone.value)
+  const end = first.value.end
+  const words = t.value.create.firstWindowWhen
+  const when = end === today ? words.today : end === addDays(today, 1) ? words.tomorrow : words.on(formatWeekdayDay(end, t.value))
+
+  return isDont.value
+    ? t.value.create.firstWindowLimit(firstAmount.value, when)
+    : t.value.create.firstWindowProofs(firstAmount.value, when)
+})
+
+/**
+ * Whether the first window asks less than a whole one, which is worth one
+ * sentence of why. Not merely whether it was cut: three a week from a Tuesday
+ * is still three.
+ */
+const isShare = computed(() => first.value.days < first.value.fullDays && firstAmount.value < fullAmount.value)
 
 /** What is wrong with one field, worded in the reader's language from the server's code (#80). */
 function fieldError(field: string): string | undefined {
@@ -159,7 +200,7 @@ function fieldError(field: string): string | undefined {
  */
 watch(() => props.error, (failure) => {
   if (!failure) return
-  if (fieldError('title') || fieldError('description') || fieldError('icon')) step.value = 0
+  if (fieldError('title') || fieldError('description') || fieldError('category')) step.value = 0
   else if (fieldError('schedule') || fieldError('targetDate') || fieldError('reminderAt') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
@@ -198,7 +239,8 @@ function onSubmit() {
         schedule: dontSchedule.value,
         limit: dontLimit.value.limit,
         proofMode: dontLimit.value.proofMode,
-        icon: icon.value,
+        ...(startsTomorrow.value ? { startsOn: startDay.value } : {}),
+        category: category.value,
         reminderAt: null,
         participantIds: [...participantIds.value],
       }
@@ -207,7 +249,8 @@ function onSubmit() {
         ...described,
         schedule: schedule.value,
         ...(schedule.value.kind === 'Once' ? { targetDate: targetDate.value } : {}),
-        icon: icon.value,
+        ...(canStartTomorrow.value && startsTomorrow.value ? { startsOn: startDay.value } : {}),
+        category: category.value,
         reminderAt: withReminder.value ? `${reminderTime.value}:00` : null,
         participantIds: [...participantIds.value],
       })
@@ -219,7 +262,8 @@ function reset() {
   kind.value = 'Do'
   title.value = ''
   description.value = ''
-  icon.value = goalIcons[0]!
+  category.value = 'Other'
+  startsTomorrow.value = false
   schedule.value = { kind: 'Interval', everyDays: 1 }
   targetDate.value = null
   dontLimit.value = { limit: 0, period: 'Day', proofMode: 'HonestOnly' }
@@ -228,7 +272,50 @@ function reset() {
   participantIds.value = []
 }
 
-defineExpose({ reset })
+/**
+ * Fills the sheet from a goal that has ended, to start it again (#102): its
+ * kind, title, description, category, rhythm or limit, reminder, and whoever
+ * checked it who is still a friend. The old goal keeps its record; this makes
+ * a new one.
+ *
+ * It opens on the summary, so starting again is the one tap that creates it —
+ * unless something has to be chosen anew first: a one-off's day, which has
+ * passed, or somebody to check it when none of its checkers is a friend now.
+ */
+function startFrom(goal: Goal) {
+  reset()
+
+  kind.value = goal.kind
+  title.value = goal.title
+  description.value = goal.description ?? ''
+  category.value = goal.category
+
+  if (goal.kind === 'Dont') {
+    dontLimit.value = {
+      limit: goal.limit ?? 0,
+      period: goal.schedule.period ?? 'Day',
+      proofMode: goal.proofMode ?? 'HonestOnly',
+    }
+  }
+  else {
+    schedule.value = {
+      kind: goal.schedule.kind,
+      ...(goal.schedule.everyDays ? { everyDays: goal.schedule.everyDays } : {}),
+      ...(goal.schedule.weekdays.length > 0 ? { weekdays: [...goal.schedule.weekdays] } : {}),
+      ...(goal.schedule.times ? { times: goal.schedule.times } : {}),
+      ...(goal.schedule.period ? { period: goal.schedule.period } : {}),
+    }
+    withReminder.value = Boolean(goal.reminderAt)
+    reminderTime.value = goal.reminderAt?.slice(0, 5) ?? '09:00'
+  }
+
+  const friendIds = new Set(props.friends.map(friend => friend.person.id))
+  participantIds.value = goal.participants.map(person => person.id).filter(id => friendIds.has(id))
+
+  step.value = goal.schedule.kind === 'Once' ? 1 : participantIds.value.length === 0 ? 2 : stepCount - 1
+}
+
+defineExpose({ reset, startFrom })
 </script>
 
 <template>
@@ -275,7 +362,7 @@ defineExpose({ reset })
           v-model:valid="draftValid"
           :form-id="draftFormId"
           :error="draftError"
-          @submit="value => emit('draft', { title: value.title, icon: value.icon, schedule: value.schedule, reminderAt: value.reminderAt })"
+          @submit="value => emit('draft', { title: value.title, category: value.category, schedule: value.schedule, reminderAt: value.reminderAt })"
         />
 
         <UButton
@@ -420,7 +507,7 @@ defineExpose({ reset })
                   @click="useTemplate(template)"
                 >
                   <UIcon
-                    :name="goalIconName(template.icon)"
+                    :name="categoryIconName(template.category)"
                     class="size-4 text-(--ui-text-muted)"
                     aria-hidden="true"
                   />
@@ -431,13 +518,13 @@ defineExpose({ reset })
           </div>
 
           <UFormField
-            :label="t.create.iconLabel"
-            name="icon"
-            :error="fieldError('icon')"
+            :label="t.create.categoryLabel"
+            name="category"
+            :error="fieldError('category')"
           >
-            <GoalIconPicker
-              v-model="icon"
-              :label="t.create.iconLabel"
+            <GoalCategoryPicker
+              v-model="category"
+              :label="t.create.categoryLabel"
             />
           </UFormField>
         </template>
@@ -527,7 +614,7 @@ defineExpose({ reset })
           >
             <div class="flex items-center gap-3 py-3">
               <UIcon
-                :name="goalIconName(icon)"
+                :name="categoryIconName(category)"
                 class="size-5 shrink-0 text-(--ui-text-muted)"
                 aria-hidden="true"
               />
@@ -590,6 +677,21 @@ defineExpose({ reset })
             </div>
           </dl>
 
+          <div
+            v-if="canStartTomorrow"
+            class="flex flex-col gap-2"
+            data-testid="goal-start"
+          >
+            <p class="text-sm font-semibold text-(--ui-text-muted)">
+              {{ t.create.startLabel }}
+            </p>
+            <AppSegmented
+              v-model="start"
+              :options="startOptions"
+              :label="t.create.startLabel"
+            />
+          </div>
+
           <p
             class="flex items-start gap-2 text-[13px] leading-relaxed font-semibold text-(--ui-text-muted)"
             data-testid="goal-first-window"
@@ -599,7 +701,15 @@ defineExpose({ reset })
               class="mt-0.5 size-4 shrink-0"
               aria-hidden="true"
             />
-            {{ firstWindow }}
+            <span>
+              {{ firstWindowText }}
+              <template v-if="startsTomorrow && canStartTomorrow">
+                {{ t.create.startsTomorrowHint }}
+              </template>
+              <template v-else-if="isShare">
+                {{ t.create.firstWindowShare }}
+              </template>
+            </span>
           </p>
         </section>
 

@@ -40,11 +40,17 @@ export function useNow(): Ref<number> {
  *
  * Deadlines are counted in the owner's zone on the server (`Person.TimeZoneId`,
  * through `LocalCalendar`); this is only about showing an instant to whoever is
- * reading, so it is the browser's own offset rather than a stored preference.
- * TODO(#9): render the first paint in the person's stored zone instead.
+ * reading, so once mounted it is the browser's own offset.
+ *
+ * The first paint starts from the signed-in person's stored zone, which the
+ * session carries (#9): it is the same number on the server and in the
+ * browser's first render, so there is no mismatch — and for anybody whose
+ * device is where their days are counted, nothing moves after hydration.
+ * Signed out, it is UTC.
  */
 export function useTimeZoneOffset(): Ref<number> {
-  const offset = useState('q2:zone-offset', () => 0)
+  const { session } = useSession()
+  const offset = useState('q2:zone-offset', () => session.value?.utcOffsetMinutes ?? 0)
 
   onMounted(() => {
     offset.value = -new Date().getTimezoneOffset()

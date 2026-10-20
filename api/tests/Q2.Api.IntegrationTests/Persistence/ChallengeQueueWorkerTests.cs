@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Q2.Api.Features.Challenges;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -74,11 +75,46 @@ public class ChallengeQueueWorkerTests(Q2ApiFactory factory) : ApiTestBase(facto
         Assert.False(tomorrow.IsActiveAt(Q2ApiFactory.Now));
         Assert.False(string.IsNullOrWhiteSpace(tomorrow.Prompt));
 
-        // Every queued day runs from one local midnight to the next, so the end
-        // of one is exactly the start of the next.
+        // Every queued day appears at its moment and runs to its midnight, so
+        // no two days overlap (#136).
         for (var index = 2; index < rows.Count; index++)
         {
-            Assert.Equal(rows[index - 1].ExpiresAt, rows[index].PublishedAt);
+            Assert.True(rows[index - 1].ExpiresAt <= rows[index].PublishedAt);
+            Assert.NotNull(rows[index].MomentEndsAt);
+        }
+    }
+
+    /// <summary>
+    /// The moment (#136): nothing before it, one push at it — through the
+    /// default quiet hours, which the 10:00–20:00 window lies outside — and
+    /// nothing more after.
+    /// </summary>
+    [Fact]
+    public async Task TomorrowIsAnnouncedAtItsMomentOnceAndNotBefore()
+    {
+        const string device = "https://push.example/challenge-moment";
+        await Client.SubscribeDeviceAsync(device);
+
+        await Worker.RunOnceAsync(TestContext.Current.CancellationToken);
+        var tomorrow = (await QueuedAsync())[1];
+        var clock = (FixedTimeProvider)Factory.Services.GetRequiredService<TimeProvider>();
+
+        try
+        {
+            clock.Set(tomorrow.PublishedAt.AddMinutes(-1));
+            Assert.Equal(0, await Worker.AnnounceAsync(TestContext.Current.CancellationToken));
+
+            clock.Set(tomorrow.PublishedAt.AddSeconds(30));
+            Assert.Equal(1, await Worker.AnnounceAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(0, await Worker.AnnounceAsync(TestContext.Current.CancellationToken));
+
+            var pushed = Assert.Single(Factory.PushSender.Sent, message => message.Endpoint == device);
+            Assert.Equal(NotificationKind.ChallengePublished, pushed.Payload.Kind);
+            Assert.Equal(tomorrow.Id, pushed.Payload.TargetId);
+        }
+        finally
+        {
+            clock.Reset();
         }
     }
 

@@ -28,7 +28,6 @@ public sealed class GoalDraft
     private GoalDraft()
     {
         Title = string.Empty;
-        Icon = GoalIcons.Default;
         Schedule = GoalSchedule.EveryNDays(1);
     }
 
@@ -38,7 +37,6 @@ public sealed class GoalDraft
         OwnerPersonId = ownerPersonId;
         CreatedAt = createdAt;
         Title = string.Empty;
-        Icon = GoalIcons.Default;
         Schedule = GoalSchedule.EveryNDays(1);
     }
 
@@ -49,8 +47,11 @@ public sealed class GoalDraft
 
     public string Title { get; private set; }
 
-    /// <summary>One of <see cref="GoalIcons"/>.</summary>
-    public string Icon { get; private set; }
+    /// <summary>What kind of thing it is about (#18).</summary>
+    public GoalCategory Category { get; private set; } = GoalCategories.Default;
+
+    /// <summary>Its category's icon. Not stored.</summary>
+    public string Icon => GoalCategories.IconFor(Category);
 
     /// <summary>How often it will be due. Always one that repeats.</summary>
     public GoalSchedule Schedule { get; private set; }
@@ -66,7 +67,7 @@ public sealed class GoalDraft
         Guid id,
         Guid ownerPersonId,
         string title,
-        string? icon,
+        GoalCategory? category,
         GoalSchedule schedule,
         TimeOnly? reminderAt,
         DateTimeOffset createdAt)
@@ -77,13 +78,13 @@ public sealed class GoalDraft
         }
 
         var draft = new GoalDraft(id, ownerPersonId, createdAt);
-        draft.Describe(title, icon, schedule, reminderAt);
+        draft.Describe(title, category, schedule, reminderAt);
         return draft;
     }
 
     /// <summary>Replaces what the waiting Do says.</summary>
     /// <exception cref="DomainValidationException">Any invariant is violated.</exception>
-    public void Describe(string title, string? icon, GoalSchedule schedule, TimeOnly? reminderAt)
+    public void Describe(string title, GoalCategory? category, GoalSchedule schedule, TimeOnly? reminderAt)
     {
         ArgumentNullException.ThrowIfNull(schedule);
 
@@ -99,10 +100,10 @@ public sealed class GoalDraft
             errors[nameof(Title)] = [$"A title may be at most {Goal.MaxTitleLength} characters long."];
         }
 
-        var normalisedIcon = string.IsNullOrWhiteSpace(icon) ? GoalIcons.Default : icon.Trim();
-        if (!GoalIcons.IsValid(normalisedIcon))
+        var normalisedCategory = category ?? GoalCategories.Default;
+        if (!Enum.IsDefined(normalisedCategory))
         {
-            errors[nameof(Icon)] = ["That icon is not one of the available goal icons."];
+            errors[nameof(Category)] = ["That is not one of the goal categories."];
         }
 
         // A one-off has a day, and nobody knows on which day the first friend
@@ -118,7 +119,7 @@ public sealed class GoalDraft
         }
 
         Title = normalisedTitle;
-        Icon = normalisedIcon;
+        Category = normalisedCategory;
         Schedule = schedule;
         ReminderAt = reminderAt;
     }
@@ -136,7 +137,7 @@ public sealed class GoalDraft
         OwnerPersonId,
         Title,
         description: null,
-        Icon,
+        Category,
         Schedule.Copy(),
         isGroup: false,
         ReminderAt,

@@ -60,6 +60,7 @@ public sealed record UnsubscribeRequest(string? Endpoint = null);
 /// your history that got kudos (#112).
 /// </param>
 /// <param name="IsNew">Arrived after the bell was last opened. Always true in a push.</param>
+/// <param name="Detail">A code the client words: for a refused photograph, the reason most doubters gave (#111).</param>
 /// <param name="Language">
 /// The language the recipient chose in q2. Only ever in a push: the service
 /// worker writes the sentence without the app around it and cannot ask the
@@ -78,7 +79,8 @@ public sealed record NotificationResponse(
     Guid? FocusId,
     DateTimeOffset OccurredAt,
     bool IsNew,
-    LanguagePreference? Language = null)
+    LanguagePreference? Language = null,
+    string? Detail = null)
 {
     /// <summary>How much of a message a lock screen gets.</summary>
     public const int MaxExcerptLength = 140;
@@ -104,7 +106,8 @@ public sealed record NotificationResponse(
             line.TargetId,
             line.FocusId,
             line.OccurredAt,
-            isNew);
+            isNew,
+            Detail: line.Detail);
     }
 
     public static NotificationResponse ForDevice(NotificationEvent notification, PersonSummary? actor, DateTimeOffset occurredAt)
@@ -122,7 +125,8 @@ public sealed record NotificationResponse(
             notification.TargetId,
             notification.FocusId,
             occurredAt,
-            IsNew: true);
+            IsNew: true,
+            Detail: notification.Detail);
     }
 
     /// <summary>

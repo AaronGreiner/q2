@@ -237,7 +237,7 @@ public class SpotCheckTests
             Owner,
             "Nicht rauchen",
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.Per(period),
             isGroup: false,
             reminderAt: null,

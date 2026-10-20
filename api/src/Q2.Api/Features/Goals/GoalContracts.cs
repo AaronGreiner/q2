@@ -143,6 +143,10 @@ public sealed record GoalInstanceResponse(
 /// time — including for a pause that has ended, which is history rather than
 /// something a screen has to say anything about.
 /// </param>
+/// <param name="PlannedPause">
+/// The next pause its owner planned ahead and that has not begun (#99). Only
+/// for the owner — the goal's friends are told when it begins, and not before.
+/// </param>
 /// <param name="RemainingPauses">
 /// How many pauses the owner has left this month. Only for the owner: nobody
 /// else needs their allowance, and it is a fact about a person rather than
@@ -162,6 +166,7 @@ public sealed record GoalResponse(
     Guid Id,
     string Title,
     string? Description,
+    GoalCategory Category,
     string Icon,
     GoalScheduleResponse Schedule,
     GoalStatus Status,
@@ -177,6 +182,7 @@ public sealed record GoalResponse(
     DateOnly? RunStartedOn,
     TimeOnly? ReminderAt,
     DateOnly? TargetDate,
+    DateOnly? StartsOn,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt,
     IReadOnlyList<PersonSummary> Participants,
@@ -187,7 +193,8 @@ public sealed record GoalResponse(
     GoalPauseResponse? Pause,
     int? RemainingPauses,
     OpenSpotCheckResponse? SpotCheck,
-    GoalChangeResponse? PendingChange)
+    GoalChangeResponse? PendingChange,
+    GoalPauseResponse? PlannedPause)
 {
     public static GoalResponse From(
         Goal goal,
@@ -204,6 +211,7 @@ public sealed record GoalResponse(
             goal.Id,
             goal.Title,
             goal.Description,
+            goal.Category,
             goal.Icon,
             GoalScheduleResponse.From(goal.Schedule),
             goal.Status,
@@ -219,6 +227,7 @@ public sealed record GoalResponse(
             ownerCalendar is null ? null : goal.RunStartedOn(ownerCalendar.DayOf),
             goal.ReminderAt,
             goal.TargetDate,
+            goal.StartsOn,
             goal.CreatedAt,
             goal.ClosedAt,
 
@@ -264,7 +273,10 @@ public sealed record GoalResponse(
                 people,
                 viewerId,
                 now,
-                ownerCalendar is null ? null : GoalMaintenance.WhenPendingChangeApplies(goal, ownerCalendar)));
+                ownerCalendar is null ? null : GoalMaintenance.WhenPendingChangeApplies(goal, ownerCalendar)),
+
+            // Only for the owner: friends hear of a pause when it begins (#99).
+            isMine ? GoalPauseResponse.From(goal.PlannedPauseAt(now), goal, viewerId) : null);
     }
 }
 
@@ -301,8 +313,8 @@ public sealed record GoalChangeResponse(
     DateTimeOffset? ResolvedAt,
     string? TitleFrom,
     string? TitleTo,
-    string? IconFrom,
-    string? IconTo,
+    GoalCategory? CategoryFrom,
+    GoalCategory? CategoryTo,
     bool DescriptionChanged,
     string? DescriptionTo,
     GoalScheduleResponse? ScheduleFrom,
@@ -349,8 +361,8 @@ public sealed record GoalChangeResponse(
             change.ResolvedAt,
             change.TitleFrom,
             change.TitleTo,
-            change.IconFrom,
-            change.IconTo,
+            change.CategoryFrom,
+            change.CategoryTo,
             change.DescriptionChanged,
             change.DescriptionTo,
             change.ScheduleFrom is null ? null : GoalScheduleResponse.From(change.ScheduleFrom),
@@ -399,8 +411,8 @@ public sealed record GoalChangeResponse(
             null,
             plan.TitleTo is null ? null : plan.TitleFrom,
             plan.TitleTo,
-            plan.IconTo is null ? null : plan.IconFrom,
-            plan.IconTo,
+            plan.CategoryTo is null ? null : plan.CategoryFrom,
+            plan.CategoryTo,
             deferred?.DescriptionChanged ?? false,
             deferred?.Description,
             deferred?.Schedule is null ? null : GoalScheduleResponse.From(goal.Schedule),
@@ -565,7 +577,19 @@ public sealed record GoalScheduleRequest(
 /// reason should produce our own field-level message rather than a
 /// model-binding failure.
 /// </remarks>
-public sealed record RequestPauseRequest(string? Reason = null, int? Days = null);
+/// <param name="StartsOn">The first day it covers: today when left out, or up to <see cref="PauseRules.MaxDaysAhead"/> days ahead (#99).</param>
+public sealed record RequestPauseRequest(string? Reason = null, int? Days = null, DateOnly? StartsOn = null);
+
+/// <summary>
+/// What "alle aussetzen" did (#99): which goals are set aside, and which were
+/// left out and why.
+/// </summary>
+/// <param name="Paused">The goals set aside, or planned to be.</param>
+/// <param name="Skipped">The running goals that could not be, each with the reason.</param>
+public sealed record PauseAllResponse(IReadOnlyList<Guid> Paused, IReadOnlyList<PauseSkipResponse> Skipped);
+
+/// <summary>One goal "alle aussetzen" left out. The title is the owner's own.</summary>
+public sealed record PauseSkipResponse(Guid GoalId, string Title, PauseRefusal Reason);
 
 /// <summary>
 /// Request body for stopping a goal.
@@ -592,6 +616,10 @@ public sealed record SetReminderRequest(TimeOnly? ReminderAt = null);
 /// <param name="Kind">Do when left out, which is every goal made before Don'ts.</param>
 /// <param name="Limit">A Don't only: the most uses per period, 0 for "never".</param>
 /// <param name="ProofMode">A Don't only: what its friends get to judge.</param>
+/// <param name="StartsOn">
+/// A repeating goal only: the first day it counts for — the owner's today, the
+/// default, or tomorrow (#96).
+/// </param>
 /// <remarks>
 /// Every property is nullable on purpose: a missing title should produce our
 /// own field-level validation message, not a model-binding failure.
@@ -599,7 +627,7 @@ public sealed record SetReminderRequest(TimeOnly? ReminderAt = null);
 public sealed record CreateGoalRequest(
     string? Title = null,
     string? Description = null,
-    string? Icon = null,
+    GoalCategory? Category = null,
     GoalScheduleRequest? Schedule = null,
     bool? IsGroup = null,
     TimeOnly? ReminderAt = null,
@@ -607,7 +635,8 @@ public sealed record CreateGoalRequest(
     IReadOnlyList<Guid>? ParticipantIds = null,
     GoalKind? Kind = null,
     int? Limit = null,
-    DontProofMode? ProofMode = null);
+    DontProofMode? ProofMode = null,
+    DateOnly? StartsOn = null);
 
 /// <summary>
 /// Request body for editing a running goal.
@@ -631,7 +660,7 @@ public sealed record CreateGoalRequest(
 public sealed record EditGoalRequest(
     string? Title = null,
     string? Description = null,
-    string? Icon = null,
+    GoalCategory? Category = null,
     GoalScheduleRequest? Schedule = null,
     DateOnly? TargetDate = null,
     int? Limit = null,

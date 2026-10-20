@@ -69,6 +69,10 @@ public sealed class ProofVoteConfiguration : IEntityTypeConfiguration<ProofVote>
             .HasMaxLength(16)
             .HasConversion<string>();
 
+        builder.Property(vote => vote.Reason)
+            .HasMaxLength(32)
+            .HasConversion<string>();
+
         builder.Property(vote => vote.CastAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);

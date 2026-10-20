@@ -125,7 +125,7 @@ describe('PhotoCapture', () => {
 describe('ProfileEditSheet', () => {
   it('offers to add a picture when there is none, and says what stands in for one', async () => {
     const wrapper = await mountSuspended(ProfileEditSheet, {
-      props: { person: person(), submitting: false, open: true },
+      props: { person: person(), bio: null, submitting: false, open: true },
     })
 
     expect(document.body.textContent).toContain('Noch kein Bild')
@@ -136,7 +136,7 @@ describe('ProfileEditSheet', () => {
 
   it('offers to remove the picture once there is one', async () => {
     const wrapper = await mountSuspended(ProfileEditSheet, {
-      props: { person: person({ avatarImageId: 'image-1' }), submitting: false, open: true },
+      props: { person: person({ avatarImageId: 'image-1' }), bio: null, submitting: false, open: true },
     })
 
     expect(document.querySelector('[data-testid="profile-photo-remove"]')).not.toBeNull()
@@ -146,12 +146,33 @@ describe('ProfileEditSheet', () => {
 
   it('says the handle does not move, because friends wrote it down', async () => {
     const wrapper = await mountSuspended(ProfileEditSheet, {
-      props: { person: person(), submitting: false, open: true },
+      props: { person: person(), bio: null, submitting: false, open: true },
     })
 
     expect(document.body.textContent).toContain('Dein Kürzel bleibt')
 
     wrapper.unmount()
+  })
+
+  it('edits a bio beside the name and saves both, a cleared one as blank (#20)', async () => {
+    const wrapper = await mountSuspended(ProfileEditSheet, {
+      props: { person: person(), bio: 'Läuft lieber morgens.', submitting: false, open: false },
+      attachTo: document.body,
+    })
+    await wrapper.setProps({ open: true })
+
+    const field = document.querySelector<HTMLTextAreaElement>('[data-testid="profile-bio"] textarea, textarea[data-testid="profile-bio"]')!
+    expect(field.value).toBe('Läuft lieber morgens.')
+    expect(document.body.textContent).toContain('Noch 139 Zeichen')
+
+    field.value = '   '
+    field.dispatchEvent(new Event('input'))
+    await wrapper.vm.$nextTick()
+    document.querySelector<HTMLButtonElement>('[data-testid="profile-save"]')!.click()
+
+    expect(wrapper.emitted('save')?.[0]?.[0]).toMatchObject({ bio: '' })
+    wrapper.unmount()
+    document.body.replaceChildren()
   })
 })
 
@@ -341,7 +362,7 @@ describe('PhotoCapture, when the sheet opens', () => {
     await refused.setProps({ open: true })
 
     await vi.waitFor(() =>
-      expect(document.querySelector('[data-testid="photo-message"]')?.textContent).toContain('braucht q2 die Kamera'))
+      expect(document.querySelector('[data-testid="photo-message"]')?.textContent).toContain('braucht Qdos die Kamera'))
     expect(document.querySelector('[data-testid="photo-choose"]')).toBeNull()
     refused.unmount()
   })

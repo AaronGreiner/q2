@@ -31,6 +31,9 @@ public sealed class ChallengeConfiguration : IEntityTypeConfiguration<Challenge>
             .IsRequired()
             .HasConversion(InstantConversion.Required);
 
+        builder.Property(challenge => challenge.MomentEndsAt)
+            .HasConversion(InstantConversion.Optional);
+
         builder.Property(challenge => challenge.AnnouncedAt)
             .HasConversion(InstantConversion.Optional);
 

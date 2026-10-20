@@ -290,9 +290,9 @@ public class SeedDataTests
 
     [Theory]
     [MemberData(nameof(AllSources))]
-    public void EveryGoalUsesAnIconTheFrontendCanDraw(ISeedDataSource source)
+    public void EveryGoalHasACategory(ISeedDataSource source)
     {
-        Assert.All(source.Create(Context).Goals, goal => Assert.Contains(goal.Icon, GoalIcons.All));
+        Assert.All(source.Create(Context).Goals, goal => Assert.True(Enum.IsDefined(goal.Category)));
     }
 
     [Theory]

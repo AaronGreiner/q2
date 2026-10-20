@@ -143,7 +143,7 @@ public sealed class E2ESeed : ISeedDataSource
         var shared = build.AddGoal(
             SharedGoalTitle,
             "Synthetic E2E fixture.",
-            "medal",
+            GoalCategory.Sport,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 10,
             history: "ddd",
@@ -162,7 +162,7 @@ public sealed class E2ESeed : ISeedDataSource
         build.AddGoal(
             CompletedGoalTitle,
             null,
-            "trophy",
+            GoalCategory.Sport,
             GoalSchedule.Once(),
             createdDaysAgo: 20,
             confirmedNow: 1,
@@ -171,7 +171,7 @@ public sealed class E2ESeed : ISeedDataSource
         build.AddGoal(
             ZeroProgressGoalTitle,
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 2);
 
@@ -180,7 +180,7 @@ public sealed class E2ESeed : ISeedDataSource
         build.AddGoal(
             OverdueGoalTitle,
             null,
-            "calendar",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 40,
             history: "ddmm");
@@ -188,7 +188,7 @@ public sealed class E2ESeed : ISeedDataSource
         build.AddGoal(
             QuotaGoalTitle,
             null,
-            "flame",
+            GoalCategory.Other,
             GoalSchedule.TimesPer(3, QuotaPeriod.Week),
             createdDaysAgo: 30,
             history: "d",
@@ -198,7 +198,7 @@ public sealed class E2ESeed : ISeedDataSource
         // its past and one use logged this week (docs/adr/0037-donts.md).
         build.AddDont(
             DontTitle,
-            "flame",
+            GoalCategory.Other,
             QuotaPeriod.Week,
             limit: 2,
             DontProofMode.HonestOnly,
@@ -208,8 +208,8 @@ public sealed class E2ESeed : ISeedDataSource
             participants: [jonas]);
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, "E2E morning run", null, 7, minutesAgo: 15);
-        build.AddActivity(lena, ActivityKind.StreakReached, null, 4, 2, minutesAgo: 90);
-        build.AddActivity(me, ActivityKind.GoalProgress, shared.Title, 1, 1, minutesAgo: 300, source: shared);
+        build.AddActivity(lena, ActivityKind.StreakReached, null, 7, 2, minutesAgo: 90);
+        build.AddActivity(me, ActivityKind.TaskCompleted, shared.Title, null, 1, minutesAgo: 300, source: shared);
 
         build.AddDirectChat(
             jonas,

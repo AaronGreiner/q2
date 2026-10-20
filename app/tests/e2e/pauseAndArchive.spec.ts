@@ -126,4 +126,35 @@ test.describe('the archive', () => {
 
     await expect(page.getByTestId('archive-row').filter({ hasText: title })).toHaveCount(0)
   })
+
+  /**
+   * Yours apart from friends', the numbers in words, and starting one again
+   * in two taps: the sheet opens on its summary, filled in from it (#102).
+   */
+  test('an ended goal of your own is started again in two taps, and the old one stays', async ({ page }) => {
+    const title = await createGoal(page, 'E2E restart goal')
+    await openGoal(page, title)
+
+    await page.getByTestId('goal-exits').click()
+    await page.getByRole('menuitem', { name: 'Beenden' }).click()
+    await page.getByTestId('close-archived').click()
+    await expect(page.getByTestId('goal-exits')).toBeHidden()
+
+    await page.goto('/goals/archive')
+
+    const row = page.getByTestId('archive-section-mine').getByTestId('archive-row').filter({ hasText: title })
+    await expect(row.getByTestId('archive-record')).toContainText('geschafft')
+    await expect(row.getByTestId('archive-record')).toContainText('verpasst')
+
+    await row.getByTestId('archive-restart').click()
+    await expect(page.getByTestId('goal-create-review')).toContainText(title)
+    await page.getByTestId('goal-submit').click()
+
+    await expect(page).toHaveURL(/\/goals\/[0-9a-f-]{36}$/)
+    await expect(page.getByTestId('goal-detail')).toContainText(title)
+
+    // The ended one keeps its record in the archive.
+    await page.goto('/goals/archive')
+    await expect(page.getByTestId('archive-row').filter({ hasText: title })).toHaveCount(1)
+  })
 })

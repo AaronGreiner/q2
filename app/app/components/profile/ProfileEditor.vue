@@ -16,11 +16,12 @@ import type { Image, Person } from '~/api/types'
  */
 defineProps<{
   person: Person
+  bio: string | null
   submitting: boolean
 }>()
 
 const emit = defineEmits<{
-  save: [value: { displayName: string }]
+  save: [value: { displayName: string, bio: string }]
   photo: [image: Image]
   remove: []
 }>()
@@ -54,6 +55,7 @@ function onPhoto(image: Image) {
   <ProfileEditSheet
     v-model:open="open"
     :person="person"
+    :bio="bio"
     :submitting="submitting"
     @save="value => emit('save', value)"
     @capture="onCapture"

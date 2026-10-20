@@ -1,3 +1,4 @@
+using Q2.Api.Features.Activity;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
@@ -28,8 +29,14 @@ public static class ProofVerdicts
     /// writes must announce it just as the background pass does; otherwise
     /// opening the goal first would silently consume that pass's notification.
     /// </summary>
+    /// <remarks>
+    /// A verdict reached here can carry the owner's streak to a milestone, and
+    /// the feed hears about that here too, for the same reason
+    /// (<see cref="ActivityRecorder.PublishStreakMilestones"/>).
+    /// </remarks>
     public static async Task<bool> AdvanceAsync(
         Notifier notifier,
+        ActivityRecorder activity,
         Goal goal,
         LocalCalendar calendar,
         DateTimeOffset now,
@@ -39,6 +46,25 @@ public static class ProofVerdicts
     {
         var voting = goal.CurrentInstance?.PendingProof;
         var changed = GoalMaintenance.Advance(goal, calendar, now, ids, owner);
+
+        if (owner is not null)
+        {
+            activity.PublishStreakMilestones(owner, now);
+        }
+
+        // A pause planned ahead is announced when it begins (#99), by whatever
+        // looked first — and only then, because that is when it can be
+        // objected to. The same words as a pause asked for that morning.
+        foreach (var pause in goal.PausesToAnnounce(now).ToList())
+        {
+            pause.Announce(now);
+            changed = true;
+
+            await notifier.StageAsync(
+                new NotificationEvent(NotificationKind.GoalPaused, goal.OwnerPersonId, NotificationTarget.Goal, goal.Id, goal.Title, pause.Days),
+                goal.Participants.Select(participant => participant.PersonId),
+                cancellationToken);
+        }
 
         if (voting is not null)
         {
@@ -91,7 +117,11 @@ public static class ProofVerdicts
                 // Whether there is a second try is the one thing worth knowing
                 // straight away: it decides whether there is anything to do.
                 Amount: ProofVoting.HasAttemptLeft(proof.Attempt) ? 1 : 0,
-                FocusId: proof.Id);
+                FocusId: proof.Id,
+
+                // And what would convince: the reason most doubters gave, if
+                // any did — a code, counted, never whose (#111).
+                Detail: proof.DoubtReasons is [var top, ..] ? top.Reason.ToString() : null);
 
         await notifier.StageAsync(verdict, [goal.OwnerPersonId], cancellationToken);
 

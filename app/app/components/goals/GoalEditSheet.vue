@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApiFailure } from '~/api/errors'
-import type { EditGoalRequest, Friend, Goal, GoalEditPreview, GoalSchedule, GoalScheduleRequest, Person, ScheduleKind } from '~/api/types'
+import type { EditGoalRequest, Friend, Goal, GoalCategory, GoalEditPreview, GoalSchedule, GoalScheduleRequest, Person, ScheduleKind } from '~/api/types'
 import type { DontLimit } from '~/components/donts/DontLimitPicker.vue'
 
 /**
@@ -52,7 +52,7 @@ const stepCount = 4
 const step = ref(0)
 const title = ref('')
 const description = ref('')
-const icon = ref('')
+const category = ref<GoalCategory>('Other')
 const schedule = ref<GoalScheduleRequest>({ kind: 'Interval', everyDays: 1 })
 const targetDate = ref<string | null>(null)
 const dontLimit = ref<DontLimit>({ limit: 0, period: 'Day', proofMode: 'HonestOnly' })
@@ -89,7 +89,7 @@ function startFrom(goal: Goal) {
   step.value = 0
   title.value = goal.title
   description.value = (waiting?.descriptionChanged ? waiting.descriptionTo : goal.description) ?? ''
-  icon.value = goal.icon
+  category.value = goal.category
   schedule.value = asRequest(plan)
   targetDate.value = laterDay ?? goal.current?.dueOn ?? goal.targetDate ?? null
   dontLimit.value = {
@@ -126,7 +126,7 @@ const people = computed<Person[]>(() => {
 const request = computed<EditGoalRequest>(() => ({
   title: title.value.trim(),
   description: description.value.trim(),
-  icon: icon.value,
+  category: category.value,
   schedule: isDont.value ? { kind: 'Limit', period: dontLimit.value.period } : schedule.value,
   ...(isOnce.value && targetDate.value ? { targetDate: targetDate.value } : {}),
   ...(isDont.value ? { limit: dontLimit.value.limit, proofMode: dontLimit.value.proofMode } : {}),
@@ -148,7 +148,7 @@ function fieldError(field: string): string | undefined {
 /* A refusal goes back to the step that holds the field, as in the create sheet. */
 watch(() => props.error, (failure) => {
   if (!failure) return
-  if (fieldError('title') || fieldError('description') || fieldError('icon')) step.value = 0
+  if (fieldError('title') || fieldError('description') || fieldError('category')) step.value = 0
   else if (fieldError('schedule') || fieldError('targetDate') || fieldError('limit') || fieldError('proofMode')) step.value = 1
   else if (fieldError('participantIds')) step.value = 2
 })
@@ -254,13 +254,13 @@ function back() {
           </UFormField>
 
           <UFormField
-            :label="t.create.iconLabel"
-            name="icon"
-            :error="fieldError('icon')"
+            :label="t.create.categoryLabel"
+            name="category"
+            :error="fieldError('category')"
           >
-            <GoalIconPicker
-              v-model="icon"
-              :label="t.create.iconLabel"
+            <GoalCategoryPicker
+              v-model="category"
+              :label="t.create.categoryLabel"
             />
           </UFormField>
         </template>

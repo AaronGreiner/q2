@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
-import type { FeedProof, ProofVoteValue } from '~/api/types'
+import type { DoubtReason, FeedProof, ProofVoteValue } from '~/api/types'
 
 /**
  * The photographs waiting for your verdict, as a stack you swipe through.
@@ -26,7 +26,7 @@ const props = withDefaults(defineProps<{
   busy: false,
 })
 
-const emit = defineEmits<{ vote: [id: string, value: ProofVoteValue] }>()
+const emit = defineEmits<{ vote: [id: string, value: ProofVoteValue, reason: DoubtReason | null] }>()
 
 const t = useMessages()
 
@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
 })
 
 /** Sends the card off in the direction of the verdict, then reports it. */
-function decide(value: ProofVoteValue) {
+function decide(value: ProofVoteValue, reason: DoubtReason | null = null) {
   const card = current.value
   if (!card || leaving.value || props.busy) return
 
@@ -88,7 +88,7 @@ function decide(value: ProofVoteValue) {
 
   leaveTimer = setTimeout(() => {
     leaveTimer = null
-    emit('vote', card.proof.id, value)
+    emit('vote', card.proof.id, value, reason)
   }, LEAVE_MS)
 }
 

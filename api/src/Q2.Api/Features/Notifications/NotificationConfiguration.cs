@@ -80,6 +80,9 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
         builder.Property(line => line.Subject)
             .HasMaxLength(Notification.MaxSubjectLength);
 
+        builder.Property(line => line.Detail)
+            .HasMaxLength(Notification.MaxDetailLength);
+
         builder.Property(line => line.SubjectEnglish)
             .HasMaxLength(Notification.MaxSubjectLength);
 

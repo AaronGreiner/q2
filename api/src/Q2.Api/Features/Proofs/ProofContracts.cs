@@ -37,13 +37,24 @@ namespace Q2.Api.Features.Proofs;
 /// is built — and there is an integration test that no doubter's id or name
 /// appears anywhere in the payload.
 /// </remarks>
+/// <param name="MyDoubtReason">What the reader said was missing, when they doubted and said (#111). Their own, so they can change it.</param>
+/// <param name="DoubtReasons">
+/// What doubters said was missing, counted, most given first — for the
+/// photograph's owner only, and empty for everybody else (#111). Never who
+/// said which: a count is all this ever is.
+/// </param>
 public sealed record VoteSummaryResponse(
     int ConfirmCount,
     int DoubtCount,
     IReadOnlyList<PersonSummary> ConfirmedBy,
     VoteValue? MyVote,
     bool CanIVote,
-    bool DoubtCanRefuse);
+    bool DoubtCanRefuse,
+    DoubtReason? MyDoubtReason,
+    IReadOnlyList<DoubtReasonCountResponse> DoubtReasons);
+
+/// <summary>One reason doubters gave, and how many gave it.</summary>
+public sealed record DoubtReasonCountResponse(DoubtReason Reason, int Count);
 
 /// <summary>A photograph delivered against a window, as somebody may see it.</summary>
 /// <param name="ImageId">
@@ -151,7 +162,8 @@ public sealed record SubmitProofRequest(Guid? ImageId = null, ProofSource? Sourc
 public sealed record AnswerSpotCheckRequest(Guid? ImageId = null);
 
 /// <summary>Request body for voting on one.</summary>
-public sealed record CastVoteRequest(VoteValue? Value = null);
+/// <param name="Reason">With a doubt: what was missing (#111). Optional, anonymous, and ignored with a confirmation.</param>
+public sealed record CastVoteRequest(VoteValue? Value = null, DoubtReason? Reason = null);
 
 /// <summary>Request body for reacting to one.</summary>
 public sealed record ReactToProofRequest(KudosKind? Kind = null);

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.People;
+using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -18,16 +19,41 @@ public sealed class SettingsService(
     Q2DbContext database,
     CurrentPerson currentPerson,
     IIdGenerator idGenerator,
+    TimeZoneResolver timeZones,
     ILogger<SettingsService> logger)
 {
-    public async Task<SettingsResponse> GetAsync(CancellationToken cancellationToken) =>
-        SettingsResponse.From(await LoadAsync(cancellationToken));
+    public async Task<SettingsResponse> GetAsync(CancellationToken cancellationToken)
+    {
+        var settings = await LoadAsync(cancellationToken);
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        return SettingsResponse.From(settings, timeZones.EffectiveId(me.TimeZoneId));
+    }
 
     public async Task<SettingsResponse> UpdateAsync(UpdateSettingsRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var settings = await LoadAsync(cancellationToken);
+        var me = await currentPerson.GetAsync(cancellationToken);
+
+        /*
+         * The zone moves the days that come; it does not move a window already
+         * open, whose deadline is stored as an instant — the same "from the
+         * next window" rule as editing a schedule (#9, docs/adr/0044).
+         */
+        if (request.TimeZone is { } zone)
+        {
+            if (!TimeZoneResolver.IsKnown(zone.Trim()))
+            {
+                throw new DomainValidationException(
+                    nameof(request.TimeZone),
+                    "That is not a time zone this server knows.",
+                    new FieldErrorCode(FieldErrorCodes.UnknownOption));
+            }
+
+            me.SetTimeZone(zone.Trim());
+        }
 
         // An omitted property keeps its current value, so a client that only
         // knows about some of the switches cannot silently reset the rest.
@@ -40,7 +66,7 @@ public sealed class SettingsService(
 
         logger.LogInformation("Settings updated for {PersonId}", settings.PersonId);
 
-        return SettingsResponse.From(settings);
+        return SettingsResponse.From(settings, timeZones.EffectiveId(me.TimeZoneId));
     }
 
     private static NotificationPreferences Merge(
@@ -77,6 +103,7 @@ public sealed class SettingsService(
             FriendsAtRisk = change.FriendsAtRisk ?? current.FriendsAtRisk,
             Challenge = change.Challenge ?? current.Challenge,
             SpotChecks = change.SpotChecks ?? current.SpotChecks,
+            Reminders = change.Reminders ?? current.Reminders,
         };
 
         return switches.WithQuietHours(quiet.From, quiet.To);

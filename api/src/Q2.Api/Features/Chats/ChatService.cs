@@ -1114,7 +1114,7 @@ public sealed class ChatService(
             return new ChatIdentity(
                 goal?.Title ?? string.Empty,
                 ProfileDefaults.Initials(goal?.Title),
-                goal?.Icon ?? GoalIcons.Default,
+                goal?.Icon ?? GoalCategories.IconFor(GoalCategories.Default),
                 AvatarColors.Teal,
                 null,
                 false);

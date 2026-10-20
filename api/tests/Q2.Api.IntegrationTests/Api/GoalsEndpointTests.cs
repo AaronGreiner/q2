@@ -39,6 +39,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Guid Id,
         string Title,
         string? Description,
+        GoalCategory Category,
         string Icon,
         ScheduleDocument Schedule,
         GoalStatus Status,
@@ -227,7 +228,7 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         var response = await Client.PostJsonAsync("/api/goals", new
         {
             title = "Neues Ziel",
-            icon = "flame",
+            category = "Sport",
             schedule = new { kind = "Times", times = 3, period = "Week" },
             participantIds = new[] { AutomatedTestSeed.FriendPersonId },
         });
@@ -238,7 +239,10 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
 
         Assert.Equal($"/api/goals/{created.Id}", response.Headers.Location?.ToString());
         Assert.Equal("Neues Ziel", created.Title);
-        Assert.Equal("flame", created.Icon);
+        Assert.Equal(GoalCategory.Sport, created.Category);
+
+        // The icon is the category's, worked out by the server (#18).
+        Assert.Equal("dumbbell", created.Icon);
         Assert.Equal(ScheduleKind.Times, created.Schedule.Kind);
         Assert.Single(created.Participants);
     }
@@ -545,15 +549,50 @@ public class GoalsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         Assert.Contains("Description", problem.Errors.Keys);
     }
 
+    private sealed record StartingGoalDocument(Guid Id, DateOnly? StartsOn, WindowDocument? Current);
+
+    /// <summary>"Ab morgen" (#96): the goal exists, and asks for nothing today.</summary>
     [Fact]
-    public async Task CreatingAGoalWithAnUnknownIconIsAValidationProblem()
+    public async Task AGoalCanStartTomorrowWithNothingToDeliverToday()
     {
-        var response = await Client.PostJsonAsync("/api/goals", new { title = "Anything", icon = "rocket" });
+        var tomorrow = Q2ApiFactory.Today.AddDays(1);
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Ab morgen jeden Tag",
+            schedule = new { kind = "Interval", everyDays = 1 },
+            startsOn = tomorrow,
+            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.ReadAsync<StartingGoalDocument>();
+        Assert.Equal(tomorrow, created.StartsOn);
+        Assert.Null(created.Current);
+    }
+
+    [Fact]
+    public async Task AGoalStartsTodayOrTomorrowAndNotLater()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new
+        {
+            title = "Irgendwann",
+            schedule = new { kind = "Interval", everyDays = 1 },
+            startsOn = Q2ApiFactory.Today.AddDays(2),
+            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
+        });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("StartsOn", (await response.ReadAsync<ValidationDocument>()).Errors.Keys);
+    }
 
-        var problem = await response.ReadAsync<ValidationDocument>();
-        Assert.Contains("Icon", problem.Errors.Keys);
+    [Fact]
+    public async Task CreatingAGoalWithAnUnknownCategoryIsRefused()
+    {
+        var response = await Client.PostJsonAsync("/api/goals", new { title = "Anything", category = "Rocketry" });
+
+        // Not one of the five names, so the body does not even bind.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

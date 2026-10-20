@@ -66,6 +66,10 @@ internal static class KudosWorld
         var lukas = build.AddPerson("Lukas Feld", "@lukas.f", "LF", AvatarColors.Blue, lastSeenMinutesAgo: 300);
         var emma = build.AddPerson("Emma Roth", "@emma.r", "ER", AvatarColors.Red, lastSeenMinutesAgo: 45);
 
+        // A few words of their own (#20): some people have them, most do not.
+        lena.SetBio("Läuft lieber morgens als abends. Und liest dann im Zug.");
+        jonas.SetBio("Halbmarathon im Mai. Danach sehen wir weiter.");
+
         build.Befriend(me, jonas);
         build.Befriend(me, lena);
         build.Befriend(me, tom);
@@ -94,7 +98,7 @@ internal static class KudosWorld
         var halfMarathon = build.AddGoal(
             "Halbmarathon im Mai",
             "Drei Läufe pro Woche, langsam steigern.",
-            "medal",
+            GoalCategory.Sport,
             GoalSchedule.TimesPer(3, QuotaPeriod.Week),
             createdDaysAgo: 40,
             history: "dddddd",
@@ -105,7 +109,7 @@ internal static class KudosWorld
         var reading = build.AddGoal(
             "Jeden Tag lesen",
             null,
-            "book-open",
+            GoalCategory.Reading,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 25,
             history: "dddddddddddddddddddd",
@@ -116,7 +120,7 @@ internal static class KudosWorld
         var earlyBirds = build.AddGoal(
             "Frühaufsteher-Challenge",
             "Vor sieben aufstehen — gemeinsam fällt es leichter.",
-            "sunrise",
+            GoalCategory.Other,
             GoalSchedule.OnWeekdays([Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday, Weekday.Thursday, Weekday.Friday]),
             createdDaysAgo: 14,
             history: "ddddddd",
@@ -129,7 +133,7 @@ internal static class KudosWorld
         var water = build.AddGoal(
             "2 L Wasser am Tag",
             null,
-            "droplet",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 9,
             history: "dddmddd",
@@ -138,7 +142,7 @@ internal static class KudosWorld
         build.AddGoal(
             "Meditation an Wochentagen",
             null,
-            "hand-heart",
+            GoalCategory.Mindfulness,
             GoalSchedule.OnWeekdays([Weekday.Monday, Weekday.Wednesday, Weekday.Friday]),
             createdDaysAgo: 30,
             history: "dddd",
@@ -148,7 +152,7 @@ internal static class KudosWorld
         build.AddGoal(
             "Wocheneinkauf",
             null,
-            "calendar",
+            GoalCategory.Other,
             GoalSchedule.Once(),
             createdDaysAgo: 1,
             targetDate: context.DaysFromToday(2),
@@ -159,7 +163,7 @@ internal static class KudosWorld
         // limit half used up this week.
         build.AddDont(
             "Kein Social Media nach 22 Uhr",
-            "alarm-clock",
+            GoalCategory.Mindfulness,
             QuotaPeriod.Day,
             limit: 0,
             DontProofMode.ProofAtEnd,
@@ -171,7 +175,7 @@ internal static class KudosWorld
         // is open right now, for its three minutes (docs/adr/0038-spot-checks.md).
         build.AddDont(
             "Nicht rauchen",
-            "hand-heart",
+            GoalCategory.Other,
             QuotaPeriod.Day,
             limit: 0,
             DontProofMode.SpotCheck,
@@ -182,7 +186,7 @@ internal static class KudosWorld
 
         build.AddDont(
             "Höchstens 3 Bier pro Woche",
-            "flame",
+            GoalCategory.Other,
             QuotaPeriod.Week,
             limit: 3,
             DontProofMode.HonestOnly,
@@ -196,7 +200,7 @@ internal static class KudosWorld
         var morningRun = build.AddGoal(
             "Jeden Morgen joggen",
             "5 km vor der Arbeit.",
-            "sunrise",
+            GoalCategory.Sport,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 12,
             history: "dddddddddd",
@@ -206,7 +210,7 @@ internal static class KudosWorld
         var climbing = build.AddGoal(
             "Klettern lernen",
             "Zweimal die Woche in die Halle.",
-            "trophy",
+            GoalCategory.Learning,
             GoalSchedule.TimesPer(2, QuotaPeriod.Week),
             createdDaysAgo: 0,
             owner: tom,
@@ -214,16 +218,16 @@ internal static class KudosWorld
 
         build.AddActivity(jonas, ActivityKind.TaskCompleted, morningRun.Title, null, kudosCount: 8, minutesAgo: 12, source: morningRun);
         build.AddActivity(lena, ActivityKind.StreakReached, null, 7, kudosCount: 13, minutesAgo: 40, kudosFromMe: true);
-        build.AddActivity(lena, ActivityKind.GoalProgress, earlyBirds.Title, 1, kudosCount: 5, minutesAgo: 62, source: earlyBirds);
+        build.AddActivity(lena, ActivityKind.TaskCompleted, earlyBirds.Title, null, kudosCount: 5, minutesAgo: 62, source: earlyBirds);
         build.AddActivity(tom, ActivityKind.GoalCreated, climbing.Title, null, kudosCount: 3, minutesAgo: 190, source: climbing);
         build.AddActivity(sarah, ActivityKind.TaskCompleted, earlyBirds.Title, null, kudosCount: 6, minutesAgo: 320, source: earlyBirds);
-        build.AddActivity(david, ActivityKind.StreakReached, null, 2, kudosCount: 1, minutesAgo: 700);
+        build.AddActivity(david, ActivityKind.StreakReached, null, 30, kudosCount: 1, minutesAgo: 700);
 
         // The signed-in person's own history, which is what the profile screen
         // shows and the feed deliberately leaves out.
         var pages = build.AddActivity(me, ActivityKind.TaskCompleted, reading.Title, null, kudosCount: 4, minutesAgo: 90, source: reading);
-        build.AddActivity(me, ActivityKind.StreakReached, null, 12, kudosCount: 11, minutesAgo: 400);
-        build.AddActivity(me, ActivityKind.GoalProgress, reading.Title, 1, kudosCount: 2, minutesAgo: 1500, source: reading);
+        build.AddActivity(me, ActivityKind.StreakReached, null, 7, kudosCount: 11, minutesAgo: 400);
+        build.AddActivity(me, ActivityKind.TaskCompleted, reading.Title, null, kudosCount: 2, minutesAgo: 1500, source: reading);
 
         build.AddDirectChat(
             jonas,

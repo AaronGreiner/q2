@@ -225,6 +225,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("MomentEndsAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Prompt")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -456,6 +459,11 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("TEXT");
 
@@ -464,11 +472,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasMaxLength(40)
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsGroup")
@@ -490,6 +493,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<TimeOnly?>("ReminderAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("StartsOn")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
@@ -524,6 +530,14 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("AppliesOn")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CategoryFrom")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CategoryTo")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -539,14 +553,6 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("GoalId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("IconFrom")
-                        .HasMaxLength(40)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("IconTo")
-                        .HasMaxLength(40)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("LimitFrom")
@@ -653,12 +659,12 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasMaxLength(40)
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("OwnerPersonId")
@@ -699,6 +705,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("Limit")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly?>("RemindedOn")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("RequiredProofs")
                         .HasColumnType("INTEGER");
@@ -754,6 +763,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Q2.Api.Features.Goals.GoalPause", b =>
                 {
                     b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AnnouncedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -950,6 +962,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<int?>("Amount")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Detail")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("FocusId")
                         .HasColumnType("TEXT");
 
@@ -1121,6 +1137,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AvatarImageId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Bio")
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -1274,6 +1294,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProofPhotoId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Reason")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Value")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -1347,6 +1371,10 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                             b1.Property<bool>("Reactions")
                                 .HasColumnType("INTEGER")
                                 .HasColumnName("NotifyReactions");
+
+                            b1.Property<bool>("Reminders")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("NotifyReminders");
 
                             b1.Property<bool>("SpotChecks")
                                 .HasColumnType("INTEGER")

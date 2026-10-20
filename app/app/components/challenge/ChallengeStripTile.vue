@@ -122,6 +122,13 @@ function enlarge() {
       of pictures and not a row of pictures and a row of captions: white with
       a drop shadow, as on the archive tiles.
     -->
+    <!-- After the moment: taken, and said to be late (#136). -->
+    <span
+      v-if="entry.isLate"
+      class="absolute start-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-extrabold text-white"
+      data-testid="challenge-tile-late"
+    >{{ t.challenge.late }}</span>
+
     <span
       v-if="!covered"
       class="absolute inset-x-1.5 bottom-1.5 flex items-center gap-1.5"

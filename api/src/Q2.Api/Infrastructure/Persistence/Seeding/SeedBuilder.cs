@@ -188,7 +188,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     public Goal AddGoal(
         string title,
         string? description,
-        string icon,
+        GoalCategory category,
         GoalSchedule schedule,
         int createdDaysAgo,
         string history = "",
@@ -204,7 +204,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             (owner ?? Me).Id,
             title,
             description,
-            icon,
+            category,
             schedule,
             isGroup,
             reminderAt,
@@ -228,7 +228,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     /// </param>
     public Goal AddDont(
         string title,
-        string icon,
+        GoalCategory category,
         QuotaPeriod period,
         int limit,
         DontProofMode proofMode,
@@ -245,7 +245,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
             (owner ?? Me).Id,
             title,
             null,
-            icon,
+            category,
             schedule,
             isGroup: false,
             reminderAt: null,
@@ -339,7 +339,7 @@ internal sealed class SeedBuilder(SeedProfile profile, SeedContext context)
     private void AddWindows(Goal goal, GoalSchedule schedule, string history, int confirmedNow, DateOnly? targetDate)
     {
         var calendar = Context.Calendar;
-        var current = schedule.FirstWindow(Context.Today, targetDate);
+        var current = schedule.WindowAround(Context.Today, targetDate);
 
         // Walk back one window per outcome, then replay them forwards so the
         // ids come out in chronological order.

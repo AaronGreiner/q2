@@ -78,7 +78,7 @@ test.describe('the web app manifest', () => {
     const manifest = await response.json() as WebManifest
 
     // The fields an installability check actually looks at.
-    expect(manifest.name).toBe('Qdos (q2)')
+    expect(manifest.name).toBe('Qdos')
     expect(manifest.short_name).toBe('Qdos')
     expect(manifest.start_url).toBe('/')
     expect(manifest.scope).toBe('/')

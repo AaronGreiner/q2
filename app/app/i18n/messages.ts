@@ -3,7 +3,7 @@
 // takes the app name and description for the web app manifest, and the service
 // worker takes the offline page's words — and neither resolves `~`.
 import type { ApiErrorKind } from '../api/errors'
-import type { DontProofMode, GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
+import type { BadgeKey, DontProofMode, DoubtReason, GoalCategory, GoalEventKind, GoalStatus, KudosKind, ProofSource, QuotaPeriod } from '../api/types'
 
 /**
  * Every word q2 says, in both languages it speaks.
@@ -22,12 +22,29 @@ import type { DontProofMode, GoalEventKind, GoalStatus, KudosKind, ProofSource, 
  * `en` is typed as `Messages`, so leaving a key out of it is a build error
  * rather than a screen that falls back to German without telling anyone.
  */
+/**
+ * The product's name, the one a person is shown (#109). q2 is the internal
+ * short name — the repository, the code, the ids — and never appears in a
+ * sentence; the drawn mark (`AppMark`) is the logo, not a written name. A name
+ * does not translate, so both languages share it.
+ */
+const productName = 'Qdos'
+
 export const de = {
   app: {
-    name: 'Qdos',
-    description: 'Qdos (q2) — dranbleiben, weil Freunde es sehen.',
+    name: productName,
+    description: `${productName} — dranbleiben, weil Freunde es sehen.`,
     skipToContent: 'Zum Inhalt springen',
   },
+
+  /** What kind of thing a goal is about (#18), keyed by `GoalCategory`. */
+  goalCategory: {
+    Sport: 'Sport',
+    Learning: 'Lernen',
+    Reading: 'Lesen',
+    Mindfulness: 'Achtsamkeit',
+    Other: 'Sonstiges',
+  } satisfies Record<GoalCategory, string>,
 
   nav: {
     label: 'Hauptnavigation',
@@ -54,7 +71,7 @@ export const de = {
 
   auth: {
     signInHeading: 'Anmelden',
-    signInIntro: 'Qdos hilft dir, deine Vorsätze zu halten — weil deine Freunde sehen, ob du es tust.',
+    signInIntro: `${productName} hilft dir, deine Vorsätze zu halten — weil deine Freunde sehen, ob du es tust.`,
     signUpHeading: 'Konto erstellen',
     signUpIntro: 'Ein Name, eine E-Mail-Adresse, ein Passwort — mehr braucht es nicht.',
     name: 'Name',
@@ -185,6 +202,25 @@ export const de = {
     vetoWithdraw: 'Einspruch zurückziehen',
     vetoCount: (count: number, required: number) => `${count} von ${required} Einsprüchen`,
     vetoAnonymous: 'Einsprüche sind anonym.',
+    /* Ahead of time, and for everything at once (#99). */
+    startLabel: 'Ab wann?',
+    startToday: 'Heute',
+    startTomorrow: 'Morgen',
+    startLater: 'Später',
+    startDateLabel: 'Erster Tag',
+    plannedNote: 'Deine Freunde erfahren es, wenn die Pause beginnt — dann können sie auch widersprechen.',
+    monthNote: 'Eine Pause zählt für den Monat, in dem sie beginnt.',
+    forAll: 'Für alle meine Dos & Don’ts',
+    forAllHint: 'Jedes bekommt seine eigene Pause, und die Freunde jedes Ziels sehen sie wie immer.',
+    openAll: 'Alle aussetzen',
+    allHeading: 'Alle aussetzen',
+    allSubtitle: 'Krank oder im Urlaub? Ein Grund für alle deine Dos & Don’ts.',
+    allDone: (count: number) => (count === 1 ? '1 Do oder Don’t ausgesetzt' : `${count} Dos & Don’ts ausgesetzt`),
+    allNone: 'Nichts ausgesetzt',
+    allSkipped: (titles: string) => `Nicht dabei: ${titles}`,
+    quoted: (title: string) => `„${title}“`,
+    plannedTitle: (day: string) => `Ausgesetzt ab ${day}`,
+    withdraw: 'Zurücknehmen',
   },
 
   /** Die beiden Ausgänge: durchgezogen oder aufgegeben. */
@@ -225,7 +261,7 @@ export const de = {
     withdraws: 'Damit ziehst du die Änderung zurück, die noch aussteht.',
     item: {
       title: (from: string, to: string) => `Titel: „${from}“ → „${to}“`,
-      icon: 'Neues Symbol',
+      category: (from: string, to: string) => `Kategorie: ${from} → ${to}`,
       description: 'Neue Beschreibung',
       descriptionRemoved: 'Beschreibung entfernt',
       schedule: (from: string, to: string) => `Rhythmus: ${from} → ${to}`,
@@ -252,6 +288,13 @@ export const de = {
     emptyHint: 'Was du beendest, landet hier — mit Verlauf und allen Beweisbildern.',
     closedOn: (day: string) => `Beendet am ${day}`,
     completedOn: (day: string) => `Abgeschlossen am ${day}`,
+    sectionMine: 'Deine',
+    sectionFriends: 'Von Freunden',
+    ownedBy: (name: string) => `von ${name}`,
+    /** The record, in words (#102): the goal screen's "geschafft · verpasst", spelt out per row. */
+    record: (done: number, missed: number) => `${done} geschafft · ${missed} verpasst`,
+    relapses: (count: number) => (count === 1 ? '1 Rückfall' : `${count} Rückfälle`),
+    restart: 'Neu starten',
     delete: 'Endgültig löschen',
     deleteHeading: 'Endgültig löschen?',
     deleteBody: 'Verlauf, Nachrichten und alle Beweisbilder werden entfernt — für dich und für alle Beteiligten. Das lässt sich nicht rückgängig machen.',
@@ -267,7 +310,7 @@ export const de = {
     descriptionPlaceholder: 'z. B. mindestens 5 km, ohne Pause',
     descriptionHelp: 'Freiwillig. Deine Prüfer lesen es, bevor sie über einen Beweis abstimmen.',
     scheduleLabel: 'Fälligkeit',
-    iconLabel: 'Symbol',
+    categoryLabel: 'Kategorie',
     intervalLabel: 'Alle wie viele Tage?',
     targetDateLabel: 'Bis zu welchem Tag?',
     weekdaysLabel: 'An welchen Tagen?',
@@ -306,9 +349,23 @@ export const de = {
     reviewFriends: 'Prüfer',
     reviewReminder: 'Erinnerung',
     reviewNoReminder: 'Keine',
-    firstWindowToday: 'Dein erstes Fenster endet heute um Mitternacht.',
-    firstWindowTomorrow: 'Dein erstes Fenster endet morgen um Mitternacht.',
-    firstWindowOn: (day: string) => `Dein erstes Fenster endet am ${day} um Mitternacht.`,
+    /** When the first window ends, said after "bis" (#96). */
+    firstWindowWhen: {
+      today: 'heute um Mitternacht',
+      tomorrow: 'morgen um Mitternacht',
+      on: (day: string) => `${day} um Mitternacht`,
+    },
+    firstWindowProofs: (count: number, when: string) => (count === 1
+      ? `Dein erstes Fenster: 1 Nachweis bis ${when}.`
+      : `Dein erstes Fenster: ${count} Nachweise bis ${when}.`),
+    firstWindowLimit: (limit: number, when: string) => (limit === 0
+      ? `Dein erstes Fenster: kein einziges Mal bis ${when}.`
+      : `Dein erstes Fenster: höchstens ${limit}× bis ${when}.`),
+    firstWindowShare: 'Weil die Woche oder der Monat schon läuft, zählt nur der Rest davon.',
+    startLabel: 'Wann geht es los?',
+    startToday: 'Ab heute',
+    startTomorrow: 'Ab morgen',
+    startsTomorrowHint: 'Heute ist noch nichts fällig.',
   },
 
   /**
@@ -626,6 +683,32 @@ export const de = {
   },
 
   /**
+   * The badges on the profile (#22): what each is called and what it takes,
+   * in the numbers `BadgeRules` on the server counts with.
+   */
+  badges: {
+    heading: 'Abzeichen',
+    earned: (count: number, total: number) => `${count} von ${total}`,
+    locked: 'Noch nicht verdient',
+    name: {
+      StreakHero: 'Streak-Held',
+      EarlyBird: 'Frühaufsteher',
+      Bookworm: 'Bücherwurm',
+      KudosGiver: 'Kudos-Geber',
+      Marathon: 'Marathon',
+      WeeklyWinner: 'Wochensieger',
+    } satisfies Record<BadgeKey, string>,
+    criterion: {
+      StreakHero: '14 Tage Streak',
+      EarlyBird: '5× vor 7 Uhr geliefert',
+      Bookworm: '10 Fenster beim Lesen',
+      KudosGiver: '100 Kudos gegeben',
+      Marathon: '42 Fenster im Sport',
+      WeeklyWinner: 'Eine Woche ohne Lücke',
+    } satisfies Record<BadgeKey, string>,
+  },
+
+  /**
    * Taking a picture, on a device that may or may not have a camera the
    * browser is allowed to open.
    */
@@ -643,7 +726,7 @@ export const de = {
     use: 'Verwenden',
     uploading: 'Wird hochgeladen …',
     cameraBlocked: 'Kein Zugriff auf die Kamera. Du kannst stattdessen ein Bild auswählen.',
-    cameraRequired: 'Für eine Stichprobe braucht q2 die Kamera. Erlaube den Zugriff in den Einstellungen deines Geräts.',
+    cameraRequired: `Für eine Stichprobe braucht ${productName} die Kamera. Erlaube den Zugriff in den Einstellungen deines Geräts.`,
     unreadable: 'Diese Datei konnten wir nicht als Bild lesen.',
     tooLarge: 'Das Bild ist zu groß. Bitte nimm ein kleineres.',
     failed: 'Das Bild konnte nicht hochgeladen werden.',
@@ -683,6 +766,16 @@ export const de = {
     confirmedBy: (names: string) => `Bestätigt von ${names}`,
     doubtCount: (count: number) => (count === 1 ? '1 Zweifel' : `${count} Zweifel`),
     doubtAnonymous: 'Wer zweifelt, bleibt anonym.',
+    /* What was missing (#111): three fixed answers, anonymous, optional. */
+    reasonPrompt: 'Was fehlt? Anonym und freiwillig.',
+    reasonNone: 'Ohne Grund',
+    doubtReason: {
+      NotWhatWasPromised: 'Zeigt nicht, was versprochen war',
+      OldPicture: 'Altes Bild oder Screenshot',
+      Unrecognisable: 'Nicht erkennbar',
+    } satisfies Record<DoubtReason, string>,
+    reasonsHeading: 'Was gefehlt hat',
+    reasonCount: (reason: string, count: number) => `${reason} (${count})`,
     doubtAlone: 'Du prüfst allein: Dein Zweifel lehnt das Foto nicht ab. Dafür braucht es zwei, die zweifeln.',
     yourVerdict: 'Dein Urteil',
     votedConfirm: 'Du hast bestätigt.',
@@ -771,6 +864,10 @@ export const de = {
     none: 'Gerade läuft keine Challenge.',
     noneHint: 'Morgen gibt es eine neue.',
     remaining: (hours: number) => (hours <= 1 ? 'Läuft in unter einer Stunde ab' : `Noch ${hours} Stunden`),
+    /* The moment (#136): the first two hours after it appears. */
+    momentLeft: (minutes: number) => (minutes < 60 ? `Jetzt · noch ${minutes} Min.` : `Jetzt · noch ${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.`),
+    lateRemaining: (hours: number) => (hours <= 1 ? 'Zu spät · aber heute noch möglich' : `Zu spät · noch ${hours} Std. möglich`),
+    late: 'zu spät',
     over: 'Für heute vorbei',
     removeHeading: 'Beitrag entfernen',
     removeBody: 'Dein Bild wird gelöscht. Die Beiträge deiner Freunde sind danach wieder verdeckt, bis du erneut mitmachst.',
@@ -835,12 +932,12 @@ export const de = {
    */
   invite: {
     heading: 'Noch keine Freunde',
-    body: 'q2 lebt davon, dass jemand zusieht. Schick jemandem deinen Link — wer darüber ankommt, ist sofort mit dir befreundet.',
+    body: `${productName} lebt davon, dass jemand zusieht. Schick jemandem deinen Link — wer darüber ankommt, ist sofort mit dir befreundet.`,
     copy: 'Link kopieren',
     copied: 'Link kopiert',
     share: 'Teilen',
-    shareTitle: 'Komm zu q2',
-    shareText: 'Mach mit bei q2 — wir bleiben gemeinsam dran.',
+    shareTitle: `Komm zu ${productName}`,
+    shareText: `Mach mit bei ${productName} — wir bleiben gemeinsam dran.`,
     replace: 'Neuen Link erzeugen',
     replaceHeading: 'Link ersetzen?',
     replaceBody: 'Der alte Link funktioniert danach nicht mehr. Wer ihn schon benutzt hat, bleibt dein Freund.',
@@ -863,8 +960,8 @@ export const de = {
   join: {
     title: 'Einladung',
     heading: 'Du bist eingeladen',
-    intro: 'Qdos hilft, Vorsätze zu halten, weil Freunde zusehen. Wer über diesen Link kommt, ist sofort mit der Person befreundet, die ihn geschickt hat.',
-    invites: 'lädt dich zu q2 ein',
+    intro: `${productName} hilft, Vorsätze zu halten, weil Freunde zusehen. Wer über diesen Link kommt, ist sofort mit der Person befreundet, die ihn geschickt hat.`,
+    invites: `lädt dich zu ${productName} ein`,
     createAccount: 'Konto erstellen',
     haveAccount: 'Ich habe schon ein Konto',
     accept: 'Freundschaft annehmen',
@@ -873,7 +970,7 @@ export const de = {
     invalidHeading: 'Dieser Link gilt nicht mehr',
     invalidIntro: 'Vielleicht wurde er inzwischen ersetzt. Frag nach einem neuen — oder leg einfach so los.',
     registerHint: 'Nach der Registrierung seid ihr befreundet.',
-    previewTitle: 'Du bist zu q2 eingeladen',
+    previewTitle: `Du bist zu ${productName} eingeladen`,
   },
 
   /**
@@ -885,7 +982,7 @@ export const de = {
    * are what the illustrations show; they are words like any other.
    */
   onboarding: {
-    title: 'Willkommen bei Qdos',
+    title: `Willkommen bei ${productName}`,
     progress: (step: number, total: number) => `Schritt ${step} von ${total}`,
     back: 'Zurück',
     skip: 'Überspringen',
@@ -894,11 +991,11 @@ export const de = {
     signOut: 'Nicht du? Abmelden',
     language: 'Sprache',
     welcome: {
-      label: 'Was Qdos ist',
+      label: `Was ${productName} ist`,
       slideOf: (slide: number, total: number) => `Folie ${slide} von ${total}`,
       start: 'Los geht’s',
       promise: {
-        eyebrow: 'Qdos',
+        eyebrow: productName,
         heading: 'Versprich es dir — vor deinen Freunden.',
         body: 'Ob jeden Abend lesen oder dreimal die Woche laufen: Du sagst, was du vorhast. Deine Freunde sehen, ob es passiert.',
       },
@@ -999,7 +1096,7 @@ export const de = {
       allow: 'Mitteilungen erlauben',
       on: 'Mitteilungen sind an.',
       blocked: 'Dein Browser hat Mitteilungen abgelehnt. Das lässt sich nur in seinen Einstellungen ändern.',
-      sampleApp: 'Qdos',
+      sampleApp: productName,
       sampleTime: 'jetzt',
       sampleBody: 'Noch 3 Stunden für „Jeden Abend lesen“.',
     },
@@ -1125,6 +1222,7 @@ export const de = {
       goals: 'Dos & Don’ts',
       risk: 'Wird knapp',
       spotCheck: 'Stichprobe',
+      reminder: 'Erinnerung',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'Neue Nachricht',
@@ -1133,6 +1231,7 @@ export const de = {
     proofAwaitingVote: (goal: string) => `hat einen Beweis für „${goal}“ geliefert. Glaubst du es?`,
     proofConfirmed: (goal: string) => `Dein Beweis für „${goal}“ wurde bestätigt.`,
     proofRefused: (goal: string) => `Dein Beweis für „${goal}“ wurde nicht anerkannt.`,
+    proofRefusedReason: (reason: string) => `Am häufigsten genannt: ${reason}.`,
     proofRefusedRetry: (goal: string) => `Dein Beweis für „${goal}“ wurde nicht anerkannt. Du hast noch einen Versuch.`,
     reactedToProof: (people: number, goal: string) => (people === 1
       ? `hat auf deinen Beweis für „${goal}“ reagiert.`
@@ -1156,6 +1255,7 @@ export const de = {
       ? `droht „${goal}“ zu verpassen — ein Nachweis fehlt noch.`
       : `droht „${goal}“ zu verpassen — es fehlen noch ${missing} Nachweise.`),
     spotCheckDue: (goal: string) => `„${goal}“: Zeig in den nächsten drei Minuten live, was du gerade machst.`,
+    reminderDue: (goal: string) => `„${goal}“ ist heute noch offen.`,
   },
 
   /**
@@ -1178,6 +1278,7 @@ export const de = {
     goalUpdates: 'Einladungen & Pausen',
     friendsAtRisk: 'Wird knapp bei Freunden',
     spotChecks: 'Stichproben bei deinen Don’ts',
+    reminders: 'Deine täglichen Erinnerungen',
     reactions: 'Kudos & Reaktionen',
     dailyChallenge: 'Challenge des Tages',
     switchesNote: 'Die Schalter entscheiden, was dich unterbrechen darf: ein Push auf dem Handy oder ein Hinweis oben in der offenen App. In der Glocke steht trotzdem alles.',
@@ -1235,7 +1336,7 @@ export const de = {
 
   profileEdit: {
     heading: 'Profil bearbeiten',
-    subtitle: 'Name und Bild sehen deine Freunde.',
+    subtitle: 'Name, Bild und ein paar Worte sehen deine Freunde.',
     open: 'Profil bearbeiten',
     name: 'Name',
     namePlaceholder: 'Wie sollen dich deine Freunde sehen?',
@@ -1250,6 +1351,9 @@ export const de = {
     remove: 'Löschen',
     save: 'Speichern',
     handleFixed: 'Dein Kürzel bleibt, wie es ist — deine Freunde haben es aufgeschrieben.',
+    bio: 'Über dich',
+    bioPlaceholder: 'Ein, zwei Sätze — was dich gerade antreibt',
+    bioHelp: (left: number) => (left === 1 ? 'Noch 1 Zeichen. Freiwillig.' : `Noch ${left} Zeichen. Freiwillig.`),
   },
 
   settings: {
@@ -1274,6 +1378,10 @@ export const de = {
     language: 'Sprache',
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
+    timeZone: 'Zeitzone',
+    timeZoneLabel: 'Deine Tage zählen in',
+    timeZoneNote: 'Mitternacht, deine Fristen, dein Streak und deine Ruhezeiten richten sich nach dieser Zone. Ein laufendes Fenster behält seine Frist; die neue Zone gilt ab dem nächsten.',
+    timeZoneUseDevice: (zone: string) => `Zone dieses Geräts übernehmen: ${zone}`,
     notifications: 'Benachrichtigungen',
     notificationsNote: 'Welche davon dich unterbrechen dürfen, und wann es still bleibt.',
     account: 'Konto',
@@ -1282,7 +1390,7 @@ export const de = {
     privacy: 'Privatsphäre',
     help: 'Hilfe & Support',
     accountNote: 'Privatsphäre-Einstellungen und Hilfe gibt es noch nicht.',
-    version: (version: string) => `Q2 · Qdos — ${version}`,
+    version: (version: string) => `${productName} · ${version}`,
   },
 
   /**
@@ -1312,7 +1420,6 @@ export const de = {
   activity: {
     taskCompleted: (subject: string) => `hat bei „${subject}“ geliefert`,
     streakReached: (days: number) => `hat einen ${days}-Tage-Streak erreicht`,
-    goalProgress: (subject: string, percent: number) => `ist bei „${subject}“ auf ${percent}\u00A0%`,
     goalCreated: (subject: string) => `hat sich etwas vorgenommen: ${subject}`,
     /** Named after the line, so five buttons on one screen are five different buttons (#103). */
     giveKudos: (line: string) => `Kudos geben: ${line}`,
@@ -1416,7 +1523,7 @@ export const de = {
   offline: {
     title: 'Offline',
     heading: 'Du bist offline',
-    body: 'Qdos braucht eine Verbindung, um deine Dos & Don’ts zu laden. Sobald du wieder Empfang hast, geht es weiter.',
+    body: `${productName} braucht eine Verbindung, um deine Dos & Don’ts zu laden. Sobald du wieder Empfang hast, geht es weiter.`,
     retry: 'Erneut versuchen',
   },
 
@@ -1453,9 +1560,17 @@ export type Messages = typeof de
 
 export const en: Messages = {
   app: {
-    name: 'Qdos',
-    description: 'Qdos (q2) — keep at it, because your friends can see.',
+    name: productName,
+    description: `${productName} — keep at it, because your friends can see.`,
     skipToContent: 'Skip to content',
+  },
+
+  goalCategory: {
+    Sport: 'Sport',
+    Learning: 'Learning',
+    Reading: 'Reading',
+    Mindfulness: 'Mindfulness',
+    Other: 'Other',
   },
 
   nav: {
@@ -1483,7 +1598,7 @@ export const en: Messages = {
 
   auth: {
     signInHeading: 'Sign in',
-    signInIntro: 'Qdos helps you keep what you set out to do — because your friends see whether you do.',
+    signInIntro: `${productName} helps you keep what you set out to do — because your friends see whether you do.`,
     signUpHeading: 'Create an account',
     signUpIntro: 'A name, an email address, a password — that is all it takes.',
     name: 'Name',
@@ -1608,6 +1723,24 @@ export const en: Messages = {
     vetoWithdraw: 'Withdraw objection',
     vetoCount: (count: number, required: number) => `${count} of ${required} objections`,
     vetoAnonymous: 'Objections are anonymous.',
+    startLabel: 'From when?',
+    startToday: 'Today',
+    startTomorrow: 'Tomorrow',
+    startLater: 'Later',
+    startDateLabel: 'First day',
+    plannedNote: 'Your friends hear of it when the pause begins — that is also when they can object.',
+    monthNote: 'A pause counts for the month it begins in.',
+    forAll: 'For all my Dos & Don’ts',
+    forAllHint: 'Each gets a pause of its own, and each goal’s friends see it as always.',
+    openAll: 'Set everything aside',
+    allHeading: 'Set everything aside',
+    allSubtitle: 'Ill or away? One reason for all your Dos & Don’ts.',
+    allDone: (count: number) => (count === 1 ? '1 Do or Don’t set aside' : `${count} Dos & Don’ts set aside`),
+    allNone: 'Nothing set aside',
+    allSkipped: (titles: string) => `Not included: ${titles}`,
+    quoted: (title: string) => `“${title}”`,
+    plannedTitle: (day: string) => `Set aside from ${day}`,
+    withdraw: 'Take back',
   },
 
   close: {
@@ -1641,7 +1774,7 @@ export const en: Messages = {
     withdraws: 'This takes back the change that is still waiting.',
     item: {
       title: (from: string, to: string) => `Title: “${from}” → “${to}”`,
-      icon: 'New icon',
+      category: (from: string, to: string) => `Category: ${from} → ${to}`,
       description: 'New description',
       descriptionRemoved: 'Description removed',
       schedule: (from: string, to: string) => `Rhythm: ${from} → ${to}`,
@@ -1668,6 +1801,12 @@ export const en: Messages = {
     emptyHint: 'Whatever you stop lands here — with its history and every photograph.',
     closedOn: (day: string) => `Stopped on ${day}`,
     completedOn: (day: string) => `Completed on ${day}`,
+    sectionMine: 'Yours',
+    sectionFriends: 'From friends',
+    ownedBy: (name: string) => `by ${name}`,
+    record: (done: number, missed: number) => `${done} kept · ${missed} missed`,
+    relapses: (count: number) => (count === 1 ? '1 relapse' : `${count} relapses`),
+    restart: 'Start again',
     delete: 'Delete for good',
     deleteHeading: 'Delete for good?',
     deleteBody: 'History, messages and every photograph are removed — for you and for everybody on it. This cannot be undone.',
@@ -1683,7 +1822,7 @@ export const en: Messages = {
     descriptionPlaceholder: 'e.g. at least 5 km, without a break',
     descriptionHelp: 'Optional. Your checkers read it before they vote on a proof.',
     scheduleLabel: 'Due',
-    iconLabel: 'Icon',
+    categoryLabel: 'Category',
     intervalLabel: 'Every how many days?',
     targetDateLabel: 'By which day?',
     weekdaysLabel: 'On which days?',
@@ -1722,9 +1861,22 @@ export const en: Messages = {
     reviewFriends: 'Checkers',
     reviewReminder: 'Reminder',
     reviewNoReminder: 'None',
-    firstWindowToday: 'Your first window ends tonight at midnight.',
-    firstWindowTomorrow: 'Your first window ends tomorrow at midnight.',
-    firstWindowOn: (day: string) => `Your first window ends on ${day} at midnight.`,
+    firstWindowWhen: {
+      today: 'midnight tonight',
+      tomorrow: 'midnight tomorrow',
+      on: (day: string) => `midnight on ${day}`,
+    },
+    firstWindowProofs: (count: number, when: string) => (count === 1
+      ? `Your first window: 1 proof by ${when}.`
+      : `Your first window: ${count} proofs by ${when}.`),
+    firstWindowLimit: (limit: number, when: string) => (limit === 0
+      ? `Your first window: not once until ${when}.`
+      : `Your first window: at most ${limit}× until ${when}.`),
+    firstWindowShare: 'The week or month has already begun, so only what is left of it counts.',
+    startLabel: 'When does it start?',
+    startToday: 'From today',
+    startTomorrow: 'From tomorrow',
+    startsTomorrowHint: 'Nothing is due today.',
   },
 
   schedule: {
@@ -2006,6 +2158,28 @@ export const en: Messages = {
     openSettings: 'Open settings',
   },
 
+  badges: {
+    heading: 'Badges',
+    earned: (count: number, total: number) => `${count} of ${total}`,
+    locked: 'Not earned yet',
+    name: {
+      StreakHero: 'Streak hero',
+      EarlyBird: 'Early bird',
+      Bookworm: 'Bookworm',
+      KudosGiver: 'Kudos giver',
+      Marathon: 'Marathon',
+      WeeklyWinner: 'Weekly winner',
+    },
+    criterion: {
+      StreakHero: 'A 14-day streak',
+      EarlyBird: 'Delivered before 7 on 5 days',
+      Bookworm: '10 windows of reading',
+      KudosGiver: '100 kudos given',
+      Marathon: '42 windows of sport',
+      WeeklyWinner: 'A week without a gap',
+    },
+  },
+
   photo: {
     heading: 'Take a photo',
     cameraHint: 'Point at it and press the shutter.',
@@ -2048,6 +2222,15 @@ export const en: Messages = {
     confirmedBy: (names: string) => `Confirmed by ${names}`,
     doubtCount: (count: number) => (count === 1 ? '1 doubt' : `${count} doubts`),
     doubtAnonymous: 'Doubting stays anonymous.',
+    reasonPrompt: 'What is missing? Anonymous and optional.',
+    reasonNone: 'No reason',
+    doubtReason: {
+      NotWhatWasPromised: 'Does not show what was promised',
+      OldPicture: 'An old picture or a screenshot',
+      Unrecognisable: 'Cannot be made out',
+    },
+    reasonsHeading: 'What was missing',
+    reasonCount: (reason: string, count: number) => `${reason} (${count})`,
     doubtAlone: 'You are the only one checking: your doubt alone does not refuse the photo. That takes two who doubt it.',
     yourVerdict: 'Your verdict',
     votedConfirm: 'You confirmed it.',
@@ -2115,6 +2298,9 @@ export const en: Messages = {
     none: 'No challenge is running right now.',
     noneHint: 'There will be a new one tomorrow.',
     remaining: (hours: number) => (hours <= 1 ? 'Less than an hour left' : `${hours} hours left`),
+    momentLeft: (minutes: number) => (minutes < 60 ? `Now · ${minutes} min left` : `Now · ${Math.floor(minutes / 60)} h ${minutes % 60} min left`),
+    lateRemaining: (hours: number) => (hours <= 1 ? 'Late · still possible today' : `Late · ${hours} h still possible`),
+    late: 'late',
     over: 'Over for today',
     removeHeading: 'Remove contribution',
     removeBody: 'Your picture will be deleted. Your friends\' contributions are covered again afterwards, until you join in once more.',
@@ -2164,12 +2350,12 @@ export const en: Messages = {
 
   invite: {
     heading: 'No friends yet',
-    body: 'q2 works because somebody is watching. Send somebody your link — whoever arrives through it is your friend straight away.',
+    body: `${productName} works because somebody is watching. Send somebody your link — whoever arrives through it is your friend straight away.`,
     copy: 'Copy link',
     copied: 'Link copied',
     share: 'Share',
-    shareTitle: 'Join me on q2',
-    shareText: 'Come and keep at it with me on q2.',
+    shareTitle: `Join me on ${productName}`,
+    shareText: `Come and keep at it with me on ${productName}.`,
     replace: 'Make a new link',
     replaceHeading: 'Replace the link?',
     replaceBody: 'The old link stops working. Whoever already used it stays your friend.',
@@ -2187,8 +2373,8 @@ export const en: Messages = {
   join: {
     title: 'Invitation',
     heading: 'You are invited',
-    intro: 'Qdos helps you keep what you set out to do, because friends are watching. Whoever comes through this link is friends straight away with the person who sent it.',
-    invites: 'invites you to q2',
+    intro: `${productName} helps you keep what you set out to do, because friends are watching. Whoever comes through this link is friends straight away with the person who sent it.`,
+    invites: `invites you to ${productName}`,
     createAccount: 'Create an account',
     haveAccount: 'I already have an account',
     accept: 'Accept friendship',
@@ -2197,11 +2383,11 @@ export const en: Messages = {
     invalidHeading: 'This link no longer works',
     invalidIntro: 'It may have been replaced since. Ask for a new one — or just get started.',
     registerHint: 'Once you have signed up, you are friends.',
-    previewTitle: 'You are invited to q2',
+    previewTitle: `You are invited to ${productName}`,
   },
 
   onboarding: {
-    title: 'Welcome to Qdos',
+    title: `Welcome to ${productName}`,
     progress: (step: number, total: number) => `Step ${step} of ${total}`,
     back: 'Back',
     skip: 'Skip',
@@ -2210,11 +2396,11 @@ export const en: Messages = {
     signOut: 'Not you? Sign out',
     language: 'Language',
     welcome: {
-      label: 'What Qdos is',
+      label: `What ${productName} is`,
       slideOf: (slide: number, total: number) => `Slide ${slide} of ${total}`,
       start: 'Let’s go',
       promise: {
-        eyebrow: 'Qdos',
+        eyebrow: productName,
         heading: 'Promise it — in front of your friends.',
         body: 'Reading every evening or running three times a week: you say what you are going to do. Your friends see whether it happens.',
       },
@@ -2315,7 +2501,7 @@ export const en: Messages = {
       allow: 'Allow notifications',
       on: 'Notifications are on.',
       blocked: 'Your browser refused notifications. Only its own settings can change that.',
-      sampleApp: 'Qdos',
+      sampleApp: productName,
       sampleTime: 'now',
       sampleBody: '3 hours left for “Read every evening”.',
     },
@@ -2409,6 +2595,7 @@ export const en: Messages = {
       goals: 'Dos & Don’ts',
       risk: 'Getting tight',
       spotCheck: 'Spot check',
+      reminder: 'Reminder',
     },
     messageInGroup: (name: string, group: string) => `${name} in ${group}`,
     messageFallback: 'New message',
@@ -2417,6 +2604,7 @@ export const en: Messages = {
     proofAwaitingVote: (goal: string) => `has delivered a proof for “${goal}”. Do you believe it?`,
     proofConfirmed: (goal: string) => `Your proof for “${goal}” was confirmed.`,
     proofRefused: (goal: string) => `Your proof for “${goal}” was not accepted.`,
+    proofRefusedReason: (reason: string) => `Said most often: ${reason}.`,
     proofRefusedRetry: (goal: string) => `Your proof for “${goal}” was not accepted. You have one more try.`,
     reactedToProof: (people: number, goal: string) => (people === 1
       ? `has reacted to your proof for “${goal}”.`
@@ -2440,6 +2628,7 @@ export const en: Messages = {
       ? `is about to miss “${goal}” — one proof still missing.`
       : `is about to miss “${goal}” — ${missing} proofs still missing.`),
     spotCheckDue: (goal: string) => `“${goal}”: show, live, what you are doing — within three minutes.`,
+    reminderDue: (goal: string) => `“${goal}” is still open today.`,
   },
 
   notificationSettings: {
@@ -2457,6 +2646,7 @@ export const en: Messages = {
     goalUpdates: 'Invitations & pauses',
     friendsAtRisk: 'Friends running out of time',
     spotChecks: 'Spot checks on your Don’ts',
+    reminders: 'Your daily reminders',
     reactions: 'Kudos & reactions',
     dailyChallenge: 'Challenge of the day',
     switchesNote: 'The switches decide what may interrupt you: a push on your phone, or a banner at the top of the open app. The bell keeps everything either way.',
@@ -2513,7 +2703,7 @@ export const en: Messages = {
 
   profileEdit: {
     heading: 'Edit profile',
-    subtitle: 'Your name and picture are what friends see.',
+    subtitle: 'Your name, picture and a few words are what friends see.',
     open: 'Edit profile',
     name: 'Name',
     namePlaceholder: 'How should your friends see you?',
@@ -2528,6 +2718,9 @@ export const en: Messages = {
     remove: 'Delete',
     save: 'Save',
     handleFixed: 'Your handle stays as it is — your friends have written it down.',
+    bio: 'About you',
+    bioPlaceholder: 'A sentence or two — what keeps you going right now',
+    bioHelp: (left: number) => (left === 1 ? '1 character left. Optional.' : `${left} characters left. Optional.`),
   },
 
   settings: {
@@ -2552,6 +2745,10 @@ export const en: Messages = {
     language: 'Language',
     languageGerman: 'Deutsch',
     languageEnglish: 'English',
+    timeZone: 'Time zone',
+    timeZoneLabel: 'Your days are counted in',
+    timeZoneNote: 'Midnight, your deadlines, your streak and your quiet hours follow this zone. A window already running keeps its deadline; the new zone applies from the next one.',
+    timeZoneUseDevice: (zone: string) => `Use this device’s zone: ${zone}`,
     notifications: 'Notifications',
     notificationsNote: 'Which of them may interrupt you, and when it stays quiet.',
     account: 'Account',
@@ -2560,7 +2757,7 @@ export const en: Messages = {
     privacy: 'Privacy',
     help: 'Help & support',
     accountNote: 'Privacy settings and help do not exist yet.',
-    version: (version: string) => `Q2 · Kudos — ${version}`,
+    version: (version: string) => `${productName} · ${version}`,
   },
 
   feedback: {
@@ -2585,7 +2782,6 @@ export const en: Messages = {
   activity: {
     taskCompleted: (subject: string) => `delivered for “${subject}”`,
     streakReached: (days: number) => `reached a ${days}-day streak`,
-    goalProgress: (subject: string, percent: number) => `is at ${percent}% on “${subject}”`,
     goalCreated: (subject: string) => `made a new commitment: ${subject}`,
     giveKudos: (line: string) => `Give kudos: ${line}`,
     takeBackKudos: (line: string) => `Take kudos back: ${line}`,
@@ -2667,7 +2863,7 @@ export const en: Messages = {
   offline: {
     title: 'Offline',
     heading: 'You are offline',
-    body: 'Qdos needs a connection to load your Dos & Don’ts. As soon as you have signal again, you can pick up where you left off.',
+    body: `${productName} needs a connection to load your Dos & Don’ts. As soon as you have signal again, you can pick up where you left off.`,
     retry: 'Try again',
   },
 

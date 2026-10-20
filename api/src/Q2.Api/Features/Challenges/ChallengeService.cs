@@ -235,7 +235,7 @@ public sealed class ChallengeService(
 
         var people = await LoadPeopleAsync([entry.PersonId], cancellationToken);
 
-        return Describe(entry, me.Id, people, now, revealed: true);
+        return Describe(entry, challenge, me.Id, people, now, revealed: true);
     }
 
     /// <summary>
@@ -281,7 +281,7 @@ public sealed class ChallengeService(
         [
             .. rows.Select(row => new ChallengeArchiveEntryResponse(
                 Describe(row.Challenge, language),
-                Describe(row.Entry, me.Id, people, now, revealed: true))),
+                Describe(row.Entry, row.Challenge, me.Id, people, now, revealed: true))),
         ];
     }
 
@@ -341,15 +341,15 @@ public sealed class ChallengeService(
 
         return new ChallengeRoomResponse(
             Describe(challenge, language),
-            own is null ? null : Describe(own, viewerId, people, now, revealed: true),
-            [.. friendEntries.Select(entry => Describe(entry, viewerId, people, now, revealed))],
+            own is null ? null : Describe(own, challenge, viewerId, people, now, revealed: true),
+            [.. friendEntries.Select(entry => Describe(entry, challenge, viewerId, people, now, revealed))],
             friendIds.Count,
             revealed);
     }
 
     /// <param name="language">The reader's: the prompt is the one text here q2 wrote, in both (#105).</param>
     private static ChallengeResponse Describe(Challenge challenge, LanguagePreference language) =>
-        new(challenge.Id, challenge.PromptIn(language), challenge.PublishedAt, challenge.ExpiresAt);
+        new(challenge.Id, challenge.PromptIn(language), challenge.PublishedAt, challenge.ExpiresAt, challenge.MomentEndsAt);
 
     /// <param name="revealed">
     /// False while the room is covered. The picture's id is then left out
@@ -358,6 +358,7 @@ public sealed class ChallengeService(
     /// </param>
     private static ChallengeEntryResponse Describe(
         ChallengeEntry entry,
+        Challenge challenge,
         Guid viewerId,
         IReadOnlyDictionary<Guid, Person> people,
         DateTimeOffset now,
@@ -381,7 +382,8 @@ public sealed class ChallengeService(
             entry.Source,
             entry.CreatedAt,
             entry.PersonId == viewerId,
-            reactions);
+            reactions,
+            challenge.IsLate(entry.CreatedAt));
     }
 
     /// <summary>The people this viewer is actually friends with.</summary>

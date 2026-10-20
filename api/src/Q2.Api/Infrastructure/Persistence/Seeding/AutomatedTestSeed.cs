@@ -118,7 +118,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         var active = build.AddGoal(
             "Automated test: shared active goal",
             "Synthetic test data.",
-            "medal",
+            GoalCategory.Sport,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 10,
             history: "dd",
@@ -134,7 +134,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         build.AddGoal(
             "Automated test: completed goal",
             null,
-            "trophy",
+            GoalCategory.Sport,
             GoalSchedule.Once(),
             createdDaysAgo: 20,
             confirmedNow: 1,
@@ -143,7 +143,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         build.AddGoal(
             "Automated test: goal without target date",
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 1);
 
@@ -152,7 +152,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         build.AddGoal(
             "Automated test: three times a week",
             null,
-            "flame",
+            GoalCategory.Other,
             GoalSchedule.TimesPer(3, QuotaPeriod.Week),
             createdDaysAgo: 30,
             history: "dm",
@@ -162,7 +162,7 @@ public sealed class AutomatedTestSeed : ISeedDataSource
         // day: a kept week, then a relapse (docs/adr/0037-donts.md).
         build.AddDont(
             "Automated test: a don't",
-            "target",
+            GoalCategory.Other,
             QuotaPeriod.Week,
             limit: 1,
             DontProofMode.HonestOnly,
@@ -170,8 +170,8 @@ public sealed class AutomatedTestSeed : ISeedDataSource
             history: "dr");
 
         build.AddActivity(friend, ActivityKind.TaskCompleted, "Automated test: a run", null, 5, minutesAgo: 10);
-        build.AddActivity(friend, ActivityKind.StreakReached, null, 2, 3, minutesAgo: 60, kudosFromMe: true);
-        build.AddActivity(me, ActivityKind.GoalProgress, active.Title, 2, 1, minutesAgo: 120);
+        build.AddActivity(friend, ActivityKind.StreakReached, null, 7, 3, minutesAgo: 60, kudosFromMe: true);
+        build.AddActivity(me, ActivityKind.TaskCompleted, active.Title, null, 1, minutesAgo: 120);
 
         build.AddDirectChat(
             friend,

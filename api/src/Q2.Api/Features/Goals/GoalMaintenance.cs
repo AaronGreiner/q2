@@ -79,6 +79,10 @@ public static class GoalMaintenance
         // below asks whether one is still running.
         var changed = goal.ExpirePauses(now);
 
+        // A pause planned ahead whose first day has come sets aside the window
+        // open then (#99), before anything below asks whether one is running.
+        changed |= goal.BeginPause(now);
+
         // Spot checks on windows that are no longer open — relapsed, paused,
         // set aside — are settled too, so none stays "open" for ever. They
         // cannot move such a window any more.
@@ -328,9 +332,10 @@ public static class GoalMaintenance
             // goal migrated from the old step-counting model looks like. From
             // the owner's day it was made: the UTC day is the day before for
             // anything made after local midnight, which opened a window for
-            // yesterday and settled it at once (#132).
+            // yesterday and settled it at once (#132). Or from the day its
+            // owner chose to start on, tomorrow (#96).
             : goal.Schedule.FirstWindow(
-                calendar.DayOf(goal.CreatedAt),
+                goal.StartsOn ?? calendar.DayOf(goal.CreatedAt),
                 goal.TargetDate);
 
         return SkipPaused(goal, window);

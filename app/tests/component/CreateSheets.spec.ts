@@ -64,7 +64,7 @@ describe('GoalCreateSheet', () => {
     expect(element<HTMLButtonElement>('[data-testid="goal-next"]').disabled).toBe(true)
 
     type(element<HTMLInputElement>('[data-testid="goal-title-input"]'), '  Neues Ziel  ')
-    element<HTMLButtonElement>('[data-testid="icon-flame"]').click()
+    element<HTMLButtonElement>('[data-testid="category-Sport"]').click()
     await wrapper.vm.$nextTick()
     await next(wrapper)
 
@@ -92,7 +92,9 @@ describe('GoalCreateSheet', () => {
     expect(review.textContent).toContain('3× pro Woche')
     expect(review.textContent).toContain('Mara Beispiel')
     expect(review.textContent).toContain('07:15')
-    expect(element('[data-testid="goal-first-window"]').textContent).toMatch(/Dein erstes Fenster endet/)
+    // What the first window asks, and until when — its share, if the week
+    // has already begun (#96).
+    expect(element('[data-testid="goal-first-window"]').textContent).toMatch(/Dein erstes Fenster: \d Nachweise? bis/)
 
     element<HTMLButtonElement>('[data-testid="goal-submit"]').click()
     await wrapper.vm.$nextTick()
@@ -100,7 +102,7 @@ describe('GoalCreateSheet', () => {
     expect(wrapper.emitted('submit')?.[0]).toEqual([{
       title: 'Neues Ziel',
       schedule: { kind: 'Times', times: 3, period: 'Week' },
-      icon: 'flame',
+      category: 'Sport',
       reminderAt: '07:15:00',
       participantIds: ['person-1'],
     }])
@@ -212,7 +214,7 @@ describe('GoalCreateSheet', () => {
     wrapper.unmount()
   })
 
-  it('fills the title, the icon and the rhythm from an idea', async () => {
+  it('fills the title, the category and the rhythm from an idea', async () => {
     const wrapper = await mountSuspended(GoalCreateSheet, {
       props: { open: true, friends: [friend()] },
       attachTo: document.body,
@@ -222,7 +224,7 @@ describe('GoalCreateSheet', () => {
     await wrapper.vm.$nextTick()
 
     expect(element<HTMLInputElement>('[data-testid="goal-title-input"]').value).toBe('Jeden Sonntag aufräumen')
-    expect(element('[data-testid="icon-sparkles"]').getAttribute('aria-checked')).toBe('true')
+    expect(element('[data-testid="category-Other"]').getAttribute('aria-checked')).toBe('true')
 
     // Once there is a title, the ideas get out of the way.
     expect(document.querySelector('[data-testid="goal-template-run"]')).toBeNull()
@@ -299,7 +301,7 @@ describe('GoalCreateSheet', () => {
 
     expect(wrapper.emitted('draft')).toEqual([[{
       title: 'Jeden Tag lesen',
-      icon: 'book-open',
+      category: 'Reading',
       schedule: { kind: 'Interval', everyDays: 1 },
       reminderAt: '19:00:00',
     }]])
@@ -315,6 +317,7 @@ describe('GoalCreateSheet', () => {
         draft: {
           id: 'draft-1',
           title: 'Jeden Tag lesen',
+          category: 'Reading',
           icon: 'book-open',
           schedule: { kind: 'Interval', everyDays: 1, weekdays: [], times: null, period: null },
           reminderAt: null,
@@ -362,8 +365,8 @@ describe('GoalCreateSheet', () => {
       kind: 'validation',
       isExpected: true,
       status: 400,
-      fieldErrors: { Title: ['A title may be at most 120 characters long.'], ICON: ['That icon is not one of the available goal icons.'] },
-      fieldCodes: { Title: [{ code: 'tooLong', max: 120 }], ICON: [{ code: 'unknownOption' }] },
+      fieldErrors: { Title: ['A title may be at most 120 characters long.'], CATEGORY: ['That is not one of the goal categories.'] },
+      fieldCodes: { Title: [{ code: 'tooLong', max: 120 }], CATEGORY: [{ code: 'unknownOption' }] },
       traceId: null,
       errorId: null,
       reason: null,
@@ -465,5 +468,49 @@ describe('ChatCreateSheet', () => {
     expect(element('[data-testid="chat-create-no-friends"]').getAttribute('role')).toBe('status')
     expect(document.querySelector('[data-testid="chat-friend-picker"]')).toBeNull()
     wrapper.unmount()
+  })
+})
+
+describe('GoalCreateSheet, starting tomorrow (#96)', () => {
+  function el<T extends Element = HTMLElement>(selector: string): T {
+    const found = document.querySelector<T>(selector)
+    if (!found) throw new Error(`Nothing matches ${selector}`)
+    return found
+  }
+
+  it('offers today or tomorrow on the summary, and sends the day it starts', async () => {
+    const wrapper = await mountSuspended(GoalCreateSheet, {
+      props: { open: true, friends: [friend()] },
+      attachTo: document.body,
+    })
+
+    const title = el<HTMLInputElement>('[data-testid="goal-title-input"]')
+    title.value = 'Jeden Tag lesen'
+    title.dispatchEvent(new Event('input'))
+    await wrapper.vm.$nextTick()
+
+    for (let step = 0; step < 2; step++) {
+      el<HTMLButtonElement>('[data-testid="goal-next"]').click()
+      await wrapper.vm.$nextTick()
+    }
+    el<HTMLElement>('[data-testid="goal-friend-person-1"] [role="checkbox"]').click()
+    await wrapper.vm.$nextTick()
+    el<HTMLButtonElement>('[data-testid="goal-next"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(el('[data-testid="goal-start"]').textContent).toContain('Ab morgen')
+    el<HTMLButtonElement>('[data-testid="segment-tomorrow"]').click()
+    await wrapper.vm.$nextTick()
+
+    expect(el('[data-testid="goal-first-window"]').textContent).toContain('1 Nachweis bis morgen um Mitternacht.')
+    expect(el('[data-testid="goal-first-window"]').textContent).toContain('Heute ist noch nichts fällig.')
+
+    el<HTMLButtonElement>('[data-testid="goal-submit"]').click()
+    await wrapper.vm.$nextTick()
+
+    const [request] = wrapper.emitted('submit')![0] as [Record<string, unknown>]
+    expect(request.startsOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    wrapper.unmount()
+    document.body.replaceChildren()
   })
 })

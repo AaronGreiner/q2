@@ -5,14 +5,21 @@ using Q2.Api.Features.Proofs;
 namespace Q2.Api.Features.Challenges;
 
 /// <summary>The prompt itself.</summary>
+/// <param name="PublishedAt">The moment it appeared, the same for everybody (#136).</param>
 /// <param name="ExpiresAt">
-/// The end of its local day, exclusive. What the room counts down to.
+/// The end of its local day, exclusive. The last moment a contribution is taken.
+/// </param>
+/// <param name="MomentEndsAt">
+/// The end of "the moment", the first stretch after it appeared (#136): what
+/// the card counts down to while it lasts. After it, a contribution is still
+/// taken and is said to be late. Null for a challenge without a moment.
 /// </param>
 public sealed record ChallengeResponse(
     Guid Id,
     string Prompt,
     DateTimeOffset PublishedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset? MomentEndsAt);
 
 /// <summary>
 /// One contribution, as this viewer is allowed to see it.
@@ -26,6 +33,7 @@ public sealed record ChallengeResponse(
 /// Live, from the phone's pictures, or unknown — the same three values as a
 /// proof's. Contributions from before #64 are unknown.
 /// </param>
+/// <param name="IsLate">Contributed after the moment — taken, and said to be "zu spät" (#136).</param>
 /// <remarks>
 /// The author travels even while the picture does not, and that is deliberate:
 /// seeing who is already in is the reason to join, and it is the half of the
@@ -38,7 +46,8 @@ public sealed record ChallengeEntryResponse(
     ProofSource Source,
     DateTimeOffset CreatedAt,
     bool IsMine,
-    IReadOnlyList<ReactionSummaryResponse> Reactions);
+    IReadOnlyList<ReactionSummaryResponse> Reactions,
+    bool IsLate);
 
 /// <summary>
 /// The room, composed for exactly one viewer.

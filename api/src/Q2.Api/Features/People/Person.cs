@@ -22,6 +22,12 @@ namespace Q2.Api.Features.People;
 public sealed class Person
 {
     public const int MaxDisplayNameLength = 80;
+
+    /// <summary>
+    /// How long a bio may be: a line or two under the name, not an essay —
+    /// about what fits on a phone without pushing the numbers off the screen.
+    /// </summary>
+    public const int MaxBioLength = 160;
     public const int MaxHandleLength = 40;
     public const int MaxInitialsLength = 2;
 
@@ -40,6 +46,10 @@ public sealed class Person
 
     private readonly List<DailyCheckIn> _checkIns = [];
     private readonly List<PersonBadge> _badges = [];
+
+    // Not mapped: what this unit of work's check-ins did to the streak, until
+    // somebody publishes it (TakeStreakGrowth).
+    private readonly List<StreakGrowth> _streakGrowth = [];
 
     // EF Core materialisation only.
     private Person()
@@ -106,6 +116,12 @@ public sealed class Person
     public DateTimeOffset? LastSeenAt { get; private set; }
 
     /// <summary>
+    /// A few words of this person's own under their name (#20). Null without
+    /// one. User content: never logged and never sent to Sentry.
+    /// </summary>
+    public string? Bio { get; private set; }
+
+    /// <summary>
     /// The IANA zone this person's days are counted in — "Europe/Berlin".
     /// </summary>
     /// <remarks>
@@ -116,9 +132,10 @@ public sealed class Person
     /// "whatever the server thinks a day is" stops being good enough — and
     /// because the first person who travels must not lose one.
     ///
-    /// Nothing sets it to anything else yet; there is no screen for it. What
-    /// matters now is that every window in the database was computed against a
-    /// zone that is written down.
+    /// Registration writes the zone the browser reported, and the settings
+    /// screen changes it (#9). A change counts from the next window: one already
+    /// open keeps the deadline it was computed with, which is stored as an
+    /// instant.
     /// </remarks>
     public string? TimeZoneId { get; private set; }
 
@@ -267,6 +284,22 @@ public sealed class Person
     }
 
     /// <summary>
+    /// Sets the bio, or takes it away with null or blank (#20).
+    /// </summary>
+    /// <exception cref="DomainValidationException">It is longer than <see cref="MaxBioLength"/>.</exception>
+    public void SetBio(string? bio)
+    {
+        var trimmed = bio?.Trim();
+
+        if (trimmed is { Length: > MaxBioLength })
+        {
+            throw new DomainValidationException(nameof(Bio), $"A bio may be at most {MaxBioLength} characters long.");
+        }
+
+        Bio = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    /// <summary>
     /// Gives this person the handle they chose themselves.
     /// </summary>
     /// <remarks>
@@ -380,14 +413,39 @@ public sealed class Person
     /// <paramref name="date"/>. Idempotent: a second check-in on the same day
     /// changes nothing, which is what keeps a streak a count of *days*.
     /// </summary>
+    /// <remarks>
+    /// What the day did to the run it landed in is remembered until
+    /// <see cref="TakeStreakGrowth"/>, so whoever saves can tell the feed when
+    /// it carried somebody to a milestone. Only for a day that was new: the
+    /// second check-in on a day grew nothing.
+    /// </remarks>
     public void CheckIn(Guid id, DateOnly date)
     {
-        if (_checkIns.Any(c => c.Date == date))
+        if (Streak.GrowthFrom(_checkIns.Select(c => c.Date), date) is not { } growth)
         {
             return;
         }
 
         _checkIns.Add(new DailyCheckIn(id, Id, date));
+        _streakGrowth.Add(growth);
+    }
+
+    /// <summary>
+    /// What the check-ins since the last call did to this person's streak, and
+    /// forgets it.
+    /// </summary>
+    /// <remarks>
+    /// Kept on the person rather than returned by <see cref="CheckIn"/>,
+    /// because a check-in is made deep inside <c>GoalMaintenance</c>, which is
+    /// pure and publishes nothing; the code that saves the change is what asks
+    /// (<see cref="Q2.Api.Features.Activity.ActivityRecorder.PublishStreakMilestones"/>).
+    /// Not stored: a fact about this unit of work, not about the person.
+    /// </remarks>
+    public IReadOnlyList<StreakGrowth> TakeStreakGrowth()
+    {
+        var taken = _streakGrowth.ToList();
+        _streakGrowth.Clear();
+        return taken;
     }
 
     public void AwardBadge(Guid id, BadgeKey badge, DateOnly earnedOn)

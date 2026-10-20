@@ -181,4 +181,22 @@ public class ChallengeTests
             Utc.StartOfDay(Today.AddDays(1)));
 
     private static Guid NewId(int index) => new($"33333333-3333-4333-8333-{index:D12}");
+
+    [Fact]
+    public void AContributionAfterTheMomentIsLateAndOneWithoutAMomentNeverIs()
+    {
+        var appears = new DateTimeOffset(2026, 6, 16, 12, 30, 0, TimeSpan.Zero);
+        var withMoment = Challenge.Create(
+            Guid.CreateVersion7(), new DateOnly(2026, 6, 16), "Zeig deinen Ausblick.", "Show your view.",
+            appears, appears.AddHours(10), appears + ChallengeQueue.MomentLength);
+
+        Assert.False(withMoment.IsLate(appears.AddHours(1)));
+        Assert.True(withMoment.IsLate(appears.AddHours(3)));
+
+        var without = Challenge.Create(
+            Guid.CreateVersion7(), new DateOnly(2026, 6, 16), "Zeig deinen Ausblick.", "Show your view.",
+            appears, appears.AddHours(10));
+
+        Assert.False(without.IsLate(appears.AddHours(9)));
+    }
 }

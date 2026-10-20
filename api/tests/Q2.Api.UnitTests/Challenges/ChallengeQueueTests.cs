@@ -37,21 +37,47 @@ public class ChallengeQueueTests
     }
 
     /// <summary>
-    /// Each day runs from local midnight to local midnight, and the end of one
-    /// is exactly the start of the next — so no instant falls between two
-    /// challenges and none is covered by both.
+    /// Each day runs from its moment to local midnight (#136): it appears
+    /// between 10:00 and 20:00, ends where the next day begins, and no two
+    /// days ever overlap.
     /// </summary>
     [Fact]
-    public void TheDaysTileWithoutOverlapping()
+    public void EachDayAppearsAtItsMomentAndEndsAtMidnight()
     {
-        var planned = ChallengeQueue.Plan(Prompts, [], Today, horizonDays: 3, Berlin);
+        var planned = ChallengeQueue.Plan(Prompts, [], Today, horizonDays: 7, Berlin);
 
-        Assert.Equal(Berlin.StartOfDay(Today), planned[0].PublishedAt);
+        foreach (var day in planned)
+        {
+            var appears = Berlin.TimeOf(day.PublishedAt);
+
+            Assert.InRange(appears, new TimeOnly(10, 0), new TimeOnly(19, 59));
+            Assert.Equal(day.Day, Berlin.DayOf(day.PublishedAt));
+            Assert.Equal(Berlin.StartOfDay(day.Day.AddDays(1)), day.ExpiresAt);
+            Assert.Equal(day.PublishedAt + ChallengeQueue.MomentLength, day.MomentEndsAt);
+        }
 
         for (var index = 1; index < planned.Count; index++)
         {
-            Assert.Equal(planned[index - 1].ExpiresAt, planned[index].PublishedAt);
+            Assert.True(planned[index - 1].ExpiresAt <= planned[index].PublishedAt);
         }
+    }
+
+    /// <summary>
+    /// The moment is drawn from the date alone, so planning a day twice — or
+    /// after a week down — gives it the same one, and the days do not share it.
+    /// </summary>
+    [Fact]
+    public void TheMomentIsTheDatesAndNoOneElses()
+    {
+        Assert.Equal(ChallengeQueue.MomentFor(Today), ChallengeQueue.MomentFor(Today));
+
+        var year = Enumerable.Range(0, 365).Select(offset => ChallengeQueue.MomentFor(Today.AddDays(offset))).ToList();
+
+        Assert.All(year, moment => Assert.InRange(moment, new TimeOnly(10, 0), new TimeOnly(19, 59)));
+
+        // Spread over the window rather than clumped: every hour gets days.
+        Assert.Equal(10, year.Select(moment => moment.Hour).Distinct().Count());
+        Assert.True(year.Distinct().Count() > 200);
     }
 
     [Fact]

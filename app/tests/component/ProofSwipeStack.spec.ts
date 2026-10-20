@@ -33,7 +33,7 @@ function card(id: string): FeedProof {
       source: 'Live',
       createdAt: '2026-06-15T09:00:00+00:00',
       expiresAt: '2026-06-15T21:00:00+00:00',
-      votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: true, doubtCanRefuse: true },
+      votes: { confirmCount: 0, doubtCount: 0, confirmedBy: [], myVote: null, canIVote: true, doubtCanRefuse: true, myDoubtReason: null, doubtReasons: [] },
       reactions: [],
     },
   }
@@ -71,7 +71,7 @@ describe('ProofSwipeStack', () => {
     await drag(wrapper.get('[data-testid="proof-swipe-card"]'), 160)
     vi.runAllTimers()
 
-    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Confirm'])
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Confirm', null])
   })
 
   it('doubts a photograph swiped to the left', async () => {
@@ -80,7 +80,7 @@ describe('ProofSwipeStack', () => {
     await drag(wrapper.get('[data-testid="proof-swipe-card"]'), -160)
     vi.runAllTimers()
 
-    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Doubt'])
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Doubt', null])
   })
 
   it('decides nothing on a short or a vertical drag', async () => {
@@ -101,6 +101,6 @@ describe('ProofSwipeStack', () => {
     expect(wrapper.emitted('vote')).toBeUndefined()
 
     vi.runAllTimers()
-    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Confirm'])
+    expect(wrapper.emitted('vote')?.[0]).toEqual(['a', 'Confirm', null])
   })
 })

@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { FeedProof, Image, OwnProof, ProofVoteValue } from '~/api/types'
+import type { DoubtReason, FeedProof, Image, OwnProof, ProofVoteValue } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
 import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
@@ -50,13 +50,13 @@ export function usePendingProofs() {
    * is a round trip somebody spends looking at a card they have finished with.
    * Changing a vote afterwards happens in the goal's conversation.
    */
-  async function vote(id: string, value: ProofVoteValue) {
+  async function vote(id: string, value: ProofVoteValue, reason: DoubtReason | null = null) {
     if (isVoting.value) return
 
     isVoting.value = true
 
     try {
-      await api.proofs.vote(id, value)
+      await api.proofs.vote(id, value, reason)
 
       if (data.value) {
         data.value = {

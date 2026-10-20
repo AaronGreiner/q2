@@ -18,7 +18,7 @@ public class GoalDraftTests
             Guid.CreateVersion7(),
             Owner,
             title,
-            "book-open",
+            GoalCategory.Reading,
             schedule ?? GoalSchedule.TimesPer(3, QuotaPeriod.Week),
             new TimeOnly(19, 0),
             Drafted);
@@ -60,14 +60,14 @@ public class GoalDraftTests
     }
 
     [Fact]
-    public void AnUnknownIconIsRefused()
+    public void AnUnknownCategoryIsRefused()
     {
         var draft = Build();
 
         var error = Assert.Throws<DomainValidationException>(
-            () => draft.Describe("Lesen", "rocket", GoalSchedule.EveryNDays(1), null));
+            () => draft.Describe("Lesen", (GoalCategory)42, GoalSchedule.EveryNDays(1), null));
 
-        Assert.Contains(nameof(GoalDraft.Icon), error.Errors.Keys);
+        Assert.Contains(nameof(GoalDraft.Category), error.Errors.Keys);
         Assert.Equal("Jeden Tag lesen", draft.Title);
     }
 
@@ -79,7 +79,7 @@ public class GoalDraftTests
         draft.Describe("Laufen", null, GoalSchedule.EveryNDays(2), null);
 
         Assert.Equal("Laufen", draft.Title);
-        Assert.Equal(GoalIcons.Default, draft.Icon);
+        Assert.Equal(GoalCategories.Default, draft.Category);
         Assert.Equal(2, draft.Schedule.EveryDays);
         Assert.Null(draft.ReminderAt);
     }

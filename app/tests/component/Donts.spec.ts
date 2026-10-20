@@ -37,7 +37,8 @@ function dont(overrides: Partial<Goal> = {}): Goal {
     id: 'dont-1',
     title: 'Höchstens 3 Bier',
     description: null,
-    icon: 'flame',
+    category: 'Other',
+    icon: 'target',
     schedule: { kind: 'Limit', everyDays: null, weekdays: [], times: null, period: 'Week' },
     status: 'Active',
     isGroup: false,
@@ -250,7 +251,7 @@ describe('GoalCreateSheet, for a Don\'t', () => {
       schedule: { kind: 'Limit', period: 'Week' },
       limit: 3,
       proofMode: 'ProofAtEnd',
-      icon: 'calendar',
+      category: 'Other',
       reminderAt: null,
       participantIds: ['person-1'],
     }])

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Q2.Api.Features.Goals;
 using Q2.Api.Features.Images;
+using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence.Seeding;
 using Q2.Api.IntegrationTests.Infrastructure;
@@ -220,6 +221,56 @@ public class ProofsEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory)
         // nowhere in the payload at all.
         Assert.DoesNotContain(AutomatedTestSeed.FriendPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("test.two", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record ReasonCountDocument(DoubtReason Reason, int Count);
+
+    private sealed record ReasonVotesDocument(DoubtReason? MyDoubtReason, IReadOnlyList<ReasonCountDocument> DoubtReasons);
+
+    private sealed record ReasonProofDocument(ProofStatus Status, ReasonVotesDocument Votes);
+
+    private sealed record BellLineDocument(NotificationKind Kind, string? Detail);
+
+    /// <summary>
+    /// What was missing, said anonymously (#111): the owner of the refused
+    /// photograph reads the reasons counted — on it and in the refusal — and
+    /// no response says who gave which.
+    /// </summary>
+    [Fact]
+    public async Task TheOwnerReadsTheReasonsCountedAndNobodyLearnsWhoGaveWhich()
+    {
+        await ShareActiveGoalWithAsync(AutomatedTestSeed.RequestingPersonId);
+
+        var proof = await Client.DeliverAcceptedProofAsync(AutomatedTestSeed.ActiveGoalId);
+        var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
+        var requester = await ClientForAsync(AutomatedTestSeed.RequesterEmail);
+
+        (await friend.PostJsonAsync($"/api/proofs/{proof.Id}/vote", new { value = VoteValue.Doubt, reason = DoubtReason.OldPicture }))
+            .EnsureSuccessStatusCode();
+        var mine = await (await requester.PostJsonAsync($"/api/proofs/{proof.Id}/vote", new { value = VoteValue.Doubt, reason = DoubtReason.OldPicture }))
+            .ReadAsync<ReasonProofDocument>();
+
+        // A voter sees their own reason, and nobody else's.
+        Assert.Equal(DoubtReason.OldPicture, mine.Votes.MyDoubtReason);
+        Assert.Empty(mine.Votes.DoubtReasons);
+
+        var response = await Client.GetAsync($"/api/proofs/{proof.Id}", TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var owner = await (await Client.GetAsync($"/api/proofs/{proof.Id}", TestContext.Current.CancellationToken))
+            .ReadAsync<ReasonProofDocument>();
+
+        Assert.Equal(ProofStatus.Rejected, owner.Status);
+        var reason = Assert.Single(owner.Votes.DoubtReasons);
+        Assert.Equal(new ReasonCountDocument(DoubtReason.OldPicture, 2), reason);
+
+        // Counts and nothing else: neither doubter is anywhere in the payload.
+        Assert.DoesNotContain(AutomatedTestSeed.FriendPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(AutomatedTestSeed.RequestingPersonId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+
+        // The refusal in the bell says it too, as a code the app words.
+        var bell = await (await Client.GetAsync("/api/notifications", TestContext.Current.CancellationToken)).ReadAsync<IReadOnlyList<BellLineDocument>>();
+        var refusal = Assert.Single(bell, line => line.Kind == NotificationKind.ProofRefused);
+        Assert.Equal(nameof(DoubtReason.OldPicture), refusal.Detail);
     }
 
     [Fact]

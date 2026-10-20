@@ -20,7 +20,7 @@ namespace Q2.Api.Features.Goals;
 public sealed record GoalEdit(
     string? Title = null,
     string? Description = null,
-    string? Icon = null,
+    GoalCategory? Category = null,
     GoalSchedule? Schedule = null,
     DateOnly? TargetDate = null,
     int? Limit = null,
@@ -84,7 +84,7 @@ public sealed record DeferredTerms(
 /// save it.
 /// </remarks>
 /// <param name="TitleTo">The new title, or null when it stays.</param>
-/// <param name="IconTo">The new icon, or null when it stays.</param>
+/// <param name="CategoryTo">The new category, or null when it stays.</param>
 /// <param name="TargetDateFrom">A one-off's day before the edit: what a moved day moves from.</param>
 /// <param name="TargetDateTo">A one-off's earlier day, which applies at once; null otherwise.</param>
 /// <param name="CheckersAdded">Who starts checking now.</param>
@@ -99,8 +99,8 @@ public sealed record DeferredTerms(
 public sealed record GoalEditPlan(
     string TitleFrom,
     string? TitleTo,
-    string IconFrom,
-    string? IconTo,
+    GoalCategory CategoryFrom,
+    GoalCategory? CategoryTo,
     DateOnly? TargetDateFrom,
     DateOnly? TargetDateTo,
     IReadOnlyList<Guid> CheckersAdded,
@@ -110,7 +110,7 @@ public sealed record GoalEditPlan(
     bool WithdrawsPending)
 {
     /// <summary>True when the edit applies something now.</summary>
-    public bool HasImmediate => TitleTo is not null || IconTo is not null || TargetDateTo is not null || CheckersAdded.Count > 0;
+    public bool HasImmediate => TitleTo is not null || CategoryTo is not null || TargetDateTo is not null || CheckersAdded.Count > 0;
 
     /// <summary>True when the edit leaves a new change waiting.</summary>
     public bool HasNewDeferred => Deferred is not null && !KeepsPending;

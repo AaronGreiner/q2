@@ -254,6 +254,19 @@ public sealed class GoalInstance
     /// </remarks>
     public DateTimeOffset? RiskNotifiedAt { get; private set; }
 
+    /// <summary>
+    /// The owner's local day on which they were last reminded to deliver into
+    /// this window. Null while they have not been.
+    /// </summary>
+    /// <remarks>
+    /// A day rather than an instant, because the rule is once a *day*: a
+    /// quota window of a week reminds on every day of it that still needs a
+    /// photograph, and the window remembers which day it last did so a pass
+    /// every ten minutes does not remind six times an hour
+    /// (<see cref="GoalReminders"/>).
+    /// </remarks>
+    public DateOnly? RemindedOn { get; private set; }
+
     /// <summary>Every photograph delivered into this window, believed or not.</summary>
     public IReadOnlyList<ProofPhoto> Proofs => _proofs;
 
@@ -586,6 +599,22 @@ public sealed class GoalInstance
         }
 
         RiskNotifiedAt = now;
+        return true;
+    }
+
+    /// <summary>
+    /// Records that the owner has been reminded about this window today.
+    /// Returns false when they already were, or the window no longer takes a
+    /// photograph.
+    /// </summary>
+    public bool Remind(DateOnly today)
+    {
+        if (RemindedOn == today || !AcceptsProof)
+        {
+            return false;
+        }
+
+        RemindedOn = today;
         return true;
     }
 

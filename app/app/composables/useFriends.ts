@@ -211,6 +211,9 @@ export function useProfile() {
 
     rename: (displayName: string) => update({ displayName }),
 
+    /** The name and the bio together, as the edit sheet saves them (#20). A blank bio takes it away. */
+    saveProfile: (displayName: string, bio: string) => update({ displayName, bio }),
+
     chooseAvatar: (imageId: string) => update({ avatarImageId: imageId }),
 
     /**

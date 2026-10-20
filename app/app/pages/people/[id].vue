@@ -186,6 +186,13 @@ useHead({ title: () => person.value?.person.displayName ?? t.value.person.headin
           <p class="text-[13px] font-semibold text-(--ui-text-muted)">
             {{ person.person.handle }}
           </p>
+          <p
+            v-if="person.bio"
+            class="mt-2 max-w-[32ch] text-sm font-semibold whitespace-pre-line"
+            data-testid="person-bio"
+          >
+            {{ person.bio }}
+          </p>
         </section>
 
         <FriendshipActions

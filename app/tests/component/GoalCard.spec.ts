@@ -44,7 +44,8 @@ function goal(overrides: Partial<Goal> = {}): Goal {
     id: '019faece-5a81-7c67-8fa2-00a63d9e9127',
     title: 'Halbmarathon im Mai',
     description: 'Drei Läufe pro Woche.',
-    icon: 'medal',
+    category: 'Sport',
+    icon: 'dumbbell',
     kind: 'Do',
     schedule: { kind: 'Times', everyDays: null, weekdays: [], times: 3, period: 'Week' },
     status: 'Active',
@@ -194,5 +195,14 @@ describe('GoalCard', () => {
     const wrapper = await mountSuspended(GoalCard, { props: { goal: goal() } })
 
     expect(wrapper.find('h3').text()).toBe('Halbmarathon im Mai')
+  })
+
+  it('says from when a goal made to start tomorrow counts, rather than a bare status (#96)', async () => {
+    const wrapper = await mountSuspended(GoalCard, {
+      props: { goal: goal({ current: null, startsOn: '2026-10-20' }), today: '2026-10-19' },
+    })
+
+    expect(wrapper.text()).toContain('Ab 20.10.')
+    expect(wrapper.text()).not.toContain('Aktiv')
   })
 })

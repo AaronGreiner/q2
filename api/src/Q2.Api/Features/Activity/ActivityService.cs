@@ -23,6 +23,7 @@ public sealed class ActivityService(
     CurrentPerson currentPerson,
     FriendsService friends,
     Notifier notifier,
+    BadgeAwarder badges,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
     ILogger<ActivityService> logger)
@@ -140,6 +141,12 @@ public sealed class ActivityService(
 
         await database.SaveChangesAsync(cancellationToken);
         await notifier.FlushAsync(cancellationToken);
+
+        // Kudos given count towards a badge of the giver's (#22).
+        if (activity.HasKudosFrom(me.Id) && await badges.AwardEarnedAsync(me.Id, cancellationToken))
+        {
+            await database.SaveChangesAsync(cancellationToken);
+        }
 
         logger.LogInformation(
             "Activity {ActivityId} now has {KudosCount} kudos",

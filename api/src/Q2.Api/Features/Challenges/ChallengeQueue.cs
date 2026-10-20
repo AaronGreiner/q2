@@ -64,11 +64,14 @@ public sealed class ChallengePrompt
 }
 
 /// <summary>A challenge that should exist but does not yet.</summary>
+/// <param name="PublishedAt">The moment it appears, the same for everybody (#136).</param>
+/// <param name="MomentEndsAt">The end of the moment; contributions after it are late.</param>
 public sealed record PlannedChallenge(
     DateOnly Day,
     ChallengePrompt Prompt,
     DateTimeOffset PublishedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    DateTimeOffset MomentEndsAt);
 
 /// <summary>
 /// Turns a list of prompts into the rows that should be queued.
@@ -92,6 +95,22 @@ public sealed record PlannedChallenge(
 /// </remarks>
 public static class ChallengeQueue
 {
+    /// <summary>
+    /// The earliest a challenge appears, on the deployment's clock (#136): late
+    /// enough that nobody is woken by it, and the whole window lies outside the
+    /// default quiet hours (22:00–07:00), so the defaults let its push through.
+    /// </summary>
+    public static readonly TimeOnly EarliestMoment = new(10, 0);
+
+    /// <summary>How long the window it may appear in is, in minutes: until 20:00.</summary>
+    public const int MomentWindowMinutes = 10 * 60;
+
+    /// <summary>
+    /// How long "the moment" lasts once it has appeared. Two hours: long
+    /// enough to answer from a meeting or a train, short enough to be now.
+    /// </summary>
+    public static readonly TimeSpan MomentLength = TimeSpan.FromHours(2);
+
     /// <summary>
     /// The days from <paramref name="today"/> onwards that still need a row.
     /// </summary>
@@ -126,16 +145,18 @@ public static class ChallengeQueue
                 continue;
             }
 
+            // It appears at its moment and runs to local midnight, the end
+            // exclusive: a day that is 23 or 25 hours long still ends exactly
+            // where the next one begins.
+            var appears = calendar.At(day, MomentFor(day))
+                ?? calendar.StartOfDay(day).Add(MomentFor(day).ToTimeSpan());
+
             planned.Add(new PlannedChallenge(
                 day,
                 PromptFor(prompts, day),
-
-                // Local midnight to local midnight, and the end is exclusive:
-                // a day that is 23 or 25 hours long still ends exactly where
-                // the next one begins, and no instant falls between two
-                // challenges.
-                calendar.StartOfDay(day),
-                calendar.StartOfDay(day.AddDays(1))));
+                appears,
+                calendar.StartOfDay(day.AddDays(1)),
+                appears + MomentLength));
         }
 
         return planned;
@@ -151,4 +172,25 @@ public static class ChallengeQueue
     /// </remarks>
     public static ChallengePrompt PromptFor(IReadOnlyList<ChallengePrompt> prompts, DateOnly day) =>
         prompts[day.DayNumber % prompts.Count];
+
+    /// <summary>
+    /// When a day's challenge appears: a moment between 10:00 and 20:00 that
+    /// nobody can plan for, the same for everybody (#136).
+    /// </summary>
+    /// <remarks>
+    /// Drawn from the date and nothing else, never from a random number
+    /// generator, so the queue stays a pure function: planning a day twice — or
+    /// after a week down — gives it the same moment. The mixing is a fixed
+    /// integer hash (SplitMix64's finaliser), not <c>GetHashCode</c>, which
+    /// .NET randomises per process. To the minute: nobody needs seconds.
+    /// </remarks>
+    public static TimeOnly MomentFor(DateOnly day)
+    {
+        var mixed = unchecked((ulong)day.DayNumber + 0x9E3779B97F4A7C15UL);
+        mixed = unchecked((mixed ^ (mixed >> 30)) * 0xBF58476D1CE4E5B9UL);
+        mixed = unchecked((mixed ^ (mixed >> 27)) * 0x94D049BB133111EBUL);
+        mixed ^= mixed >> 31;
+
+        return EarliestMoment.AddMinutes((int)(mixed % MomentWindowMinutes));
+    }
 }

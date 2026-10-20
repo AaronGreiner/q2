@@ -23,9 +23,12 @@ public sealed class GoalDraftConfiguration : IEntityTypeConfiguration<GoalDraft>
             .IsRequired()
             .HasMaxLength(Goal.MaxTitleLength);
 
-        builder.Property(d => d.Icon)
+        builder.Property(d => d.Category)
             .IsRequired()
-            .HasMaxLength(40);
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        builder.Ignore(d => d.Icon);
 
         builder.OwnsOne(d => d.Schedule, schedule =>
         {

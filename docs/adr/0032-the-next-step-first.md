@@ -97,6 +97,7 @@ that no photograph or vote in the thread carries their id.
 
   The reminder is stored, shown and changeable, but **nothing sends it yet**:
   there is no notification kind and no job for it. That is a separate change.
+  (Sent since [0048](0048-the-daily-reminder-is-sent.md).)
 
 ### Smaller things
 
@@ -127,4 +128,7 @@ from the server takes the sheet back to the step that holds the field.
   `ChatDetailResponse.members`) and one endpoint (`SetGoalReminder`).
 - `useFriends` no longer removes friends; `usePersonProfile.removeFriend` does.
 - Still open, each in its own issue: sending the reminder, the `GoalProgress`
-  feed kind that only the seeds produce, and awarding badges.
+  feed kind that only the seeds produce, and awarding badges. (The first two
+  are [0048](0048-the-daily-reminder-is-sent.md) and
+  [0049](0049-streak-milestones-in-the-feed.md); badges are awarded and shown
+  again since [0050](0050-categories-and-badges-that-are-earned.md).)

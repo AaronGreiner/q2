@@ -1,5 +1,5 @@
 import type { ApiFailure } from '~/api/errors'
-import type { EditGoalRequest, Goal, GoalEditPreview } from '~/api/types'
+import type { CreateGoalRequest, EditGoalRequest, Goal, GoalEditPreview, PauseAllResult } from '~/api/types'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 
 interface ArchivePayload {
@@ -46,8 +46,30 @@ export function useGoalLifecycle() {
    * {@link error} — the allowance and "one at a time" are the server's answer,
    * including their field-level messages.
    */
-  const pause = (id: string, reason: string, days: number) =>
-    run('pause', () => api.goals.pause(id, { reason, days }))
+  const pause = (id: string, reason: string, days: number, startsOn: string | null = null) =>
+    run('pause', () => api.goals.pause(id, { reason, days, ...(startsOn ? { startsOn } : {}) }))
+
+  /**
+   * Sets every running goal aside at once (#99). Returns which were and which
+   * were left out, or null with the reason in {@link error}.
+   */
+  async function pauseAll(reason: string, days: number, startsOn: string | null = null): Promise<PauseAllResult | null> {
+    if (isBusy.value) return null
+
+    isBusy.value = true
+    failure.value = null
+
+    try {
+      return await api.goals.pauseAll({ reason, days, ...(startsOn ? { startsOn } : {}) })
+    }
+    catch (caught) {
+      failure.value = report(caught, { feature: 'goals', action: 'pauseAll' })
+      return null
+    }
+    finally {
+      isBusy.value = false
+    }
+  }
 
   const endPause = (id: string) =>
     run('endPause', () => api.goals.endPause(id))
@@ -111,6 +133,7 @@ export function useGoalLifecycle() {
     isBusy: computed(() => isBusy.value),
     error: computed(() => failure.value),
     pause,
+    pauseAll,
     endPause,
     toggleVeto,
     close,
@@ -173,12 +196,39 @@ export function useGoalArchive() {
     }
   }
 
+  const isRestarting = ref(false)
+  const restartError = ref<ApiFailure | null>(null)
+
+  /**
+   * Starts an ended goal again as a new one (#102), from the request the
+   * create sheet filled from it. The ended goal stays here with its record.
+   * Returns the new goal, or null with the reason in `restartError`.
+   */
+  async function restart(request: CreateGoalRequest): Promise<Goal | null> {
+    isRestarting.value = true
+    restartError.value = null
+
+    try {
+      return await api.goals.create(request)
+    }
+    catch (caught) {
+      restartError.value = report(caught, { feature: 'goals', action: 'restart' })
+      return null
+    }
+    finally {
+      isRestarting.value = false
+    }
+  }
+
   return {
     goals: computed(() => data.value?.goals ?? []),
     error: computed(() => data.value?.failure ?? null),
     isLoading: computed(() => isFirstLoad(status.value, data.value)),
     isRemoving: computed(() => isRemoving.value),
+    isRestarting: computed(() => isRestarting.value),
+    restartError: computed(() => restartError.value),
     refresh,
     remove,
+    restart,
   }
 }

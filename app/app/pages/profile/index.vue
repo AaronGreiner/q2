@@ -5,9 +5,9 @@ import type { OwnProof } from '~/api/types'
  * Your own profile: who you are, how you are doing, and what you have delivered.
  *
  * The streak is said once, as the first of the three numbers. It used to be a
- * flame pill under the name as well, directly above the same number. The badge
- * collection is gone from here until badges are actually awarded — until then
- * it was a shelf of seeded trophies nothing in the product could earn.
+ * flame pill under the name as well, directly above the same number. The badges
+ * are back below the balance now that they are actually awarded (#22); while
+ * nothing could earn them they were a shelf of seeded trophies.
  *
  * Shares the `profile` async-data key with the layout, so the counts in the tab
  * bar and this screen come from one request.
@@ -19,7 +19,7 @@ import type { OwnProof } from '~/api/types'
 const t = useMessages()
 const now = useNow()
 
-const { profile, error, isLoading, isSaving, refresh, rename, chooseAvatar, removeAvatar } = useProfile()
+const { profile, error, isLoading, isSaving, refresh, saveProfile, chooseAvatar, removeAvatar } = useProfile()
 const { proofs, error: proofsError, isLoading: proofsLoading, refresh: refreshProofs } = useOwnProofs()
 
 /** A pull reads the whole screen again: the profile and its photographs (#19). */
@@ -45,8 +45,8 @@ const inviting = ref(false)
 
 useHead({ title: () => t.value.profile.heading })
 
-async function onSave(value: { displayName: string }) {
-  if (await rename(value.displayName)) editing.value = false
+async function onSave(value: { displayName: string, bio: string }) {
+  if (await saveProfile(value.displayName, value.bio)) editing.value = false
 }
 </script>
 
@@ -122,6 +122,13 @@ async function onSave(value: { displayName: string }) {
           <p class="text-[13px] font-semibold text-(--ui-text-muted)">
             {{ profile.person.handle }}
           </p>
+          <p
+            v-if="profile.bio"
+            class="mt-2 max-w-[32ch] text-sm font-semibold whitespace-pre-line"
+            data-testid="profile-bio-text"
+          >
+            {{ profile.bio }}
+          </p>
         </section>
 
         <dl
@@ -170,6 +177,11 @@ async function onSave(value: { displayName: string }) {
         <BalanceCard
           class="mt-3"
           :balance="profile.balance"
+        />
+
+        <BadgeGrid
+          class="mt-6"
+          :badges="profile.badges"
         />
 
         <section
@@ -279,6 +291,7 @@ async function onSave(value: { displayName: string }) {
       <ProfileEditor
         v-model:open="editing"
         :person="profile.person"
+        :bio="profile.bio ?? null"
         :submitting="isSaving"
         @save="onSave"
         @photo="image => chooseAvatar(image.id)"

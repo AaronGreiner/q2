@@ -107,7 +107,7 @@ public class GoalScheduleTests
         var schedule = GoalSchedule.TimesPer(3, QuotaPeriod.Week);
 
         // Asked on the Thursday of that week.
-        var window = schedule.FirstWindow(Monday.AddDays(3), dueOn: null);
+        var window = schedule.WindowAround(Monday.AddDays(3), dueOn: null);
 
         Assert.Equal(Monday, window.Start);
         Assert.Equal(Monday.AddDays(6), window.End);
@@ -123,7 +123,7 @@ public class GoalScheduleTests
     {
         var schedule = GoalSchedule.TimesPer(2, QuotaPeriod.Month);
 
-        var february = schedule.FirstWindow(new DateOnly(2028, 2, 14), dueOn: null);
+        var february = schedule.WindowAround(new DateOnly(2028, 2, 14), dueOn: null);
 
         Assert.Equal(new DateOnly(2028, 2, 1), february.Start);
 
@@ -133,6 +133,58 @@ public class GoalScheduleTests
         var march = schedule.NextWindow(february.End);
         Assert.Equal(new DateOnly(2028, 3, 1), march!.Value.Start);
         Assert.Equal(new DateOnly(2028, 3, 31), march.Value.End);
+    }
+
+    /// <summary>
+    /// A new goal's first window never asks for what the days left cannot hold
+    /// (#96): a quota started late in its period is cut to begin that day and
+    /// asks for its share, rounded up, at least one.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(3, 2)]
+    [InlineData(6, 1)]
+    public void AFirstQuotaWindowStartsWithTheGoalAndAsksForItsShare(int daysIntoWeek, int required)
+    {
+        var start = Monday.AddDays(daysIntoWeek);
+        var window = GoalSchedule.TimesPer(3, QuotaPeriod.Week).FirstWindow(start, dueOn: null);
+
+        Assert.Equal(start, window.Start);
+        Assert.Equal(Monday.AddDays(6), window.End);
+        Assert.Equal(required, window.RequiredProofs);
+    }
+
+    [Fact]
+    public void AFirstMonthlyWindowOnTheLastDaysAsksForOne()
+    {
+        var window = GoalSchedule.TimesPer(2, QuotaPeriod.Month).FirstWindow(new DateOnly(2028, 2, 28), dueOn: null);
+
+        Assert.Equal(new DateOnly(2028, 2, 28), window.Start);
+        Assert.Equal(new DateOnly(2028, 2, 29), window.End);
+        Assert.Equal(1, window.RequiredProofs);
+    }
+
+    [Fact]
+    public void AFirstDontPeriodStartsWithTheGoalToo()
+    {
+        // Its limit is scaled to the days by the goal that opens it (DontTests).
+        var sunday = Monday.AddDays(6);
+        var window = GoalSchedule.Per(QuotaPeriod.Week).FirstWindow(sunday, dueOn: null);
+
+        Assert.Equal(sunday, window.Start);
+        Assert.Equal(sunday, window.End);
+    }
+
+    [Fact]
+    public void AGoalStartedTomorrowHasItsWholeFirstDayTomorrow()
+    {
+        var tomorrow = Monday.AddDays(1);
+
+        Assert.Equal(tomorrow, GoalSchedule.EveryNDays(1).FirstWindow(tomorrow, dueOn: null).Start);
+
+        // Sunday evening, "ab morgen": the whole next week, all three.
+        var week = GoalSchedule.TimesPer(3, QuotaPeriod.Week).FirstWindow(Monday.AddDays(7), dueOn: null);
+        Assert.Equal(3, week.RequiredProofs);
     }
 
     /// <summary>
@@ -175,7 +227,7 @@ public class GoalScheduleTests
     [MemberData(nameof(RepeatingSchedules))]
     public void SteppingBackAndForwardIsARoundTrip(GoalSchedule schedule)
     {
-        var current = schedule.FirstWindow(Monday.AddDays(3), dueOn: null);
+        var current = schedule.WindowAround(Monday.AddDays(3), dueOn: null);
 
         var previous = schedule.PreviousWindow(current.Start);
         Assert.NotNull(previous);

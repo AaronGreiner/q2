@@ -33,7 +33,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         build.AddGoal(
             "Zehn Kilometer am Stück",
             "Schon erreicht — der abgeschlossene Zustand.",
-            "trophy",
+            GoalCategory.Sport,
             GoalSchedule.Once(),
             createdDaysAgo: 90,
             confirmedNow: 1,
@@ -43,7 +43,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         build.AddGoal(
             "Jeden Sonntag Meal Prep",
             "Mehrere Fenster hintereinander verpasst — die gerissene Kette.",
-            "calendar",
+            GoalCategory.Other,
             GoalSchedule.OnWeekdays([Weekday.Sunday]),
             createdDaysAgo: 120,
             history: "ddmmm",
@@ -52,7 +52,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         var archived = build.AddGoal(
             "Kalt duschen",
             "Beiseitegelegt, aber nicht gelöscht — der archivierte Zustand.",
-            "droplet",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 150,
             history: "dd",
@@ -62,7 +62,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         var completed = build.AddGoal(
             "Dry January",
             "Durchgezogen und abgeschlossen — der andere Ausgang.",
-            "medal",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 90,
             history: "dddd",
@@ -74,7 +74,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         build.AddGoal(
             "Eine ziemlich lange Zielbezeichnung, die auf einem schmalen Telefon sicher umbricht",
             null,
-            "target",
+            GoalCategory.Other,
             GoalSchedule.EveryNDays(1),
             createdDaysAgo: 3,
             participants: [cast.Jonas, cast.Lena, cast.Tom, cast.Sarah, cast.David]);
@@ -83,7 +83,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         build.AddGoal(
             "Krafttraining alle zwei Tage",
             null,
-            "flame",
+            GoalCategory.Sport,
             GoalSchedule.EveryNDays(2),
             createdDaysAgo: 30,
             history: "dddmd",
@@ -93,7 +93,7 @@ public sealed class ManualTestingSeed : ISeedDataSource
         build.AddGoal(
             "Zweimal im Monat wandern",
             null,
-            "sunrise",
+            GoalCategory.Sport,
             GoalSchedule.TimesPer(2, QuotaPeriod.Month),
             createdDaysAgo: 120,
             history: "dd",

@@ -79,6 +79,13 @@ public static class GoalEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // Before the id routes, so "pauses" is never read as an id.
+        goals.MapPost("/pauses", PauseAll)
+            .WithName("PauseAllGoals")
+            .WithSummary("Sets every running goal of yours aside at once, with one reason and one length.")
+            .Produces<PauseAllResponse>()
+            .ProducesValidationProblem();
+
         goals.MapPost("/{id:guid}/pause", PauseGoal)
             .WithName("PauseGoal")
             .WithSummary("Sets a goal aside for whole days, with a reason its friends read.")
@@ -242,6 +249,21 @@ public static class GoalEndpoints
         }
 
         return TypedResults.Ok(await goals.PauseAsync(id, request, cancellationToken));
+    }
+
+    private static async Task<Results<Ok<PauseAllResponse>, ValidationProblem>> PauseAll(
+        GoalService goals,
+        RequestPauseRequest request,
+        CancellationToken cancellationToken)
+    {
+        var errors = RequestPauseValidator.Validate(request);
+
+        if (errors.Count > 0)
+        {
+            return errors.ToProblem();
+        }
+
+        return TypedResults.Ok(await goals.PauseAllAsync(request, cancellationToken));
     }
 
     private static async Task<Ok<GoalResponse>> EndPause(

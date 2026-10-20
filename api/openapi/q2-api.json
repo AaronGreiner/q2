@@ -1291,6 +1291,47 @@
         }
       }
     },
+    "/api/goals/pauses": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "Sets every running goal of yours aside at once, with one reason and one length.",
+        "operationId": "PauseAllGoals",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPauseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PauseAllResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/goals/{id}/pause": {
       "post": {
         "tags": [
@@ -3972,7 +4013,6 @@
         "enum": [
           "TaskCompleted",
           "StreakReached",
-          "GoalProgress",
           "GoalCreated"
         ]
       },
@@ -4105,6 +4145,19 @@
                 "$ref": "#/components/schemas/VoteValue"
               }
             ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/DoubtReason"
+              }
+            ]
           }
         }
       },
@@ -4131,7 +4184,8 @@
           "source",
           "createdAt",
           "isMine",
-          "reactions"
+          "reactions",
+          "isLate"
         ],
         "type": "object",
         "properties": {
@@ -4162,6 +4216,9 @@
             "items": {
               "$ref": "#/components/schemas/ReactionSummaryResponse"
             }
+          },
+          "isLate": {
+            "type": "boolean"
           }
         }
       },
@@ -4170,7 +4227,8 @@
           "id",
           "prompt",
           "publishedAt",
-          "expiresAt"
+          "expiresAt",
+          "momentEndsAt"
         ],
         "type": "object",
         "properties": {
@@ -4188,6 +4246,11 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "momentEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         }
       },
@@ -4742,9 +4805,18 @@
             "type": "string",
             "nullable": true
           },
-          "icon": {
-            "type": "string",
-            "nullable": true
+          "category": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalCategory"
+              }
+            ]
           },
           "schedule": {
             "oneOf": [
@@ -4811,6 +4883,11 @@
                 "$ref": "#/components/schemas/DontProofMode"
               }
             ]
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
           }
         }
       },
@@ -4909,6 +4986,30 @@
           null
         ]
       },
+      "DoubtReason": {
+        "enum": [
+          "NotWhatWasPromised",
+          "OldPicture",
+          "Unrecognisable",
+          null
+        ]
+      },
+      "DoubtReasonCountResponse": {
+        "required": [
+          "reason",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/DoubtReason"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "EditGoalRequest": {
         "type": "object",
         "properties": {
@@ -4920,9 +5021,18 @@
             "type": "string",
             "nullable": true
           },
-          "icon": {
-            "type": "string",
-            "nullable": true
+          "category": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalCategory"
+              }
+            ]
           },
           "schedule": {
             "oneOf": [
@@ -5115,6 +5225,15 @@
           "Self"
         ]
       },
+      "GoalCategory": {
+        "enum": [
+          "Sport",
+          "Learning",
+          "Reading",
+          "Mindfulness",
+          "Other"
+        ]
+      },
       "GoalChangeResponse": {
         "required": [
           "id",
@@ -5126,8 +5245,8 @@
           "resolvedAt",
           "titleFrom",
           "titleTo",
-          "iconFrom",
-          "iconTo",
+          "categoryFrom",
+          "categoryTo",
           "descriptionChanged",
           "descriptionTo",
           "scheduleFrom",
@@ -5184,13 +5303,31 @@
             "type": "string",
             "nullable": true
           },
-          "iconFrom": {
-            "type": "string",
-            "nullable": true
+          "categoryFrom": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalCategory"
+              }
+            ]
           },
-          "iconTo": {
-            "type": "string",
-            "nullable": true
+          "categoryTo": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalCategory"
+              }
+            ]
           },
           "descriptionChanged": {
             "type": "boolean"
@@ -5344,6 +5481,7 @@
         "required": [
           "id",
           "title",
+          "category",
           "icon",
           "schedule",
           "reminderAt",
@@ -5357,6 +5495,9 @@
           },
           "title": {
             "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/GoalCategory"
           },
           "icon": {
             "type": "string"
@@ -5697,6 +5838,7 @@
           "id",
           "title",
           "description",
+          "category",
           "icon",
           "schedule",
           "status",
@@ -5712,6 +5854,7 @@
           "runStartedOn",
           "reminderAt",
           "targetDate",
+          "startsOn",
           "createdAt",
           "closedAt",
           "participants",
@@ -5722,7 +5865,8 @@
           "pause",
           "remainingPauses",
           "spotCheck",
-          "pendingChange"
+          "pendingChange",
+          "plannedPause"
         ],
         "type": "object",
         "properties": {
@@ -5736,6 +5880,9 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "category": {
+            "$ref": "#/components/schemas/GoalCategory"
           },
           "icon": {
             "type": "string"
@@ -5810,6 +5957,11 @@
             "nullable": true
           },
           "targetDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "startsOn": {
             "type": "string",
             "format": "date",
             "nullable": true
@@ -5892,6 +6044,19 @@
               },
               {
                 "$ref": "#/components/schemas/GoalChangeResponse"
+              }
+            ]
+          },
+          "plannedPause": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalPauseResponse"
               }
             ]
           }
@@ -6289,7 +6454,8 @@
           "ChallengePublished",
           "SpotCheckDue",
           "GoalChangeProposed",
-          "GoalChangeLifted"
+          "GoalChangeLifted",
+          "ReminderDue"
         ]
       },
       "NotificationResponse": {
@@ -6374,6 +6540,10 @@
                 "$ref": "#/components/schemas/LanguagePreference"
               }
             ]
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -6389,7 +6559,8 @@
           "challenge",
           "quietHoursFrom",
           "quietHoursTo",
-          "spotChecks"
+          "spotChecks",
+          "reminders"
         ],
         "type": "object",
         "properties": {
@@ -6428,6 +6599,9 @@
             "nullable": true
           },
           "spotChecks": {
+            "type": "boolean"
+          },
+          "reminders": {
             "type": "boolean"
           }
         }
@@ -6524,9 +6698,62 @@
           }
         }
       },
+      "PauseAllResponse": {
+        "required": [
+          "paused",
+          "skipped"
+        ],
+        "type": "object",
+        "properties": {
+          "paused": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PauseSkipResponse"
+            }
+          }
+        }
+      },
+      "PauseRefusal": {
+        "enum": [
+          "Stopped",
+          "OutOfRange",
+          "AlreadyPaused",
+          "NoneLeft",
+          "SpotCheckOpen",
+          "VoteRunning"
+        ]
+      },
+      "PauseSkipResponse": {
+        "required": [
+          "goalId",
+          "title",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "goalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PauseRefusal"
+          }
+        }
+      },
       "PersonProfileResponse": {
         "required": [
           "person",
+          "bio",
           "state",
           "streak",
           "kudosReceived",
@@ -6538,6 +6765,10 @@
         "properties": {
           "person": {
             "$ref": "#/components/schemas/PersonSummary"
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true
           },
           "state": {
             "$ref": "#/components/schemas/FriendshipState"
@@ -6661,6 +6892,7 @@
       "ProfileResponse": {
         "required": [
           "person",
+          "bio",
           "streak",
           "kudosReceived",
           "goalsCompleted",
@@ -6673,6 +6905,10 @@
         "properties": {
           "person": {
             "$ref": "#/components/schemas/PersonSummary"
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true
           },
           "streak": {
             "type": "integer",
@@ -6900,6 +7136,10 @@
           "inviteCode": {
             "type": "string",
             "nullable": true
+          },
+          "timeZone": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -6949,6 +7189,11 @@
           "days": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date",
             "nullable": true
           }
         }
@@ -7005,9 +7250,18 @@
             "type": "string",
             "nullable": true
           },
-          "icon": {
-            "type": "string",
-            "nullable": true
+          "category": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/GoalCategory"
+              }
+            ]
           },
           "schedule": {
             "oneOf": [
@@ -7072,7 +7326,9 @@
         "required": [
           "person",
           "email",
-          "isOnboarded"
+          "isOnboarded",
+          "timeZone",
+          "utcOffsetMinutes"
         ],
         "type": "object",
         "properties": {
@@ -7084,6 +7340,13 @@
           },
           "isOnboarded": {
             "type": "boolean"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "utcOffsetMinutes": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -7101,7 +7364,8 @@
         "required": [
           "theme",
           "language",
-          "notifications"
+          "notifications",
+          "timeZone"
         ],
         "type": "object",
         "properties": {
@@ -7113,6 +7377,9 @@
           },
           "notifications": {
             "$ref": "#/components/schemas/NotificationSettingsResponse"
+          },
+          "timeZone": {
+            "type": "string"
           }
         }
       },
@@ -7299,6 +7566,10 @@
           "spotChecks": {
             "type": "boolean",
             "nullable": true
+          },
+          "reminders": {
+            "type": "boolean",
+            "nullable": true
           }
         }
       },
@@ -7312,6 +7583,10 @@
           "avatarImageId": {
             "type": "string",
             "format": "uuid",
+            "nullable": true
+          },
+          "bio": {
+            "type": "string",
             "nullable": true
           }
         }
@@ -7357,6 +7632,10 @@
                 "$ref": "#/components/schemas/UpdateNotificationSettingsRequest"
               }
             ]
+          },
+          "timeZone": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -7367,7 +7646,9 @@
           "confirmedBy",
           "myVote",
           "canIVote",
-          "doubtCanRefuse"
+          "doubtCanRefuse",
+          "myDoubtReason",
+          "doubtReasons"
         ],
         "type": "object",
         "properties": {
@@ -7403,6 +7684,25 @@
           },
           "doubtCanRefuse": {
             "type": "boolean"
+          },
+          "myDoubtReason": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/DoubtReason"
+              }
+            ]
+          },
+          "doubtReasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoubtReasonCountResponse"
+            }
           }
         }
       },

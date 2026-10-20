@@ -94,4 +94,16 @@ public class LocalCalendarTests
             return null;
         }
     }
+
+    [Theory]
+    [InlineData("Europe/Berlin", true)]
+    [InlineData("America/New_York", true)]
+    [InlineData("UTC", true)]
+    [InlineData("Europe/Atlantis", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void OnlyAZoneThePlatformKnowsIsAccepted(string? zone, bool known)
+    {
+        Assert.Equal(known, TimeZoneResolver.IsKnown(zone));
+    }
 }

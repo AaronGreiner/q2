@@ -40,6 +40,7 @@ function entry(overrides: Partial<ChallengeEntry> = {}): ChallengeEntry {
     createdAt: '2026-06-15T09:00:00+00:00',
     isMine: false,
     reactions: [],
+    isLate: false,
     ...overrides,
   }
 }
@@ -264,6 +265,18 @@ describe('ChallengeCard', () => {
 })
 
 describe('ChallengeStripTile', () => {
+  it('says a contribution after the moment is late, and nothing about one in time (#136)', async () => {
+    const late = await mountSuspended(ChallengeStripTile, {
+      props: { entry: entry({ isLate: true }), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },
+    })
+    expect(late.get('[data-testid="challenge-tile-late"]').text()).toBe('zu spät')
+
+    const inTime = await mountSuspended(ChallengeStripTile, {
+      props: { entry: entry(), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },
+    })
+    expect(inTime.find('[data-testid="challenge-tile-late"]').exists()).toBe(false)
+  })
+
   it('opens an uncovered picture full screen, with the prompt and whose it is', async () => {
     const wrapper = await mountSuspended(ChallengeStripTile, {
       props: { entry: entry(), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },

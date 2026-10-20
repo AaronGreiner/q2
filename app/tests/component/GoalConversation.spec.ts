@@ -74,7 +74,7 @@ function proof(overrides: Partial<Proof> = {}): Proof {
     source: 'Live',
     createdAt: '2026-06-15T09:00:00+00:00',
     expiresAt: '2026-06-15T21:00:00+00:00',
-    votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false, doubtCanRefuse: true },
+    votes: { confirmCount: 1, doubtCount: 0, confirmedBy: [], myVote: 'Confirm', canIVote: false, doubtCanRefuse: true, myDoubtReason: null, doubtReasons: [] },
     reactions: [],
     ...overrides,
   }

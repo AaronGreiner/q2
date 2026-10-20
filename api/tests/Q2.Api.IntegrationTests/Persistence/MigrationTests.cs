@@ -61,7 +61,7 @@ public class MigrationTests
         await using (var context = database.CreateContext())
         {
             var goal = Goal.Create(
-                id, person.Id, "Written after migrating", null, "medal",
+                id, person.Id, "Written after migrating", null, GoalCategory.Sport,
                 GoalSchedule.TimesPer(3, QuotaPeriod.Week), isGroup: false,
                 reminderAt: new TimeOnly(18, 0), targetDate: null, Q2ApiFactory.Now);
             goal.AddParticipant(Guid.CreateVersion7(), participant.Id);

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence;
 using Q2.Api.Infrastructure.Time;
 
@@ -38,6 +39,28 @@ public sealed class ActivityRecorder(Q2DbContext database, IIdGenerator idGenera
             sourceId);
 
         database.ActivityEvents.Add(activity);
+    }
+
+    /// <summary>
+    /// Adds a line for every streak milestone <paramref name="person"/>'s
+    /// check-ins in this unit of work reached (<see cref="StreakMilestones"/>).
+    /// </summary>
+    /// <remarks>
+    /// Called by whoever saved the check-in — a vote that settled a
+    /// photograph, or a goal advanced with its owner in hand — because the
+    /// check-in itself is written inside pure code that publishes nothing.
+    /// </remarks>
+    public void PublishStreakMilestones(Person person, DateTimeOffset occurredAt)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+
+        foreach (var growth in person.TakeStreakGrowth())
+        {
+            if (StreakMilestones.ReachedBy(growth) is { } days)
+            {
+                Publish(person.Id, ActivityKind.StreakReached, null, days, occurredAt);
+            }
+        }
     }
 
     /// <summary>
