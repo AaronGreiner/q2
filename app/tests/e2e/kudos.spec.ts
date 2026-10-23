@@ -325,14 +325,21 @@ test.describe('goals', () => {
     // the week — before anything is committed.
     await expect(page.getByTestId('goal-create-review')).toContainText(title)
     // How many and until when (#96) — how many depends on the weekday it runs on.
-    await expect(page.getByTestId('goal-first-window')).toContainText(/Dein erstes Fenster: \d Nachweise? bis/)
+    const firstWindow = page.getByTestId('goal-first-window')
+    await expect(firstWindow).toContainText(/Dein erstes Fenster: \d Nachweise? bis/)
+
+    // Three a week, cut to the days left (ADR 0051): three from Monday to
+    // Wednesday, two on Thursday and Friday, one at the weekend. The card has
+    // to ask for what the summary promised, whichever day this runs on (#144).
+    const required = /Dein erstes Fenster: (\d) Nachweis/.exec(await firstWindow.innerText())?.[1]
+    expect(required).toMatch(/^[123]$/)
 
     await page.getByTestId('goal-submit').click()
 
     // Due this week, so it is among your own with its camera (#77).
     const created = goalLink(page, title)
     await expect(created).toContainText('3× pro Woche')
-    await expect(created.getByTestId('window-remaining')).toContainText('Noch 3 von 3')
+    await expect(created.getByTestId('window-remaining')).toContainText(`Noch ${required} von ${required}`)
   })
 
   test('a goal can be due on named weekdays, which the old model could not say', async ({ page }) => {
