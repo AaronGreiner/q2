@@ -289,11 +289,12 @@ public sealed class ImageService(
         if (image.Purpose == ImagePurpose.Proof)
         {
             // Every part of the proof has its audience: the photograph or clip,
-            // the front camera's picture beside it, and a clip's still.
+            // the front camera's picture or clip beside it, and each clip's still.
             var asProof = await database.ProofPhotos
                 .AsNoTracking()
                 .AnyAsync(
-                    proof => (proof.ImageId == image.Id || proof.InsetImageId == image.Id || proof.PosterImageId == image.Id)
+                    proof => (proof.ImageId == image.Id || proof.InsetImageId == image.Id || proof.PosterImageId == image.Id
+                            || proof.InsetPosterImageId == image.Id)
                         && database.Goals.Any(goal =>
                             goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
                             && (goal.OwnerPersonId == viewerId

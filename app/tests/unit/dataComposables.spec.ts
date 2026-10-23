@@ -924,14 +924,14 @@ describe('proof composables', () => {
     const delivery = useProofDelivery()
 
     await expect(delivery.deliver('goal-1', captured('image-1', 'camera'))).resolves.toEqual({ status: 'moved' })
-    expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', { imageId: 'image-1', posterImageId: null, insetImageId: null }, 'Live')
+    expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', { imageId: 'image-1', posterImageId: null, insetImageId: null, insetPosterImageId: null }, 'Live')
     expect(navigateTo).toHaveBeenCalledWith('/chats/chat-9')
 
     // A goal nobody shares and with no conversation has nobody to ask, so it
     // comes back believed — and a toast is the one place left to say so.
     api.proofs.submit.mockResolvedValueOnce({ proof: { id: 'proof-10', status: 'Confirmed' }, conversationId: null })
     await expect(delivery.deliver('goal-1', captured('image-2', 'library'))).resolves.toEqual({ status: 'stayed' })
-    expect(api.proofs.submit).toHaveBeenLastCalledWith('goal-1', { imageId: 'image-2', posterImageId: null, insetImageId: null }, 'Screenshot')
+    expect(api.proofs.submit).toHaveBeenLastCalledWith('goal-1', { imageId: 'image-2', posterImageId: null, insetImageId: null, insetPosterImageId: null }, 'Screenshot')
     expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
   })
 

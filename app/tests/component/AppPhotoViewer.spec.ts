@@ -43,7 +43,7 @@ describe('AppPhotoViewer', () => {
 
     const dialog = wrapper.get('[data-testid="photo-viewer"]')
     expect(dialog.attributes('role')).toBe('dialog')
-    expect(wrapper.get('[data-testid="photo-viewer-image"]').attributes('crossorigin')).toBe('use-credentials')
+    expect(wrapper.get('[data-testid="proof-image"]').attributes('crossorigin')).toBe('use-credentials')
 
     const info = wrapper.get('[data-testid="photo-viewer-info"]').text()
     expect(info).toContain('Zeig deinen Arbeitsplatz.')
@@ -51,7 +51,7 @@ describe('AppPhotoViewer', () => {
 
     // Somebody's photograph and name, so neither reaches Session Replay — the
     // picture blocked as a whole, as everywhere else it is drawn (#126).
-    expect(wrapper.get('[data-testid="photo-viewer-image"]').element.closest('[data-q2-block]')).not.toBeNull()
+    expect(wrapper.get('[data-testid="proof-image"]').element.closest('[data-q2-block]')).not.toBeNull()
     expect(wrapper.get('[data-testid="photo-viewer-info"] p').attributes()).toHaveProperty('data-q2-private')
   })
 
@@ -76,7 +76,7 @@ describe('AppPhotoViewer', () => {
 
     viewer.open({ imageId: 'image-1' })
     await nextTick()
-    const surface = wrapper.get('[data-testid="photo-viewer-image"]').element.parentElement!
+    const surface = wrapper.get('[data-testid="proof-image"]').element.parentElement!
     const at = (type: string, y: number) =>
       surface.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX: 100, clientY: y, bubbles: true }))
 
@@ -98,7 +98,7 @@ describe('AppPhotoViewer', () => {
 
     usePhotoViewer().open({ imageId: 'image-1', title: 'Jeden Tag lesen' })
     await nextTick()
-    const image = () => wrapper.get('[data-testid="photo-viewer-image"]')
+    const image = () => wrapper.get('[data-testid="proof-image"]')
     const surface = image().element.parentElement!
     const pointer = (type: string, id: number, x: number) =>
       surface.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: 200, bubbles: true }))

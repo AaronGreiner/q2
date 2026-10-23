@@ -24,9 +24,25 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
 
     private sealed record QuotaDocument(long BytesUsed, long ByteLimit, long VideoBytesUsed, long VideoByteLimit, int VideoMaxBytes, int VideoMaxSeconds);
 
-    private sealed record OwnProofDocument(Guid Id, Guid ImageId, MediaKind Media, Guid? PosterImageId, Guid? InsetImageId, ProofSource Source);
+    private sealed record OwnProofDocument(
+        Guid Id,
+        Guid ImageId,
+        MediaKind Media,
+        Guid? PosterImageId,
+        Guid? InsetImageId,
+        MediaKind? InsetMedia,
+        Guid? InsetPosterImageId,
+        ProofSource Source);
 
-    private sealed record ChatPhotoDocument(Guid Id, Guid ImageId, bool IsProof, MediaKind Media, Guid? PosterImageId, Guid? InsetImageId);
+    private sealed record ChatPhotoDocument(
+        Guid Id,
+        Guid ImageId,
+        bool IsProof,
+        MediaKind Media,
+        Guid? PosterImageId,
+        Guid? InsetImageId,
+        MediaKind? InsetMedia,
+        Guid? InsetPosterImageId);
 
     [Fact]
     public async Task AClipIsStoredAsAProofWithTheLengthItsHeadersGive()
@@ -236,8 +252,93 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
         Assert.Equal(MediaKind.Video, proof.Media);
         Assert.Equal(still, proof.PosterImageId);
         Assert.Equal(front, proof.InsetImageId);
+        Assert.Equal(MediaKind.Photo, proof.InsetMedia);
+        Assert.Null(proof.InsetPosterImageId);
 
         await AssertOnlyTheGoalsPeopleSeeAsync(clip, still, front);
+    }
+
+    /// <summary>
+    /// Both cameras filmed at once (#151): the front camera is a clip of its
+    /// own, read as one off its bytes, with its own still — and every one of
+    /// the four has exactly the proof's audience.
+    /// </summary>
+    [Fact]
+    public async Task TwoClipsFilmedAtOnceAreDeliveredWithTheirStills()
+    {
+        var clip = await Client.UploadProofVideoAsync();
+        var still = await Client.UploadProofImageAsync();
+        var frontClip = await Client.UploadProofVideoAsync();
+        var frontStill = await Client.UploadProofImageAsync();
+
+        var proof = await DeliverAsync(new
+        {
+            imageId = clip,
+            posterImageId = still,
+            insetImageId = frontClip,
+            insetPosterImageId = frontStill,
+            source = ProofSource.Live,
+        });
+
+        Assert.Equal(MediaKind.Video, proof.Media);
+        Assert.Equal(frontClip, proof.InsetImageId);
+        Assert.Equal(MediaKind.Video, proof.InsetMedia);
+        Assert.Equal(frontStill, proof.InsetPosterImageId);
+
+        await AssertOnlyTheGoalsPeopleSeeAsync(clip, still, frontClip, frontStill);
+    }
+
+    [Fact]
+    public async Task AFrontClipBesideAPhotographIsRefused()
+    {
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/proof",
+            new
+            {
+                imageId = await Client.UploadProofImageAsync(),
+                insetImageId = await Client.UploadProofVideoAsync(),
+                insetPosterImageId = await Client.UploadProofImageAsync(),
+                source = ProofSource.Live,
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AFrontClipWithoutAStillIsRefused()
+    {
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/proof",
+            new
+            {
+                imageId = await Client.UploadProofVideoAsync(),
+                posterImageId = await Client.UploadProofImageAsync(),
+                insetImageId = await Client.UploadProofVideoAsync(),
+                source = ProofSource.Live,
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AFrontStillHasToBeAPhotographOfAFrontClip(bool frontIsClip)
+    {
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{AutomatedTestSeed.ActiveGoalId}/proof",
+            new
+            {
+                imageId = await Client.UploadProofVideoAsync(),
+                posterImageId = await Client.UploadProofImageAsync(),
+                insetImageId = frontIsClip ? await Client.UploadProofVideoAsync() : await Client.UploadProofImageAsync(),
+
+                // A clip as the still of a front clip; any still beside a front photograph.
+                insetPosterImageId = frontIsClip ? await Client.UploadProofVideoAsync() : await Client.UploadProofImageAsync(),
+                source = ProofSource.Live,
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -277,8 +378,16 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
     {
         var clip = await Client.UploadProofVideoAsync();
         var still = await Client.UploadProofImageAsync();
-        var front = await Client.UploadProofImageAsync();
-        var proof = await DeliverAsync(new { imageId = clip, posterImageId = still, insetImageId = front, source = ProofSource.Live });
+        var front = await Client.UploadProofVideoAsync();
+        var frontStill = await Client.UploadProofImageAsync();
+        var proof = await DeliverAsync(new
+        {
+            imageId = clip,
+            posterImageId = still,
+            insetImageId = front,
+            insetPosterImageId = frontStill,
+            source = ProofSource.Live,
+        });
 
         var mine = await (await Client.GetAsync("/api/proofs/mine", TestContext.Current.CancellationToken))
             .ReadAsync<IReadOnlyList<OwnProofDocument>>();
@@ -286,6 +395,8 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
         Assert.Equal(MediaKind.Video, tile.Media);
         Assert.Equal(still, tile.PosterImageId);
         Assert.Equal(front, tile.InsetImageId);
+        Assert.Equal(MediaKind.Video, tile.InsetMedia);
+        Assert.Equal(frontStill, tile.InsetPosterImageId);
 
         var friend = await ClientForAsync(AutomatedTestSeed.FriendEmail);
         var grid = await (await friend.GetAsync(
@@ -297,6 +408,8 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
         Assert.Equal(MediaKind.Video, cell.Media);
         Assert.Equal(still, cell.PosterImageId);
         Assert.Equal(front, cell.InsetImageId);
+        Assert.Equal(MediaKind.Video, cell.InsetMedia);
+        Assert.Equal(frontStill, cell.InsetPosterImageId);
     }
 
     /// <summary>
@@ -308,15 +421,23 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
     {
         var clip = await Client.UploadProofVideoAsync();
         var still = await Client.UploadProofImageAsync();
-        var front = await Client.UploadProofImageAsync();
-        await DeliverAsync(new { imageId = clip, posterImageId = still, insetImageId = front, source = ProofSource.Live });
+        var front = await Client.UploadProofVideoAsync();
+        var frontStill = await Client.UploadProofImageAsync();
+        await DeliverAsync(new
+        {
+            imageId = clip,
+            posterImageId = still,
+            insetImageId = front,
+            insetPosterImageId = frontStill,
+            source = ProofSource.Live,
+        });
 
         (await Client.PostJsonAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}/close", new { completed = true }))
             .EnsureSuccessStatusCode();
         (await Client.DeleteAsync($"/api/goals/{AutomatedTestSeed.ActiveGoalId}", TestContext.Current.CancellationToken))
             .EnsureSuccessStatusCode();
 
-        foreach (var id in new[] { clip, still, front })
+        foreach (var id in new[] { clip, still, front, frontStill })
         {
             var response = await Client.GetAsync($"/api/images/{id}", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);

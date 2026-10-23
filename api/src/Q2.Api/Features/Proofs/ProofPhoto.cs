@@ -46,7 +46,8 @@ public enum ProofStatus
 /// It is still called a photograph, but since #124 and #125 it may be more
 /// than one: the main picture can be a short clip (<see cref="Media"/>, with a
 /// still to show before it plays), and beside it there can be the front
-/// camera's picture of whoever took it (<see cref="InsetImageId"/>). Both only
+/// camera's picture of whoever took it (<see cref="InsetImageId"/>) — or, where
+/// both cameras filmed at once, the front camera's own clip (#151). Both only
 /// ever come from the app's camera, which is why either one requires
 /// <see cref="ProofSource.Live"/> (docs/adr/0060-video-and-both-cameras.md).
 /// </remarks>
@@ -80,6 +81,8 @@ public sealed class ProofPhoto
         Media = parts.Media;
         PosterImageId = parts.PosterImageId;
         InsetImageId = parts.InsetImageId;
+        InsetMedia = parts.InsetImageId is null ? null : parts.InsetMedia;
+        InsetPosterImageId = parts.InsetPosterImageId;
         CreatedAt = createdAt;
         VotingDeadline = votingDeadline;
     }
@@ -113,6 +116,15 @@ public sealed class ProofPhoto
     /// (#125). Null when only one camera was used.
     /// </summary>
     public Guid? InsetImageId { get; private set; }
+
+    /// <summary>
+    /// Whether <see cref="InsetImageId"/> is a photograph or a clip filmed at
+    /// the same moment as the main one (#151). Null without a front picture.
+    /// </summary>
+    public MediaKind? InsetMedia { get; private set; }
+
+    /// <summary>For a front clip: a still from it, as <see cref="PosterImageId"/> is for the main one.</summary>
+    public Guid? InsetPosterImageId { get; private set; }
 
     public ProofStatus Status { get; private set; } = ProofStatus.Voting;
 
@@ -153,7 +165,7 @@ public sealed class ProofPhoto
     /// </summary>
     /// <param name="parts">
     /// Whether the main picture is a clip, its still, and the front camera's
-    /// picture. Left out, it is a single photograph.
+    /// picture or clip. Left out, it is a single photograph.
     /// </param>
     /// <exception cref="DomainValidationException">
     /// The attempt is outside what the rules allow, or the parts do not fit

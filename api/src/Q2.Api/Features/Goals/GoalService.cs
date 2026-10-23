@@ -968,10 +968,10 @@ public sealed class GoalService(
         }
 
         // Every part of every proof: the photograph or clip, a clip's still
-        // and the front camera's picture.
+        // and the front camera's picture or clip with its still.
         var imageIds = goal.Instances
             .SelectMany(instance => instance.Proofs)
-            .SelectMany(proof => new[] { proof.ImageId, proof.PosterImageId, proof.InsetImageId })
+            .SelectMany(proof => new[] { proof.ImageId, proof.PosterImageId, proof.InsetImageId, proof.InsetPosterImageId })
             .OfType<Guid>()
             .Distinct()
             .ToList();

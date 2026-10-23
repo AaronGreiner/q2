@@ -1252,6 +1252,13 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("InsetImageId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("InsetMedia")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InsetPosterImageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Media")
                         .IsRequired()
                         .HasMaxLength(16)

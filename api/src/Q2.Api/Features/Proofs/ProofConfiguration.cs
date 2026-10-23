@@ -35,6 +35,13 @@ public sealed class ProofPhotoConfiguration : IEntityTypeConfiguration<ProofPhot
         // keeps its outcome (ProofService.ListOwnAsync).
         builder.Property(proof => proof.PosterImageId);
         builder.Property(proof => proof.InsetImageId);
+        builder.Property(proof => proof.InsetPosterImageId);
+
+        // Null without a front picture; every front picture before #151 was a
+        // photograph, which is what the migration fills in for them.
+        builder.Property(proof => proof.InsetMedia)
+            .HasMaxLength(16)
+            .HasConversion<string>();
 
         builder.Property(proof => proof.CreatedAt)
             .IsRequired()

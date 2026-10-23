@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { proofMediaOf } from '~/utils/proofMedia'
+
 /**
  * A photograph, full screen: pinch to zoom, drag down to close.
  *
@@ -18,37 +20,31 @@
  * card around it has gone; the bar at the bottom gives that back, and steps
  * aside while somebody is zoomed in on detail.
  *
- * A proof can be more than one picture (#124, #125). A clip plays here with
- * the player's own controls, starting without sound, and takes no gestures —
- * they would be the player's. The front camera's picture sits in the top
- * corner; a tap makes it the large one, zoomable like any photograph, and puts
- * the main one in the corner instead.
+ * A proof can be more than one picture (#124, #125, #151), and is drawn by
+ * `ProofMedia` like everywhere else: a clip plays here with the player's own
+ * controls, starting without sound, and takes no gestures — they would be the
+ * player's. The front camera's picture or clip sits in a top corner, can be
+ * dragged to the other one, and a tap makes it the large one — a photograph
+ * zoomable like any other — and puts the main one in the corner instead.
  */
 const t = useMessages()
 const { current, close } = usePhotoViewer()
 
-/** The front camera's picture is the large one. */
+/** The front camera's part is the large one. */
 const swapped = ref(false)
 
-const isVideo = computed(() => current.value?.media === 'Video')
+const parts = computed(() => (current.value ? proofMediaOf(current.value) : null))
 
-/** The clip is playing large, rather than a picture being drawn there. */
-const playsClip = computed(() => isVideo.value && !swapped.value)
+/** A clip is playing large, rather than a photograph being drawn there. */
+const playsClip = computed(() => {
+  const shown = parts.value
+  if (!shown) return false
+  return (swapped.value && shown.insetImageId ? shown.insetMedia : shown.media) === 'Video'
+})
 
-const picture = useImageSource(() => {
-  const item = current.value
-  if (!item) return null
-  if (swapped.value) return item.insetImageId ?? null
-  return isVideo.value ? null : item.imageId
-})
-const clip = useImageSource(() => (playsClip.value ? current.value?.imageId : null))
-const poster = useImageSource(() => (isVideo.value ? current.value?.posterImageId : null))
-const corner = useImageSource(() => {
-  const item = current.value
-  if (!item?.insetImageId) return null
-  if (!swapped.value) return item.insetImageId
-  return isVideo.value ? item.posterImageId : item.imageId
-})
+/** Below the status bar, and in the end corner below the close button too. */
+const insetTop = 'max(0.75rem, env(safe-area-inset-top))'
+const insetTopEnd = 'calc(max(0.75rem, env(safe-area-inset-top)) + 3.5rem)'
 
 const MIN_SCALE = 1
 const MAX_SCALE = 4
@@ -62,13 +58,9 @@ const scale = ref(1)
 const offsetX = ref(0)
 const offsetY = ref(0)
 const isTracking = ref(false)
-const failed = ref(false)
 
 const closeButton = useTemplateRef<HTMLButtonElement>('closeButton')
 let returnFocusTo: HTMLElement | null = null
-
-const source = computed(() =>
-  (current.value && !failed.value ? picture.value : null))
 
 const isZoomed = computed(() => scale.value > 1.01)
 
@@ -94,7 +86,6 @@ watch(() => route.fullPath, () => close())
 
 watch(current, async (item, previous) => {
   reset()
-  failed.value = false
   swapped.value = false
 
   if (item && !previous) {
@@ -152,12 +143,8 @@ function beginFromPointers() {
   }
 }
 
-/** Swaps the front camera's picture with the main one, back at normal size. */
-function swap() {
-  swapped.value = !swapped.value
-  failed.value = false
-  reset()
-}
+// Whichever is large now starts at normal size.
+watch(swapped, () => reset())
 
 function onPointerDown(event: PointerEvent) {
   // A playing clip's gestures are its player's.
@@ -299,65 +286,18 @@ function onKeydown(event: KeyboardEvent) {
         @pointercancel="onPointerUp"
       >
         <!-- Sound off until somebody turns it on with the player (#124). -->
-        <video
-          v-if="playsClip && clip && !failed"
-          crossorigin="use-credentials"
-          :src="clip"
-          :poster="poster ?? undefined"
-          controls
-          autoplay
-          muted
-          loop
-          playsinline
-          class="size-full object-contain"
-          data-testid="photo-viewer-video"
-          @error="failed = true"
-        />
-
-        <img
-          v-else-if="source && !playsClip"
-          crossorigin="use-credentials"
-          :src="source"
+        <ProofMedia
+          v-if="parts"
+          v-model:swapped="swapped"
+          :parts="parts"
+          fit="contain"
+          mode="controls"
           :alt="current.title ?? t.viewer.label"
-          decoding="async"
-          draggable="false"
-          class="size-full object-contain will-change-transform"
-          :style="imageStyle"
-          data-testid="photo-viewer-image"
-          @error="failed = true"
-        >
-
-        <div
-          v-else
-          class="flex size-full items-center justify-center"
-        >
-          <UIcon
-            name="i-lucide-image-off"
-            class="size-10 text-white/50"
-            aria-hidden="true"
-          />
-        </div>
+          :inset-top="insetTop"
+          :inset-top-end="insetTopEnd"
+          :zoom-style="imageStyle"
+        />
       </div>
-
-      <!-- The other picture of a proof taken with both cameras; a tap swaps them. -->
-      <button
-        v-if="corner"
-        type="button"
-        class="absolute start-3 top-[max(0.75rem,env(safe-area-inset-top))] aspect-[3/4] w-24 overflow-hidden rounded-(--q2-radius-sm) bg-black shadow-lg ring-2 ring-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        :aria-label="swapped ? t.proof.media.showMain : t.proof.media.showFront"
-        data-q2-block
-        data-testid="photo-viewer-inset"
-        @click="swap()"
-      >
-        <img
-          crossorigin="use-credentials"
-          :src="corner"
-          alt=""
-          decoding="async"
-          draggable="false"
-          class="size-full object-cover"
-        >
-      </button>
 
       <button
         ref="closeButton"

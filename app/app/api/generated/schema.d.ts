@@ -1394,6 +1394,8 @@ export interface components {
             posterImageId?: string | null;
             /** Format: uuid */
             insetImageId?: string | null;
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         /** @enum {unknown} */
         BadgeKey: "StreakHero" | "EarlyBird" | "Bookworm" | "KudosGiver" | "Marathon" | "WeeklyWinner";
@@ -1518,6 +1520,9 @@ export interface components {
             posterImageId?: string | null;
             /** Format: uuid */
             insetImageId?: string | null;
+            insetMedia?: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         ChatPinnedGoalResponse: {
             /** Format: uuid */
@@ -2049,6 +2054,9 @@ export interface components {
             posterImageId: string | null;
             /** Format: uuid */
             insetImageId: string | null;
+            insetMedia: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId: string | null;
             status: components["schemas"]["ProofStatus"];
             source: components["schemas"]["ProofSource"];
             /** Format: date-time */
@@ -2147,6 +2155,9 @@ export interface components {
             posterImageId: string | null;
             /** Format: uuid */
             insetImageId: string | null;
+            insetMedia: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId: string | null;
             status: components["schemas"]["ProofStatus"];
             /** Format: int32 */
             attempt: number;
@@ -2287,6 +2298,8 @@ export interface components {
             posterImageId?: string | null;
             /** Format: uuid */
             insetImageId?: string | null;
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         SubscribeRequest: {
             endpoint?: string | null;

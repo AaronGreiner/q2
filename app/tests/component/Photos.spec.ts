@@ -516,7 +516,7 @@ describe('PhotoCapture, for a proof', () => {
     expect(both?.getAttribute('aria-label')).toBe('Beide Kameras')
 
     const front = query('photo-front-camera') as HTMLVideoElement
-    await vi.waitFor(() => expect(front.style.display).not.toBe('none'))
+    await vi.waitFor(() => expect(front.parentElement!.style.display).not.toBe('none'))
     expect(front.className).toContain('-scale-x-100')
     expect(front.closest('[data-q2-block]')).toBe(query('photo-frame'))
 
@@ -535,7 +535,76 @@ describe('PhotoCapture, for a proof', () => {
 
     await vi.waitFor(() => expect(localStorage.getItem('q2-camera-both-at-once')).toBe('no'))
     expect(query('photo-front-after')?.textContent).toContain('Danach du')
-    expect((query('photo-front-camera') as HTMLVideoElement).style.display).toBe('none')
+    expect((query('photo-front-camera') as HTMLVideoElement).parentElement!.style.display).toBe('none')
+  })
+
+  /**
+   * Where both run at once, a tap on the corner trades the two places before
+   * anything is taken (#151) — and only that: no camera is opened again, so
+   * neither viewfinder stalls.
+   */
+  it('swaps which camera is large with a tap on the corner, where both run at once', async () => {
+    const { getUserMedia } = installDevice()
+
+    await openProofCamera()
+
+    const rear = (query('photo-camera') as HTMLVideoElement).parentElement!
+    const front = (query('photo-front-camera') as HTMLVideoElement).parentElement!
+    await vi.waitFor(() => expect(front.style.display).not.toBe('none'))
+    expect(rear.className).toContain('inset-0')
+    expect(front.className).toContain('aspect-[3/4]')
+
+    const corner = query('photo-corner') as HTMLButtonElement
+    expect(corner.getAttribute('aria-label')).toBe('Frontkamera groß zeigen')
+    const opened = getUserMedia.mock.calls.length
+
+    corner.click()
+    await nextTick()
+
+    expect(front.className).toContain('inset-0')
+    expect(rear.className).toContain('aspect-[3/4]')
+    expect(corner.getAttribute('aria-label')).toBe('Rückkamera groß zeigen')
+    expect(getUserMedia.mock.calls.length).toBe(opened)
+  })
+
+  /**
+   * Where they run in turn, the same tap puts the front camera first: it is
+   * opened now, mirrored, and the corner says the rear one follows.
+   */
+  it('opens the front camera first with a tap on the corner, where both run in turn', async () => {
+    const { getUserMedia } = installDevice({ frontBeside: false })
+
+    await openProofCamera()
+    await vi.waitFor(() => expect(query('photo-front-after')?.textContent).toContain('Danach du'))
+
+    const corner = query('photo-front-after') as HTMLButtonElement
+    expect(corner.getAttribute('aria-label')).toBe('Frontkamera zuerst')
+
+    corner.click()
+
+    await vi.waitFor(() => expect(query('photo-front-after')?.textContent).toContain('Danach hinten'))
+    expect(getUserMedia).toHaveBeenLastCalledWith(expect.objectContaining({ video: { facingMode: 'user' } }))
+    expect(query('photo-camera')?.className).toContain('-scale-x-100')
+    expect(query('photo-front-after')?.getAttribute('aria-label')).toBe('Rückkamera zuerst')
+  })
+
+  /** Every opening starts with the rear camera first again, and the corner top-left. */
+  it('forgets the order and the corner when it closes', async () => {
+    installDevice({ frontBeside: false })
+
+    const wrapper = await openProofCamera()
+    await vi.waitFor(() => expect(query('photo-front-after')).not.toBeNull())
+    ;(query('photo-front-after') as HTMLButtonElement).click()
+    await vi.waitFor(() => expect(query('photo-front-after')?.textContent).toContain('Danach hinten'))
+    query('photo-front-after')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await nextTick()
+    expect(query('photo-front-after')?.getAttribute('data-side')).toBe('end')
+
+    await wrapper.setProps({ open: false })
+    await wrapper.setProps({ open: true })
+
+    await vi.waitFor(() => expect(query('photo-front-after')?.textContent).toContain('Danach du'))
+    expect(query('photo-front-after')?.getAttribute('data-side')).toBe('start')
   })
 
   it('offers no second camera where there is only one', async () => {
@@ -551,7 +620,7 @@ describe('PhotoCapture, for a proof', () => {
     const { rear, front } = installDevice()
 
     const wrapper = await openProofCamera()
-    await vi.waitFor(() => expect((query('photo-front-camera') as HTMLVideoElement).style.display).not.toBe('none'))
+    await vi.waitFor(() => expect((query('photo-front-camera') as HTMLVideoElement).parentElement!.style.display).not.toBe('none'))
 
     await wrapper.setProps({ open: false })
 

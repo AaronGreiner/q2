@@ -96,6 +96,8 @@ public sealed record ProofDocument(
     MediaKind Media,
     Guid? PosterImageId,
     Guid? InsetImageId,
+    MediaKind? InsetMedia,
+    Guid? InsetPosterImageId,
     ProofStatus Status,
     int Attempt,
     int AttemptsLeft,

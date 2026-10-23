@@ -25,6 +25,8 @@ public sealed class ProofPartsTests
         Assert.Equal(MediaKind.Photo, proof.Media);
         Assert.Null(proof.PosterImageId);
         Assert.Null(proof.InsetImageId);
+        Assert.Null(proof.InsetMedia);
+        Assert.Null(proof.InsetPosterImageId);
     }
 
     [Fact]
@@ -38,6 +40,60 @@ public sealed class ProofPartsTests
         Assert.Equal(MediaKind.Video, proof.Media);
         Assert.Equal(poster, proof.PosterImageId);
         Assert.Equal(inset, proof.InsetImageId);
+        Assert.Equal(MediaKind.Photo, proof.InsetMedia);
+        Assert.Null(proof.InsetPosterImageId);
+    }
+
+    /// <summary>Both cameras filmed at once: two clips, each with its own still (#151).</summary>
+    [Fact]
+    public void TwoClipsKeepBothStills()
+    {
+        var poster = Guid.CreateVersion7();
+        var front = Guid.CreateVersion7();
+        var frontPoster = Guid.CreateVersion7();
+
+        var proof = Deliver(new ProofParts(MediaKind.Video, poster, front, MediaKind.Video, frontPoster));
+
+        Assert.Equal(MediaKind.Video, proof.Media);
+        Assert.Equal(front, proof.InsetImageId);
+        Assert.Equal(MediaKind.Video, proof.InsetMedia);
+        Assert.Equal(frontPoster, proof.InsetPosterImageId);
+    }
+
+    /// <summary>A front clip plays in step with the rear one, so there has to be a rear clip.</summary>
+    [Fact]
+    public void AFrontClipIsOnlyEverBesideAClip()
+    {
+        var error = Assert.Throws<DomainValidationException>(() =>
+            Deliver(new ProofParts(MediaKind.Photo, InsetImageId: Guid.CreateVersion7(), InsetMedia: MediaKind.Video, InsetPosterImageId: Guid.CreateVersion7())));
+
+        Assert.Contains(nameof(ProofParts.InsetMedia), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void AFrontClipNeedsAStill()
+    {
+        var error = Assert.Throws<DomainValidationException>(() =>
+            Deliver(new ProofParts(MediaKind.Video, Guid.CreateVersion7(), Guid.CreateVersion7(), MediaKind.Video)));
+
+        Assert.Contains(nameof(ProofParts.InsetPosterImageId), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void OnlyAFrontClipHasAStill()
+    {
+        var error = Assert.Throws<DomainValidationException>(() =>
+            Deliver(new ProofParts(MediaKind.Video, Guid.CreateVersion7(), Guid.CreateVersion7(), MediaKind.Photo, Guid.CreateVersion7())));
+
+        Assert.Contains(nameof(ProofParts.InsetPosterImageId), error.Errors.Keys);
+    }
+
+    /// <summary>"Video" for a front picture that is not there means nothing, and is not stored as anything.</summary>
+    [Fact]
+    public void AFrontClipNeedsAFrontPicture()
+    {
+        Assert.Throws<DomainValidationException>(() =>
+            Deliver(new ProofParts(MediaKind.Video, Guid.CreateVersion7(), InsetMedia: MediaKind.Video, InsetPosterImageId: Guid.CreateVersion7())));
     }
 
     [Fact]
@@ -82,5 +138,11 @@ public sealed class ProofPartsTests
         Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, Main)));
         Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, still, still)));
         Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Photo, InsetImageId: Guid.Empty)));
+
+        var front = Guid.CreateVersion7();
+        Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, still, front, MediaKind.Video, still)));
+        Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, still, front, MediaKind.Video, front)));
+        Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, still, front, MediaKind.Video, Main)));
+        Assert.Throws<DomainValidationException>(() => Deliver(new ProofParts(MediaKind.Video, still, front, MediaKind.Video, Guid.Empty)));
     }
 }

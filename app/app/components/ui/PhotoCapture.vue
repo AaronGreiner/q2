@@ -2,7 +2,7 @@
 import { hapticTap } from '~/utils/haptics'
 import { isApiError } from '~/api/errors'
 import type { Image, ImagePurpose, MediaKind } from '~/api/types'
-import { openFrontBeside, streamIsLive } from '~/utils/bothCameras'
+import { mayTryBothAtOnce, openFrontBeside, streamIsLive } from '~/utils/bothCameras'
 import { frameReady, grabFrame } from '~/utils/cameraFrame'
 import type { Captured } from '~/utils/captured'
 import { type ClipFormat, type ClipRecording, clipFormat, maxClipSeconds, openMicrophone, recordClip, stopStream } from '~/utils/clipRecording'
@@ -67,9 +67,22 @@ import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
  * camera who did it. Where both can run at once they are both on screen and
  * one press takes both; where they cannot, which is most phones in a browser,
  * the rear picture is taken first and the screen says "Jetzt du" before the
- * front one, a moment later. A clip with both cameras gets the front picture
- * when it stops. The front camera is mirrored while live and never in what is
- * kept. Neither a clip nor both cameras can come from the picker.
+ * front one, a moment later. The front camera is mirrored while live and never
+ * in what is kept. Neither a clip nor both cameras can come from the picker.
+ *
+ * **Which goes first, and where the corner sits, are the person's** (#151,
+ * docs/adr/0061-both-cameras-in-step.md). A tap on the corner swaps the order
+ * before anything is taken: where both cameras run at once the two
+ * viewfinders trade places, and where they run in turn the front camera opens
+ * first and the rear one follows with "Jetzt hinten". A drag moves the corner
+ * to the other top corner, out of the way of whatever it covers. Neither is
+ * remembered, and neither changes what is kept: the rear camera is always the
+ * main part, and every viewer starts with it large.
+ *
+ * **Where both run at once, a clip films both sides together**: two
+ * recordings started in the same moment, each with the sound and a still of
+ * its own, which every viewer plays as one (`ProofMediaFrame`). Where they
+ * run in turn, a clip gets the front picture before or after it.
  */
 const props = withDefaults(defineProps<{
   purpose: ImagePurpose
@@ -122,8 +135,8 @@ const frontVideo = useTemplateRef<HTMLVideoElement>('frontVideo')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
 /**
- * The camera is live; a clip is recording; the front picture is being taken
- * after the rear one; something is waiting to be confirmed; or it is going up.
+ * The camera is live; a clip is recording; the second camera is being taken
+ * after the first; something is waiting to be confirmed; or it is going up.
  */
 const stage = ref<'camera' | 'recording' | 'second' | 'preview' | 'uploading'>('camera')
 const message = ref<string | null>(null)
@@ -141,6 +154,22 @@ const kind = ref<MediaKind>('Photo')
 /** Both cameras, for a proof. On at every opening, wherever there is a second camera. */
 const bothWanted = ref(true)
 
+/**
+ * The front camera first: large where both run at once, opened first where
+ * they run in turn. Off at every opening — the rear camera comes first until
+ * somebody taps the corner.
+ */
+const frontFirst = ref(false)
+
+/** Where the corner sits, dragged out of the way of what it covers. */
+const corner = useInsetCorner()
+
+/** Which camera the second part comes from, while it is being taken. */
+const secondFacing = ref<CameraFacing>('user')
+
+/** The first of two pictures taken in turn, shown in the corner while the second is taken. */
+const firstShot = ref<string | null>(null)
+
 /** The format this browser records clips in; null means no video mode at all. */
 const format = shallowRef<ClipFormat | null>(null)
 
@@ -155,14 +184,22 @@ interface Pending {
   main: Blob
   /** A clip's still. */
   poster: Blob | null
-  /** The front camera's picture. */
+  /** The front camera's picture, or its clip where both filmed at once. */
   inset: Blob | null
+  insetKind: MediaKind
+  /** A front clip's still. */
+  insetPoster: Blob | null
+}
+
+function photo(main: Blob, inset: Blob | null): Pending {
+  return { kind: 'Photo', main, poster: null, inset, insetKind: 'Photo', insetPoster: null }
 }
 
 const pending = shallowRef<Pending | null>(null)
 const previewUrl = ref<string | null>(null)
 const posterUrl = ref<string | null>(null)
 const insetUrl = ref<string | null>(null)
+const insetPosterUrl = ref<string | null>(null)
 const origin = ref<PhotoOrigin>('camera')
 
 /**
@@ -170,11 +207,45 @@ const origin = ref<PhotoOrigin>('camera')
  * hand-in is on screen, so trying again reuses them rather than uploading the
  * same picture twice; dropped with `pending`, because they are copies of it.
  */
-const uploaded = shallowRef<{ main?: Image, poster?: Image | null, inset?: Image | null }>({})
+const uploaded = shallowRef<{ main?: Image, poster?: Image | null, inset?: Image | null, insetPoster?: Image | null }>({})
 
 const stream = shallowRef<MediaStream | null>(null)
 /** The front camera, while it runs beside the rear one. */
 const frontStream = shallowRef<MediaStream | null>(null)
+
+/** Both cameras, taken one after the other because they cannot run at once. */
+const inTurn = computed(() => both.value && !frontStream.value)
+
+/** Where both run at once and the front camera was tapped large. */
+const frontLarge = computed(() => frontFirst.value && !!frontStream.value)
+
+/** The corner's place: along the top, wherever it was dragged. */
+const cornerGeometry = computed(() => [
+  'absolute top-2.5 aspect-[3/4] w-[28%] max-w-32 rounded-(--q2-radius-sm)',
+  corner.side.value === 'end' ? 'end-2.5' : 'start-2.5',
+])
+
+/** A live camera in the corner. */
+const liveCorner = computed(() => [...cornerGeometry.value, 'z-[1] overflow-hidden bg-black shadow-lg ring-2 ring-black/30'])
+const liveCornerStyle = computed(() => corner.style.value)
+
+/**
+ * The corner is there whenever both cameras are — until the first of two
+ * pictures taken in turn is in, which then waits there instead.
+ */
+const cornerShown = computed(() => !previewUrl.value && cameraReady.value && both.value && !firstShot.value
+  && (stage.value === 'camera' || stage.value === 'recording'))
+
+/**
+ * In turn, the order is only changed before anything is taken: once a clip is
+ * recording, the camera that goes first is already open.
+ */
+const cornerPressable = computed(() => !!frontStream.value || stage.value === 'camera')
+
+const cornerLabel = computed(() => {
+  if (frontStream.value) return frontLarge.value ? t.value.photo.rearLarge : t.value.photo.frontLarge
+  return frontFirst.value ? t.value.photo.rearFirst : t.value.photo.frontFirst
+})
 const microphone = shallowRef<MediaStream | null>(null)
 const cameraReady = ref(false)
 
@@ -222,6 +293,7 @@ watch(open, async (isOpen) => {
   else {
     stopCamera()
     clearPending()
+    showFirst(null)
   }
 })
 
@@ -230,6 +302,7 @@ watch(open, async (isOpen) => {
 onBeforeUnmount(() => {
   stopCamera()
   clearPending()
+  showFirst(null)
 })
 
 /** The microphone is open only while a clip may be recorded. */
@@ -238,9 +311,15 @@ watch(kind, async (now) => {
   else releaseSound()
 })
 
-/** The camera this opening shows large: the rear one with both cameras, else the one used last. */
+/**
+ * The camera this opening shows large: with both cameras the rear one — or
+ * the front one, tapped to go first, where the two are taken in turn — else
+ * the one used last. Where both may run at once the rear camera is always the
+ * one opened, and the front one opens beside it.
+ */
 function wantedFacing(): CameraFacing {
-  return props.proofModes && bothWanted.value ? 'environment' : facing.value
+  if (!props.proofModes || !bothWanted.value) return facing.value
+  return frontFirst.value && !mayTryBothAtOnce() ? 'user' : 'environment'
 }
 
 async function startCamera() {
@@ -275,7 +354,7 @@ async function startCamera() {
 
     await show(opened)
 
-    if (both.value) await startFrontBeside()
+    if (both.value && opening === 'environment') await startFrontBeside()
     if (kind.value === 'Video') await openSound()
   }
   catch {
@@ -401,6 +480,8 @@ async function switchCamera() {
  */
 async function toggleBoth() {
   bothWanted.value = !bothWanted.value
+  frontFirst.value = false
+  corner.reset()
 
   if (!bothWanted.value) {
     stopStream(frontStream.value)
@@ -414,22 +495,61 @@ async function toggleBoth() {
 }
 
 /**
+ * The corner's tap: the other camera first. Where both run at once only the
+ * viewfinders trade places; where they run in turn the camera that goes first
+ * is opened. A drag that ended on the corner is not a tap.
+ */
+async function swapOrder() {
+  if (corner.tookClick()) return
+
+  frontFirst.value = !frontFirst.value
+
+  if (frontStream.value) return
+
+  stopCamera()
+  await startCamera()
+}
+
+/** Shows the first of two pictures in the corner while the second is taken. */
+function showFirst(taken: Blob | null) {
+  if (firstShot.value) URL.revokeObjectURL(firstShot.value)
+  firstShot.value = taken ? URL.createObjectURL(taken) : null
+}
+
+/**
  * The rear picture and, with both cameras, the front one: from the camera
  * beside it, or — where only one can run — by switching to it.
  */
 async function shoot() {
-  const main = await grabFrame(video.value)
+  const first = await grabFrame(video.value)
 
-  if (!main) return
+  if (!first) return
 
   hapticTap()
 
+  // In turn, front first: the rear picture follows, and is still the main one.
+  if (inTurn.value && frontFirst.value) {
+    showFirst(first)
+    const rear = await takeSecond('environment')
+
+    if (open.value) hold(rear ? photo(rear, first) : photo(first, null), 'camera')
+    return
+  }
+
+  if (inTurn.value) showFirst(first)
+
   const inset = both.value ? await takeFront() : null
 
-  if (open.value) hold({ kind: 'Photo', main, poster: null, inset }, 'camera')
+  if (open.value) hold(photo(first, inset), 'camera')
 }
 
-/** Starts a clip, or stops the one running. */
+/**
+ * Starts a clip, or stops the one running.
+ *
+ * In turn and front first, the front picture is taken before the clip: the
+ * rear camera opens after "Jetzt hinten" and starts recording on its own, so
+ * one press is still all it takes.
+ */
 async function toggleRecording() {
   if (recording.value) {
     recording.value.stop()
@@ -437,43 +557,96 @@ async function toggleRecording() {
   }
 
   const chosen = format.value
+
+  if (!chosen || !stream.value) return
+
+  let frontStill: Blob | null = null
+
+  if (inTurn.value && frontFirst.value) {
+    frontStill = await grabFrame(video.value)
+
+    if (!frontStill) return
+
+    hapticTap()
+    showFirst(frontStill)
+
+    if (!await switchForSecond('environment')) {
+      if (open.value) hold(photo(frontStill, null), 'camera')
+      return
+    }
+
+    await openSound()
+  }
+
+  await recordFromHere(chosen, frontStill)
+}
+
+/**
+ * Records what the camera shows — and, where both run at once, what the front
+ * camera shows, as a clip of its own started in the same moment with the same
+ * sound (#151).
+ *
+ * Each clip's still is taken as it starts: it is what friends see before they
+ * press play, and what every grid shows. A camera reopened a moment ago may
+ * not have a frame yet, so it is waited for — a clip without its still would
+ * be refused.
+ */
+async function recordFromHere(chosen: ClipFormat, frontStill: Blob | null) {
   const camera = stream.value
 
-  if (!chosen || !camera) return
+  if (!camera) return
 
-  // The still is taken as it starts: it is what friends see before they
-  // press play, and what every grid shows. A camera reopened a moment ago
-  // may not have a frame yet, so it is waited for — a clip without its still
-  // would be refused.
   await frameReady(video.value)
   let poster = await grabFrame(video.value)
 
-  const tracks = [
-    ...camera.getVideoTracks(),
-    ...(chosen.withSound ? microphone.value?.getAudioTracks() ?? [] : []),
-  ]
+  const front = frontStream.value
+  let frontPoster = front ? await grabFrame(frontVideo.value) : null
+
+  const sound = chosen.withSound ? microphone.value?.getAudioTracks() ?? [] : []
+
+  // The front clip gets its own copy of the sound, so each recorder owns what
+  // it records, and whichever clip is large can be the one that is heard.
+  const frontSound = front ? sound.map(track => track.clone()) : []
 
   hapticTap()
   elapsedMs.value = 0
   stage.value = 'recording'
 
-  const clip = recordClip(new MediaStream(tracks), chosen, {
+  const clip = recordClip(new MediaStream([...camera.getVideoTracks(), ...sound]), chosen, {
     limitMs: maxClipSeconds * 1000,
     onTick: (elapsed) => {
       elapsedMs.value = elapsed
     },
   })
-  recording.value = clip
+  const frontClip = front
+    ? recordClip(new MediaStream([...front.getVideoTracks(), ...frontSound]), chosen, { limitMs: maxClipSeconds * 1000 })
+    : null
 
-  const main = await clip.done
+  // One recording to the shutter: it starts and stops both together.
+  const pair: ClipRecording = {
+    done: clip.done,
+    stop: () => {
+      clip.stop()
+      frontClip?.stop()
+    },
+    discard: () => {
+      clip.discard()
+      frontClip?.discard()
+    },
+  }
+  recording.value = pair
+
+  const [main, frontMain] = await Promise.all([clip.done, frontClip?.done ?? Promise.resolve(null)])
+  frontSound.forEach(track => track.stop())
 
   // Thrown away: the screen closed while it was recording.
-  if (recording.value !== clip) return
+  if (recording.value !== pair) return
 
   recording.value = null
 
-  // Still none: the last frame, while the camera that recorded it is open.
+  // Still none: the last frame, while the cameras that recorded it are open.
   poster ??= await grabFrame(video.value)
+  if (frontMain) frontPoster ??= await grabFrame(frontVideo.value)
 
   if (!main || !poster) {
     stage.value = 'camera'
@@ -483,9 +656,19 @@ async function toggleRecording() {
 
   hapticTap()
 
-  const inset = both.value ? await takeFront() : null
+  let taken: Pending = { kind: 'Video', main, poster, inset: frontStill, insetKind: 'Photo', insetPoster: null }
 
-  if (open.value) hold({ kind: 'Video', main, poster, inset }, 'camera')
+  if (!frontStill && frontMain && frontPoster) {
+    taken = { ...taken, inset: frontMain, insetKind: 'Video', insetPoster: frontPoster }
+  }
+  else if (!frontStill && both.value) {
+    // In turn, rear first — or a front clip that failed beside a good rear
+    // one: the front picture after it, as before #151.
+    if (inTurn.value) showFirst(poster)
+    taken = { ...taken, inset: await takeFront() }
+  }
+
+  if (open.value) hold(taken, 'camera')
 }
 
 /**
@@ -495,46 +678,64 @@ async function toggleRecording() {
 async function takeFront(): Promise<Blob | null> {
   if (frontStream.value) return grabFrame(frontVideo.value)
 
-  stage.value = 'second'
+  return takeSecond('user')
+}
 
-  // Released before the front camera is asked for, for the same reason as
+/** The second of two pictures taken in turn, from `to`, after its countdown. */
+async function takeSecond(to: CameraFacing): Promise<Blob | null> {
+  if (!await switchForSecond(to)) return null
+
+  hapticTap()
+
+  return grabFrame(video.value)
+}
+
+/**
+ * Opens `to` in the viewfinder for the second part, and counts down: "Jetzt
+ * du" before the front camera, "Jetzt hinten" before the rear one. False when
+ * that camera would not open, or the screen closed meanwhile.
+ */
+async function switchForSecond(to: CameraFacing): Promise<boolean> {
+  stage.value = 'second'
+  secondFacing.value = to
+
+  // Released before the other camera is asked for, for the same reason as
   // `switchCamera`.
   stopStream(stream.value)
   stream.value = null
   releaseSound()
 
-  let front: MediaStream
+  let opened: MediaStream
 
   try {
-    front = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    opened = await navigator.mediaDevices.getUserMedia({ video: { facingMode: to }, audio: false })
   }
   catch {
-    message.value = t.value.photo.frontUnavailable
-    return null
+    message.value = to === 'user' ? t.value.photo.frontUnavailable : t.value.photo.rearUnavailable
+    return false
   }
 
   if (!open.value) {
-    stopStream(front)
-    return null
+    stopStream(opened)
+    return false
   }
 
-  stream.value = front
-  showing.value = 'user'
-  await show(front)
+  stream.value = opened
+  showing.value = to
+  await show(opened)
   await frameReady(video.value)
 
-  // "Jetzt du", and a moment to look up: the second picture should catch
-  // nobody mid-blink, nor off guard.
+  // A moment to look up, or to turn the phone round: the second picture
+  // should catch nobody mid-blink, nor off guard.
   for (let left = 2; left > 0; left--) {
     countdown.value = left
     await new Promise(resolve => setTimeout(resolve, 600))
-    if (!open.value) return null
+    if (!open.value) return false
   }
 
   countdown.value = null
-  hapticTap()
 
-  return grabFrame(video.value)
+  return true
 }
 
 /** The shutter: a photograph, or the start and end of a clip. */
@@ -546,23 +747,26 @@ async function press() {
 function onFilePicked(event: Event) {
   const [file] = (event.target as HTMLInputElement).files ?? []
 
-  if (file) hold({ kind: 'Photo', main: file, poster: null, inset: null }, 'library')
+  if (file) hold(photo(file, null), 'library')
 
   // Cleared so picking the same file twice in a row fires `change` again.
   if (fileInput.value) fileInput.value.value = ''
 }
 
 function hold(taken: Pending, from: PhotoOrigin) {
-  // A front camera that would not open is worth saying under the one picture
-  // that was taken; nothing else from before the shutter is.
-  const note = message.value === t.value.photo.frontUnavailable ? message.value : null
+  // A camera that would not open is worth saying under the one picture that
+  // was taken; nothing else from before the shutter is.
+  const unavailable = [t.value.photo.frontUnavailable, t.value.photo.rearUnavailable]
+  const note = message.value && unavailable.includes(message.value) ? message.value : null
 
   clearPending()
+  showFirst(null)
   pending.value = taken
   origin.value = from
   previewUrl.value = URL.createObjectURL(taken.main)
   posterUrl.value = taken.poster ? URL.createObjectURL(taken.poster) : null
   insetUrl.value = taken.inset ? URL.createObjectURL(taken.inset) : null
+  insetPosterUrl.value = taken.insetPoster ? URL.createObjectURL(taken.insetPoster) : null
   stage.value = 'preview'
   countdown.value = null
   message.value = note
@@ -570,13 +774,14 @@ function hold(taken: Pending, from: PhotoOrigin) {
 }
 
 function clearPending() {
-  for (const url of [previewUrl.value, posterUrl.value, insetUrl.value]) {
+  for (const url of [previewUrl.value, posterUrl.value, insetUrl.value, insetPosterUrl.value]) {
     if (url) URL.revokeObjectURL(url)
   }
 
   previewUrl.value = null
   posterUrl.value = null
   insetUrl.value = null
+  insetPosterUrl.value = null
   pending.value = null
   uploaded.value = {}
 }
@@ -601,20 +806,29 @@ async function confirm() {
   stage.value = 'uploading'
   message.value = t.value.photo.uploading
 
+  // A clip goes up as it was recorded: shrinking it would mean re-encoding it
+  // on the phone, and it was recorded at a modest size to begin with. Which
+  // kind of upload was under way says which sentence a refusal gets.
+  let step = 'Photo' as MediaKind
+  const upload = (blob: Blob, as: MediaKind) => {
+    step = as
+    return as === 'Video' ? api.images.upload(blob, props.purpose) : uploadPicture(blob)
+  }
+
   try {
-    // A clip goes up as it was recorded: shrinking it would mean re-encoding
-    // it on the phone, and it was recorded at a modest size to begin with.
-    const main = uploaded.value.main
-      ?? await (taken.kind === 'Video' ? api.images.upload(taken.main, props.purpose) : uploadPicture(taken.main))
+    const main = uploaded.value.main ?? await upload(taken.main, taken.kind)
     uploaded.value = { ...uploaded.value, main }
 
-    const poster = uploaded.value.poster ?? (taken.poster ? await uploadPicture(taken.poster) : null)
+    const poster = uploaded.value.poster ?? (taken.poster ? await upload(taken.poster, 'Photo') : null)
     uploaded.value = { ...uploaded.value, poster }
 
-    const inset = uploaded.value.inset ?? (taken.inset ? await uploadPicture(taken.inset) : null)
+    const inset = uploaded.value.inset ?? (taken.inset ? await upload(taken.inset, taken.insetKind) : null)
     uploaded.value = { ...uploaded.value, inset }
 
-    const refused = props.handIn ? await props.handIn({ image: main, origin: origin.value, poster, inset }) : null
+    const insetPoster = uploaded.value.insetPoster ?? (taken.insetPoster ? await upload(taken.insetPoster, 'Photo') : null)
+    uploaded.value = { ...uploaded.value, insetPoster }
+
+    const refused = props.handIn ? await props.handIn({ image: main, origin: origin.value, poster, inset, insetPoster }) : null
 
     if (refused) {
       stage.value = 'preview'
@@ -641,7 +855,7 @@ async function confirm() {
     }
 
     const failure = report(caught, { feature: 'images', action: 'upload' })
-    const clipRefused = taken.kind === 'Video' && !uploaded.value.main
+    const clipRefused = step === 'Video'
 
     if (failure.status === 413) message.value = clipRefused ? t.value.photo.videoTooLarge : t.value.photo.tooLarge
     else if (failure.status === 400 && clipRefused) message.value = t.value.photo.videoRefused
@@ -655,6 +869,9 @@ function reset() {
   cameraReady.value = false
   kind.value = 'Photo'
   bothWanted.value = true
+  frontFirst.value = false
+  corner.reset()
+  showFirst(null)
   countdown.value = null
   soundless.value = false
 }
@@ -745,7 +962,9 @@ function reset() {
             :kind="pending.kind"
             :src="previewUrl"
             :poster-src="posterUrl"
+            :inset-kind="pending.insetKind"
             :inset-src="insetUrl"
+            :inset-poster-src="insetPosterUrl"
             fit="contain"
             :alt="t.photo.preview"
             data-testid="photo-preview"
@@ -766,51 +985,95 @@ function reset() {
             it plays, which would replace this screen with a player. `muted` is
             what makes autoplay permitted at all. The front camera is mirrored
             the way every phone shows it; the picture taken is not.
+
+            Each camera keeps its own element, and where both run at once they
+            only trade places: a stream moved to another element would stall
+            for a moment, and a clip being recorded must not.
           -->
-          <video
+          <div
             v-show="!previewUrl && cameraReady"
-            ref="video"
-            class="size-full object-cover"
-            :class="{ '-scale-x-100': showing === 'user' }"
-            playsinline
-            muted
-            autoplay
-            data-testid="photo-camera"
-          />
+            :class="frontLarge ? liveCorner : 'absolute inset-0'"
+            :style="frontLarge ? liveCornerStyle : undefined"
+          >
+            <video
+              ref="video"
+              class="size-full object-cover"
+              :class="{ '-scale-x-100': showing === 'user' }"
+              playsinline
+              muted
+              autoplay
+              data-testid="photo-camera"
+            />
+          </div>
 
           <!-- The front camera beside the rear one, where both can run at once. -->
-          <video
+          <div
             v-show="!previewUrl && cameraReady && frontStream && stage !== 'second'"
-            ref="frontVideo"
-            class="absolute start-2.5 top-2.5 aspect-[3/4] w-[28%] max-w-32 -scale-x-100 rounded-(--q2-radius-sm) bg-black object-cover shadow-lg ring-2 ring-black/30"
-            playsinline
-            muted
-            autoplay
-            data-testid="photo-front-camera"
-          />
-
-          <!-- Where they cannot, the corner says the second picture will follow. -->
-          <span
-            v-if="!previewUrl && cameraReady && both && !frontStream && (stage === 'camera' || stage === 'recording')"
-            class="absolute start-2.5 top-2.5 flex aspect-[3/4] w-[28%] max-w-32 flex-col items-center justify-center gap-1 rounded-(--q2-radius-sm) bg-black/45 text-center text-[11px] font-bold text-white ring-2 ring-white/20 backdrop-blur-sm"
-            data-testid="photo-front-after"
+            :class="frontLarge ? 'absolute inset-0' : liveCorner"
+            :style="frontLarge ? undefined : liveCornerStyle"
           >
-            <UIcon
-              name="i-lucide-user-round"
-              class="size-5"
-              aria-hidden="true"
+            <video
+              ref="frontVideo"
+              class="size-full -scale-x-100 bg-black object-cover"
+              playsinline
+              muted
+              autoplay
+              data-testid="photo-front-camera"
             />
-            {{ t.photo.bothCamerasAfter }}
-          </span>
+          </div>
 
-          <!-- The front picture is next: say so, and count it down. -->
+          <!--
+            The corner, pressed: where both run at once a tap trades the two
+            places, and where they run in turn it says which comes second and a
+            tap puts the other one first. A drag moves it to the other top
+            corner. While the second picture is taken, the first waits here.
+          -->
+          <button
+            v-if="cornerShown"
+            type="button"
+            class="z-[2] flex touch-pan-y flex-col items-center justify-center gap-1 text-center text-[11px] font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--q2-accent-solid)"
+            :class="[cornerGeometry, frontStream ? '' : 'bg-black/45 ring-2 ring-white/20 backdrop-blur-sm']"
+            :style="corner.style.value"
+            :aria-label="cornerLabel"
+            aria-keyshortcuts="ArrowLeft ArrowRight"
+            :disabled="!cornerPressable"
+            :data-side="corner.side.value"
+            :data-testid="frontStream ? 'photo-corner' : 'photo-front-after'"
+            @pointerdown="corner.onPointerdown($event)"
+            @pointermove="corner.onPointermove($event)"
+            @pointerup="corner.onPointerup($event)"
+            @pointercancel="corner.onPointerup($event)"
+            @keydown="corner.onKeydown($event)"
+            @click.stop="swapOrder"
+          >
+            <template v-if="!frontStream">
+              <UIcon
+                :name="frontFirst ? 'i-lucide-mountain' : 'i-lucide-user-round'"
+                class="size-5"
+                aria-hidden="true"
+              />
+              {{ frontFirst ? t.photo.bothCamerasAfterRear : t.photo.bothCamerasAfter }}
+            </template>
+          </button>
+
+          <img
+            v-if="!previewUrl && firstShot && (stage === 'second' || stage === 'recording')"
+            :src="firstShot"
+            alt=""
+            class="z-[1] overflow-hidden bg-black object-cover shadow-lg ring-2 ring-black/30"
+            :class="cornerGeometry"
+            :style="corner.style.value"
+            data-testid="photo-first-shot"
+          >
+
+          <!-- The second picture is next: say which, and count it down. -->
           <div
             v-if="stage === 'second'"
             class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/25 text-white"
             role="status"
             data-testid="photo-now-you"
           >
-            <span class="text-[28px] font-extrabold [text-shadow:0_2px_8px_rgb(0_0_0/0.6)]">{{ t.photo.nowYou }}</span>
+            <span class="text-[28px] font-extrabold [text-shadow:0_2px_8px_rgb(0_0_0/0.6)]">{{ secondFacing === 'user' ? t.photo.nowYou : t.photo.nowRear }}</span>
             <span
               v-if="countdown"
               class="text-[44px] leading-none font-extrabold tabular-nums [text-shadow:0_2px_8px_rgb(0_0_0/0.6)]"

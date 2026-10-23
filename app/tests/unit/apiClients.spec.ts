@@ -187,8 +187,8 @@ describe('the API modules', () => {
   it('maps every proof action, including the route that still reads as a goal', async () => {
     const api = createProofsApi(caller)
 
-    await api.submit('goal/two', { imageId: 'image-1', posterImageId: 'still-1', insetImageId: 'front-1' }, 'Live')
-    await api.answerSpotCheck('goal/two', 'check/one', { imageId: 'image-2', posterImageId: null, insetImageId: null })
+    await api.submit('goal/two', { imageId: 'image-1', posterImageId: 'still-1', insetImageId: 'front-1', insetPosterImageId: 'front-still-1' }, 'Live')
+    await api.answerSpotCheck('goal/two', 'check/one', { imageId: 'image-2', posterImageId: null, insetImageId: null, insetPosterImageId: null })
     await api.get('proof/one')
     await api.pending()
     await api.mine()
@@ -196,8 +196,8 @@ describe('the API modules', () => {
     await api.react('proof/one', 'Fire')
 
     expect(call.mock.calls).toEqual([
-      ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', posterImageId: 'still-1', insetImageId: 'front-1', source: 'Live' } }],
-      ['/api/goals/goal%2Ftwo/spot-checks/check%2Fone/proof', { method: 'POST', body: { imageId: 'image-2', posterImageId: null, insetImageId: null } }],
+      ['/api/goals/goal%2Ftwo/proof', { method: 'POST', body: { imageId: 'image-1', posterImageId: 'still-1', insetImageId: 'front-1', insetPosterImageId: 'front-still-1', source: 'Live' } }],
+      ['/api/goals/goal%2Ftwo/spot-checks/check%2Fone/proof', { method: 'POST', body: { imageId: 'image-2', posterImageId: null, insetImageId: null, insetPosterImageId: null } }],
       ['/api/proofs/proof%2Fone', { method: 'GET' }],
       ['/api/proofs/pending', { method: 'GET' }],
       ['/api/proofs/mine', { method: 'GET' }],

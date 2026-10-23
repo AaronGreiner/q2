@@ -169,6 +169,30 @@ public class SpotChecksEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory
         Assert.Equal(ProofSource.Live, delivered.Proof.Source);
     }
 
+    /// <summary>Both cameras filmed at once: two clips, each with its still (#151).</summary>
+    [Fact]
+    public async Task ACheckMayBeAnsweredWithTwoClipsFilmedAtOnce()
+    {
+        var created = await CreateSpotCheckDontAsync();
+        await AskNowAsync(created.Id);
+        var open = (await GoalAsync(Client, created.Id)).SpotCheck!;
+
+        var clip = await Client.UploadProofVideoAsync();
+        var still = await Client.UploadProofImageAsync();
+        var frontClip = await Client.UploadProofVideoAsync();
+        var frontStill = await Client.UploadProofImageAsync();
+
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{created.Id}/spot-checks/{open.Id}/proof",
+            new { imageId = clip, posterImageId = still, insetImageId = frontClip, insetPosterImageId = frontStill });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var delivered = await response.ReadAsync<DeliveredProofDocument>();
+        Assert.Equal(frontClip, delivered.Proof.InsetImageId);
+        Assert.Equal(MediaKind.Video, delivered.Proof.InsetMedia);
+        Assert.Equal(frontStill, delivered.Proof.InsetPosterImageId);
+    }
+
     [Fact]
     public async Task ACheckNobodyAnsweredInThreeMinutesMissesTheWindow()
     {

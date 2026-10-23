@@ -39,6 +39,8 @@ function proof(overrides: Partial<Proof> = {}): Proof {
     media: 'Photo',
     posterImageId: null,
     insetImageId: null,
+    insetMedia: null,
+    insetPosterImageId: null,
     status: 'Voting',
     attempt: 1,
     attemptsLeft: 1,

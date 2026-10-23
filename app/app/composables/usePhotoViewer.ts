@@ -7,8 +7,12 @@ export interface PhotoViewerItem {
   media?: MediaKind
   /** A clip's still, shown until it plays and in the corner when swapped. */
   posterImageId?: string | null
-  /** A proof's front-camera picture, in the corner and swapped with a tap (#125). */
+  /** A proof's front-camera picture or clip, in the corner and swapped with a tap (#125, #151). */
   insetImageId?: string | null
+  /** Whether that is a photograph or a clip filmed beside the main one. */
+  insetMedia?: MediaKind | null
+  /** A front clip's still. */
+  insetPosterImageId?: string | null
   /** What the picture answers — a goal's title, or the day's challenge prompt. */
   title?: string | null
   /** Whose it is. */

@@ -444,6 +444,8 @@ public sealed class DataExportService(
                     Image = fileFor(proof.ImageId),
                     Still = fileFor(proof.PosterImageId),
                     FrontCamera = fileFor(proof.InsetImageId),
+                    FrontCameraMedia = proof.InsetMedia,
+                    FrontCameraStill = fileFor(proof.InsetPosterImageId),
 
                     // Counted, never who: as the owner's own screen shows it.
                     Believed = proof.Votes.Count(vote => vote.Value == VoteValue.Confirm),

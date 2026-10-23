@@ -68,3 +68,4 @@ so the reasoning at the time stays readable.
 | [0058](0058-your-data-as-one-file.md) | Your data as one file | Accepted |
 | [0059](0059-a-do-that-ends-at-a-time-of-day.md) | A Do that ends at a time of day | Accepted |
 | [0060](0060-video-and-both-cameras.md) | A proof can be a clip, and come from both cameras | Accepted |
+| [0061](0061-both-cameras-in-step.md) | Both cameras in step, in either order, with the corner out of the way | Accepted |

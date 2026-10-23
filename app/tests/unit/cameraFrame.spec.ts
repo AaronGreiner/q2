@@ -71,8 +71,27 @@ describe('a frame from the live camera', () => {
 
 describe('what a proof shows', () => {
   it('is one photograph for anything from before clips and both cameras', () => {
-    expect(proofMediaOf({ imageId: 'image-1' })).toEqual({ imageId: 'image-1', media: 'Photo', posterImageId: null, insetImageId: null })
+    expect(proofMediaOf({ imageId: 'image-1' })).toEqual({
+      imageId: 'image-1',
+      media: 'Photo',
+      posterImageId: null,
+      insetImageId: null,
+      insetMedia: 'Photo',
+      insetPosterImageId: null,
+    })
     expect(proofMediaOf({ imageId: 'clip-1', media: 'Video', posterImageId: 'still-1', insetImageId: 'front-1' }))
-      .toEqual({ imageId: 'clip-1', media: 'Video', posterImageId: 'still-1', insetImageId: 'front-1' })
+      .toEqual({ imageId: 'clip-1', media: 'Video', posterImageId: 'still-1', insetImageId: 'front-1', insetMedia: 'Photo', insetPosterImageId: null })
+  })
+
+  /** Both cameras filmed at once (#151): the front part is a clip with its own still. */
+  it('carries a front clip and its still', () => {
+    expect(proofMediaOf({
+      imageId: 'clip-1',
+      media: 'Video',
+      posterImageId: 'still-1',
+      insetImageId: 'front-1',
+      insetMedia: 'Video',
+      insetPosterImageId: 'front-still-1',
+    })).toMatchObject({ insetImageId: 'front-1', insetMedia: 'Video', insetPosterImageId: 'front-still-1' })
   })
 })

@@ -300,7 +300,9 @@ public sealed record PinChatRequest(bool? Pinned = null);
 /// photograph.
 /// </param>
 /// <param name="PosterImageId">A clip's still, which is what its tile shows.</param>
-/// <param name="InsetImageId">A proof's front-camera picture, for the full-screen view (#125).</param>
+/// <param name="InsetImageId">A proof's front-camera picture or clip, for the full-screen view (#125, #151).</param>
+/// <param name="InsetMedia">Whether <paramref name="InsetImageId"/> is a photograph or a clip. Null without one.</param>
+/// <param name="InsetPosterImageId">A front clip's still.</param>
 public sealed record ChatPhotoResponse(
     Guid Id,
     Guid ImageId,
@@ -310,7 +312,9 @@ public sealed record ChatPhotoResponse(
     ProofSource? Source,
     MediaKind Media = MediaKind.Photo,
     Guid? PosterImageId = null,
-    Guid? InsetImageId = null);
+    Guid? InsetImageId = null,
+    MediaKind? InsetMedia = null,
+    Guid? InsetPosterImageId = null);
 
 /// <summary>Request body for opening a direct conversation with somebody.</summary>
 /// <remarks>

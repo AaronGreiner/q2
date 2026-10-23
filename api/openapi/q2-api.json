@@ -4123,6 +4123,11 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -4627,6 +4632,24 @@
             "nullable": true
           },
           "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -6761,6 +6784,8 @@
           "media",
           "posterImageId",
           "insetImageId",
+          "insetMedia",
+          "insetPosterImageId",
           "status",
           "source",
           "createdAt",
@@ -6787,6 +6812,24 @@
             "nullable": true
           },
           "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -7096,6 +7139,8 @@
           "media",
           "posterImageId",
           "insetImageId",
+          "insetMedia",
+          "insetPosterImageId",
           "status",
           "attempt",
           "attemptsLeft",
@@ -7135,6 +7180,24 @@
             "nullable": true
           },
           "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -7632,6 +7695,11 @@
             "nullable": true
           },
           "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetPosterImageId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
