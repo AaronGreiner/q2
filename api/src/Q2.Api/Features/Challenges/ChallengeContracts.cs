@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 
@@ -34,6 +35,11 @@ public sealed record ChallengeResponse(
 /// proof's. Contributions from before #64 are unknown.
 /// </param>
 /// <param name="IsLate">Contributed after the moment — taken, and said to be "zu spät" (#136).</param>
+/// <param name="Media">Whether it is a photograph or a clip (#152).</param>
+/// <param name="PosterImageId">For a clip: its still. Null while the room is covered, like the picture.</param>
+/// <param name="InsetImageId">The front camera's picture or clip, when both cameras were used. Null while covered.</param>
+/// <param name="InsetMedia">Whether that is a photograph or a clip. Null without one, and while covered.</param>
+/// <param name="InsetPosterImageId">For a front clip: its still. Null while covered.</param>
 /// <remarks>
 /// The author travels even while the picture does not, and that is deliberate:
 /// seeing who is already in is the reason to join, and it is the half of the
@@ -47,7 +53,12 @@ public sealed record ChallengeEntryResponse(
     DateTimeOffset CreatedAt,
     bool IsMine,
     IReadOnlyList<ReactionSummaryResponse> Reactions,
-    bool IsLate);
+    bool IsLate,
+    MediaKind Media,
+    Guid? PosterImageId,
+    Guid? InsetImageId,
+    MediaKind? InsetMedia,
+    Guid? InsetPosterImageId);
 
 /// <summary>
 /// The room, composed for exactly one viewer.
@@ -106,7 +117,15 @@ public sealed record ChallengeArchiveEntryResponse(
 /// from before #61: the flag is ignored, and the contribution is unknown rather
 /// than believed to be live.
 /// </remarks>
-public sealed record SubmitChallengeEntryRequest(Guid? ImageId = null, ProofSource? Source = null);
+/// <param name="PosterImageId">With a clip, and only then: a still from it.</param>
+/// <param name="InsetImageId">The front camera's picture or clip, when both cameras were used (#152).</param>
+/// <param name="InsetPosterImageId">With a front clip, and only then: a still from it.</param>
+public sealed record SubmitChallengeEntryRequest(
+    Guid? ImageId = null,
+    ProofSource? Source = null,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null,
+    Guid? InsetPosterImageId = null);
 
 /// <summary>Request body for reacting to one.</summary>
 public sealed record ReactToChallengeEntryRequest(KudosKind? Kind = null);

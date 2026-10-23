@@ -258,9 +258,20 @@ public sealed class ChatService(
         EnsureParticipant(conversation, me.Id);
         await EnsureVisibleAsync(conversation, me.Id, cancellationToken);
 
+        MediaParts? parts = null;
+
         if (request.ImageId is { } imageId && imageId != Guid.Empty)
         {
-            await EnsureSendablePhotoAsync(imageId, me.Id, cancellationToken);
+            parts = await images.ResolvePartsAsync(
+                imageId,
+                request.PosterImageId,
+                request.InsetImageId,
+                request.InsetPosterImageId,
+                me.Id,
+                ImagePurpose.ChatPhoto,
+                cancellationToken);
+
+            await EnsureUnsentAsync([imageId, .. parts.OtherIds], cancellationToken);
         }
 
         var message = conversation.AddMessage(
@@ -268,7 +279,8 @@ public sealed class ChatService(
             me.Id,
             request.Text ?? string.Empty,
             now,
-            request.ImageId);
+            request.ImageId,
+            parts);
         conversation.MarkRead(me.Id, now);
 
         // The goal's title is its conversation's name, and lives on the goal.
@@ -470,11 +482,11 @@ public sealed class ChatService(
 
         var message = await LoadMessageAsync(conversation, messageId, cancellationToken);
         var wasDeleted = message.IsDeleted;
-        var photo = message.Delete(me.Id, now);
+        var photos = message.Delete(me.Id, now);
 
         if (!wasDeleted)
         {
-            var removed = await images.RemoveChatPhotosAsync([photo], cancellationToken);
+            var removed = await images.RemoveChatPhotosAsync(photos.Cast<Guid?>(), cancellationToken);
             await database.SaveChangesAsync(cancellationToken);
             await images.DeleteBytesAsync(removed, cancellationToken);
             await AnnounceChangedAsync(conversation, message, cancellationToken);
@@ -638,7 +650,18 @@ public sealed class ChatService(
                 && database.Images.Any(image => image.Id == message.ImageId))
             .OrderByDescending(message => message.SentAt)
             .Take(MaxPhotos)
-            .Select(message => new { message.Id, ImageId = message.ImageId!.Value, Author = message.SenderPersonId, At = message.SentAt })
+            .Select(message => new
+            {
+                message.Id,
+                ImageId = message.ImageId!.Value,
+                Author = message.SenderPersonId,
+                At = message.SentAt,
+                message.Media,
+                message.PosterImageId,
+                message.InsetImageId,
+                message.InsetMedia,
+                message.InsetPosterImageId,
+            })
             .ToListAsync(cancellationToken);
 
         var delivered = conversation.GoalId is { } goalId
@@ -657,7 +680,18 @@ public sealed class ChatService(
 
         return
         [
-            .. sent.Select(photo => new ChatPhotoResponse(photo.Id, photo.ImageId, IsProof: false, NameOf(photo.Author), photo.At, Source: null))
+            .. sent.Select(photo => new ChatPhotoResponse(
+                    photo.Id,
+                    photo.ImageId,
+                    IsProof: false,
+                    NameOf(photo.Author),
+                    photo.At,
+                    Source: null,
+                    photo.Media,
+                    photo.PosterImageId,
+                    photo.InsetImageId,
+                    photo.InsetMedia,
+                    photo.InsetPosterImageId))
                 .Concat(delivered.Select(photo => new ChatPhotoResponse(
                     photo.Id,
                     photo.ImageId,
@@ -863,12 +897,12 @@ public sealed class ChatService(
         {
             // Only the photographs are needed: the messages and their
             // reactions go with the conversation's row (ConversationConfiguration).
-            var photoIds = await database.ChatMessages
+            var photos = await database.ChatMessages
                 .Where(message => message.ConversationId == conversation.Id && message.ImageId != null)
-                .Select(message => message.ImageId)
+                .Select(message => new[] { message.ImageId, message.PosterImageId, message.InsetImageId, message.InsetPosterImageId })
                 .ToListAsync(cancellationToken);
 
-            removedPhotos = await images.RemoveChatPhotosAsync(photoIds, cancellationToken);
+            removedPhotos = await images.RemoveChatPhotosAsync(photos.SelectMany(ids => ids), cancellationToken);
 
             database.Conversations.Remove(conversation);
         }
@@ -1016,8 +1050,13 @@ public sealed class ChatService(
                         entry.Day,
                         entry.Uses,
                         entry.Limit,
-                        entry.ImageId,
-                        GoalChangeResponse.From(entry.Change, goal, people, meId, now))),
+                        entry.Use?.ImageId,
+                        GoalChangeResponse.From(entry.Change, goal, people, meId, now),
+                        entry.Use?.ImageId is null ? null : entry.Use.Media,
+                        entry.Use?.PosterImageId,
+                        entry.Use?.InsetImageId,
+                        entry.Use?.InsetMedia,
+                        entry.Use?.InsetPosterImageId)),
                 ],
             page.Older?.ToCursor(),
             people);
@@ -1081,7 +1120,11 @@ public sealed class ChatService(
             SummariseReactions(message, meId),
             message.EditedAt,
             message.IsDeleted,
-            message.CanBeEditedBy(meId, now));
+            message.CanBeEditedBy(meId, now),
+            message.PosterImageId,
+            message.InsetImageId,
+            message.InsetMedia,
+            message.InsetPosterImageId);
 
     private async Task<IReadOnlyDictionary<Guid, StoredImage>> LoadPhotosAsync(
         IEnumerable<ChatMessage> messages,
@@ -1389,19 +1432,25 @@ public sealed class ChatService(
         ?? throw new ResourceNotFoundException("Conversation", id);
 
     /// <summary>
-    /// Refuses a photograph that is not the sender's own chat photograph, or
-    /// that has already been sent somewhere.
+    /// Refuses a picture — or any part of one — that has already been sent
+    /// somewhere. That each is the sender's own chat photograph is
+    /// <see cref="ImageService.ResolvePartsAsync"/>' check.
     /// </summary>
     /// <remarks>
     /// Once only, because a picture's audience is the conversation its message
     /// is in. The same id in two threads would be readable from both, and
     /// deleting either conversation would take the picture out of the other.
     /// </remarks>
-    private async Task EnsureSendablePhotoAsync(Guid imageId, Guid meId, CancellationToken cancellationToken)
+    private async Task EnsureUnsentAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
-        await images.RequireOwnedAsync(imageId, meId, ImagePurpose.ChatPhoto, cancellationToken);
+        var sent = await database.ChatMessages.AnyAsync(
+            message => (message.ImageId != null && ids.Contains(message.ImageId.Value))
+                || (message.PosterImageId != null && ids.Contains(message.PosterImageId.Value))
+                || (message.InsetImageId != null && ids.Contains(message.InsetImageId.Value))
+                || (message.InsetPosterImageId != null && ids.Contains(message.InsetPosterImageId.Value)),
+            cancellationToken);
 
-        if (await database.ChatMessages.AnyAsync(message => message.ImageId == imageId, cancellationToken))
+        if (sent)
         {
             throw new DomainValidationException(
                 nameof(SendMessageRequest.ImageId),

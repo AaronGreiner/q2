@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence;
@@ -501,6 +502,7 @@ public sealed class DontUseConfiguration : IEntityTypeConfiguration<DontUse>
         // No foreign key to the image, like a proof's: deleting a picture
         // leaves the use, which was logged whether or not it had one.
         builder.Property(use => use.ImageId);
+        builder.HasMediaParts();
 
         builder.HasIndex(use => use.GoalInstanceId);
     }

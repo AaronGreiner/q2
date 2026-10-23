@@ -88,7 +88,7 @@ test('a challenge picture from the shutter is not called a gallery pick', async 
 
   // Until #64 every contribution was sent as live, so this passed for the
   // wrong reason; challenge.spec.ts asserts the gallery half.
-  await expect(page.getByTestId('challenge-image')).toBeVisible()
+  await expect(page.getByTestId('challenge-entry').getByTestId('proof-image')).toBeVisible()
   await expect(page.getByTestId('challenge-origin')).toHaveCount(0)
   await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('challenge.png') })
 

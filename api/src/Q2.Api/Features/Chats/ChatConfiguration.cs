@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence;
 
@@ -118,8 +119,13 @@ public sealed class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMess
         builder.HasIndex(m => new { m.ConversationId, m.SentAt });
 
         // Who may open a chat photograph is answered from the message that
-        // carries it (ImageService.CanReadAsync), on every image request.
+        // carries it (ImageService.CanReadAsync), on every image request —
+        // and since #152 that may be any of its parts.
         builder.HasIndex(m => m.ImageId);
+        builder.HasMediaParts();
+        builder.HasIndex(m => m.PosterImageId);
+        builder.HasIndex(m => m.InsetImageId);
+        builder.HasIndex(m => m.InsetPosterImageId);
 
         builder.HasMany(m => m.Reactions)
             .WithOne()

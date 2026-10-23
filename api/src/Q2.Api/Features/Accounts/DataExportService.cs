@@ -227,7 +227,12 @@ public sealed class DataExportService(
                 row.entry.CreatedAt,
                 row.entry.Source,
                 Late = row.challenge.IsLate(row.entry.CreatedAt),
+                row.entry.Media,
                 Image = FileFor(row.entry.ImageId),
+                Still = FileFor(row.entry.PosterImageId),
+                FrontCamera = FileFor(row.entry.InsetImageId),
+                FrontCameraMedia = row.entry.InsetMedia,
+                FrontCameraStill = FileFor(row.entry.InsetPosterImageId),
             })
             .ToList();
 
@@ -279,7 +284,12 @@ public sealed class DataExportService(
                 message.Text,
                 message.EditedAt,
                 message.DeletedAt,
+                Media = message.ImageId is null ? (MediaKind?)null : message.Media,
                 Image = FileFor(message.ImageId),
+                Still = FileFor(message.PosterImageId),
+                FrontCamera = FileFor(message.InsetImageId),
+                FrontCameraMedia = message.InsetMedia,
+                FrontCameraStill = FileFor(message.InsetPosterImageId),
             })
             .ToList();
 
@@ -452,7 +462,16 @@ public sealed class DataExportService(
                     Doubted = proof.Votes.Count(vote => vote.Value == VoteValue.Doubt),
                     DoubtReasons = proof.DoubtReasons.Select(reason => new { reason.Reason, reason.Count }),
                 }),
-                Uses = window.UseLog.OrderBy(use => use.LoggedAt).Select(use => new { use.LoggedAt, Image = fileFor(use.ImageId) }),
+                Uses = window.UseLog.OrderBy(use => use.LoggedAt).Select(use => new
+                {
+                    use.LoggedAt,
+                    Media = use.ImageId is null ? (MediaKind?)null : use.Media,
+                    Image = fileFor(use.ImageId),
+                    Still = fileFor(use.PosterImageId),
+                    FrontCamera = fileFor(use.InsetImageId),
+                    FrontCameraMedia = use.InsetMedia,
+                    FrontCameraStill = fileFor(use.InsetPosterImageId),
+                }),
                 SpotChecks = window.SpotChecks.OrderBy(check => check.Day).Select(check => new { check.Day, check.Status, check.IssuedAt, check.ExpiresAt }),
             }),
             Pauses = goal.Pauses.OrderBy(pause => pause.CreatedAt).Select(pause => new

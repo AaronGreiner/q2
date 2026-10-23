@@ -66,9 +66,9 @@ const {
  */
 const isCapturingChallenge = ref(false)
 
-async function onChallengeCaptured(image: Image, origin: PhotoOrigin) {
+async function onChallengeCaptured(_image: Image, _origin: PhotoOrigin, captured: Captured) {
   isCapturingChallenge.value = false
-  await contributeToChallenge(image, origin)
+  await contributeToChallenge(captured)
 }
 
 /*
@@ -474,7 +474,6 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
-      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
@@ -484,7 +483,6 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="answering !== null"
       purpose="Proof"
-      proof-modes
       live-only
       :max-edge="maxEdge"
       :hand-in="handInCheck"
@@ -499,6 +497,7 @@ useHead({ title: () => t.value.nav.home })
       v-model:open="isCapturingChallenge"
       purpose="ChallengeEntry"
       :max-edge="challengeMaxEdge"
+      labels-source
       @uploaded="onChallengeCaptured"
     />
   </div>

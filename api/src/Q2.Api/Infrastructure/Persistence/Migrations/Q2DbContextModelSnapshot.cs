@@ -264,7 +264,25 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ImageId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("InsetImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InsetMedia")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InsetPosterImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Media")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("PersonId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PosterImageId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Source")
@@ -323,6 +341,24 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ImageId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("InsetImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InsetMedia")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InsetPosterImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Media")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PosterImageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("SenderPersonId")
                         .HasColumnType("TEXT");
 
@@ -337,6 +373,12 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ImageId");
+
+                    b.HasIndex("InsetImageId");
+
+                    b.HasIndex("InsetPosterImageId");
+
+                    b.HasIndex("PosterImageId");
 
                     b.HasIndex("SenderPersonId");
 
@@ -444,7 +486,25 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ImageId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("InsetImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InsetMedia")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InsetPosterImageId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("LoggedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Media")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PosterImageId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ChallengeEntry } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One contribution in the start screen's strip, as a portrait tile.
@@ -11,7 +12,9 @@ import type { ChallengeEntry } from '~/api/types'
  *
  * Covered means what it means in the room (docs/adr/0021-daily-challenge.md):
  * the name is shown and the picture is not, and there is no picture behind the
- * cover, because the server did not send one.
+ * cover, because the server did not send one. A clip shows its still with a
+ * play mark, and the front camera's part sits in the bottom corner, as on every
+ * tile (`ProofMedia`, #152).
  */
 const props = defineProps<{
   entry: ChallengeEntry
@@ -23,28 +26,21 @@ const props = defineProps<{
 
 const t = useMessages()
 const now = useNow()
-const picture = useImageSource(() => (props.covered ? null : props.entry.imageId))
 const viewer = usePhotoViewer()
 
-const failed = ref(false)
-
-watch(() => props.entry.imageId, () => {
-  failed.value = false
-})
-
-const source = computed(() =>
-  (props.covered || failed.value || !props.entry.imageId
-    ? null
-    : picture.value))
+/** Nothing while covered: the server sent no picture to draw. */
+const media = computed(() => (!props.covered && props.entry.imageId
+  ? proofMediaOf({ ...props.entry, imageId: props.entry.imageId })
+  : null))
 
 /** "Du" on your own, so the first tile in the strip says why it is first. */
 const name = computed(() => (props.entry.isMine ? t.value.challenge.you : props.entry.author.displayName))
 
 function enlarge() {
-  if (!props.entry.imageId) return
+  if (!media.value) return
 
   viewer.open({
-    imageId: props.entry.imageId,
+    ...media.value,
     title: props.prompt,
     subtitle: props.entry.author.displayName,
     meta: formatRelativeTime(props.entry.createdAt, now.value, t.value),
@@ -54,25 +50,23 @@ function enlarge() {
 
 <template>
   <component
-    :is="source ? 'button' : 'div'"
-    :type="source ? 'button' : undefined"
+    :is="media ? 'button' : 'div'"
+    :type="media ? 'button' : undefined"
     class="relative block aspect-4/5 w-full overflow-hidden rounded-(--q2-radius-md) bg-(--ui-bg-elevated) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-    :aria-label="source ? t.challenge.enlargeEntry(entry.author.displayName) : undefined"
+    :aria-label="media ? t.challenge.enlargeEntry(entry.author.displayName) : undefined"
     :data-covered="covered ? '' : undefined"
     data-testid="challenge-tile"
     data-q2-block
-    @click="source ? enlarge() : undefined"
+    @click="media ? enlarge() : undefined"
   >
-    <img
-      v-if="source"
-      crossorigin="use-credentials"
-      :src="source"
+    <ProofMedia
+      v-if="media"
+      :parts="media"
+      mode="still"
+      inset-corner="bottom-end"
       :alt="t.challenge.entryAlt(entry.author.displayName)"
-      decoding="async"
-      class="size-full object-cover"
-      data-testid="challenge-tile-image"
-      @error="failed = true"
-    >
+      data-testid="challenge-tile-media"
+    />
 
     <!--
       Covered: who it is, large, and nothing of what they did. Seeing who is
@@ -129,10 +123,12 @@ function enlarge() {
       data-testid="challenge-tile-late"
     >{{ t.challenge.late }}</span>
 
+    <!-- Stops short of the front camera's corner, where there is one. -->
     <span
       v-if="!covered"
-      class="absolute inset-x-1.5 bottom-1.5 flex items-center gap-1.5"
-      :aria-hidden="source ? 'true' : undefined"
+      class="absolute start-1.5 bottom-1.5 flex items-center gap-1.5"
+      :class="media?.insetImageId ? 'end-[calc(28%+0.75rem)]' : 'end-1.5'"
+      :aria-hidden="media ? 'true' : undefined"
     >
       <AppAvatar
         :initials="entry.author.initials"
@@ -143,7 +139,7 @@ function enlarge() {
       />
       <span
         class="min-w-0 truncate text-[11px] font-extrabold"
-        :class="source ? 'text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]' : 'text-(--ui-text-muted)'"
+        :class="media ? 'text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]' : 'text-(--ui-text-muted)'"
         data-testid="challenge-tile-name"
         data-q2-private
       >{{ name }}</span>

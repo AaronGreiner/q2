@@ -276,6 +276,7 @@ function onCornerClick() {
           class="size-8 text-(--ui-text-dimmed)"
           aria-hidden="true"
         />
+        <span class="sr-only">{{ t.proof.media.unavailable }}</span>
       </span>
     </div>
 

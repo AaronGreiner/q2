@@ -64,7 +64,7 @@ public class ChatMessageTests
         var message = Message(text: "Schau mal", photo: photo);
         message.ToggleReaction(Guid.CreateVersion7(), _friend, KudosKind.Fire);
 
-        Assert.Equal(photo, message.Delete(_me, Sent.AddHours(5)));
+        Assert.Equal([photo], message.Delete(_me, Sent.AddHours(5)));
 
         Assert.True(message.IsDeleted);
         Assert.Equal(string.Empty, message.Text);
@@ -73,7 +73,7 @@ public class ChatMessageTests
         Assert.False(message.CanBeEditedBy(_me, Sent.AddHours(5)));
 
         // Twice is once.
-        Assert.Null(message.Delete(_me, Sent.AddHours(6)));
+        Assert.Empty(message.Delete(_me, Sent.AddHours(6)));
         Assert.Equal(Sent.AddHours(5), message.DeletedAt);
     }
 }

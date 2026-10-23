@@ -808,6 +808,7 @@ export const de = {
       showFront: 'Frontkamera groß zeigen',
       showMain: 'Hauptbild groß zeigen',
       soundOn: 'Ton einschalten',
+      unavailable: 'Foto nicht mehr verfügbar',
       soundOff: 'Ton ausschalten',
     },
     confirmedByNobody: 'Noch niemand hat bestätigt.',
@@ -903,7 +904,6 @@ export const de = {
     coveredHint: 'Mach mit, um zu sehen',
     coveredAlt: 'Verdeckter Beitrag',
     entryAlt: (name: string) => `Beitrag von ${name}`,
-    notLive: 'Nicht live aufgenommen',
     nobody: 'Noch keine Freunde dabei',
     participation: (joined: number, friends: number) => (friends === 1
       ? `${joined} von 1 Freund dabei`
@@ -2331,6 +2331,7 @@ export const en: Messages = {
       showFront: 'Show the front camera large',
       showMain: 'Show the main picture large',
       soundOn: 'Turn the sound on',
+      unavailable: 'Photo no longer available',
       soundOff: 'Turn the sound off',
     },
     confirmedByNobody: 'Nobody has confirmed it yet.',
@@ -2404,7 +2405,6 @@ export const en: Messages = {
     coveredHint: 'Join in to see',
     coveredAlt: 'Covered contribution',
     entryAlt: (name: string) => `Contribution by ${name}`,
-    notLive: 'Not taken live',
     nobody: 'No friends in yet',
     participation: (joined: number, friends: number) => (friends === 1
       ? `${joined} of 1 friend in`

@@ -39,7 +39,7 @@ test.describe('the daily challenge', () => {
 
     const own = card.getByTestId('challenge-tile').first()
     await expect(own.getByTestId('challenge-tile-name')).toHaveText('Du')
-    await expect(own.getByTestId('challenge-tile-image')).toBeVisible()
+    await expect(own.getByTestId('proof-image')).toBeVisible()
 
     await card.getByTestId('challenge-card-room').click()
     await expect(page.getByTestId('challenge-prompt')).toContainText(prompt)
@@ -56,10 +56,11 @@ test.describe('the daily challenge', () => {
     await deliverPhoto(page)
 
     await expect(page.getByTestId('challenge-entry')).toBeVisible()
-    await expect(page.getByTestId('challenge-image')).toBeVisible()
+    await expect(page.getByTestId('challenge-entry').getByTestId('proof-image')).toBeVisible()
 
-    // The file picker, not the shutter — and the card says so (#64).
-    await expect(page.getByTestId('challenge-origin')).toHaveText('Nicht live aufgenommen')
+    // The file picker, not the shutter — and the card says so, as a
+    // screenshot, the way a proof does (#64, #152).
+    await expect(page.getByTestId('challenge-origin')).toHaveText('Screenshot')
 
     await page.getByTestId('challenge-archive-link').click()
     await expect(page.getByTestId('challenge-archive-tile').first()).toBeVisible()

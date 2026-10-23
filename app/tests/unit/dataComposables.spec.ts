@@ -653,22 +653,31 @@ describe('chat composables', () => {
     const state = useChatThread(ref('chat-1'))
     await vi.waitFor(() => expect(state.chat.value).not.toBeNull())
     const image = { id: 'image-1', purpose: 'ChatPhoto', width: 800, height: 600 } as Image
+    const captured = { image, origin: 'camera' as const, poster: null, inset: null }
 
-    await expect(state.sendPhoto(image)).resolves.toBe(true)
-    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { imageId: 'image-1' })
+    await expect(state.sendPhoto(captured)).resolves.toBe(true)
+    expect(api.chats.send).toHaveBeenCalledWith('chat-1', { imageId: 'image-1', posterImageId: null, insetImageId: null, insetPosterImageId: null })
     expect(api.images.remove).not.toHaveBeenCalled()
     expect(state.isSending.value).toBe(false)
 
-    // Nobody was sent it, so nothing should be left on the server either.
+    // Nobody was sent it, so nothing should be left on the server either —
+    // every part of a clip from both cameras (#152).
     api.chats.send.mockRejectedValueOnce(new Error('send'))
-    await expect(state.sendPhoto(image)).resolves.toBe(false)
+    const clip = {
+      image: { ...image, kind: 'Video' } as Image,
+      origin: 'camera' as const,
+      poster: { id: 'still-1' } as Image,
+      inset: { id: 'front-1' } as Image,
+      insetPoster: { id: 'front-still-1' } as Image,
+    }
+    await expect(state.sendPhoto(clip)).resolves.toBe(false)
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'chats', action: 'send-photo' })
-    expect(api.images.remove).toHaveBeenCalledWith('image-1')
+    expect(api.images.remove.mock.calls.map(([id]) => id)).toEqual(['image-1', 'still-1', 'front-1', 'front-still-1'])
 
     // A tidy-up that fails as well is not a second problem to show anybody.
     api.chats.send.mockRejectedValueOnce(new Error('send'))
     api.images.remove.mockRejectedValueOnce(new Error('remove'))
-    await expect(state.sendPhoto(image)).resolves.toBe(false)
+    await expect(state.sendPhoto(captured)).resolves.toBe(false)
   })
 
   it('votes from a goal\'s thread and reads it again, with the vote screen and the badges', async () => {

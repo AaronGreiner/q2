@@ -120,6 +120,10 @@ public sealed record MessageReactionResponse(KudosKind Kind, int Count, bool IsM
 /// <see cref="ChatMessage.EditWindow"/> — so the app offers it exactly while
 /// the server would take it.
 /// </param>
+/// <param name="PosterImageId">When <paramref name="Image"/> is a clip: its still (#152).</param>
+/// <param name="InsetImageId">The front camera's picture or clip, when both cameras were used.</param>
+/// <param name="InsetMedia">Whether that is a photograph or a clip. Null without one.</param>
+/// <param name="InsetPosterImageId">For a front clip: its still.</param>
 public sealed record ChatMessageResponse(
     Guid Id,
     Guid SenderId,
@@ -131,7 +135,11 @@ public sealed record ChatMessageResponse(
     IReadOnlyList<MessageReactionResponse> Reactions,
     DateTimeOffset? EditedAt,
     bool IsDeleted,
-    bool CanEdit);
+    bool CanEdit,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null,
+    MediaKind? InsetMedia = null,
+    Guid? InsetPosterImageId = null);
 
 /// <summary>Request body for correcting a message's words.</summary>
 public sealed record EditMessageRequest(string? Text = null);
@@ -193,7 +201,12 @@ public sealed record ChatPinnedGoalResponse(
 /// For a Don't's window or logged use: the limit of its period. Null on a Do's
 /// lines, which is how a client tells "Durchgehalten" from "Geschafft".
 /// </param>
-/// <param name="ImageId">For a logged use: its optional photograph.</param>
+/// <param name="ImageId">For a logged use: its optional photograph or clip.</param>
+/// <param name="Media">For a logged use with a picture: whether it is a photograph or a clip (#152).</param>
+/// <param name="PosterImageId">For a logged use's clip: its still.</param>
+/// <param name="InsetImageId">For a logged use: the front camera's picture or clip, when both cameras were used.</param>
+/// <param name="InsetMedia">Whether that is a photograph or a clip.</param>
+/// <param name="InsetPosterImageId">For a front clip: its still.</param>
 /// <param name="Change">
 /// For an edit and what became of it: what changed, from what to what, and
 /// the objection to it while that is still open.
@@ -213,7 +226,12 @@ public sealed record GoalEventResponse(
     int? Uses,
     int? Limit,
     Guid? ImageId,
-    GoalChangeResponse? Change);
+    GoalChangeResponse? Change,
+    MediaKind? Media = null,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null,
+    MediaKind? InsetMedia = null,
+    Guid? InsetPosterImageId = null);
 
 /// <summary>Everything the thread screen shows, with the newest page of the thread.</summary>
 /// <param name="Members">
@@ -271,10 +289,19 @@ public sealed record ChatPageResponse(
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
 /// <param name="Text">The words. May be left out when a photograph is sent.</param>
 /// <param name="ImageId">
-/// A photograph uploaded beforehand to <c>/api/images?purpose=ChatPhoto</c>. It
-/// has to be the sender's own, and it can be sent once.
+/// A photograph or clip uploaded beforehand to <c>/api/images?purpose=ChatPhoto</c>.
+/// It has to be the sender's own, and it can be sent once — as can every part
+/// that comes with it.
 /// </param>
-public sealed record SendMessageRequest(string? Text = null, Guid? ImageId = null);
+/// <param name="PosterImageId">With a clip, and only then: a still from it (#152).</param>
+/// <param name="InsetImageId">The front camera's picture or clip, when both cameras were used.</param>
+/// <param name="InsetPosterImageId">With a front clip, and only then: a still from it.</param>
+public sealed record SendMessageRequest(
+    string? Text = null,
+    Guid? ImageId = null,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null,
+    Guid? InsetPosterImageId = null);
 
 /// <summary>Request body for toggling a reaction.</summary>
 /// <remarks>Nullable so an empty body produces a field error, not a binding failure.</remarks>
@@ -295,12 +322,9 @@ public sealed record PinChatRequest(bool? Pinned = null);
 /// because every proof says whether it was live (docs/adr/0036-live-or-screenshot.md).
 /// </param>
 /// <param name="AuthorName">Who sent or delivered it, for the full-screen view.</param>
-/// <param name="Media">
-/// A proof may be a short clip (#124); everything else in a conversation is a
-/// photograph.
-/// </param>
+/// <param name="Media">A photograph or a short clip — a proof's since #124, a sent one's since #152.</param>
 /// <param name="PosterImageId">A clip's still, which is what its tile shows.</param>
-/// <param name="InsetImageId">A proof's front-camera picture or clip, for the full-screen view (#125, #151).</param>
+/// <param name="InsetImageId">The front camera's picture or clip, for the full-screen view (#125, #151, #152).</param>
 /// <param name="InsetMedia">Whether <paramref name="InsetImageId"/> is a photograph or a clip. Null without one.</param>
 /// <param name="InsetPosterImageId">A front clip's still.</param>
 public sealed record ChatPhotoResponse(

@@ -504,8 +504,9 @@ public sealed class AccountService(
         // files nobody can open, still counted against a friend's allowance.
         var chatPhotos = await images.RemoveChatPhotosAsync(
             direct.SelectMany(conversation => conversation.Messages)
-                .Select(message => message.ImageId)
-                .Where(id => id is { } photoId && !imageIds.Contains(photoId)),
+                .SelectMany(message => message.PictureIds)
+                .Where(photoId => !imageIds.Contains(photoId))
+                .Cast<Guid?>(),
             cancellationToken);
 
         database.Conversations.RemoveRange(direct);

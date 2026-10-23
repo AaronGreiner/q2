@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Features.Settings;
 using Q2.Api.Infrastructure.Errors;
@@ -254,13 +255,18 @@ public sealed class Challenge
     /// than adding to a gallery: the challenge is a moment, not a collection.
     /// </remarks>
     /// <exception cref="DomainValidationException">It is not running.</exception>
+    /// <param name="parts">A clip, or both cameras, when it was taken with them (#152). Left out, one photograph.</param>
+    /// <exception cref="DomainValidationException">The parts do not fit together, or a clip or both cameras did not come live.</exception>
     public ChallengeEntry Contribute(
         Guid id,
         Guid personId,
         Guid imageId,
         ProofSource source,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        MediaParts? parts = null)
     {
+        parts ??= MediaParts.Photo;
+
         if (!IsActiveAt(now))
         {
             throw new DomainValidationException("Challenge", "This challenge is not taking contributions.");
@@ -271,13 +277,15 @@ public sealed class Challenge
             throw new DomainValidationException(nameof(ChallengeEntry.ImageId), "A contribution needs a photograph.");
         }
 
+        parts.Validate(imageId, source == ProofSource.Live);
+
         if (EntryOf(personId) is { } existing)
         {
-            existing.Replace(imageId, source, now);
+            existing.Replace(imageId, source, now, parts);
             return existing;
         }
 
-        var entry = new ChallengeEntry(id, Id, personId, imageId, source, now);
+        var entry = new ChallengeEntry(id, Id, personId, imageId, source, now, parts);
         _entries.Add(entry);
         return entry;
     }
@@ -333,7 +341,8 @@ public sealed class ChallengeEntry
         Guid personId,
         Guid imageId,
         ProofSource source,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        MediaParts parts)
     {
         Id = id;
         ChallengeId = challengeId;
@@ -341,6 +350,7 @@ public sealed class ChallengeEntry
         ImageId = imageId;
         Source = source;
         CreatedAt = createdAt;
+        Take(parts);
     }
 
     public Guid Id { get; private set; }
@@ -350,8 +360,29 @@ public sealed class ChallengeEntry
     /// <summary>Who contributed it.</summary>
     public Guid PersonId { get; private set; }
 
-    /// <summary>The stored picture. Its bytes are reached through the image endpoint, never from here.</summary>
+    /// <summary>The stored picture or clip. Its bytes are reached through the image endpoint, never from here.</summary>
     public Guid ImageId { get; private set; }
+
+    /// <summary>Whether <see cref="ImageId"/> is a photograph or a clip (#152).</summary>
+    public MediaKind Media { get; private set; }
+
+    /// <summary>For a clip: a still from it, shown before it plays and on a tile.</summary>
+    public Guid? PosterImageId { get; private set; }
+
+    /// <summary>The front camera's picture or clip, when both cameras were used.</summary>
+    public Guid? InsetImageId { get; private set; }
+
+    /// <summary>Whether <see cref="InsetImageId"/> is a photograph or a clip. Null without one.</summary>
+    public MediaKind? InsetMedia { get; private set; }
+
+    /// <summary>For a front clip: a still from it.</summary>
+    public Guid? InsetPosterImageId { get; private set; }
+
+    /// <summary>The parts beside the main picture, as <see cref="MediaParts"/> checks them.</summary>
+    public MediaParts Parts => new(Media, PosterImageId, InsetImageId, InsetMedia ?? MediaKind.Photo, InsetPosterImageId);
+
+    /// <summary>Every picture it carries: the main one and its parts.</summary>
+    public IEnumerable<Guid> PictureIds => Parts.OtherIds.Prepend(ImageId);
 
     /// <summary>
     /// Which route the app used: the camera, or a picture from the phone.
@@ -372,13 +403,24 @@ public sealed class ChallengeEntry
     /// somebody's "stark" standing under a photograph they never saw, which is
     /// the one way a reaction here could become dishonest.
     /// </remarks>
-    internal void Replace(Guid imageId, ProofSource source, DateTimeOffset now)
+    internal void Replace(Guid imageId, ProofSource source, DateTimeOffset now, MediaParts parts)
     {
         ImageId = imageId;
         Source = source;
         CreatedAt = now;
+        Take(parts);
         _reactions.Clear();
     }
+
+    private void Take(MediaParts parts)
+    {
+        Media = parts.Media;
+        PosterImageId = parts.PosterImageId;
+        InsetImageId = parts.InsetImageId;
+        InsetMedia = parts.StoredInsetMedia;
+        InsetPosterImageId = parts.InsetPosterImageId;
+    }
+
 
     /// <summary>
     /// Adds or takes back one person's reaction. Returns the kind now standing,

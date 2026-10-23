@@ -1,8 +1,9 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChallengeArchiveEntry, ChallengeRoom, Image, KudosKind } from '~/api/types'
+import type { ChallengeArchiveEntry, ChallengeRoom, KudosKind } from '~/api/types'
+import { type Captured, proofPartsOf } from '~/utils/captured'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { uploadSizes } from '~/utils/images'
-import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
+import { proofSourceOf } from '~/utils/proofSource'
 
 interface RoomPayload {
   room: ChallengeRoom | null
@@ -48,13 +49,14 @@ export function useChallengeRoom() {
    * proof, so a dropped connection never leaves half a picture in the room.
    * The route it used goes with it, so a gallery pick is called one (#64).
    */
-  async function contribute(image: Image, origin: PhotoOrigin) {
+  /** What the camera took — a clip and the front camera's part included (#152) — with the route it took. */
+  async function contribute(captured: Captured) {
     if (isSubmitting.value) return
 
     isSubmitting.value = true
 
     try {
-      const room = await api.challenges.submit(image.id, proofSourceOf(origin))
+      const room = await api.challenges.submit(proofPartsOf(captured), proofSourceOf(captured.origin))
       data.value = { room, failure: null }
     }
     catch (caught) {

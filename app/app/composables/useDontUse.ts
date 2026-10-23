@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
 import type { Goal } from '~/api/types'
+import type { ProofPartIds } from '~/utils/captured'
 
 /**
  * Logging a use of a Don't: "Heute 1 Bier".
@@ -26,14 +27,15 @@ export function useDontUse(onUndone: () => unknown = () => undefined) {
   const failure = ref<ApiFailure | null>(null)
 
   /** Returns the goal as it is now, or null with the reason in `error`. */
-  async function logUse(goalId: string, imageId: string | null = null): Promise<Goal | null> {
+  /** One use, with what the camera took for it — a clip and the front camera's part included (#152) — if anything. */
+  async function logUse(goalId: string, parts: ProofPartIds | null = null): Promise<Goal | null> {
     if (isLogging.value) return null
 
     isLogging.value = true
     failure.value = null
 
     try {
-      const goal = await api.goals.logUse(goalId, { imageId })
+      const goal = await api.goals.logUse(goalId, parts ?? { imageId: null })
       const useId = goal.current?.latestUseId
 
       if (goal.current?.status === 'Relapse' || !useId) {

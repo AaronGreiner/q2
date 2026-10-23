@@ -4239,7 +4239,12 @@
           "createdAt",
           "isMine",
           "reactions",
-          "isLate"
+          "isLate",
+          "media",
+          "posterImageId",
+          "insetImageId",
+          "insetMedia",
+          "insetPosterImageId"
         ],
         "type": "object",
         "properties": {
@@ -4273,6 +4278,37 @@
           },
           "isLate": {
             "type": "boolean"
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -4552,6 +4588,34 @@
           },
           "canEdit": {
             "type": "boolean"
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -5785,6 +5849,47 @@
                 "$ref": "#/components/schemas/GoalChangeResponse"
               }
             ]
+          },
+          "media": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetMedia": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/MediaKind"
+              }
+            ]
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -6523,6 +6628,21 @@
         "type": "object",
         "properties": {
           "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetPosterImageId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -7523,6 +7643,21 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -7665,6 +7800,21 @@
                 "$ref": "#/components/schemas/ProofSource"
               }
             ]
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetPosterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },

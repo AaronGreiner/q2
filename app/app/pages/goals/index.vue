@@ -323,7 +323,6 @@ useHead({ title: () => t.value.goals.heading })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
-      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"

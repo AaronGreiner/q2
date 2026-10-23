@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ChallengeArchiveEntry } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One of your own past contributions, cropped square, with what it answered.
@@ -7,28 +8,26 @@ import type { ChallengeArchiveEntry } from '~/api/types'
  * The date sits on the picture and the prompt underneath it, cut to two lines.
  * Without the prompt the picture is unplaceable in six months: a photograph
  * answers a question, and the question is what makes it mean anything. The
- * whole prompt, uncut, is in the full-screen view a tap opens.
+ * whole prompt, uncut, is in the full-screen view a tap opens. A clip shows
+ * its still with a play mark, and the front camera's part sits in the bottom
+ * corner, as on every tile (`ProofMedia`, #152).
  */
 const props = defineProps<{ item: ChallengeArchiveEntry }>()
 
 const t = useMessages()
-const picture = useImageSource(() => props.item.entry.imageId)
 const viewer = usePhotoViewer()
 
-const failed = ref(false)
-
-const source = computed(() =>
-  (failed.value || !props.item.entry.imageId
-    ? null
-    : picture.value))
+const media = computed(() => (props.item.entry.imageId
+  ? proofMediaOf({ ...props.item.entry, imageId: props.item.entry.imageId })
+  : null))
 
 const day = computed(() => formatInstantDate(props.item.challenge.publishedAt))
 
 function enlarge() {
-  if (!props.item.entry.imageId) return
+  if (!media.value) return
 
   viewer.open({
-    imageId: props.item.entry.imageId,
+    ...media.value,
     title: props.item.challenge.prompt,
     meta: day.value,
   })
@@ -42,23 +41,20 @@ function enlarge() {
     data-q2-block
   >
     <component
-      :is="source ? 'button' : 'div'"
-      :type="source ? 'button' : undefined"
+      :is="media ? 'button' : 'div'"
+      :type="media ? 'button' : undefined"
       class="relative block aspect-square w-full overflow-hidden rounded-(--q2-radius-md) border border-(--ui-border) bg-(--ui-bg-elevated) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ui-primary)"
-      :aria-label="source ? t.challenge.enlarge(item.challenge.prompt) : undefined"
+      :aria-label="media ? t.challenge.enlarge(item.challenge.prompt) : undefined"
       data-testid="challenge-archive-enlarge"
-      @click="source ? enlarge() : undefined"
+      @click="media ? enlarge() : undefined"
     >
-      <img
-        v-if="source"
-        crossorigin="use-credentials"
-        :src="source"
+      <ProofMedia
+        v-if="media"
+        :parts="media"
+        mode="still"
+        inset-corner="bottom-end"
         :alt="item.challenge.prompt"
-        decoding="async"
-        loading="lazy"
-        class="size-full object-cover"
-        @error="failed = true"
-      >
+      />
 
       <div
         v-else

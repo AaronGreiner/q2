@@ -1,3 +1,4 @@
+using Q2.Api.Features.Images;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 
@@ -219,7 +220,7 @@ public sealed class GoalInstance
         Guid uploaderPersonId,
         Guid imageId,
         DateTimeOffset now,
-        ProofParts? parts = null)
+        MediaParts? parts = null)
     {
         var check = _spotChecks.FirstOrDefault(candidate => candidate.Id == checkId);
 
@@ -341,7 +342,7 @@ public sealed class GoalInstance
         Guid imageId,
         ProofSource source,
         DateTimeOffset now,
-        ProofParts? parts = null)
+        MediaParts? parts = null)
     {
         if (!AcceptsProof)
         {
@@ -439,7 +440,8 @@ public sealed class GoalInstance
     /// still being voted on is left to its vote, which then has nothing left
     /// to decide on the window.
     /// </remarks>
-    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now)
+    /// <exception cref="DomainValidationException">The parts of its photograph do not fit together.</exception>
+    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now, MediaParts? parts = null)
     {
         if (!IsDont
             || Status is not (GoalInstanceStatus.Open or GoalInstanceStatus.Relapse)
@@ -449,7 +451,15 @@ public sealed class GoalInstance
             return null;
         }
 
-        var use = new DontUse(id, Id, imageId, now);
+        // Nothing records whether a use's photograph came from the camera, and
+        // nothing labels it, so only the shape of the parts is checked.
+        parts ??= MediaParts.Photo;
+        if (imageId is { } photo)
+        {
+            parts.Validate(photo, live: null);
+        }
+
+        var use = new DontUse(id, Id, imageId, now, parts);
         _useLog.Add(use);
 
         if (Status == GoalInstanceStatus.Open && Uses > Limit)

@@ -33,6 +33,26 @@ public static class ProofFlow
     }
 
     /// <summary>Uploads a clip as a proof and returns its id.</summary>
+    /// <summary>Uploads a picture for <paramref name="purpose"/> and returns its id.</summary>
+    public static async Task<Guid> UploadImageAsync(this HttpClient client, ImagePurpose purpose) =>
+        await UploadAsync(client, TestImages.Jpeg(640, 640), ImageFormatReader.Jpeg, purpose);
+
+    /// <summary>Uploads a short clip for <paramref name="purpose"/> and returns its id.</summary>
+    public static async Task<Guid> UploadVideoAsync(this HttpClient client, ImagePurpose purpose) =>
+        await UploadAsync(client, TestVideos.Mp4(), ImageFormatReader.Mp4, purpose);
+
+    private static async Task<Guid> UploadAsync(HttpClient client, byte[] bytes, string contentType, ImagePurpose purpose)
+    {
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+        var response = await client.PostAsync($"/api/images?purpose={purpose}", content, TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.ReadAsync<UploadedImage>()).Id;
+    }
+
     public static async Task<Guid> UploadProofVideoAsync(this HttpClient client)
     {
         var content = new ByteArrayContent(TestVideos.Mp4());

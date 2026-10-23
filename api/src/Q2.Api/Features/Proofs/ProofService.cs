@@ -78,7 +78,14 @@ public sealed class ProofService(
             throw new DomainValidationException(nameof(request.ImageId), "A spot check needs a photograph.");
         }
 
-        var parts = await ResolvePartsAsync(imageId, request.PosterImageId, request.InsetImageId, request.InsetPosterImageId, me.Id, cancellationToken);
+        var parts = await images.ResolvePartsAsync(
+            imageId,
+            request.PosterImageId,
+            request.InsetImageId,
+            request.InsetPosterImageId,
+            me.Id,
+            ImagePurpose.Proof,
+            cancellationToken);
 
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
@@ -146,7 +153,14 @@ public sealed class ProofService(
 
         // Theirs, and uploaded as a proof. Without this check, "prove it with
         // this id" would be a way to read any image in the database.
-        var parts = await ResolvePartsAsync(imageId, request.PosterImageId, request.InsetImageId, request.InsetPosterImageId, me.Id, cancellationToken);
+        var parts = await images.ResolvePartsAsync(
+            imageId,
+            request.PosterImageId,
+            request.InsetImageId,
+            request.InsetPosterImageId,
+            me.Id,
+            ImagePurpose.Proof,
+            cancellationToken);
 
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
@@ -197,54 +211,6 @@ public sealed class ProofService(
         return new DeliveredProofResponse(
             await DescribeAsync(goal, proof, me.Id, now, cancellationToken),
             conversationId);
-    }
-
-    /// <summary>
-    /// Checks every picture a delivery names and works out what kind of proof
-    /// they make.
-    /// </summary>
-    /// <remarks>
-    /// Each one has to be this person's and uploaded as a proof — without that,
-    /// naming somebody else's picture as your "front camera" would be a way to
-    /// read it. Whether the main picture and the front one are clips is read
-    /// off the stored rows, never taken from the request: the bytes already
-    /// said what they are. The stills have to be photographs; whether a front
-    /// clip fits beside the main picture is <see cref="ProofParts"/>' rule.
-    /// </remarks>
-    /// <exception cref="ResourceNotFoundException">One of them is not theirs, or not a proof upload.</exception>
-    /// <exception cref="DomainValidationException">A still is a clip.</exception>
-    private async Task<ProofParts> ResolvePartsAsync(
-        Guid imageId,
-        Guid? posterImageId,
-        Guid? insetImageId,
-        Guid? insetPosterImageId,
-        Guid ownerId,
-        CancellationToken cancellationToken)
-    {
-        var main = await images.RequireOwnedAsync(imageId, ownerId, ImagePurpose.Proof, cancellationToken);
-
-        foreach (var (id, field) in new[]
-                 {
-                     (posterImageId, nameof(SubmitProofRequest.PosterImageId)),
-                     (insetPosterImageId, nameof(SubmitProofRequest.InsetPosterImageId)),
-                 })
-        {
-            if (id is { } still && still != Guid.Empty
-                && (await images.RequireOwnedAsync(still, ownerId, ImagePurpose.Proof, cancellationToken)).IsVideo)
-            {
-                throw new DomainValidationException(field, "A still has to be a photograph.");
-            }
-        }
-
-        var insetIsVideo = insetImageId is { } inset && inset != Guid.Empty
-            && (await images.RequireOwnedAsync(inset, ownerId, ImagePurpose.Proof, cancellationToken)).IsVideo;
-
-        return new ProofParts(
-            main.IsVideo ? MediaKind.Video : MediaKind.Photo,
-            posterImageId,
-            insetImageId,
-            insetIsVideo ? MediaKind.Video : MediaKind.Photo,
-            insetPosterImageId);
     }
 
     /// <summary>

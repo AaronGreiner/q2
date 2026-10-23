@@ -2,6 +2,7 @@
 import { hapticTap } from '~/utils/haptics'
 import type { ChallengeEntry, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One contribution in the challenge room.
@@ -21,7 +22,9 @@ import { kudosKinds } from '~/api/types'
  *   gap in it.
  *
  * An uncovered picture opens full screen with the day's prompt under it: the
- * card is shown below the prompt, the full-screen view is not.
+ * card is shown below the prompt, the full-screen view is not. It may be a
+ * clip, with the front camera's picture or clip in a corner that swaps and
+ * moves, exactly like a proof's (`ProofMedia`, #152).
  */
 const props = defineProps<{
   entry: ChallengeEntry
@@ -35,23 +38,17 @@ const emit = defineEmits<{ react: [kind: KudosKind] }>()
 
 const t = useMessages()
 const now = useNow()
-const picture = useImageSource(() => (props.covered ? null : props.entry.imageId))
 
-const failed = ref(false)
-
-watch(() => props.entry.imageId, () => {
-  failed.value = false
-})
-
-const source = computed(() =>
-  (props.covered || failed.value || !props.entry.imageId
-    ? null
-    : picture.value))
+/** Nothing while covered: the server sent no picture to draw. */
+const media = computed(() => (!props.covered && props.entry.imageId
+  ? proofMediaOf({ ...props.entry, imageId: props.entry.imageId })
+  : null))
 
 const age = computed(() => formatRelativeTime(props.entry.createdAt, now.value, t.value))
 
 /**
- * Only the exception is named.
+ * Only the exception is named — as a screenshot, the way a proof's is, and
+ * the way the camera said it would be (#152).
  *
  * The origin weighs more here than on a proof: the prompt asks for a moment,
  * and a picture out of a gallery misses it by definition. It stays a label
@@ -63,10 +60,10 @@ const fromLibrary = computed(() => !props.covered && props.entry.source === 'Scr
 const viewer = usePhotoViewer()
 
 function enlarge() {
-  if (!props.entry.imageId) return
+  if (!media.value) return
 
   viewer.open({
-    imageId: props.entry.imageId,
+    ...media.value,
     title: props.prompt,
     subtitle: props.entry.author.displayName,
     meta: age.value,
@@ -122,24 +119,24 @@ function react(kind: KudosKind) {
       pictures arrive and nothing shifts under a thumb.
     -->
     <div class="relative aspect-4/5 w-full bg-(--ui-bg-elevated)">
-      <button
-        v-if="source"
-        type="button"
-        class="block size-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="prompt ? t.challenge.enlarge(prompt) : t.proof.enlarge"
-        data-testid="challenge-enlarge"
-        @click="enlarge()"
-      >
-        <img
-          crossorigin="use-credentials"
-          :src="source"
+      <template v-if="media">
+        <ProofMedia
+          :parts="media"
+          mode="inline"
+          openable
+          :open-label="prompt ? t.challenge.enlarge(prompt) : t.proof.enlarge"
           :alt="t.challenge.entryAlt(entry.author.displayName)"
-          decoding="async"
-          class="size-full object-cover"
-          data-testid="challenge-image"
-          @error="failed = true"
-        >
-      </button>
+          data-testid="challenge-media"
+          @open="enlarge()"
+        />
+
+        <ProofSourceBadge
+          v-if="fromLibrary"
+          source="Screenshot"
+          class="pointer-events-none absolute start-2.5 bottom-2.5"
+          data-testid="challenge-origin"
+        />
+      </template>
 
       <div
         v-else-if="covered"
@@ -170,14 +167,6 @@ function react(kind: KudosKind) {
       v-if="!covered"
       class="flex flex-col gap-2 px-3.5 pt-2.5 pb-3"
     >
-      <p
-        v-if="fromLibrary"
-        class="text-[11px] font-semibold text-(--ui-text-dimmed)"
-        data-testid="challenge-origin"
-      >
-        {{ t.challenge.notLive }}
-      </p>
-
       <!--
         All three kinds are approving, which is what lets them be offered at
         all: there is no verdict here, so a reaction that could be negative

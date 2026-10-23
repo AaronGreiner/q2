@@ -3,6 +3,7 @@ import type { ApiFailure } from '~/api/errors'
 import type { ChatMessage, Image, ReportReason } from '~/api/types'
 import type { ThreadItem } from '~/utils/chatTimeline'
 import type { Captured } from '~/utils/captured'
+import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
  * One conversation.
@@ -200,9 +201,9 @@ async function handIn(captured: Captured) {
 /** A photograph as a message, picked or taken in the same sheet as a proof. */
 const isPhotoOpen = ref(false)
 
-async function onPhotoPicked(image: Image) {
+async function onPhotoPicked(_image: Image, _origin: PhotoOrigin, captured: Captured) {
   isPhotoOpen.value = false
-  await sendPhoto(image)
+  await sendPhoto(captured)
 }
 
 const thread = useTemplateRef<HTMLElement>('thread')
@@ -669,7 +670,6 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <PhotoCapture
       v-model:open="isCameraOpen"
       purpose="Proof"
-      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"

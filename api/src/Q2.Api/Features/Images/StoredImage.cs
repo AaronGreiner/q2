@@ -227,12 +227,12 @@ public sealed class StoredImage
 
         if (content.IsVideo)
         {
-            // A clip is evidence of something happening, which is a proof's
-            // job and nobody else's: an avatar or a chat photograph that moves
-            // would be a different product (#124).
-            if (purpose != ImagePurpose.Proof)
+            // A clip comes from q2's camera, which records one wherever it
+            // takes more than a profile picture (#124, #152). An avatar that
+            // moves would be a different product.
+            if (!MayBeVideo(purpose))
             {
-                errors[nameof(Purpose)] = ["Only a proof may be a video."];
+                errors[nameof(Purpose)] = ["A profile picture cannot be a video."];
             }
 
             if (content.ByteSize is <= 0 or > MaxVideoBytes)
@@ -276,4 +276,16 @@ public sealed class StoredImage
             content.IsVideo ? content.DurationMilliseconds : null,
             createdAt);
     }
+
+    /// <summary>
+    /// Whether an upload for <paramref name="purpose"/> may be a clip: whatever
+    /// the camera takes with its clip mode — a proof (and a Don't's logged use,
+    /// which is uploaded as one), a challenge contribution and a chat
+    /// photograph — but never a profile picture.
+    /// </summary>
+    public static bool MayBeVideo(ImagePurpose purpose) => purpose switch
+    {
+        ImagePurpose.Proof or ImagePurpose.ChallengeEntry or ImagePurpose.ChatPhoto => true,
+        _ => false,
+    };
 }

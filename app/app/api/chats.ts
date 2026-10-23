@@ -1,3 +1,4 @@
+import type { ProofPartIds } from '~/utils/captured'
 import type { ApiCaller } from './client'
 import type {
   ChatDetail,
@@ -16,7 +17,7 @@ export interface ChatsApi {
   list: (options?: { search?: string }) => Promise<ChatSummary[]>
   get: (id: string) => Promise<ChatDetail>
   older: (id: string, before: string) => Promise<ChatPage>
-  send: (id: string, message: { text?: string, imageId?: string }) => Promise<ChatDetail>
+  send: (id: string, message: { text?: string } | ProofPartIds) => Promise<ChatDetail>
   react: (id: string, messageId: string, kind: KudosKind) => Promise<ChatMessage>
   /** One message as it now is — for a line further back that changed (#25). */
   message: (id: string, messageId: string) => Promise<ChatMessage>

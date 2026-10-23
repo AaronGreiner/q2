@@ -1433,6 +1433,14 @@ export interface components {
             isMine: boolean;
             reactions: components["schemas"]["ReactionSummaryResponse"][];
             isLate: boolean;
+            media: components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            posterImageId: string | null;
+            /** Format: uuid */
+            insetImageId: string | null;
+            insetMedia: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId: string | null;
         };
         ChallengeResponse: {
             /** Format: uuid */
@@ -1499,6 +1507,13 @@ export interface components {
             editedAt: string | null;
             isDeleted: boolean;
             canEdit: boolean;
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
+            insetMedia?: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         ChatPageResponse: {
             messages: components["schemas"]["ChatMessageResponse"][];
@@ -1781,6 +1796,14 @@ export interface components {
             /** Format: uuid */
             imageId: string | null;
             change: (null) | components["schemas"]["GoalChangeResponse"];
+            media?: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
+            insetMedia?: (null) | components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         GoalInstanceResponse: {
             /** Format: uuid */
@@ -1981,6 +2004,12 @@ export interface components {
         LogUseRequest: {
             /** Format: uuid */
             imageId?: string | null;
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         LoginRequest: {
             email?: string | null;
@@ -2248,6 +2277,12 @@ export interface components {
             text?: string | null;
             /** Format: uuid */
             imageId?: string | null;
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         SentRequestResponse: {
             person: components["schemas"]["PersonSummary"];
@@ -2289,6 +2324,12 @@ export interface components {
             /** Format: uuid */
             imageId?: string | null;
             source?: (null) | components["schemas"]["ProofSource"];
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
+            /** Format: uuid */
+            insetPosterImageId?: string | null;
         };
         SubmitProofRequest: {
             /** Format: uuid */

@@ -1,5 +1,6 @@
 import type { ApiFailure } from '~/api/errors'
-import type { ChatDetail, ChatMessage, ChatPhoto, ChatSummary, DoubtReason, Image, KudosKind, ProofVoteValue } from '~/api/types'
+import type { ChatDetail, ChatMessage, ChatPhoto, ChatSummary, DoubtReason, KudosKind, ProofVoteValue } from '~/api/types'
+import { type Captured, proofPartsOf } from '~/utils/captured'
 import { carryOver, prependPage, withMessage, withProof } from '~/utils/chatPages'
 import type { ThreadHistory } from '~/utils/chatPages'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
@@ -225,20 +226,25 @@ export function useChatThread(id: Ref<string>) {
    * nobody was sent is still a picture on the server, counted against this
    * person's allowance and reachable by nobody but them.
    */
-  async function sendPhoto(image: Image) {
+  /** A photograph or clip from the camera, with what came with it (#152). */
+  async function sendPhoto(captured: Captured) {
     if (isSending.value) return false
+
+    const parts = proofPartsOf(captured)
 
     isSending.value = true
     try {
-      showPage(await api.chats.send(id.value, { imageId: image.id }))
+      showPage(await api.chats.send(id.value, parts))
       return true
     }
     catch (caught) {
       report(caught, { feature: 'chats', action: 'send-photo' })
-      await api.images.remove(image.id).catch(() => {
+
+      const uploaded = [parts.imageId, parts.posterImageId, parts.insetImageId, parts.insetPosterImageId]
+      await Promise.all(uploaded.filter(part => part !== null).map(part => api.images.remove(part).catch(() => {
         // Best effort. It is still theirs and still in their allowance, which
         // is where a failed tidy-up leaves it anyway.
-      })
+      })))
       return false
     }
     finally {

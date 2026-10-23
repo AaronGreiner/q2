@@ -69,6 +69,11 @@ describe('ChallengeArchiveTile', () => {
 
     expect(usePhotoViewer().current.value).toEqual({
       imageId: 'image-1',
+      media: 'Photo',
+      posterImageId: null,
+      insetImageId: null,
+      insetMedia: 'Photo',
+      insetPosterImageId: null,
       title: 'Zeig deinen Arbeitsplatz.',
       meta: '8.9.2026',
     })

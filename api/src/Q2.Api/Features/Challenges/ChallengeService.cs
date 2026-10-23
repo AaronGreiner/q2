@@ -90,22 +90,32 @@ public sealed class ChallengeService(
             throw new DomainValidationException(nameof(request.ImageId), "A contribution needs a photograph.");
         }
 
-        // Theirs, and uploaded for this. Without the check, "contribute this
-        // id" would be a way to put somebody else's picture in the room — or to
-        // read one, since contributing is also how you earn sight of the rest.
-        await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.ChallengeEntry, cancellationToken);
+        // Theirs, and uploaded for this — every part of it. Without the check,
+        // "contribute this id" would be a way to put somebody else's picture in
+        // the room — or to read one, since contributing is also how you earn
+        // sight of the rest.
+        var parts = await images.ResolvePartsAsync(
+            imageId,
+            request.PosterImageId,
+            request.InsetImageId,
+            request.InsetPosterImageId,
+            me.Id,
+            ImagePurpose.ChallengeEntry,
+            cancellationToken);
 
-        var replaced = challenge.EntryOf(me.Id)?.ImageId;
+        var replaced = challenge.EntryOf(me.Id)?.PictureIds.ToList() ?? [];
 
         var source = request.Source ?? ProofSource.Unknown;
 
-        challenge.Contribute(idGenerator.NewId(), me.Id, imageId, source, now);
+        var entry = challenge.Contribute(idGenerator.NewId(), me.Id, imageId, source, now, parts);
 
-        // The picture that has just been replaced goes with it. Nothing points
-        // at it any more, and leaving it would let a second contribution be a
-        // way to spend somebody's storage allowance twice.
-        var orphaned = replaced is { } previous && previous != imageId
-            ? await images.RemoveOwnedAsync([previous], me.Id, cancellationToken)
+        // The pictures that have just been replaced go with it. Nothing points
+        // at them any more, and leaving them would let a second contribution be
+        // a way to spend somebody's storage allowance twice.
+        var kept = entry.PictureIds.ToHashSet();
+        var previous = replaced.Where(id => !kept.Contains(id)).ToList();
+        var orphaned = previous.Count > 0
+            ? await images.RemoveOwnedAsync(previous, me.Id, cancellationToken)
             : [];
 
         await database.SaveChangesAsync(cancellationToken);
@@ -145,7 +155,7 @@ public sealed class ChallengeService(
         var withdrawn = challenge.Withdraw(me.Id)
             ?? throw new DomainValidationException("Challenge", "You have not contributed to this one.");
 
-        var orphaned = await images.RemoveOwnedAsync([withdrawn.ImageId], me.Id, cancellationToken);
+        var orphaned = await images.RemoveOwnedAsync([.. withdrawn.PictureIds], me.Id, cancellationToken);
 
         await database.SaveChangesAsync(cancellationToken);
         await images.DeleteBytesAsync(orphaned, cancellationToken);
@@ -383,7 +393,12 @@ public sealed class ChallengeService(
             entry.CreatedAt,
             entry.PersonId == viewerId,
             reactions,
-            challenge.IsLate(entry.CreatedAt));
+            challenge.IsLate(entry.CreatedAt),
+            entry.Media,
+            revealed ? entry.PosterImageId : null,
+            revealed ? entry.InsetImageId : null,
+            revealed ? entry.InsetMedia : null,
+            revealed ? entry.InsetPosterImageId : null);
     }
 
     /// <summary>The people this viewer is actually friends with.</summary>

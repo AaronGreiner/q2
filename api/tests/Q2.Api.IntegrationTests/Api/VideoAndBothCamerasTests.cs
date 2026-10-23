@@ -67,13 +67,11 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
         Assert.Null(uploaded.DurationMilliseconds);
     }
 
-    [Theory]
-    [InlineData(ImagePurpose.Avatar)]
-    [InlineData(ImagePurpose.ChatPhoto)]
-    [InlineData(ImagePurpose.ChallengeEntry)]
-    public async Task OnlyAProofMayBeAClip(ImagePurpose purpose)
+    /// <summary>A profile picture is the one thing the camera takes that may not move (#152).</summary>
+    [Fact]
+    public async Task AProfilePictureMayNotBeAClip()
     {
-        var response = await UploadAsync(TestVideos.Mp4(), purpose);
+        var response = await UploadAsync(TestVideos.Mp4(), ImagePurpose.Avatar);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -443,30 +441,6 @@ public class VideoAndBothCamerasTests(Q2ApiFactory factory) : ApiTestBase(factor
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
     }
-
-    [Fact]
-    public async Task AUseIsLoggedWithAPhotographNeverAClip()
-    {
-        var created = await Client.PostJsonAsync("/api/goals", new
-        {
-            title = "Keine Süßigkeiten",
-            kind = "Dont",
-            limit = 2,
-            proofMode = "HonestOnly",
-            schedule = new { kind = "Limit", period = "Week" },
-            participantIds = new[] { AutomatedTestSeed.FriendPersonId },
-        });
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var goal = await created.ReadAsync<CreatedGoalDocument>();
-
-        var response = await Client.PostJsonAsync(
-            $"/api/goals/{goal.Id}/uses",
-            new { imageId = await Client.UploadProofVideoAsync() });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    private sealed record CreatedGoalDocument(Guid Id);
 
     private async Task<ProofDocument> DeliverAsync(object body)
     {

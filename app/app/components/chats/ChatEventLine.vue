@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GoalEvent } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * A line between the messages of a goal's conversation: what happened to the
@@ -54,12 +55,16 @@ const objection = computed(() => {
 const text = computed(() => goalEventText(props.event, t.value))
 const icon = computed(() => goalEventIcon(props.event.kind))
 
-const picture = useImageSource(() => props.event.imageId ?? null)
+/** A logged use's photograph or clip, and what came with it (#152). */
+const media = computed(() => (props.event.imageId ? proofMediaOf({ ...props.event, imageId: props.event.imageId }) : null))
+
+/** The thumbnail: a clip by its still. */
+const picture = useImageSource(() => (media.value?.media === 'Video' ? media.value.posterImageId : media.value?.imageId) ?? null)
 const viewer = usePhotoViewer()
 
 function enlarge() {
-  if (!props.event.imageId) return
-  viewer.open({ imageId: props.event.imageId, title: text.value })
+  if (!media.value) return
+  viewer.open({ ...media.value, title: text.value })
 }
 </script>
 

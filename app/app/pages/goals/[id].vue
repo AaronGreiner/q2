@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { EditGoalRequest } from '~/api/types'
-import type { Captured } from '~/utils/captured'
+import { type Captured, proofPartsOf } from '~/utils/captured'
 import { pauseLimits } from '~/api/types'
 import type { PauseRequestValue } from '~/components/goals/GoalPauseSheet.vue'
 
@@ -81,7 +81,7 @@ async function onLog() {
 
 /** A use with its photograph: logged once the picture is up, refused on the camera's screen. */
 async function handInUse(captured: Captured) {
-  const logged = await dontUse.logUse(id.value, captured.image.id)
+  const logged = await dontUse.logUse(id.value, proofPartsOf(captured))
   if (!logged) return t.value.proof.refusedFailed
 
   await refresh()
@@ -660,7 +660,6 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
     <PhotoCapture
       v-model:open="capturing"
       purpose="Proof"
-      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
@@ -670,7 +669,6 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       v-if="goal?.kind === 'Dont'"
       :open="answering !== null"
       purpose="Proof"
-      proof-modes
       live-only
       :max-edge="maxEdge"
       :hand-in="handInCheck"

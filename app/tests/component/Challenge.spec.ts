@@ -41,6 +41,11 @@ function entry(overrides: Partial<ChallengeEntry> = {}): ChallengeEntry {
     isMine: false,
     reactions: [],
     isLate: false,
+    media: 'Photo',
+    posterImageId: null,
+    insetImageId: null,
+    insetMedia: null,
+    insetPosterImageId: null,
     ...overrides,
   }
 }
@@ -97,7 +102,7 @@ describe('ChallengeEntryCard', () => {
       props: { entry: coveredEntry(), covered: true },
     })
 
-    expect(wrapper.find('[data-testid="challenge-image"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="proof-media"]').exists()).toBe(false)
     expect(wrapper.html()).not.toContain('/api/images/')
   })
 
@@ -114,12 +119,42 @@ describe('ChallengeEntryCard', () => {
       props: { entry: entry(), covered: false },
     })
 
-    expect(wrapper.get('[data-testid="challenge-image"]').attributes('crossorigin')).toBe('use-credentials')
+    expect(wrapper.get('[data-testid="proof-image"]').attributes('crossorigin')).toBe('use-credentials')
+    expect(wrapper.get('[data-testid="proof-image"]').element.closest('[data-q2-block]')).not.toBeNull()
+  })
+
+  /**
+   * A contribution is drawn like a proof (#152): a clip plays without sound,
+   * and the front camera's clip plays in the corner beside it.
+   */
+  it('plays a clip with the front camera\'s clip in the corner', async () => {
+    const wrapper = await mountSuspended(ChallengeEntryCard, {
+      props: {
+        entry: entry({ media: 'Video', posterImageId: 'still-1', insetImageId: 'front-1', insetMedia: 'Video', insetPosterImageId: 'front-still-1' }),
+        covered: false,
+      },
+    })
+
+    expect(wrapper.get('[data-testid="proof-video"]').attributes('src')).toMatch(/\/api\/images\/image-1$/)
+    expect(wrapper.get('[data-testid="proof-inset-video"]').attributes('src')).toMatch(/\/api\/images\/front-1$/)
+    expect(wrapper.get('[data-testid="proof-sound"]').attributes('aria-pressed')).toBe('false')
+  })
+
+  it('opens full screen with every part of it', async () => {
+    const wrapper = await mountSuspended(ChallengeEntryCard, {
+      props: { entry: entry({ insetImageId: 'front-1', insetMedia: 'Photo' }), covered: false, prompt: 'Zeig deinen Arbeitsplatz.' },
+    })
+
+    await wrapper.get('[data-testid="proof-enlarge"]').trigger('click')
+
+    expect(usePhotoViewer().current.value).toMatchObject({ imageId: 'image-1', insetImageId: 'front-1', title: 'Zeig deinen Arbeitsplatz.' })
+    usePhotoViewer().close()
   })
 
   /**
    * The prompt asks for a moment, so a picture out of a gallery misses it by
-   * definition. Only the exception is named.
+   * definition. Only the exception is named — as a screenshot, the way the
+   * camera said it would be (#152).
    */
   it('names the origin only when the camera did not take it', async () => {
     const live = await mountSuspended(ChallengeEntryCard, {
@@ -130,7 +165,7 @@ describe('ChallengeEntryCard', () => {
     const picked = await mountSuspended(ChallengeEntryCard, {
       props: { entry: entry({ source: 'Screenshot' }), covered: false },
     })
-    expect(picked.get('[data-testid="challenge-origin"]').text()).toBe('Nicht live aufgenommen')
+    expect(picked.get('[data-testid="challenge-origin"]').text()).toBe('Screenshot')
   })
 
   /**

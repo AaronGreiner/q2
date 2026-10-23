@@ -681,5 +681,12 @@ public sealed record EditGoalRequest(
     IReadOnlyList<Guid>? ParticipantIds = null);
 
 /// <summary>Request body for logging one use of a Don't.</summary>
-/// <param name="ImageId">An optional photograph, uploaded as a proof image first.</param>
-public sealed record LogUseRequest(Guid? ImageId = null);
+/// <param name="ImageId">An optional photograph or clip, uploaded as a proof image first.</param>
+/// <param name="PosterImageId">With a clip, and only then: a still from it (#152).</param>
+/// <param name="InsetImageId">The front camera's picture or clip, when both cameras were used.</param>
+/// <param name="InsetPosterImageId">With a front clip, and only then: a still from it.</param>
+public sealed record LogUseRequest(
+    Guid? ImageId = null,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null,
+    Guid? InsetPosterImageId = null);

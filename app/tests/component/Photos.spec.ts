@@ -457,7 +457,7 @@ describe('PhotoCapture, for a proof', () => {
   }
 
   async function openProofCamera(props: Record<string, unknown> = {}) {
-    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', labelsSource: true, proofModes: true, open: false, ...props } })
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', labelsSource: true, open: false, ...props } })
     mounted.push(wrapper)
     await wrapper.setProps({ open: true })
     await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
@@ -493,6 +493,23 @@ describe('PhotoCapture, for a proof', () => {
     await vi.waitFor(() => expect(query('photo-shutter')).not.toBeNull())
     expect(query('photo-modes')).toBeNull()
     expect(query('photo-both')).toBeNull()
+  })
+
+  /**
+   * The full camera everywhere but a profile picture (#152): a challenge
+   * contribution and a chat photograph get a clip and both cameras exactly as
+   * a proof does.
+   */
+  it.each(['ChallengeEntry', 'ChatPhoto'] as const)('gives %s the full camera', async (purpose) => {
+    installDevice()
+
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose, open: false } })
+    mounted.push(wrapper)
+    await wrapper.setProps({ open: true })
+    await vi.waitFor(() => expect(query('photo-shutter')).not.toBeNull())
+
+    expect(query('photo-modes')?.textContent).toContain('Video')
+    expect(query('photo-both')?.getAttribute('aria-pressed')).toBe('true')
   })
 
   /**

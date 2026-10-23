@@ -5,7 +5,8 @@ import { createGoal } from './support/createGoal'
  * A proof from both cameras, and a proof that is a clip (#124, #125) — the
  * order swapped before it is taken, the corner dragged out of the way, and a
  * clip filmed from both sides at once (#151) — through the real camera
- * screen, the real upload and the goal's conversation.
+ * screen, the real upload and the goal's conversation; and the same camera
+ * for the daily challenge and a chat photograph (#152).
  *
  * Chromium's synthetic camera stands in for the phone's: two of them, so both
  * routes for both cameras can be driven — at once, where the browser lets two
@@ -236,6 +237,10 @@ test('a clip from both cameras at once: two clips, played as one', async ({ page
   const preview = page.getByTestId('photo-preview')
   await expect(preview.getByTestId('proof-video')).toBeVisible()
   await expect(preview.getByTestId('proof-inset-video')).toBeVisible()
+  // Both play in the preview, each with a picture, before anything is sent.
+  for (const id of ['proof-video', 'proof-inset-video']) {
+    await expect.poll(() => preview.getByTestId(id).evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThan(1)
+  }
   await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('both-clips-preview.png') })
 
   await page.getByTestId('photo-confirm').click()
@@ -331,4 +336,65 @@ test('a clip: recorded, thrown away, recorded again, and played in the conversat
   await expect.poll(() => clip.evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThan(0)
   expect(await clip.evaluate(element => (element as HTMLVideoElement).duration)).toBeGreaterThan(0.5)
   await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('clip-card.png') })
+})
+
+/**
+ * The full camera everywhere but a profile picture (#152): the challenge
+ * takes both cameras at once, and the room shows both, swappable. The seeded
+ * world has one challenge, so the test takes its contribution back out.
+ */
+test('the daily challenge takes both cameras, and the room shows both', async ({ page }, testInfo) => {
+  await page.goto('/challenge')
+  await page.getByTestId('challenge-join').click()
+
+  const front = page.getByTestId('photo-front-camera')
+  await expect.poll(() => front.evaluate(element => (element as HTMLVideoElement).videoWidth)).toBeGreaterThan(0)
+  await expect(page.getByTestId('photo-both')).toHaveAttribute('aria-pressed', 'true')
+
+  // The gallery is offered as a screenshot, like a proof's.
+  await expect(page.getByTestId('photo-choose')).toHaveAttribute('aria-label', 'Screenshot auswählen')
+
+  await page.getByTestId('photo-shutter').click()
+  await expect(page.getByTestId('photo-preview').getByTestId('proof-inset')).toBeVisible()
+  await page.getByTestId('photo-confirm').click()
+
+  const entry = page.getByTestId('challenge-entry').first()
+  await expect(entry.getByTestId('proof-inset')).toBeVisible()
+  await expect(entry.getByTestId('challenge-origin')).toHaveCount(0)
+  await entry.scrollIntoViewIfNeeded()
+  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('challenge-both.png') })
+
+  await entry.getByTestId('proof-inset').click()
+  await expect(entry.getByTestId('proof-inset')).toHaveAttribute('aria-label', 'Hauptbild groß zeigen')
+
+  await page.getByTestId('challenge-remove').click()
+  await page.getByTestId('confirm-accept').click()
+  await expect(page.getByTestId('challenge-join')).toBeVisible()
+})
+
+/** A chat photograph may be two clips filmed at once, played together in the bubble (#152). */
+test('a chat photograph can be two clips filmed at once', async ({ page }, testInfo) => {
+  await page.goto('/chats')
+  test.skip(!await recordsMp4(page), 'This Chromium cannot record H.264, so it offers no video mode.')
+
+  await page.getByTestId('chat-row').filter({ hasText: 'E2E group chat' }).click()
+  await page.getByTestId('chat-attach').click()
+
+  const front = page.getByTestId('photo-front-camera')
+  await expect.poll(() => front.evaluate(element => (element as HTMLVideoElement).videoWidth)).toBeGreaterThan(0)
+
+  await page.getByTestId('photo-modes').getByText('Video').click()
+  const shutter = page.getByTestId('photo-shutter')
+  await shutter.click()
+  await expect(page.getByTestId('photo-recording-time')).toContainText('0:01 / 0:10')
+  await shutter.click()
+  await expect(page.getByTestId('photo-preview').getByTestId('proof-inset-video')).toBeVisible()
+  await page.getByTestId('photo-confirm').click()
+
+  const bubble = page.getByTestId('chat-photo').last()
+  await bubble.scrollIntoViewIfNeeded()
+  await expect(bubble.getByTestId('proof-video')).toHaveAttribute('poster', /\/api\/images\//)
+  await expect(bubble.getByTestId('proof-inset-video')).toHaveAttribute('src', /\/api\/images\//)
+  await expect.poll(() => bubble.getByTestId('proof-inset-video').evaluate(element => (element as HTMLVideoElement).readyState)).toBeGreaterThan(0)
+  await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('chat-both-clips.png') })
 })

@@ -230,6 +230,53 @@ public sealed class ImageService(
         await GetQuotaAsync(await currentPerson.GetIdAsync(cancellationToken), cancellationToken);
 
     /// <summary>
+    /// Checks every part a capture names and works out what they make: a
+    /// photograph or a clip, its still, and the front camera's picture or clip
+    /// with its still (#124, #125, #151, #152).
+    /// </summary>
+    /// <remarks>
+    /// Each one has to be this person's and uploaded for
+    /// <paramref name="purpose"/> — without that, naming somebody else's
+    /// picture as your "front camera" would be a way to read it. Whether the
+    /// main part and the front one are clips is read off the stored rows, never
+    /// taken from the request: the bytes already said what they are. The stills
+    /// have to be photographs; how the parts fit together is
+    /// <see cref="MediaParts"/>' rule, checked where they are stored.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">One of them is not theirs, or not uploaded for this.</exception>
+    /// <exception cref="DomainValidationException">A still is a clip.</exception>
+    public async Task<MediaParts> ResolvePartsAsync(
+        Guid imageId,
+        Guid? posterImageId,
+        Guid? insetImageId,
+        Guid? insetPosterImageId,
+        Guid ownerId,
+        ImagePurpose purpose,
+        CancellationToken cancellationToken)
+    {
+        var main = await RequireOwnedAsync(imageId, ownerId, purpose, cancellationToken);
+
+        foreach (var (id, field) in new[] { (posterImageId, "PosterImageId"), (insetPosterImageId, "InsetPosterImageId") })
+        {
+            if (id is { } still && still != Guid.Empty
+                && (await RequireOwnedAsync(still, ownerId, purpose, cancellationToken)).IsVideo)
+            {
+                throw new DomainValidationException(field, "A still has to be a photograph.");
+            }
+        }
+
+        var insetIsVideo = insetImageId is { } inset && inset != Guid.Empty
+            && (await RequireOwnedAsync(inset, ownerId, purpose, cancellationToken)).IsVideo;
+
+        return new MediaParts(
+            main.IsVideo ? MediaKind.Video : MediaKind.Photo,
+            posterImageId,
+            insetImageId,
+            insetIsVideo ? MediaKind.Video : MediaKind.Photo,
+            insetPosterImageId);
+    }
+
+    /// <summary>
     /// Confirms that an image exists, belongs to <paramref name="ownerId"/> and
     /// was uploaded for <paramref name="purpose"/> — what a feature calls
     /// before pointing something at it.
@@ -302,11 +349,13 @@ public sealed class ImageService(
                     cancellationToken);
 
             // The optional photograph on a Don't's logged use is uploaded as a
-            // proof and shown to the same people, in the same conversation.
+            // proof and shown to the same people, in the same conversation —
+            // every part of it.
             return asProof || await database.Set<DontUse>()
                 .AsNoTracking()
                 .AnyAsync(
-                    use => use.ImageId == image.Id
+                    use => (use.ImageId == image.Id || use.PosterImageId == image.Id || use.InsetImageId == image.Id
+                            || use.InsetPosterImageId == image.Id)
                         && database.Goals.Any(goal =>
                             goal.Instances.Any(instance => instance.Id == use.GoalInstanceId)
                             && (goal.OwnerPersonId == viewerId
@@ -325,7 +374,8 @@ public sealed class ImageService(
             return await database.ChatMessages
                 .AsNoTracking()
                 .AnyAsync(
-                    message => message.ImageId == image.Id
+                    message => (message.ImageId == image.Id || message.PosterImageId == image.Id
+                            || message.InsetImageId == image.Id || message.InsetPosterImageId == image.Id)
                         && database.ConversationParticipants.Any(participant =>
                             participant.ConversationId == message.ConversationId && participant.PersonId == viewerId),
                     cancellationToken);
@@ -349,7 +399,8 @@ public sealed class ImageService(
             && await database.ChallengeEntries
                 .AsNoTracking()
                 .AnyAsync(
-                    entry => entry.ImageId == image.Id
+                    entry => (entry.ImageId == image.Id || entry.PosterImageId == image.Id
+                            || entry.InsetImageId == image.Id || entry.InsetPosterImageId == image.Id)
                         && database.ChallengeEntries.Any(mine =>
                             mine.ChallengeId == entry.ChallengeId && mine.PersonId == viewerId)
                         && database.Friendships.Any(friendship =>

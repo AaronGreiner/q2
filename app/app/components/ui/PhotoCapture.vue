@@ -58,8 +58,12 @@ import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
  * `labelsSource` the picker is offered as a screenshot and the preview shows
  * the label the friends will see, so nobody is surprised by it afterwards.
  *
- * **For a proof it records a clip and uses both cameras** (`proofModes`, #124
- * and #125, docs/adr/0060-video-and-both-cameras.md). A clip is up to
+ * **It records a clip and uses both cameras for everything but a profile
+ * picture** (`fullCamera`; #124 and #125 for a proof, #152 for a challenge
+ * contribution, a chat photograph and a logged use;
+ * docs/adr/0060-video-and-both-cameras.md, docs/adr/0062-the-full-camera-everywhere.md).
+ * A profile picture is one photograph from one camera: a picture-in-picture
+ * cannot be an avatar, and an avatar does not move. A clip is up to
  * `maxClipSeconds` long, in the one format every q2 client can play, with a
  * still taken as it starts — the server never decodes video. Both cameras is
  * on whenever the phone has two, every time the screen opens, and can be
@@ -90,8 +94,8 @@ const props = withDefaults(defineProps<{
   maxEdge?: number
   /**
    * What is handed over while the screen is still open: the stored picture or
-   * clip, the route it took, and for a proof a clip's still and the front
-   * camera's picture. Resolving to a sentence means it was refused: the screen
+   * clip, the route it took, a clip's still and the front camera's picture or
+   * clip with its still. Resolving to a sentence means it was refused: the screen
    * stays, showing the picture and the sentence, and "Verwenden" tries the
    * hand-in again without uploading a second time. Without it, the screen
    * closes once the upload is done — which is all an avatar needs.
@@ -102,8 +106,9 @@ const props = withDefaults(defineProps<{
    */
   handIn?: (captured: Captured) => Promise<string | null>
   /**
-   * For a proof: the picker is "Screenshot" rather than "Bild auswählen", and
-   * the preview shows the label friends will see on the photograph.
+   * For a proof or a challenge contribution: the picker is "Screenshot" rather
+   * than "Bild auswählen", and the preview shows the label friends will see on
+   * the photograph.
    */
   labelsSource?: boolean
   /**
@@ -112,17 +117,21 @@ const props = withDefaults(defineProps<{
    * existed would answer a different question (docs/adr/0038-spot-checks.md).
    */
   liveOnly?: boolean
-  /** A proof's own camera: a clip as well as a photograph, and both cameras at once. */
-  proofModes?: boolean
 }>(), {
   maxEdge: undefined,
   handIn: undefined,
   labelsSource: false,
   liveOnly: false,
-  proofModes: false,
 })
 
-const emit = defineEmits<{ uploaded: [image: Image, origin: PhotoOrigin] }>()
+/**
+ * Once everything is up: the main picture and its route, for callers that
+ * need nothing else (an avatar), and everything that was taken with it.
+ */
+const emit = defineEmits<{ uploaded: [image: Image, origin: PhotoOrigin, captured: Captured] }>()
+
+/** A clip as well as a photograph, and both cameras — everything but a profile picture. */
+const fullCamera = computed(() => props.purpose !== 'Avatar')
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -148,10 +157,10 @@ const showing = ref<CameraFacing>('environment')
 /** Only offered when there is a second camera to switch to. */
 const canSwitch = ref(false)
 
-/** A photograph or a clip, for a proof. Every opening starts with a photograph. */
+/** A photograph or a clip. Every opening starts with a photograph. */
 const kind = ref<MediaKind>('Photo')
 
-/** Both cameras, for a proof. On at every opening, wherever there is a second camera. */
+/** Both cameras. On at every opening, wherever there is a second camera. */
 const bothWanted = ref(true)
 
 /**
@@ -173,8 +182,8 @@ const firstShot = ref<string | null>(null)
 /** The format this browser records clips in; null means no video mode at all. */
 const format = shallowRef<ClipFormat | null>(null)
 
-const videoOffered = computed(() => props.proofModes && format.value !== null)
-const bothOffered = computed(() => props.proofModes && canSwitch.value)
+const videoOffered = computed(() => fullCamera.value && format.value !== null)
+const bothOffered = computed(() => fullCamera.value && canSwitch.value)
 const both = computed(() => bothOffered.value && bothWanted.value)
 
 /** What was taken, kept until "Verwenden" or "Noch einmal". */
@@ -287,7 +296,7 @@ watch(open, async (isOpen) => {
   if (isOpen) {
     reset()
     facing.value = rememberedFacing()
-    format.value = props.proofModes ? clipFormat() : null
+    format.value = fullCamera.value ? clipFormat() : null
     await startCamera()
   }
   else {
@@ -318,7 +327,7 @@ watch(kind, async (now) => {
  * one opened, and the front one opens beside it.
  */
 function wantedFacing(): CameraFacing {
-  if (!props.proofModes || !bothWanted.value) return facing.value
+  if (!fullCamera.value || !bothWanted.value) return facing.value
   return frontFirst.value && !mayTryBothAtOnce() ? 'user' : 'environment'
 }
 
@@ -828,7 +837,8 @@ async function confirm() {
     const insetPoster = uploaded.value.insetPoster ?? (taken.insetPoster ? await upload(taken.insetPoster, 'Photo') : null)
     uploaded.value = { ...uploaded.value, insetPoster }
 
-    const refused = props.handIn ? await props.handIn({ image: main, origin: origin.value, poster, inset, insetPoster }) : null
+    const captured: Captured = { image: main, origin: origin.value, poster, inset, insetPoster }
+    const refused = props.handIn ? await props.handIn(captured) : null
 
     if (refused) {
       stage.value = 'preview'
@@ -840,7 +850,7 @@ async function confirm() {
     // and "Wird hochgeladen …" left standing under a finished upload reads as
     // though it were stuck.
     message.value = null
-    emit('uploaded', main, origin.value)
+    emit('uploaded', main, origin.value, captured)
     open.value = false
   }
   catch (caught) {
@@ -916,7 +926,7 @@ function reset() {
           </p>
 
           <!--
-            Both cameras, for a proof, where there are two. A switch rather than
+            Both cameras, where there are two. A switch rather than
             an action — it says what the shutter will do — so it is grey either
             way and says which by being pressed.
           -->

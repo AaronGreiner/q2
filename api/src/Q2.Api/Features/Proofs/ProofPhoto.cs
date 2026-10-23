@@ -68,7 +68,7 @@ public sealed class ProofPhoto
         Guid imageId,
         int attempt,
         ProofSource source,
-        ProofParts parts,
+        MediaParts parts,
         DateTimeOffset createdAt,
         DateTimeOffset votingDeadline)
     {
@@ -81,7 +81,7 @@ public sealed class ProofPhoto
         Media = parts.Media;
         PosterImageId = parts.PosterImageId;
         InsetImageId = parts.InsetImageId;
-        InsetMedia = parts.InsetImageId is null ? null : parts.InsetMedia;
+        InsetMedia = parts.StoredInsetMedia;
         InsetPosterImageId = parts.InsetPosterImageId;
         CreatedAt = createdAt;
         VotingDeadline = votingDeadline;
@@ -179,9 +179,9 @@ public sealed class ProofPhoto
         int attempt,
         ProofSource source,
         DateTimeOffset createdAt,
-        ProofParts? parts = null)
+        MediaParts? parts = null)
     {
-        parts ??= ProofParts.Photo;
+        parts ??= MediaParts.Photo;
 
         if (attempt < 1 || attempt > ProofVoting.MaxAttempts)
         {
@@ -200,7 +200,7 @@ public sealed class ProofPhoto
             throw new DomainValidationException(nameof(Source), "That is not a way a picture can arrive.");
         }
 
-        parts.Validate(imageId, source);
+        parts.Validate(imageId, source == ProofSource.Live);
 
         return new ProofPhoto(
             id,

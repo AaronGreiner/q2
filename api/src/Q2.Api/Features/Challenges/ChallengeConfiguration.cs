@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 using Q2.Api.Infrastructure.Persistence;
 
@@ -72,6 +73,8 @@ public sealed class ChallengeEntryConfiguration : IEntityTypeConfiguration<Chall
         builder.Property(entry => entry.CreatedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);
+
+        builder.HasMediaParts();
 
         builder.HasOne<Person>()
             .WithMany()

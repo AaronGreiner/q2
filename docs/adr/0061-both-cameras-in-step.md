@@ -1,6 +1,6 @@
 # 0061 — Both cameras in step, in either order, with the corner out of the way
 
-**Status:** Accepted
+**Status:** Accepted, amended by [0062](0062-the-full-camera-everywhere.md) (everything the camera takes but a profile picture)
 **Date:** 2026-10-23
 **Issue:** [#151](https://github.com/AaronGreiner/q2/issues/151)
 **Amends:** [0060 — A proof can be a clip, and come from both cameras](0060-video-and-both-cameras.md)

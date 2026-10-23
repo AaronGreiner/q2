@@ -2,6 +2,7 @@
 import { hapticTap } from '~/utils/haptics'
 import type { ChatMessage, KudosKind } from '~/api/types'
 import { kudosKinds } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One message, and the kudos on it.
@@ -16,6 +17,9 @@ import { kudosKinds } from '~/api/types'
  * back your own, reporting somebody else's (#104). The bubble only asks — the
  * screen owns the one menu, as it owns the one camera. A message that was taken
  * back has nothing left to act on, and says only that it was.
+ *
+ * A photograph may be a clip, with the front camera's picture or clip in a
+ * corner that swaps and moves, exactly like a proof's (`ProofMedia`, #152).
  */
 const props = defineProps<{
   message: ChatMessage
@@ -33,15 +37,10 @@ const zone = useTimeZoneOffset()
 
 const time = computed(() => formatClock(props.message.sentAt, zone.value))
 
-const picture = useImageSource(() => props.message.image?.id)
-const photoFailed = ref(false)
-
-watch(() => props.message.image?.id, () => {
-  photoFailed.value = false
-})
-
-const photoSource = computed(() =>
-  props.message.image && !photoFailed.value ? picture.value : null)
+/** The photograph or clip and what came with it, as every picture from the camera is drawn. */
+const media = computed(() => (props.message.image
+  ? proofMediaOf({ ...props.message, imageId: props.message.image.id, media: props.message.image.kind })
+  : null))
 
 /*
  * The frame is reserved at the picture's own proportions before a byte of it
@@ -60,10 +59,10 @@ const viewer = usePhotoViewer()
 
 /** The photograph full screen, with its words and who sent it underneath. */
 function enlarge() {
-  if (!props.message.image) return
+  if (!media.value) return
 
   viewer.open({
-    imageId: props.message.image.id,
+    ...media.value,
     title: props.message.text || null,
     subtitle: props.message.senderName,
     meta: time.value,
@@ -119,36 +118,16 @@ function react(kind: KudosKind) {
       @contextmenu="longPress.onContextmenu"
       @click.capture="longPress.onClickCapture"
     >
-      <button
-        v-if="photoSource"
-        type="button"
-        class="block size-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="t.proof.enlarge"
-        data-testid="chat-photo-enlarge"
-        @click="enlarge()"
-      >
-        <img
-          crossorigin="use-credentials"
-          :src="photoSource"
-          :alt="t.chats.photo"
-          decoding="async"
-          loading="lazy"
-          class="size-full object-cover"
-          @error="photoFailed = true"
-        >
-      </button>
-
-      <div
-        v-else
-        class="flex size-full items-center justify-center"
-      >
-        <UIcon
-          name="i-lucide-image-off"
-          class="size-8 text-(--ui-text-dimmed)"
-          aria-hidden="true"
-        />
-        <span class="sr-only">{{ t.chats.photoGone }}</span>
-      </div>
+      <ProofMedia
+        v-if="media"
+        :parts="media"
+        mode="inline"
+        openable
+        :open-label="t.proof.enlarge"
+        :alt="t.chats.photo"
+        data-testid="chat-photo-media"
+        @open="enlarge()"
+      />
     </div>
 
     <!-- Taken back: the place stays and says so, and nothing else is left. -->

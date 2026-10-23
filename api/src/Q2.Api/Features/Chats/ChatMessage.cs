@@ -1,3 +1,4 @@
+using Q2.Api.Features.Images;
 using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.Features.Chats;
@@ -39,7 +40,7 @@ public sealed class ChatMessage
         Text = string.Empty;
     }
 
-    private ChatMessage(Guid id, Guid conversationId, Guid senderPersonId, string text, Guid? imageId, DateTimeOffset sentAt)
+    private ChatMessage(Guid id, Guid conversationId, Guid senderPersonId, string text, Guid? imageId, DateTimeOffset sentAt, MediaParts parts)
     {
         Id = id;
         ConversationId = conversationId;
@@ -47,6 +48,7 @@ public sealed class ChatMessage
         Text = text;
         ImageId = imageId;
         SentAt = sentAt;
+        Take(parts);
     }
 
     public Guid Id { get; private set; }
@@ -59,10 +61,31 @@ public sealed class ChatMessage
     public string Text { get; private set; }
 
     /// <summary>
-    /// The photograph sent with it, uploaded beforehand as
+    /// The photograph or clip sent with it, uploaded beforehand as
     /// <see cref="Images.ImagePurpose.ChatPhoto"/>.
     /// </summary>
     public Guid? ImageId { get; private set; }
+
+    /// <summary>Whether <see cref="ImageId"/> is a photograph or a clip (#152); a photograph where there is none.</summary>
+    public MediaKind Media { get; private set; }
+
+    /// <summary>For a clip: a still from it, shown before it plays and on a tile.</summary>
+    public Guid? PosterImageId { get; private set; }
+
+    /// <summary>The front camera's picture or clip, when both cameras were used.</summary>
+    public Guid? InsetImageId { get; private set; }
+
+    /// <summary>Whether <see cref="InsetImageId"/> is a photograph or a clip. Null without one.</summary>
+    public MediaKind? InsetMedia { get; private set; }
+
+    /// <summary>For a front clip: a still from it.</summary>
+    public Guid? InsetPosterImageId { get; private set; }
+
+    /// <summary>The parts beside the main picture, as <see cref="MediaParts"/> checks them.</summary>
+    public MediaParts Parts => new(Media, PosterImageId, InsetImageId, InsetMedia ?? MediaKind.Photo, InsetPosterImageId);
+
+    /// <summary>Every picture it carries: the main one and its parts. Empty without one.</summary>
+    public IEnumerable<Guid> PictureIds => ImageId is { } main ? Parts.OtherIds.Prepend(main) : [];
 
     public DateTimeOffset SentAt { get; private set; }
 
@@ -147,8 +170,12 @@ public sealed class ChatMessage
     /// the place in the thread stays. Returns the photograph that has to go
     /// with it, or null — and nothing at all when it was already taken back.
     /// </summary>
+    /// <summary>
+    /// Takes the message back, and returns every picture it carried — the
+    /// photograph or clip and whatever came with it — for the caller to remove.
+    /// </summary>
     /// <exception cref="AccessDeniedException">It is somebody else's message.</exception>
-    public Guid? Delete(Guid personId, DateTimeOffset now)
+    public IReadOnlyList<Guid> Delete(Guid personId, DateTimeOffset now)
     {
         if (personId != SenderPersonId)
         {
@@ -157,17 +184,27 @@ public sealed class ChatMessage
 
         if (IsDeleted)
         {
-            return null;
+            return [];
         }
 
-        var photo = ImageId;
+        IReadOnlyList<Guid> photos = [.. PictureIds];
 
         Text = string.Empty;
         ImageId = null;
+        Take(MediaParts.Photo);
         DeletedAt = now;
         _reactions.Clear();
 
-        return photo;
+        return photos;
+    }
+
+    private void Take(MediaParts parts)
+    {
+        Media = parts.Media;
+        PosterImageId = parts.PosterImageId;
+        InsetImageId = parts.InsetImageId;
+        InsetMedia = parts.StoredInsetMedia;
+        InsetPosterImageId = parts.InsetPosterImageId;
     }
 
     /// <exception cref="DomainValidationException">
@@ -179,13 +216,22 @@ public sealed class ChatMessage
         Guid senderPersonId,
         string text,
         Guid? imageId,
-        DateTimeOffset sentAt)
+        DateTimeOffset sentAt,
+        MediaParts? parts = null)
     {
         var normalised = text?.Trim() ?? string.Empty;
 
         if (imageId == Guid.Empty)
         {
             imageId = null;
+        }
+
+        // Nothing records whether a chat photograph came from the camera, and
+        // nothing labels it, so only the shape of the parts is checked.
+        parts = imageId is null ? MediaParts.Photo : parts ?? MediaParts.Photo;
+        if (imageId is { } main)
+        {
+            parts.Validate(main, live: null);
         }
 
         if (normalised.Length == 0 && imageId is null)
@@ -200,7 +246,7 @@ public sealed class ChatMessage
                 $"A message may be at most {MaxTextLength} characters long.");
         }
 
-        return new ChatMessage(id, conversationId, senderPersonId, normalised, imageId, sentAt);
+        return new ChatMessage(id, conversationId, senderPersonId, normalised, imageId, sentAt, parts);
     }
 
     /// <summary>

@@ -163,9 +163,9 @@ describe('useChallengeRoom', () => {
     await vi.waitFor(() => expect(state.room.value).not.toBeNull())
     expect(state.room.value?.isRevealed).toBe(false)
 
-    await state.contribute({ id: 'image-2' } as never, 'camera')
+    await state.contribute({ image: { id: 'image-2' }, origin: 'camera', poster: null, inset: null } as never)
 
-    expect(api.challenges.submit).toHaveBeenCalledWith('image-2', 'Live')
+    expect(api.challenges.submit).toHaveBeenCalledWith({ imageId: 'image-2', posterImageId: null, insetImageId: null, insetPosterImageId: null }, 'Live')
     expect(state.room.value?.isRevealed).toBe(true)
     expect(state.room.value?.ownEntry).not.toBeNull()
 
@@ -180,9 +180,9 @@ describe('useChallengeRoom', () => {
     const state = useChallengeRoom()
 
     await vi.waitFor(() => expect(state.room.value).not.toBeNull())
-    await state.contribute({ id: 'image-2' } as never, 'library')
+    await state.contribute({ image: { id: 'image-2' }, origin: 'library', poster: null, inset: null } as never)
 
-    expect(api.challenges.submit).toHaveBeenCalledWith('image-2', 'Screenshot')
+    expect(api.challenges.submit).toHaveBeenCalledWith({ imageId: 'image-2', posterImageId: null, insetImageId: null, insetPosterImageId: null }, 'Screenshot')
   })
 
   it('withdrawing covers the room again', async () => {
@@ -255,7 +255,7 @@ describe('useChallengeRoom', () => {
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'challenge', action: 'today' })
 
     api.challenges.submit.mockRejectedValueOnce(new Error('gone'))
-    await state.contribute({ id: 'image-2' } as never, 'camera')
+    await state.contribute({ image: { id: 'image-2' }, origin: 'camera', poster: null, inset: null } as never)
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'challenge', action: 'contribute' })
 
     api.challenges.withdraw.mockRejectedValueOnce(new Error('gone'))
@@ -278,11 +278,11 @@ describe('useChallengeRoom', () => {
     const state = useChallengeRoom()
     await vi.waitFor(() => expect(state.room.value).not.toBeNull())
 
-    const first = state.contribute({ id: 'image-2' } as never, 'camera')
+    const first = state.contribute({ image: { id: 'image-2' }, origin: 'camera', poster: null, inset: null } as never)
     await nextTick()
     expect(state.isSubmitting.value).toBe(true)
 
-    await state.contribute({ id: 'image-3' } as never, 'camera')
+    await state.contribute({ image: { id: 'image-3' }, origin: 'camera', poster: null, inset: null } as never)
     expect(api.challenges.submit).toHaveBeenCalledTimes(1)
 
     release(room())

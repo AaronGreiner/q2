@@ -152,17 +152,23 @@ public sealed class StoredImageTests
         Assert.Equal(9_800, clip.DurationMilliseconds);
     }
 
-    /// <summary>A clip is a proof's, and nothing else may move (#124).</summary>
-    [Theory]
-    [InlineData(ImagePurpose.Avatar)]
-    [InlineData(ImagePurpose.ChatPhoto)]
-    [InlineData(ImagePurpose.ChallengeEntry)]
-    public void OnlyAProofMayBeAClip(ImagePurpose purpose)
+    /// <summary>Everything the camera takes may be a clip but a profile picture (#124, #152).</summary>
+    [Fact]
+    public void AProfilePictureMayNotBeAClip()
     {
         var error = Assert.Throws<DomainValidationException>(() =>
-            StoredImage.Create(Id, Owner, purpose, Clip(), Now));
+            StoredImage.Create(Id, Owner, ImagePurpose.Avatar, Clip(), Now));
 
         Assert.Contains(nameof(StoredImage.Purpose), error.Errors.Keys);
+    }
+
+    [Theory]
+    [InlineData(ImagePurpose.Proof)]
+    [InlineData(ImagePurpose.ChatPhoto)]
+    [InlineData(ImagePurpose.ChallengeEntry)]
+    public void WhatTheCameraTakesMayBeAClip(ImagePurpose purpose)
+    {
+        Assert.True(StoredImage.Create(Id, Owner, purpose, Clip(), Now).IsVideo);
     }
 
     [Fact]

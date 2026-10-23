@@ -70,7 +70,7 @@ public enum GoalEventKind
 /// <param name="Until">For a pause: the last local day it covers.</param>
 /// <param name="Uses">For a logged use: which one of the period it was.</param>
 /// <param name="Limit">For a Don't's window or use: the limit of its period.</param>
-/// <param name="ImageId">For a logged use: its photograph, if it had one.</param>
+/// <param name="Use">For a logged use: the use itself, with its photograph or clip if it had one.</param>
 /// <param name="Change">For an edit and what became of it: the edit itself.</param>
 public sealed record GoalEvent(
     GoalEventKind Kind,
@@ -85,7 +85,7 @@ public sealed record GoalEvent(
     DateOnly? Day = null,
     int? Uses = null,
     int? Limit = null,
-    Guid? ImageId = null,
+    DontUse? Use = null,
     GoalChange? Change = null)
 {
     /// <summary>
@@ -142,7 +142,7 @@ public static class GoalTimeline
                     goal.OwnerPersonId,
                     Uses: count,
                     Limit: instance.Limit,
-                    ImageId: use.ImageId));
+                    Use: use));
             }
 
             if (instance.Status is GoalInstanceStatus.Done or GoalInstanceStatus.Missed or GoalInstanceStatus.Relapse)

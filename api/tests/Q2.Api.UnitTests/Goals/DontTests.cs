@@ -312,7 +312,7 @@ public class DontTests
         var uses = events.Where(entry => entry.Kind == GoalEventKind.UseLogged).ToList();
         Assert.Equal([1, 2], uses.Select(entry => entry.Uses!.Value));
         Assert.All(uses, entry => Assert.Equal(1, entry.Limit));
-        Assert.Equal(image, uses[0].ImageId);
+        Assert.Equal(image, uses[0].Use!.ImageId);
         Assert.Equal(Owner, uses[0].ActorPersonId);
 
         var kept = Assert.Single(events, entry => entry.Kind == GoalEventKind.WindowDone);

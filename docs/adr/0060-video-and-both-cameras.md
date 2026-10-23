@@ -1,6 +1,6 @@
 # 0060 — A proof can be a clip, and come from both cameras
 
-**Status:** Accepted, amended by [0061](0061-both-cameras-in-step.md) (the order, the corner, and a clip from both cameras at once)
+**Status:** Accepted, amended by [0061](0061-both-cameras-in-step.md) (the order, the corner, and a clip from both cameras at once) and [0062](0062-the-full-camera-everywhere.md) (everything the camera takes but a profile picture)
 **Date:** 2026-10-23
 **Issues:** [#124](https://github.com/AaronGreiner/q2/issues/124),
 [#125](https://github.com/AaronGreiner/q2/issues/125)

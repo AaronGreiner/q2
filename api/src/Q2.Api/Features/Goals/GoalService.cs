@@ -819,19 +819,24 @@ public sealed class GoalService(
         }
 
         // Theirs, and uploaded like a proof, which is what lets the goal's
-        // audience read it (ImageService.CanRead).
-        // A photograph only: a clip is a proof's, and a use is not one.
-        if (request.ImageId is { } imageId
-            && (await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken)).IsVideo)
-        {
-            throw new DomainValidationException(nameof(request.ImageId), "A logged use carries a photograph, not a video.");
-        }
+        // audience read it (ImageService.CanRead) — every part of it, a clip
+        // and the front camera included (#152).
+        var parts = request.ImageId is { } imageId && imageId != Guid.Empty
+            ? await images.ResolvePartsAsync(
+                imageId,
+                request.PosterImageId,
+                request.InsetImageId,
+                request.InsetPosterImageId,
+                me.Id,
+                ImagePurpose.Proof,
+                cancellationToken)
+            : null;
 
         // Up to date first, so a use cannot land in a window whose period
         // ended while the screen was open.
         await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
-        var use = goal.LogUse(idGenerator.NewId(), request.ImageId, now)
+        var use = goal.LogUse(idGenerator.NewId(), request.ImageId, now, parts)
             ?? throw new DomainValidationException("Use", "There is no running period to log this into.");
 
         database.Add(use);
@@ -869,8 +874,12 @@ public sealed class GoalService(
         var use = goal.UndoUse(useId, now)
             ?? throw new DomainValidationException("Use", "This use can no longer be taken back.");
 
+        // Its pictures go with it: nothing points at them any more.
+        var orphaned = await images.RemoveOwnedAsync([.. use.PictureIds], me.Id, cancellationToken);
+
         database.Remove(use);
         await database.SaveChangesAsync(cancellationToken);
+        await images.DeleteBytesAsync(orphaned, cancellationToken);
 
         notifier.Touch(
             goal.Participants.Select(participant => participant.PersonId).Append(me.Id),
@@ -967,12 +976,14 @@ public sealed class GoalService(
                 "Stop this goal before deleting it.");
         }
 
-        // Every part of every proof: the photograph or clip, a clip's still
-        // and the front camera's picture or clip with its still.
+        // Every part of every proof — the photograph or clip, a clip's still
+        // and the front camera's picture or clip with its still — and of every
+        // logged use's picture.
         var imageIds = goal.Instances
             .SelectMany(instance => instance.Proofs)
             .SelectMany(proof => new[] { proof.ImageId, proof.PosterImageId, proof.InsetImageId, proof.InsetPosterImageId })
             .OfType<Guid>()
+            .Concat(goal.Instances.SelectMany(instance => instance.UseLog).SelectMany(use => use.PictureIds))
             .Distinct()
             .ToList();
 
@@ -990,7 +1001,7 @@ public sealed class GoalService(
         // Everybody's photographs in it, not only the owner's: nobody can reach
         // them once the thread is gone.
         var chatPhotos = await images.RemoveChatPhotosAsync(
-            conversations.SelectMany(conversation => conversation.Messages).Select(message => message.ImageId),
+            conversations.SelectMany(conversation => conversation.Messages).SelectMany(message => message.PictureIds).Cast<Guid?>(),
             cancellationToken);
 
         database.Conversations.RemoveRange(conversations);

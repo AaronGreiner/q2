@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Errors;
 using Q2.Api.Infrastructure.Time;
@@ -400,7 +401,8 @@ public sealed class Goal
     /// there is none to log into — a Do, a stopped or paused goal, or a moment
     /// between windows.
     /// </summary>
-    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now)
+    /// <param name="parts">A clip, or both cameras, when its photograph was taken with them (#152).</param>
+    public DontUse? LogUse(Guid id, Guid? imageId, DateTimeOffset now, MediaParts? parts = null)
     {
         if (!IsDont || Status != GoalStatus.Active || ActivePauseAt(now) is not null)
         {
@@ -408,7 +410,7 @@ public sealed class Goal
         }
 
         var window = CurrentInstance ?? RelapsedInstanceAt(now);
-        return window?.LogUse(id, imageId, now);
+        return window?.LogUse(id, imageId, now, parts);
     }
 
     /// <summary>
@@ -465,7 +467,7 @@ public sealed class Goal
 
     /// <summary>Answers an open check with a live photograph. Null when there is none to answer.</summary>
     /// <param name="parts">A clip, or both cameras, when the check was answered with them.</param>
-    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now, ProofParts? parts = null) =>
+    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now, MediaParts? parts = null) =>
         CurrentInstance?.AnswerSpotCheck(checkId, proofId, OwnerPersonId, imageId, now, parts);
 
     /// <summary>
@@ -563,7 +565,7 @@ public sealed class Goal
         Guid imageId,
         ProofSource source,
         DateTimeOffset now,
-        ProofParts? parts = null) =>
+        MediaParts? parts = null) =>
         CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, source, now, parts);
 
     /// <summary>

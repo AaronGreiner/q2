@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image, KudosKind } from '~/api/types'
+import type { Captured } from '~/utils/captured'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
@@ -60,9 +61,9 @@ const participation = computed(() => {
     : t.value.challenge.participation(room.value.entries.length, room.value.friendCount)
 })
 
-async function onCaptured(image: Image, origin: PhotoOrigin) {
+async function onCaptured(_image: Image, _origin: PhotoOrigin, captured: Captured) {
   isCapturing.value = false
-  await contribute(image, origin)
+  await contribute(captured)
 }
 
 useHead({ title: () => t.value.challenge.heading })
@@ -234,6 +235,7 @@ useHead({ title: () => t.value.challenge.heading })
       v-model:open="isCapturing"
       purpose="ChallengeEntry"
       :max-edge="maxEdge"
+      labels-source
       @uploaded="onCaptured"
     />
 
