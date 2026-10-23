@@ -38,7 +38,7 @@ public static class ImageEndpoints
 
         images.MapPost("/", Upload)
             .WithName("UploadImage")
-            .WithSummary("Stores an image. The body is the raw file; its media type must be image/jpeg or image/png.")
+            .WithSummary("Stores an image, or a proof's video clip. The body is the raw file; its media type must be image/jpeg, image/png or video/mp4.")
             /*
              * byte[], not IFormFile: the body is the file itself. Declaring it
              * as a form file would also be untrue in a way that bites — ASP.NET
@@ -50,7 +50,7 @@ public static class ImageEndpoints
              * — a cross-site form's multipart body included — a 415 before a
              * single byte is read.
              */
-            .Accepts<byte[]>(ImageFormatReader.Jpeg, ImageFormatReader.Png)
+            .Accepts<byte[]>(ImageFormatReader.Jpeg, ImageFormatReader.Png, ImageFormatReader.Mp4)
             .Produces<ImageResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
@@ -63,7 +63,8 @@ public static class ImageEndpoints
         images.MapGet("/{id:guid}", GetImage)
             .WithName("GetImage")
             .WithSummary("Returns the bytes of an image you are allowed to see.")
-            .Produces<IResult>(StatusCodes.Status200OK, ImageFormatReader.Jpeg, ImageFormatReader.Png)
+            .Produces<IResult>(StatusCodes.Status200OK, ImageFormatReader.Jpeg, ImageFormatReader.Png, ImageFormatReader.Mp4)
+            .Produces(StatusCodes.Status206PartialContent)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         images.MapDelete("/{id:guid}", DeleteImage)
@@ -90,19 +91,25 @@ public static class ImageEndpoints
             });
         }
 
+        // A clip is allowed more bytes than a picture. Which limit applies is
+        // taken from the header only to size the read; what the bytes turn out
+        // to be is decided by reading them, and a "video" that is really a
+        // picture is held to the picture's limit by StoredImage.
+        var maximum = IsVideo(request.ContentType) ? StoredImage.MaxVideoBytes : StoredImage.MaxBytes;
+
         // The declared length is checked first so an oversized upload is
         // refused before its bytes are on the wire, and again while reading
         // because a chunked request declares nothing at all.
-        if (request.ContentLength > StoredImage.MaxBytes)
+        if (request.ContentLength > maximum)
         {
-            return TooLarge();
+            return TooLarge(maximum);
         }
 
-        var bytes = await ReadBoundedAsync(request.Body, StoredImage.MaxBytes, cancellationToken);
+        var bytes = await ReadBoundedAsync(request.Body, maximum, cancellationToken);
 
         if (bytes is null)
         {
-            return TooLarge();
+            return TooLarge(maximum);
         }
 
         var created = await images.UploadAsync(purpose ?? ImagePurpose.Avatar, bytes.Value, cancellationToken);
@@ -127,9 +134,11 @@ public static class ImageEndpoints
         context.Response.Headers.XContentTypeOptions = "nosniff";
         context.Response.Headers.ContentDisposition = "inline";
 
-        // enableRangeProcessing stays off: it exists for seeking within media,
-        // and a photograph is fetched whole.
-        return Results.Stream(content, image.ContentType);
+        // Ranges for a clip only. Safari will not play a <video> from a server
+        // that does not answer them (206 Partial Content), and seeking needs
+        // them everywhere; a photograph is always fetched whole, so for one it
+        // stays off, as it always was.
+        return Results.Stream(content, image.ContentType, enableRangeProcessing: image.IsVideo);
     }
 
     private static async Task<Ok<ImageQuotaResponse>> GetQuota(
@@ -151,8 +160,11 @@ public static class ImageEndpoints
         && ImageFormatReader.AcceptedContentTypes.Any(accepted =>
             contentType.StartsWith(accepted, StringComparison.OrdinalIgnoreCase));
 
-    private static ProblemHttpResult TooLarge() => TypedResults.Problem(
-        detail: $"An image may be at most {StoredImage.MaxBytes} bytes.",
+    private static bool IsVideo(string? contentType) =>
+        contentType?.StartsWith(ImageFormatReader.Mp4, StringComparison.OrdinalIgnoreCase) == true;
+
+    private static ProblemHttpResult TooLarge(int maximum) => TypedResults.Problem(
+        detail: $"An upload of this kind may be at most {maximum} bytes.",
         statusCode: StatusCodes.Status413PayloadTooLarge);
 
     /// <summary>

@@ -27,7 +27,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Qdos nutzt die Kamera für die Beweisfotos deiner Dos & Don’ts und für dein Profilbild.</string>
+	<string>Qdos nutzt die Kamera für die Beweisfotos und -videos deiner Dos &amp; Don’ts – mit Rück- und Frontkamera – und für dein Profilbild.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Qdos nimmt den Ton auf, wenn du ein Beweisvideo filmst. Deine Freunde hören ihn nur, wenn sie ihn einschalten.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Qdos öffnet deine Fotos nur, wenn du selbst eins auswählst: für einen Beweis, dein Profil oder einen Chat.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Q2.Api.Features.Goals;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.Notifications;
 using Q2.Api.Features.Proofs;
 using Q2.Api.Infrastructure.Persistence.Seeding;
@@ -138,6 +139,34 @@ public class SpotChecksEndpointTests(Q2ApiFactory factory) : ApiTestBase(factory
         var after = await GoalAsync(Client, created.Id);
         Assert.Null(after.SpotCheck);
         Assert.Equal(GoalInstanceStatus.Open, after.Current!.Status);
+    }
+
+    /// <summary>
+    /// A check may be answered with a clip and with both cameras, like any
+    /// proof — and is still live, which is the only way it can be answered
+    /// (#124, #125).
+    /// </summary>
+    [Fact]
+    public async Task ACheckMayBeAnsweredWithAClipFromBothCameras()
+    {
+        var created = await CreateSpotCheckDontAsync();
+        await AskNowAsync(created.Id);
+        var open = (await GoalAsync(Client, created.Id)).SpotCheck!;
+
+        var clip = await Client.UploadProofVideoAsync();
+        var still = await Client.UploadProofImageAsync();
+        var front = await Client.UploadProofImageAsync();
+
+        var response = await Client.PostJsonAsync(
+            $"/api/goals/{created.Id}/spot-checks/{open.Id}/proof",
+            new { imageId = clip, posterImageId = still, insetImageId = front });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var delivered = await response.ReadAsync<DeliveredProofDocument>();
+        Assert.Equal(MediaKind.Video, delivered.Proof.Media);
+        Assert.Equal(still, delivered.Proof.PosterImageId);
+        Assert.Equal(front, delivered.Proof.InsetImageId);
+        Assert.Equal(ProofSource.Live, delivered.Proof.Source);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Images;
 using Q2.Api.Features.People;
 
 namespace Q2.Api.Features.Proofs;
@@ -59,7 +60,14 @@ public sealed record DoubtReasonCountResponse(DoubtReason Reason, int Count);
 /// <summary>A photograph delivered against a window, as somebody may see it.</summary>
 /// <param name="ImageId">
 /// Fetched from <c>/api/images/{id}</c>, which checks who is asking. The bytes
-/// never travel in this response.
+/// never travel in this response. A photograph, or a clip when
+/// <paramref name="Media"/> says so.
+/// </param>
+/// <param name="Media">Whether <paramref name="ImageId"/> is a photograph or a short clip (#124).</param>
+/// <param name="PosterImageId">For a clip: the still shown before it plays. Null for a photograph.</param>
+/// <param name="InsetImageId">
+/// The front camera's picture, taken with the main one, when both cameras were
+/// used (#125). Null otherwise.
 /// </param>
 /// <param name="Source">
 /// Whether the camera took it or it was picked from the phone's pictures. A
@@ -75,6 +83,9 @@ public sealed record ProofResponse(
     Guid GoalInstanceId,
     PersonSummary Uploader,
     Guid ImageId,
+    MediaKind Media,
+    Guid? PosterImageId,
+    Guid? InsetImageId,
     ProofStatus Status,
     int Attempt,
     int AttemptsLeft,
@@ -117,6 +128,9 @@ public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, st
 
 /// <summary>One of your own photographs, as your profile's gallery shows it.</summary>
 /// <param name="ImageId">Fetched from <c>/api/images/{id}</c>, like every other picture.</param>
+/// <param name="Media">A photograph or a clip; a clip's tile shows <paramref name="PosterImageId"/>.</param>
+/// <param name="PosterImageId">For a clip: its still. Null for a photograph.</param>
+/// <param name="InsetImageId">The front camera's picture, when both cameras were used.</param>
 /// <param name="Status">
 /// Every outcome, rejected included. Nobody but the person who delivered it
 /// reads this list, so it is their whole record rather than a highlight reel —
@@ -135,6 +149,9 @@ public sealed record FeedProofResponse(ProofResponse Proof, string GoalTitle, st
 public sealed record OwnProofResponse(
     Guid Id,
     Guid ImageId,
+    MediaKind Media,
+    Guid? PosterImageId,
+    Guid? InsetImageId,
     ProofStatus Status,
     ProofSource Source,
     DateTimeOffset CreatedAt,
@@ -143,10 +160,14 @@ public sealed record OwnProofResponse(
     string GoalIcon);
 
 /// <summary>Request body for delivering a photograph.</summary>
+/// <param name="ImageId">The photograph, or the clip, uploaded as a proof first.</param>
 /// <param name="Source">
 /// The route the app used. Left out, the proof is stored as
-/// <see cref="ProofSource.Unknown"/>.
+/// <see cref="ProofSource.Unknown"/>. Has to be <see cref="ProofSource.Live"/>
+/// for a clip or with a front picture.
 /// </param>
+/// <param name="PosterImageId">With a clip, and only then: a still from it, uploaded as a proof photograph.</param>
+/// <param name="InsetImageId">The front camera's picture, when both cameras were used.</param>
 /// <remarks>
 /// Nullable so an empty body produces a field error rather than a binding
 /// failure, like every other request in this API.
@@ -156,10 +177,18 @@ public sealed record OwnProofResponse(
 /// picture was; it is ignored like any property the API does not know, and
 /// their proofs are stored as unknown rather than believed to be live.
 /// </remarks>
-public sealed record SubmitProofRequest(Guid? ImageId = null, ProofSource? Source = null);
+public sealed record SubmitProofRequest(
+    Guid? ImageId = null,
+    ProofSource? Source = null,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null);
 
-/// <summary>Request body for answering a spot check: a live photograph, uploaded as a proof image first.</summary>
-public sealed record AnswerSpotCheckRequest(Guid? ImageId = null);
+/// <summary>
+/// Request body for answering a spot check: a live photograph or clip, uploaded
+/// as a proof image first, with a clip's still and the front picture as for
+/// <see cref="SubmitProofRequest"/>.
+/// </summary>
+public sealed record AnswerSpotCheckRequest(Guid? ImageId = null, Guid? PosterImageId = null, Guid? InsetImageId = null);
 
 /// <summary>Request body for voting on one.</summary>
 /// <param name="Reason">With a doubt: what was missing (#111). Optional, anonymous, and ignored with a confirmation.</param>

@@ -66,8 +66,9 @@ export function createImagesApi(call: ApiCaller): ImagesApi {
       method: 'GET',
       responseType: 'blob',
 
-      // The client's default is JSON; the endpoint answers with the picture.
-      headers: { Accept: 'image/*' },
+      // The client's default is JSON; the endpoint answers with the picture,
+      // or with a proof's clip (#124).
+      headers: { Accept: 'image/*, video/mp4' },
     }),
   }
 }

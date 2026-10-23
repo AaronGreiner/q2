@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { CreateGoalRequest, Image, SaveGoalDraftRequest } from '~/api/types'
+import type { CreateGoalRequest, SaveGoalDraftRequest } from '~/api/types'
 import { pauseLimits } from '~/api/types'
 import type { PauseRequestValue } from '~/components/goals/GoalPauseSheet.vue'
-import type { PhotoOrigin } from '~/utils/proofSource'
+import type { Captured } from '~/utils/captured'
 
 /**
  * The Dos tab — "Dos & Don'ts" on the screen: the Dos under one segment, the
@@ -92,11 +92,11 @@ async function onLog(goalId: string) {
 const deliveringFor = ref<string | null>(null)
 
 /** The same hand-in as the start screen's — see pages/index.vue. */
-async function handIn(image: Image, origin: PhotoOrigin) {
+async function handIn(captured: Captured) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image, origin)
+  const result = await deliver(goalId, captured)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -323,6 +323,7 @@ useHead({ title: () => t.value.goals.heading })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"

@@ -820,9 +820,11 @@ public sealed class GoalService(
 
         // Theirs, and uploaded like a proof, which is what lets the goal's
         // audience read it (ImageService.CanRead).
-        if (request.ImageId is { } imageId)
+        // A photograph only: a clip is a proof's, and a use is not one.
+        if (request.ImageId is { } imageId
+            && (await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken)).IsVideo)
         {
-            await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken);
+            throw new DomainValidationException(nameof(request.ImageId), "A logged use carries a photograph, not a video.");
         }
 
         // Up to date first, so a use cannot land in a window whose period
@@ -965,9 +967,12 @@ public sealed class GoalService(
                 "Stop this goal before deleting it.");
         }
 
+        // Every part of every proof: the photograph or clip, a clip's still
+        // and the front camera's picture.
         var imageIds = goal.Instances
             .SelectMany(instance => instance.Proofs)
-            .Select(proof => proof.ImageId)
+            .SelectMany(proof => new[] { proof.ImageId, proof.PosterImageId, proof.InsetImageId })
+            .OfType<Guid>()
             .Distinct()
             .ToList();
 

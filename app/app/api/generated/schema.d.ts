@@ -598,7 +598,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Stores an image. The body is the raw file; its media type must be image/jpeg or image/png. */
+        /** Stores an image, or a proof's video clip. The body is the raw file; its media type must be image/jpeg, image/png or video/mp4. */
         post: operations["UploadImage"];
         delete?: never;
         options?: never;
@@ -1390,6 +1390,10 @@ export interface components {
         AnswerSpotCheckRequest: {
             /** Format: uuid */
             imageId?: string | null;
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
         };
         /** @enum {unknown} */
         BadgeKey: "StreakHero" | "EarlyBird" | "Bookworm" | "KudosGiver" | "Marathon" | "WeeklyWinner";
@@ -1509,6 +1513,11 @@ export interface components {
             /** Format: date-time */
             at: string;
             source: (null) | components["schemas"]["ProofSource"];
+            media?: components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
         };
         ChatPinnedGoalResponse: {
             /** Format: uuid */
@@ -1923,6 +1932,14 @@ export interface components {
             imageCount: number;
             /** Format: int32 */
             imageLimit: number;
+            /** Format: int64 */
+            videoBytesUsed: number;
+            /** Format: int64 */
+            videoByteLimit: number;
+            /** Format: int32 */
+            videoMaxBytes: number;
+            /** Format: int32 */
+            videoMaxSeconds: number;
         };
         ImageResponse: {
             /** Format: uuid */
@@ -1936,6 +1953,9 @@ export interface components {
             byteSize: number;
             /** Format: date-time */
             createdAt: string;
+            kind: components["schemas"]["MediaKind"];
+            /** Format: int32 */
+            durationMilliseconds: number | null;
         };
         InviteCodeRequest: {
             code?: string | null;
@@ -1961,6 +1981,8 @@ export interface components {
             email?: string | null;
             password?: string | null;
         };
+        /** @enum {unknown} */
+        MediaKind: "Photo" | "Video";
         MessageReactionResponse: {
             kind: components["schemas"]["KudosKind"];
             /** Format: int32 */
@@ -2022,6 +2044,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             imageId: string;
+            media: components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            posterImageId: string | null;
+            /** Format: uuid */
+            insetImageId: string | null;
             status: components["schemas"]["ProofStatus"];
             source: components["schemas"]["ProofSource"];
             /** Format: date-time */
@@ -2115,6 +2142,11 @@ export interface components {
             uploader: components["schemas"]["PersonSummary"];
             /** Format: uuid */
             imageId: string;
+            media: components["schemas"]["MediaKind"];
+            /** Format: uuid */
+            posterImageId: string | null;
+            /** Format: uuid */
+            insetImageId: string | null;
             status: components["schemas"]["ProofStatus"];
             /** Format: int32 */
             attempt: number;
@@ -2251,6 +2283,10 @@ export interface components {
             /** Format: uuid */
             imageId?: string | null;
             source?: (null) | components["schemas"]["ProofSource"];
+            /** Format: uuid */
+            posterImageId?: string | null;
+            /** Format: uuid */
+            insetImageId?: string | null;
         };
         SubscribeRequest: {
             endpoint?: string | null;
@@ -3782,6 +3818,7 @@ export interface operations {
             content: {
                 "image/jpeg": string;
                 "image/png": string;
+                "video/mp4": string;
             };
         };
         responses: {
@@ -3853,7 +3890,15 @@ export interface operations {
                 content: {
                     "image/jpeg": components["schemas"]["IResult"];
                     "image/png": components["schemas"]["IResult"];
+                    "video/mp4": components["schemas"]["IResult"];
                 };
+            };
+            /** @description Partial Content */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {

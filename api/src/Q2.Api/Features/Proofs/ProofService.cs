@@ -78,12 +78,12 @@ public sealed class ProofService(
             throw new DomainValidationException(nameof(request.ImageId), "A spot check needs a photograph.");
         }
 
-        await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken);
+        var parts = await ResolvePartsAsync(imageId, request.PosterImageId, request.InsetImageId, me.Id, cancellationToken);
 
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
 
-        var proof = goal.AnswerSpotCheck(checkId, idGenerator.NewId(), imageId, now)
+        var proof = goal.AnswerSpotCheck(checkId, idGenerator.NewId(), imageId, now, parts)
             ?? throw new DomainValidationException("SpotCheck", "This spot check is not open any more.");
 
         database.ProofPhotos.Add(proof);
@@ -146,7 +146,7 @@ public sealed class ProofService(
 
         // Theirs, and uploaded as a proof. Without this check, "prove it with
         // this id" would be a way to read any image in the database.
-        await images.RequireOwnedAsync(imageId, me.Id, ImagePurpose.Proof, cancellationToken);
+        var parts = await ResolvePartsAsync(imageId, request.PosterImageId, request.InsetImageId, me.Id, cancellationToken);
 
         var now = timeProvider.GetUtcNow();
         var calendar = timeZones.For(me.TimeZoneId);
@@ -155,7 +155,7 @@ public sealed class ProofService(
         // whose deadline passed while the screen was open.
         await ProofVerdicts.AdvanceAsync(notifier, activity, goal, calendar, now, idGenerator, me, cancellationToken);
 
-        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.Source ?? ProofSource.Unknown, now)
+        var proof = goal.SubmitProof(idGenerator.NewId(), imageId, request.Source ?? ProofSource.Unknown, now, parts)
             ?? throw new DomainValidationException(
                 "Proof",
                 "This window is not taking a photograph right now.");
@@ -197,6 +197,40 @@ public sealed class ProofService(
         return new DeliveredProofResponse(
             await DescribeAsync(goal, proof, me.Id, now, cancellationToken),
             conversationId);
+    }
+
+    /// <summary>
+    /// Checks every picture a delivery names and works out what kind of proof
+    /// they make.
+    /// </summary>
+    /// <remarks>
+    /// Each one has to be this person's and uploaded as a proof — without that,
+    /// naming somebody else's picture as your "front camera" would be a way to
+    /// read it. Whether the main picture is a clip is read off the stored row,
+    /// never taken from the request: the bytes already said what they are. The
+    /// still and the front picture have to be photographs.
+    /// </remarks>
+    /// <exception cref="ResourceNotFoundException">One of them is not theirs, or not a proof upload.</exception>
+    /// <exception cref="DomainValidationException">A still or a front picture is a clip.</exception>
+    private async Task<ProofParts> ResolvePartsAsync(
+        Guid imageId,
+        Guid? posterImageId,
+        Guid? insetImageId,
+        Guid ownerId,
+        CancellationToken cancellationToken)
+    {
+        var main = await images.RequireOwnedAsync(imageId, ownerId, ImagePurpose.Proof, cancellationToken);
+
+        foreach (var (id, field) in new[] { (posterImageId, nameof(SubmitProofRequest.PosterImageId)), (insetImageId, nameof(SubmitProofRequest.InsetImageId)) })
+        {
+            if (id is { } part && part != Guid.Empty
+                && (await images.RequireOwnedAsync(part, ownerId, ImagePurpose.Proof, cancellationToken)).IsVideo)
+            {
+                throw new DomainValidationException(field, "Only the main part of a proof may be a video.");
+            }
+        }
+
+        return new ProofParts(main.IsVideo ? MediaKind.Video : MediaKind.Photo, posterImageId, insetImageId);
     }
 
     /// <summary>
@@ -463,6 +497,9 @@ public sealed class ProofService(
             .Select(row => new OwnProofResponse(
                 row.Proof.Id,
                 row.Proof.ImageId,
+                row.Proof.Media,
+                row.Proof.PosterImageId,
+                row.Proof.InsetImageId,
                 row.Proof.Status,
                 row.Proof.Source,
                 row.Proof.CreatedAt,
@@ -717,6 +754,9 @@ public sealed class ProofService(
             proof.GoalInstanceId,
             PersonSummary.From(people[proof.UploaderPersonId], now),
             proof.ImageId,
+            proof.Media,
+            proof.PosterImageId,
+            proof.InsetImageId,
             proof.Status,
             proof.Attempt,
             Math.Max(0, ProofVoting.MaxAttempts - proof.Attempt),

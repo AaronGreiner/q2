@@ -103,6 +103,7 @@ export type ReportReason = NonNullable<Schemas['ReportReason']>
 export type ReportTargetKind = NonNullable<Schemas['ReportTargetKind']>
 
 export type Image = Schemas['ImageResponse']
+export type MediaKind = Schemas['MediaKind']
 export type ImagePurpose = Schemas['ImagePurpose']
 export type ImageQuota = Schemas['ImageQuotaResponse']
 

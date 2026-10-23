@@ -1106,7 +1106,7 @@ describe('the reads that were never exercised', () => {
     const navigateTo = installRoute('/')
     const delivery = useProofDelivery()
 
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'moved' })
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never)).toEqual({ status: 'moved' })
     expect(navigateTo).toHaveBeenCalledWith('/chats/chat-1')
     expect(show).not.toHaveBeenCalled()
   })
@@ -1123,7 +1123,7 @@ describe('the reads that were never exercised', () => {
     const navigateTo = installRoute('/chats/chat-1')
     const delivery = useProofDelivery()
 
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'stayed' })
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never)).toEqual({ status: 'stayed' })
     expect(navigateTo).not.toHaveBeenCalled()
     expect(show).not.toHaveBeenCalled()
   })
@@ -1145,11 +1145,11 @@ describe('the reads that were never exercised', () => {
     const navigateTo = installRoute('/')
     const delivery = useProofDelivery()
 
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never)).toEqual({ status: 'stayed' })
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never)).toEqual({ status: 'stayed' })
     expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
 
     api.proofs.submit.mockResolvedValueOnce(delivered('Voting', null))
-    await delivery.deliver('goal-1', { id: 'image-2' } as never)
+    await delivery.deliver('goal-1', { image: { id: 'image-2' }, origin: 'camera', poster: null, inset: null } as never)
     expect(show).toHaveBeenLastCalledWith(de.toast.proofWaiting)
     expect(navigateTo).not.toHaveBeenCalled()
   })
@@ -1167,7 +1167,7 @@ describe('the reads that were never exercised', () => {
     const delivery = useProofDelivery()
 
     // The stand-in reporter calls every failure a network one.
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never))
       .toEqual({ status: 'refused', message: de.proof.refusedOffline })
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
   })
@@ -1185,11 +1185,11 @@ describe('the reads that were never exercised', () => {
     const delivery = useProofDelivery()
 
     report.mockReturnValueOnce({ ...failure, kind: 'validation' as never })
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never))
       .toEqual({ status: 'refused', message: de.proof.refusedClosed })
 
     report.mockReturnValueOnce({ ...failure, kind: 'server' as never, isExpected: false })
-    expect(await delivery.deliver('goal-1', { id: 'image-1' } as never))
+    expect(await delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never))
       .toEqual({ status: 'refused', message: de.proof.refusedFailed })
   })
 
@@ -1208,11 +1208,11 @@ describe('the reads that were never exercised', () => {
     installRoute('/chats/chat-1')
     const delivery = useProofDelivery()
 
-    const first = delivery.deliver('goal-1', { id: 'image-1' } as never)
+    const first = delivery.deliver('goal-1', { image: { id: 'image-1' }, origin: 'camera', poster: null, inset: null } as never)
     await nextTick()
 
     expect(delivery.isDelivering.value).toBe(true)
-    expect((await delivery.deliver('goal-1', { id: 'image-2' } as never)).status).toBe('refused')
+    expect((await delivery.deliver('goal-1', { image: { id: 'image-2' }, origin: 'camera', poster: null, inset: null } as never)).status).toBe('refused')
     expect(api.proofs.submit).toHaveBeenCalledTimes(1)
 
     release(delivered('Voting', 'chat-1'))

@@ -1,8 +1,10 @@
 import type { ApiFailure } from '~/api/errors'
-import type { DoubtReason, FeedProof, Image, OwnProof, ProofVoteValue } from '~/api/types'
+import type { DoubtReason, FeedProof, OwnProof, ProofVoteValue } from '~/api/types'
+import { type Captured, proofPartsOf } from '~/utils/captured'
 import { isFirstLoad, placeholder } from '~/utils/firstLoad'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
-import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
+import { proofMediaOf } from '~/utils/proofMedia'
+import { proofSourceOf } from '~/utils/proofSource'
 
 interface OwnPayload {
   proofs: OwnProof[]
@@ -133,16 +135,17 @@ export function useProofDelivery() {
    * Sends an already-uploaded photograph and goes where it can be seen.
    *
    * `PhotoCapture` has done the shrinking and the upload by the time this runs,
-   * which is why it takes an `Image` rather than a file — and why it is told
+   * which is why it takes what was uploaded rather than a file — the picture
+   * or clip, a clip's still and the front camera's picture — and why it is told
    * which way the picture came in rather than finding out.
    */
-  async function deliver(goalId: string, image: Image, origin: PhotoOrigin): Promise<DeliveryResult> {
+  async function deliver(goalId: string, captured: Captured): Promise<DeliveryResult> {
     if (isDelivering.value) return { status: 'refused', message: t.value.proof.refusedFailed }
 
     isDelivering.value = true
 
     try {
-      const { proof, conversationId } = await api.proofs.submit(goalId, image.id, proofSourceOf(origin))
+      const { proof, conversationId } = await api.proofs.submit(goalId, proofPartsOf(captured), proofSourceOf(captured.origin))
       const conversation = conversationId ? `/chats/${conversationId}` : null
 
       if (conversation && route.path !== conversation) {
@@ -175,13 +178,13 @@ export function useProofDelivery() {
    * away, and the photograph is in the goal's conversation for anybody who
    * wants to follow it there.
    */
-  async function answerSpotCheck(goalId: string, checkId: string, image: Image): Promise<DeliveryResult> {
+  async function answerSpotCheck(goalId: string, checkId: string, captured: Captured): Promise<DeliveryResult> {
     if (isDelivering.value) return { status: 'refused', message: t.value.proof.refusedFailed }
 
     isDelivering.value = true
 
     try {
-      await api.proofs.answerSpotCheck(goalId, checkId, image.id)
+      await api.proofs.answerSpotCheck(goalId, checkId, proofPartsOf(captured))
       toast.show(t.value.toast.spotCheckAnswered)
       return { status: 'stayed' }
     }
@@ -276,7 +279,7 @@ export function useProofViewer() {
       const proof = await api.proofs.get(proofId)
 
       viewer.open({
-        imageId: proof.imageId,
+        ...proofMediaOf(proof),
         title,
         subtitle: proof.uploader.displayName,
         meta: formatRelativeTime(proof.createdAt, now.value, t.value),

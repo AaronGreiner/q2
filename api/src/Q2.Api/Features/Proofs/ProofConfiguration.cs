@@ -23,6 +23,19 @@ public sealed class ProofPhotoConfiguration : IEntityTypeConfiguration<ProofPhot
             .HasMaxLength(16)
             .HasConversion<string>();
 
+        // Every proof from before #124 was a photograph, which is what the
+        // migration fills in for them.
+        builder.Property(proof => proof.Media)
+            .IsRequired()
+            .HasMaxLength(16)
+            .HasConversion<string>();
+
+        // Plain ids, like ImageId: the bytes and their row are reached through
+        // the image feature, and a deleted picture leaves a proof whose window
+        // keeps its outcome (ProofService.ListOwnAsync).
+        builder.Property(proof => proof.PosterImageId);
+        builder.Property(proof => proof.InsetImageId);
+
         builder.Property(proof => proof.CreatedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);

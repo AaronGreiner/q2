@@ -1,8 +1,14 @@
-import type { ProofSource } from '~/api/types'
+import type { MediaKind, ProofSource } from '~/api/types'
 
 /** What the full-screen view shows: the picture, and what it is a picture of. */
 export interface PhotoViewerItem {
   imageId: string
+  /** A proof may be a clip; anything else is a photograph. */
+  media?: MediaKind
+  /** A clip's still, shown until it plays and in the corner when swapped. */
+  posterImageId?: string | null
+  /** A proof's front-camera picture, in the corner and swapped with a tap (#125). */
+  insetImageId?: string | null
   /** What the picture answers — a goal's title, or the day's challenge prompt. */
   title?: string | null
   /** Whose it is. */

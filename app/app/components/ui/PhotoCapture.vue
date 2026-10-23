@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { hapticTap } from '~/utils/haptics'
 import { isApiError } from '~/api/errors'
-import type { Image, ImagePurpose } from '~/api/types'
+import type { Image, ImagePurpose, MediaKind } from '~/api/types'
+import { openFrontBeside, streamIsLive } from '~/utils/bothCameras'
+import { frameReady, grabFrame } from '~/utils/cameraFrame'
+import type { Captured } from '~/utils/captured'
+import { type ClipFormat, type ClipRecording, clipFormat, maxClipSeconds, openMicrophone, recordClip, stopStream } from '~/utils/clipRecording'
 import { downscaleForUpload, uploadSizes } from '~/utils/images'
 import { type CameraFacing, rememberFacing, rememberedFacing } from '~/utils/cameraFacing'
 import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
@@ -53,23 +57,37 @@ import { type PhotoOrigin, proofSourceOf } from '~/utils/proofSource'
  * proof turns it into "Live" or "Screenshot" for its friends (#61); with
  * `labelsSource` the picker is offered as a screenshot and the preview shows
  * the label the friends will see, so nobody is surprised by it afterwards.
+ *
+ * **For a proof it records a clip and uses both cameras** (`proofModes`, #124
+ * and #125, docs/adr/0060-video-and-both-cameras.md). A clip is up to
+ * `maxClipSeconds` long, in the one format every q2 client can play, with a
+ * still taken as it starts — the server never decodes video. Both cameras is
+ * on whenever the phone has two, every time the screen opens, and can be
+ * switched off for one capture: the rear camera shows what was done, the front
+ * camera who did it. Where both can run at once they are both on screen and
+ * one press takes both; where they cannot, which is most phones in a browser,
+ * the rear picture is taken first and the screen says "Jetzt du" before the
+ * front one, a moment later. A clip with both cameras gets the front picture
+ * when it stops. The front camera is mirrored while live and never in what is
+ * kept. Neither a clip nor both cameras can come from the picker.
  */
 const props = withDefaults(defineProps<{
   purpose: ImagePurpose
   /** The longest edge the upload may have. Defaults to the purpose's own size. */
   maxEdge?: number
   /**
-   * What the stored picture is handed to while the screen is still open.
-   * Resolving to a sentence means it was refused: the screen stays, showing the
-   * picture and the sentence, and "Verwenden" tries the hand-in again without
-   * uploading a second time. Without it, the screen closes once the upload is
-   * done — which is all an avatar needs.
+   * What is handed over while the screen is still open: the stored picture or
+   * clip, the route it took, and for a proof a clip's still and the front
+   * camera's picture. Resolving to a sentence means it was refused: the screen
+   * stays, showing the picture and the sentence, and "Verwenden" tries the
+   * hand-in again without uploading a second time. Without it, the screen
+   * closes once the upload is done — which is all an avatar needs.
    *
    * This exists because a proof's hand-in is the step that can fail, and it
    * used to run after the camera had closed: a refused photograph was simply
    * gone, with nothing on screen to say so.
    */
-  handIn?: (image: Image, origin: PhotoOrigin) => Promise<string | null>
+  handIn?: (captured: Captured) => Promise<string | null>
   /**
    * For a proof: the picker is "Screenshot" rather than "Bild auswählen", and
    * the preview shows the label friends will see on the photograph.
@@ -81,11 +99,14 @@ const props = withDefaults(defineProps<{
    * existed would answer a different question (docs/adr/0038-spot-checks.md).
    */
   liveOnly?: boolean
+  /** A proof's own camera: a clip as well as a photograph, and both cameras at once. */
+  proofModes?: boolean
 }>(), {
   maxEdge: undefined,
   handIn: undefined,
   labelsSource: false,
   liveOnly: false,
+  proofModes: false,
 })
 
 const emit = defineEmits<{ uploaded: [image: Image, origin: PhotoOrigin] }>()
@@ -97,32 +118,94 @@ const api = useQ2Api()
 const { report } = useErrorReporter()
 
 const video = useTemplateRef<HTMLVideoElement>('video')
+const frontVideo = useTemplateRef<HTMLVideoElement>('frontVideo')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 
-/** The camera is live, a picture is waiting to be confirmed, or it is going up. */
-const stage = ref<'camera' | 'preview' | 'uploading'>('camera')
+/**
+ * The camera is live; a clip is recording; the front picture is being taken
+ * after the rear one; something is waiting to be confirmed; or it is going up.
+ */
+const stage = ref<'camera' | 'recording' | 'second' | 'preview' | 'uploading'>('camera')
 const message = ref<string | null>(null)
 const facing = ref<CameraFacing>('environment')
+
+/** Which camera the large viewfinder shows right now, for mirroring it. */
+const showing = ref<CameraFacing>('environment')
 
 /** Only offered when there is a second camera to switch to. */
 const canSwitch = ref(false)
 
-/** The picture taken but not yet sent, the object URL showing it, and which way it came. */
-const pending = shallowRef<Blob | null>(null)
+/** A photograph or a clip, for a proof. Every opening starts with a photograph. */
+const kind = ref<MediaKind>('Photo')
+
+/** Both cameras, for a proof. On at every opening, wherever there is a second camera. */
+const bothWanted = ref(true)
+
+/** The format this browser records clips in; null means no video mode at all. */
+const format = shallowRef<ClipFormat | null>(null)
+
+const videoOffered = computed(() => props.proofModes && format.value !== null)
+const bothOffered = computed(() => props.proofModes && canSwitch.value)
+const both = computed(() => bothOffered.value && bothWanted.value)
+
+/** What was taken, kept until "Verwenden" or "Noch einmal". */
+interface Pending {
+  kind: MediaKind
+  /** The photograph or the clip. */
+  main: Blob
+  /** A clip's still. */
+  poster: Blob | null
+  /** The front camera's picture. */
+  inset: Blob | null
+}
+
+const pending = shallowRef<Pending | null>(null)
 const previewUrl = ref<string | null>(null)
+const posterUrl = ref<string | null>(null)
+const insetUrl = ref<string | null>(null)
 const origin = ref<PhotoOrigin>('camera')
 
 /**
- * The stored copy of `pending`, once it is up. Kept while a refused hand-in is
- * on screen, so trying again reuses it rather than uploading the same picture
- * twice; dropped with `pending`, because it is a copy of that one picture.
+ * The stored copies of `pending`, each once it is up. Kept while a refused
+ * hand-in is on screen, so trying again reuses them rather than uploading the
+ * same picture twice; dropped with `pending`, because they are copies of it.
  */
-const uploaded = shallowRef<Image | null>(null)
+const uploaded = shallowRef<{ main?: Image, poster?: Image | null, inset?: Image | null }>({})
 
 const stream = shallowRef<MediaStream | null>(null)
+/** The front camera, while it runs beside the rear one. */
+const frontStream = shallowRef<MediaStream | null>(null)
+const microphone = shallowRef<MediaStream | null>(null)
 const cameraReady = ref(false)
 
+/** The clip being recorded, and for how long. */
+const recording = shallowRef<ClipRecording | null>(null)
+const elapsedMs = ref(0)
+
+/** Seconds left before the front picture is taken, while "Jetzt du" is on screen. */
+const countdown = ref<number | null>(null)
+
+/** A clip will be recorded without sound: the microphone was refused or there is none. */
+const soundless = ref(false)
+
 const edge = computed(() => props.maxEdge ?? (props.purpose === 'Avatar' ? uploadSizes.avatar : uploadSizes.proof))
+
+const heading = computed(() => (kind.value === 'Video' && videoOffered.value ? t.value.photo.videoHeading : t.value.photo.heading))
+
+const hint = computed(() => {
+  if (!cameraReady.value) return props.liveOnly ? t.value.photo.cameraRequired : t.value.photo.fileHint
+  return kind.value === 'Video' ? t.value.photo.recordHint(maxClipSeconds) : t.value.photo.cameraHint
+})
+
+const modeOptions = computed(() => [
+  { value: 'Photo' as const, label: t.value.photo.photoMode, icon: 'i-lucide-camera' },
+  { value: 'Video' as const, label: t.value.photo.videoMode, icon: 'i-lucide-video' },
+])
+
+const shutterLabel = computed(() => {
+  if (kind.value !== 'Video') return t.value.photo.shutter
+  return recording.value ? t.value.photo.stopRecording : t.value.photo.record
+})
 
 /*
  * Both directions. Opening starts the camera; closing stops it and throws the
@@ -133,6 +216,7 @@ watch(open, async (isOpen) => {
   if (isOpen) {
     reset()
     facing.value = rememberedFacing()
+    format.value = props.proofModes ? clipFormat() : null
     await startCamera()
   }
   else {
@@ -148,6 +232,17 @@ onBeforeUnmount(() => {
   clearPending()
 })
 
+/** The microphone is open only while a clip may be recorded. */
+watch(kind, async (now) => {
+  if (now === 'Video' && cameraReady.value && stage.value === 'camera') await openSound()
+  else releaseSound()
+})
+
+/** The camera this opening shows large: the rear one with both cameras, else the one used last. */
+function wantedFacing(): CameraFacing {
+  return props.proofModes && bothWanted.value ? 'environment' : facing.value
+}
+
 async function startCamera() {
   // No `mediaDevices` at all in a plain HTTP context, in a component test, or
   // in a browser that has none. That is not an error to report — it is the
@@ -157,33 +252,31 @@ async function startCamera() {
     return
   }
 
+  const opening = wantedFacing()
+
   try {
     const opened = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing.value },
+      video: { facingMode: opening },
       audio: false,
     })
 
     // Closed while the permission prompt was up: a stream nobody can see is a
     // recording light that stays on.
     if (!open.value) {
-      opened.getTracks().forEach(track => track.stop())
+      stopStream(opened)
       return
     }
 
     stopCamera()
     stream.value = opened
+    showing.value = opening
     cameraReady.value = true
     canSwitch.value = await hasSeveralCameras()
 
-    await nextTick()
+    await show(opened)
 
-    if (video.value) {
-      video.value.srcObject = opened
-      await video.value.play().catch(() => {
-        // Autoplay refused. The stream is still live and the frame the shutter
-        // grabs is still current, so this is not worth interrupting anybody for.
-      })
-    }
+    if (both.value) await startFrontBeside()
+    if (kind.value === 'Video') await openSound()
   }
   catch {
     // A refused permission is the person's answer, not a defect: no Sentry
@@ -193,13 +286,85 @@ async function startCamera() {
   }
 }
 
-function stopCamera() {
-  stream.value?.getTracks().forEach(track => track.stop())
-  stream.value = null
+/** Puts a stream in the large viewfinder. */
+async function show(opened: MediaStream) {
+  await nextTick()
 
   if (video.value) {
-    video.value.srcObject = null
+    video.value.srcObject = opened
+    await video.value.play().catch(() => {
+      // Autoplay refused. The stream is still live and the frame the shutter
+      // grabs is still current, so this is not worth interrupting anybody for.
+    })
   }
+}
+
+/**
+ * Tries to run the front camera beside the rear one. A phone that cannot is
+ * remembered (`utils/bothCameras.ts`) and takes the two pictures in turn
+ * instead; one that muted the rear camera on the way gets it back.
+ */
+async function startFrontBeside() {
+  const main = stream.value
+  if (!main || !navigator.mediaDevices?.enumerateDevices) return
+
+  const front = await openFrontBeside(main, navigator.mediaDevices)
+
+  if (!open.value || stream.value !== main) {
+    stopStream(front)
+    return
+  }
+
+  if (front) {
+    frontStream.value = front
+    await nextTick()
+
+    if (frontVideo.value) {
+      frontVideo.value.srcObject = front
+      await frontVideo.value.play().catch(() => {})
+    }
+
+    return
+  }
+
+  if (!streamIsLive(main)) await startCamera()
+}
+
+async function openSound() {
+  if (microphone.value || !format.value?.withSound) {
+    soundless.value = !format.value?.withSound
+    return
+  }
+
+  const opened = await openMicrophone()
+
+  // Closed, or back to photographs, while the prompt was up.
+  if (!open.value || kind.value !== 'Video') {
+    stopStream(opened)
+    return
+  }
+
+  microphone.value = opened
+  soundless.value = opened === null
+}
+
+function releaseSound() {
+  stopStream(microphone.value)
+  microphone.value = null
+}
+
+function stopCamera() {
+  recording.value?.discard()
+  recording.value = null
+
+  stopStream(stream.value)
+  stream.value = null
+  stopStream(frontStream.value)
+  frontStream.value = null
+  releaseSound()
+
+  if (video.value) video.value.srcObject = null
+  if (frontVideo.value) frontVideo.value.srcObject = null
 }
 
 /**
@@ -229,71 +394,227 @@ async function switchCamera() {
   await startCamera()
 }
 
-/** Grabs the current frame at the camera's own resolution. */
-function shoot() {
-  const element = video.value
+/**
+ * Both cameras on or off, for this capture only. Off keeps whatever the
+ * viewfinder shows; on goes back to the rear camera, with the front one beside
+ * it or after it.
+ */
+async function toggleBoth() {
+  bothWanted.value = !bothWanted.value
 
-  if (!element || !element.videoWidth) return
+  if (!bothWanted.value) {
+    stopStream(frontStream.value)
+    frontStream.value = null
+    facing.value = showing.value
+    return
+  }
+
+  stopCamera()
+  await startCamera()
+}
+
+/**
+ * The rear picture and, with both cameras, the front one: from the camera
+ * beside it, or — where only one can run — by switching to it.
+ */
+async function shoot() {
+  const main = await grabFrame(video.value)
+
+  if (!main) return
 
   hapticTap()
 
-  const canvas = document.createElement('canvas')
-  canvas.width = element.videoWidth
-  canvas.height = element.videoHeight
-  canvas.getContext('2d')?.drawImage(element, 0, 0)
+  const inset = both.value ? await takeFront() : null
 
-  canvas.toBlob((blob) => {
-    if (blob) hold(blob, 'camera')
-  }, 'image/jpeg', 0.92)
+  if (open.value) hold({ kind: 'Photo', main, poster: null, inset }, 'camera')
+}
+
+/** Starts a clip, or stops the one running. */
+async function toggleRecording() {
+  if (recording.value) {
+    recording.value.stop()
+    return
+  }
+
+  const chosen = format.value
+  const camera = stream.value
+
+  if (!chosen || !camera) return
+
+  // The still is taken as it starts: it is what friends see before they
+  // press play, and what every grid shows. A camera reopened a moment ago
+  // may not have a frame yet, so it is waited for — a clip without its still
+  // would be refused.
+  await frameReady(video.value)
+  let poster = await grabFrame(video.value)
+
+  const tracks = [
+    ...camera.getVideoTracks(),
+    ...(chosen.withSound ? microphone.value?.getAudioTracks() ?? [] : []),
+  ]
+
+  hapticTap()
+  elapsedMs.value = 0
+  stage.value = 'recording'
+
+  const clip = recordClip(new MediaStream(tracks), chosen, {
+    limitMs: maxClipSeconds * 1000,
+    onTick: (elapsed) => {
+      elapsedMs.value = elapsed
+    },
+  })
+  recording.value = clip
+
+  const main = await clip.done
+
+  // Thrown away: the screen closed while it was recording.
+  if (recording.value !== clip) return
+
+  recording.value = null
+
+  // Still none: the last frame, while the camera that recorded it is open.
+  poster ??= await grabFrame(video.value)
+
+  if (!main || !poster) {
+    stage.value = 'camera'
+    message.value = t.value.photo.recordFailed
+    return
+  }
+
+  hapticTap()
+
+  const inset = both.value ? await takeFront() : null
+
+  if (open.value) hold({ kind: 'Video', main, poster, inset }, 'camera')
+}
+
+/**
+ * The front camera's picture: at once from the camera beside the rear one, or
+ * by switching to it and saying so first.
+ */
+async function takeFront(): Promise<Blob | null> {
+  if (frontStream.value) return grabFrame(frontVideo.value)
+
+  stage.value = 'second'
+
+  // Released before the front camera is asked for, for the same reason as
+  // `switchCamera`.
+  stopStream(stream.value)
+  stream.value = null
+  releaseSound()
+
+  let front: MediaStream
+
+  try {
+    front = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+  }
+  catch {
+    message.value = t.value.photo.frontUnavailable
+    return null
+  }
+
+  if (!open.value) {
+    stopStream(front)
+    return null
+  }
+
+  stream.value = front
+  showing.value = 'user'
+  await show(front)
+  await frameReady(video.value)
+
+  // "Jetzt du", and a moment to look up: the second picture should catch
+  // nobody mid-blink, nor off guard.
+  for (let left = 2; left > 0; left--) {
+    countdown.value = left
+    await new Promise(resolve => setTimeout(resolve, 600))
+    if (!open.value) return null
+  }
+
+  countdown.value = null
+  hapticTap()
+
+  return grabFrame(video.value)
+}
+
+/** The shutter: a photograph, or the start and end of a clip. */
+async function press() {
+  if (kind.value === 'Video') await toggleRecording()
+  else await shoot()
 }
 
 function onFilePicked(event: Event) {
   const [file] = (event.target as HTMLInputElement).files ?? []
 
-  if (file) hold(file, 'library')
+  if (file) hold({ kind: 'Photo', main: file, poster: null, inset: null }, 'library')
 
   // Cleared so picking the same file twice in a row fires `change` again.
   if (fileInput.value) fileInput.value.value = ''
 }
 
-function hold(blob: Blob, from: PhotoOrigin) {
+function hold(taken: Pending, from: PhotoOrigin) {
+  // A front camera that would not open is worth saying under the one picture
+  // that was taken; nothing else from before the shutter is.
+  const note = message.value === t.value.photo.frontUnavailable ? message.value : null
+
   clearPending()
-  pending.value = blob
+  pending.value = taken
   origin.value = from
-  previewUrl.value = URL.createObjectURL(blob)
+  previewUrl.value = URL.createObjectURL(taken.main)
+  posterUrl.value = taken.poster ? URL.createObjectURL(taken.poster) : null
+  insetUrl.value = taken.inset ? URL.createObjectURL(taken.inset) : null
   stage.value = 'preview'
-  message.value = null
+  countdown.value = null
+  message.value = note
   stopCamera()
 }
 
 function clearPending() {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  for (const url of [previewUrl.value, posterUrl.value, insetUrl.value]) {
+    if (url) URL.revokeObjectURL(url)
+  }
+
   previewUrl.value = null
+  posterUrl.value = null
+  insetUrl.value = null
   pending.value = null
-  uploaded.value = null
+  uploaded.value = {}
 }
 
 async function retake() {
   clearPending()
   stage.value = 'camera'
+  message.value = null
   await startCamera()
 }
 
-async function confirm() {
-  const blob = pending.value
+/** Uploads one still picture, shrunk to the purpose's size. */
+async function uploadPicture(blob: Blob): Promise<Image> {
+  return api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
+}
 
-  if (!blob) return
+async function confirm() {
+  const taken = pending.value
+
+  if (!taken) return
 
   stage.value = 'uploading'
   message.value = t.value.photo.uploading
 
   try {
-    const image = uploaded.value
-      ?? await api.images.upload(await downscaleForUpload(blob, edge.value), props.purpose)
+    // A clip goes up as it was recorded: shrinking it would mean re-encoding
+    // it on the phone, and it was recorded at a modest size to begin with.
+    const main = uploaded.value.main
+      ?? await (taken.kind === 'Video' ? api.images.upload(taken.main, props.purpose) : uploadPicture(taken.main))
+    uploaded.value = { ...uploaded.value, main }
 
-    uploaded.value = image
+    const poster = uploaded.value.poster ?? (taken.poster ? await uploadPicture(taken.poster) : null)
+    uploaded.value = { ...uploaded.value, poster }
 
-    const refused = props.handIn ? await props.handIn(image, origin.value) : null
+    const inset = uploaded.value.inset ?? (taken.inset ? await uploadPicture(taken.inset) : null)
+    uploaded.value = { ...uploaded.value, inset }
+
+    const refused = props.handIn ? await props.handIn({ image: main, origin: origin.value, poster, inset }) : null
 
     if (refused) {
       stage.value = 'preview'
@@ -305,7 +626,7 @@ async function confirm() {
     // and "Wird hochgeladen …" left standing under a finished upload reads as
     // though it were stuck.
     message.value = null
-    emit('uploaded', image, origin.value)
+    emit('uploaded', main, origin.value)
     open.value = false
   }
   catch (caught) {
@@ -320,7 +641,11 @@ async function confirm() {
     }
 
     const failure = report(caught, { feature: 'images', action: 'upload' })
-    message.value = failure.status === 413 ? t.value.photo.tooLarge : t.value.photo.failed
+    const clipRefused = taken.kind === 'Video' && !uploaded.value.main
+
+    if (failure.status === 413) message.value = clipRefused ? t.value.photo.videoTooLarge : t.value.photo.tooLarge
+    else if (failure.status === 400 && clipRefused) message.value = t.value.photo.videoRefused
+    else message.value = t.value.photo.failed
   }
 }
 
@@ -328,6 +653,10 @@ function reset() {
   stage.value = 'camera'
   message.value = null
   cameraReady.value = false
+  kind.value = 'Photo'
+  bothWanted.value = true
+  countdown.value = null
+  soundless.value = false
 }
 </script>
 
@@ -341,8 +670,8 @@ function reset() {
   <UModal
     v-model:open="open"
     fullscreen
-    :title="t.photo.heading"
-    :description="cameraReady ? t.photo.cameraHint : liveOnly ? t.photo.cameraRequired : t.photo.fileHint"
+    :title="heading"
+    :description="hint"
     :ui="{ content: 'bg-(--ui-bg) divide-y-0' }"
   >
     <template #content>
@@ -366,11 +695,30 @@ function reset() {
             class="flex-1 text-center text-[17px] font-bold text-(--ui-text-highlighted)"
             aria-hidden="true"
           >
-            {{ t.photo.heading }}
+            {{ heading }}
           </p>
+
+          <!--
+            Both cameras, for a proof, where there are two. A switch rather than
+            an action — it says what the shutter will do — so it is grey either
+            way and says which by being pressed.
+          -->
+          <UButton
+            v-if="bothOffered && (stage === 'camera')"
+            color="neutral"
+            :variant="bothWanted ? 'soft' : 'ghost'"
+            size="xl"
+            icon="i-lucide-picture-in-picture-2"
+            class="size-11 justify-center"
+            :aria-label="t.photo.bothCameras"
+            :aria-pressed="bothWanted"
+            data-testid="photo-both"
+            @click="toggleBoth"
+          />
 
           <!-- Balances the close button, so the heading sits in the middle. -->
           <span
+            v-else
             class="size-11"
             aria-hidden="true"
           />
@@ -380,23 +728,28 @@ function reset() {
           `data-q2-block` on the frame, not on the picture: Session Replay
           records every session, and somebody's face is the most personal thing
           this app will ever hold. Blocking the container covers the live
-          camera, the preview and whatever sits between them.
+          cameras, the preview — a clip and the front picture too — and
+          whatever sits between them.
         -->
         <div
           class="relative mx-3 mt-2 min-h-0 flex-1 overflow-hidden rounded-(--q2-radius-lg) bg-(--ui-bg-elevated)"
+          data-testid="photo-frame"
           data-q2-block
         >
           <!--
             `contain`, not `cover`: this is exactly what will be sent, and a
             preview that crops would be showing a different picture.
           -->
-          <img
-            v-if="previewUrl"
+          <ProofMediaFrame
+            v-if="previewUrl && pending"
+            :kind="pending.kind"
             :src="previewUrl"
+            :poster-src="posterUrl"
+            :inset-src="insetUrl"
+            fit="contain"
             :alt="t.photo.preview"
-            class="size-full object-contain"
             data-testid="photo-preview"
-          >
+          />
 
           <!-- What the friends will read on it, before it is sent. -->
           <p
@@ -418,12 +771,66 @@ function reset() {
             v-show="!previewUrl && cameraReady"
             ref="video"
             class="size-full object-cover"
-            :class="{ '-scale-x-100': facing === 'user' }"
+            :class="{ '-scale-x-100': showing === 'user' }"
             playsinline
             muted
             autoplay
             data-testid="photo-camera"
           />
+
+          <!-- The front camera beside the rear one, where both can run at once. -->
+          <video
+            v-show="!previewUrl && cameraReady && frontStream && stage !== 'second'"
+            ref="frontVideo"
+            class="absolute start-2.5 top-2.5 aspect-[3/4] w-[28%] max-w-32 -scale-x-100 rounded-(--q2-radius-sm) bg-black object-cover shadow-lg ring-2 ring-black/30"
+            playsinline
+            muted
+            autoplay
+            data-testid="photo-front-camera"
+          />
+
+          <!-- Where they cannot, the corner says the second picture will follow. -->
+          <span
+            v-if="!previewUrl && cameraReady && both && !frontStream && (stage === 'camera' || stage === 'recording')"
+            class="absolute start-2.5 top-2.5 flex aspect-[3/4] w-[28%] max-w-32 flex-col items-center justify-center gap-1 rounded-(--q2-radius-sm) bg-black/45 text-center text-[11px] font-bold text-white ring-2 ring-white/20 backdrop-blur-sm"
+            data-testid="photo-front-after"
+          >
+            <UIcon
+              name="i-lucide-user-round"
+              class="size-5"
+              aria-hidden="true"
+            />
+            {{ t.photo.bothCamerasAfter }}
+          </span>
+
+          <!-- The front picture is next: say so, and count it down. -->
+          <div
+            v-if="stage === 'second'"
+            class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/25 text-white"
+            role="status"
+            data-testid="photo-now-you"
+          >
+            <span class="text-[28px] font-extrabold [text-shadow:0_2px_8px_rgb(0_0_0/0.6)]">{{ t.photo.nowYou }}</span>
+            <span
+              v-if="countdown"
+              class="text-[44px] leading-none font-extrabold tabular-nums [text-shadow:0_2px_8px_rgb(0_0_0/0.6)]"
+              aria-hidden="true"
+            >{{ countdown }}</span>
+          </div>
+
+          <!-- How long it has been recording, against how long it may. -->
+          <span
+            v-if="stage === 'recording'"
+            class="absolute top-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[13px] font-bold text-white tabular-nums"
+            role="timer"
+            data-testid="photo-recording-time"
+          >
+            <span
+              class="size-2 animate-pulse rounded-full bg-white"
+              aria-hidden="true"
+            />
+            {{ t.photo.recording(Math.floor(elapsedMs / 1000), maxClipSeconds) }}
+          </span>
 
           <div
             v-if="!previewUrl && !cameraReady"
@@ -451,7 +858,7 @@ function reset() {
           class="shrink-0 px-5 pt-3 text-center text-[13px] text-(--ui-text-muted)"
           aria-hidden="true"
         >
-          {{ cameraReady ? t.photo.cameraHint : liveOnly ? t.photo.cameraRequired : t.photo.fileHint }}
+          {{ kind === 'Video' && soundless ? `${hint} ${t.photo.soundless}` : hint }}
         </p>
 
         <!--
@@ -470,16 +877,33 @@ function reset() {
         >
 
         <!--
+          Photograph or clip, above the shutter where a phone's camera puts it.
+          Grey: which one is chosen is a state, not something to do.
+        -->
+        <div
+          v-if="videoOffered && cameraReady && stage === 'camera'"
+          class="mx-auto w-full max-w-60 shrink-0 pt-3"
+          data-testid="photo-modes"
+        >
+          <AppSegmented
+            v-model="kind"
+            :options="modeOptions"
+            :label="t.photo.modes"
+          />
+        </div>
+
+        <!--
           A camera's layout: the gallery under the left thumb, the shutter in
           the middle, the other camera on the right. The shutter is the one
           thing on this screen that is done now, so it carries the accent.
         -->
         <div
-          v-if="stage === 'camera' && cameraReady"
+          v-if="(stage === 'camera' || stage === 'recording') && cameraReady"
           class="grid shrink-0 grid-cols-3 items-center px-6 pt-4 pb-2"
         >
+          <!-- No picker for a clip: a clip is only ever live. -->
           <span
-            v-if="liveOnly"
+            v-if="liveOnly || kind === 'Video'"
             aria-hidden="true"
           />
           <div
@@ -505,18 +929,27 @@ function reset() {
             >{{ t.proof.source.Screenshot }}</span>
           </div>
 
+          <!--
+            For a clip the shutter starts and stops it. Recording, the inner
+            disc becomes a square, the way every phone says "press to stop" —
+            still the accent, because stopping is the thing to do now.
+          -->
           <button
             type="button"
-            class="q2-press size-[76px] justify-self-center rounded-full p-1.5 ring-4 ring-(--ui-border-accented) focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--q2-accent-solid)"
-            :aria-label="t.photo.shutter"
+            class="q2-press flex size-[76px] items-center justify-center justify-self-center rounded-full p-1.5 ring-4 ring-(--ui-border-accented) focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--q2-accent-solid)"
+            :aria-label="shutterLabel"
+            :aria-pressed="kind === 'Video' ? stage === 'recording' : undefined"
             data-testid="photo-shutter"
-            @click="shoot"
+            @click="press"
           >
-            <span class="block size-full rounded-full bg-(--q2-accent-solid)" />
+            <span
+              class="block bg-(--q2-accent-solid) transition-all duration-150"
+              :class="stage === 'recording' ? 'size-7 rounded-(--q2-radius-sm)' : 'size-full rounded-full'"
+            />
           </button>
 
           <UButton
-            v-if="canSwitch"
+            v-if="canSwitch && !both && stage === 'camera'"
             color="neutral"
             variant="soft"
             icon="i-lucide-switch-camera"
@@ -542,8 +975,15 @@ function reset() {
           />
         </div>
 
+        <!-- Holds the controls' height while the front picture is taken, so nothing jumps. -->
         <div
-          v-else-if="stage !== 'camera'"
+          v-else-if="stage === 'second'"
+          class="h-[100px] shrink-0"
+          aria-hidden="true"
+        />
+
+        <div
+          v-else-if="stage === 'preview' || stage === 'uploading'"
           class="grid shrink-0 grid-cols-2 gap-2 px-4 pt-4 pb-2"
         >
           <UButton

@@ -142,4 +142,59 @@ public sealed class StoredImageTests
     }
 
     private static ImageContent Valid() => new(ImageFormatReader.Jpeg, 512, 512, 10_000);
+
+    [Fact]
+    public void KeepsAClipsLengthAndKnowsItIsOne()
+    {
+        var clip = StoredImage.Create(Id, Owner, ImagePurpose.Proof, Clip(durationMilliseconds: 9_800), Now);
+
+        Assert.True(clip.IsVideo);
+        Assert.Equal(9_800, clip.DurationMilliseconds);
+    }
+
+    /// <summary>A clip is a proof's, and nothing else may move (#124).</summary>
+    [Theory]
+    [InlineData(ImagePurpose.Avatar)]
+    [InlineData(ImagePurpose.ChatPhoto)]
+    [InlineData(ImagePurpose.ChallengeEntry)]
+    public void OnlyAProofMayBeAClip(ImagePurpose purpose)
+    {
+        var error = Assert.Throws<DomainValidationException>(() =>
+            StoredImage.Create(Id, Owner, purpose, Clip(), Now));
+
+        Assert.Contains(nameof(StoredImage.Purpose), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void RefusesAClipLongerThanTheRecorderStopsAt()
+    {
+        var error = Assert.Throws<DomainValidationException>(() =>
+            StoredImage.Create(Id, Owner, ImagePurpose.Proof, Clip(durationMilliseconds: StoredImage.MaxVideoMilliseconds + 1), Now));
+
+        Assert.Contains(nameof(StoredImage.DurationMilliseconds), error.Errors.Keys);
+    }
+
+    [Fact]
+    public void AClipMayRunAMomentPastTheTenSecondsTheAppStopsAt()
+    {
+        var clip = StoredImage.Create(Id, Owner, ImagePurpose.Proof, Clip(durationMilliseconds: (StoredImage.MaxVideoSeconds * 1000) + 400), Now);
+
+        Assert.Equal(10_400, clip.DurationMilliseconds);
+    }
+
+    [Fact]
+    public void AClipHasItsOwnByteLimitAndAPictureKeepsItsOwn()
+    {
+        // Above a picture's limit and inside a clip's.
+        var bytes = StoredImage.MaxBytes + 1;
+
+        Assert.True(StoredImage.Create(Id, Owner, ImagePurpose.Proof, Clip(byteSize: bytes), Now).IsVideo);
+        Assert.Throws<DomainValidationException>(() => StoredImage.Create(
+            Id, Owner, ImagePurpose.Proof, new ImageContent(ImageFormatReader.Jpeg, 640, 480, bytes), Now));
+        Assert.Throws<DomainValidationException>(() => StoredImage.Create(
+            Id, Owner, ImagePurpose.Proof, Clip(byteSize: StoredImage.MaxVideoBytes + 1), Now));
+    }
+
+    private static ImageContent Clip(int durationMilliseconds = 5_000, int byteSize = 2_000_000) =>
+        new(ImageFormatReader.Mp4, 1280, 720, byteSize, durationMilliseconds);
 }

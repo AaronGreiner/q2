@@ -34,7 +34,7 @@ aspirational.
 | Goals | title, description, category, kind (a Do or a Don't), schedule, a Don't's limit and how friends check it, status, when it was created and closed, a one-off's day, the daily reminder time | Title and description are user-authored and potentially health-related. A goal is a schedule and a chain of windows, not a counter ([adr/0016](adr/0016-windows-instead-of-steps.md)). |
 | Goal participants | who was invited to check a goal | Part of the social graph: it says who watches whom keep which promise. |
 | Windows | per goal and period: its days and instants, how many proofs it needs and how many were believed, a Don't's limit, whether it was delivered or missed and when, and when its owner was warned it was at risk | **A day-by-day record of somebody's habits**, kept as long as the goal. A streak and a balance are counted from it, never stored as a number of their own. |
-| Proofs | which photograph was delivered for which window and by whom, its status, the attempt, the voting deadline, whether it was taken live or chosen from the phone, and when it was decided | The photograph itself is an image (below). |
+| Proofs | which photograph or short clip was delivered for which window and by whom, its status, the attempt, the voting deadline, whether it was taken live or chosen from the phone, and when it was decided; for a clip, which still stands for it; with both cameras, which picture the front camera took | The photograph, the clip, its still and the front camera's picture are each an image (below), with exactly the proof's audience. The front camera's picture shows its owner's face by design, and can show other people's ([adr/0060](adr/0060-video-and-both-cameras.md)). |
 | Votes | who believed or doubted which proof, and when, and with a doubt optionally one of three fixed reasons | A doubter is never named to anybody ([adr/0018](adr/0018-proof-and-vote.md)); the row is kept so a vote can be changed while the vote runs. A reason is shown to the photograph's owner only, counted, never with whose ([adr/0055](adr/0055-why-a-photograph-was-doubted.md)). |
 | Reactions | who reacted, with which kind, to a proof, a challenge contribution, a message or a feed line (kudos) | |
 | Don't uses and spot checks | when a use of a Don't was logged, with an optional photograph; when a spot check was planned, asked and answered | What a Don't records is a relapse, the most sensitive thing a habit can say ([adr/0037](adr/0037-donts.md), [adr/0038](adr/0038-spot-checks.md)). |
@@ -48,7 +48,7 @@ aspirational.
 | Activity | what somebody did, when, and who cheered it | The subject is a goal's title, so it inherits its treatment — or, for a badge earned, the badge's key, which friends see in the feed (#139). |
 | Conversations | who is in which conversation, a group's name and icon, the goal a conversation belongs to, and each member's read marker, mute and pin | Every goal has one, made of its owner and the friends invited to check it; it is removed with the goal and with its owner's account ([adr/0027](adr/0027-goal-conversations.md)). Nobody else can read it. |
 | Messages | text or a photograph, sender, timestamp, reactions, when it was corrected or taken back | The words and pictures people send each other ([adr/0029](adr/0029-photographs-in-conversations.md)). A message its sender takes back keeps only its row and its time: the words are emptied, the photograph is deleted with its bytes, and the reactions go ([adr/0046](adr/0046-looking-after-a-conversation.md)). |
-| Images | the bytes of a picture somebody uploaded, plus its owner, purpose (profile picture, proof, challenge contribution, chat photograph), media type, size and dimensions | **The most personal thing q2 stores.** A photograph is a face, a room, a home. See [adr/0017-image-storage.md](adr/0017-image-storage.md). |
+| Images | the bytes of a picture somebody uploaded, plus its owner, purpose (profile picture, proof, challenge contribution, chat photograph), media type, size and dimensions; for a proof's clip (up to ten seconds, MP4) also its length | **The most personal thing q2 stores.** A photograph is a face, a room, a home. A clip can also carry **sound** — the owner's voice and anybody nearby — recorded only with the microphone permission, played without sound until somebody asks for it, and stored unchanged: the server never decodes or transcodes it. See [adr/0017-image-storage.md](adr/0017-image-storage.md) and [adr/0060](adr/0060-video-and-both-cameras.md). |
 | Challenge contributions | which prompt somebody answered, with which picture, and when | The prompt is authored by the deployment, never by a user. Who may see the picture depends on what the *viewer* has done — see [adr/0021-daily-challenge.md](adr/0021-daily-challenge.md). |
 | Blocks | who blocked whom, and when | The direction is stored so only the person who set one can lift it; the effect is symmetric. Never shown to the person blocked. |
 | Reports | who reported what — a person, a photograph, a contribution or a message — why, and an optional note | Write-only: nothing in the app reads them back, and the person reported is never told who reported them. |
@@ -60,7 +60,7 @@ aspirational.
 | Waiting Do | a title, a category, a schedule and a reminder time, at most one per person | User-authored, so it is treated like a goal's title. Only exists while its owner has no friend; becomes a goal when the first friendship does, and is deleted with the account. Its title is never logged. See [adr/0039-first-run-onboarding.md](adr/0039-first-run-onboarding.md). |
 | Device appearance | one of four accent palette names | Stored in the `q2-accent` cookie for one year, shared by accounts using that browser. No identity or content. Read during SSR; never logged or sent to Sentry. See [ADR 0028](adr/0028-ruhe-design-system.md). |
 | Device language | `German` or `English` — the language this device last showed | Stored in the `q2-language` cookie for one year (`SameSite=Lax`), and in local storage under the same name for the iOS app, which renders nothing on a server. Written whenever the language is applied, shared by accounts using that browser, and kept after signing out, like the accent. Read during SSR so the first paint is in the chosen language (#85); the account's own preference still decides. No identity or content; never logged or sent to Sentry. |
-| Camera choice | `user` or `environment` — which camera the photo screen opens with | Stored in the browser's local storage under `q2-camera-facing`, shared by accounts using that browser, and only written when somebody switches cameras. Never sent to the server, never logged, never sent to Sentry. |
+| Camera choice | `user` or `environment` — which camera the photo screen opens with; and `no` once this device has shown it cannot run its front and rear camera at once | Stored in the browser's local storage under `q2-camera-facing` and `q2-camera-both-at-once`, shared by accounts using that browser, and only written when somebody switches cameras or a device refuses the second camera. Never sent to the server, never logged, never sent to Sentry. |
 | Sign-in on the iOS app | a refresh token in the iOS Keychain, an access token and the pictures already fetched in memory | The browser's session cookie, in another form: the tokens are sealed by the server and name only the account and its security stamp. The Keychain entry is "this device only" and never synchronised through iCloud; signing out removes it and empties the pictures. It outlives deleting the app, as Keychain items do, and stops working after 14 days unused or when the password changes. Never logged, never sent to Sentry. See [adr/0034](adr/0034-bearer-tokens-for-the-native-app.md). |
 
 **What a notification carries.** The payload is encrypted to the browser
@@ -227,11 +227,12 @@ What still limits the damage:
   labels, navigation, empty states and error messages are readable. Elements
   with `data-q2-private` mask names, handles, goal and chat text and personal
   values. Elements with `data-q2-block` replace messages, progress, activity
-  histories, avatars and every photograph — profile pictures, proofs, challenge
-  contributions and chat photographs, each blocked where it is drawn
-  (`AppAvatar`, `PhotoCapture`, `ProofCard`, `ProofGalleryTile`,
-  `ChallengeEntryCard`, `ChallengeArchiveTile`, `ChatBubble`, the full-screen
-  viewers) — because their shape or picture reveals data even after text
+  histories, avatars and every photograph — profile pictures, proofs (their
+  clips, stills and front-camera pictures included), challenge contributions
+  and chat photographs, each blocked where it is drawn (`AppAvatar`,
+  `PhotoCapture`, `ProofMediaFrame` inside `ProofCard`, `ProofGalleryTile` and
+  `ChatPhotoTile`, `ChallengeEntryCard`, `ChallengeArchiveTile`, `ChatBubble`,
+  the full-screen viewers) — because their shape or picture reveals data even after text
   masking. All inputs remain masked. `blockAllMedia` stays off so application
   icons stay visible; that the photographs are blocked one element at a time
   rather than all at once is the trade, and whether it should be the other way
@@ -393,8 +394,8 @@ far it has got.
     back ([#38](https://github.com/AaronGreiner/q2/issues/38)). The seam exists
     so that a mailbox or a console is a registration rather than a rewrite. No
     upload is readable by a stranger meanwhile: an avatar is visible
-    to anybody signed in, a proof photograph only to the people its goal is
-    shared with, and a challenge contribution only to the contributor's friends
+    to anybody signed in, a proof photograph — or clip, its still and its
+    front-camera picture — only to the people its goal is shared with, and a challenge contribution only to the contributor's friends
     who have contributed to the same challenge themselves.
 
 ## 9. When adding a feature

@@ -1,5 +1,6 @@
 import type { ApiCaller } from './client'
 import type { DeliveredProof, DoubtReason, FeedProof, OwnProof, Proof, ProofSource, ProofVoteValue, KudosKind } from './types'
+import type { ProofPartIds } from '~/utils/captured'
 
 /**
  * Photographs and the votes on them.
@@ -19,16 +20,18 @@ export interface ProofsApi {
    * conversation, where the photograph is shown from now on.
    *
    * `source` is the route the camera screen used — live or a picture from the
-   * phone — and is shown to everybody who sees the photograph.
+   * phone — and is shown to everybody who sees the photograph. A clip and the
+   * front camera's picture travel as ids beside the main one, and are only
+   * ever live (docs/adr/0060-video-and-both-cameras.md).
    */
-  submit: (goalId: string, imageId: string, source: ProofSource) => Promise<DeliveredProof>
+  submit: (goalId: string, parts: ProofPartIds, source: ProofSource) => Promise<DeliveredProof>
 
   /**
    * Answers the spot check open on your own Don't with a live photograph,
    * uploaded as a proof image first. Stored as live whatever is sent, and voted
    * on like any proof — without a second attempt (docs/adr/0038-spot-checks.md).
    */
-  answerSpotCheck: (goalId: string, checkId: string, imageId: string) => Promise<DeliveredProof>
+  answerSpotCheck: (goalId: string, checkId: string, parts: ProofPartIds) => Promise<DeliveredProof>
 
   get: (id: string) => Promise<Proof>
 
@@ -50,16 +53,16 @@ export function createProofsApi(call: ApiCaller): ProofsApi {
   const proof = (id: string) => `/api/proofs/${encodeURIComponent(id)}`
 
   return {
-    submit: (goalId, imageId, source) =>
+    submit: (goalId, parts, source) =>
       call<DeliveredProof>(`/api/goals/${encodeURIComponent(goalId)}/proof`, {
         method: 'POST',
-        body: { imageId, source },
+        body: { ...parts, source },
       }),
 
-    answerSpotCheck: (goalId, checkId, imageId) =>
+    answerSpotCheck: (goalId, checkId, parts) =>
       call<DeliveredProof>(
         `/api/goals/${encodeURIComponent(goalId)}/spot-checks/${encodeURIComponent(checkId)}/proof`,
-        { method: 'POST', body: { imageId } },
+        { method: 'POST', body: parts },
       ),
 
     get: id => call<Proof>(proof(id), { method: 'GET' }),

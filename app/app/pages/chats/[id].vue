@@ -2,7 +2,7 @@
 import type { ApiFailure } from '~/api/errors'
 import type { ChatMessage, Image, ReportReason } from '~/api/types'
 import type { ThreadItem } from '~/utils/chatTimeline'
-import type { PhotoOrigin } from '~/utils/proofSource'
+import type { Captured } from '~/utils/captured'
 
 /**
  * One conversation.
@@ -187,11 +187,11 @@ async function onLog() {
  * arriving in the thread is the confirmation; a refusal stays on the camera's
  * screen with the photograph (see useProofDelivery).
  */
-async function handIn(image: Image, origin: PhotoOrigin) {
+async function handIn(captured: Captured) {
   const goalId = chat.value?.pinnedGoal?.id
   if (!goalId) return null
 
-  const result = await deliver(goalId, image, origin)
+  const result = await deliver(goalId, captured)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -669,6 +669,7 @@ useHead({ title: () => chat.value?.name ?? t.value.chats.heading })
     <PhotoCapture
       v-model:open="isCameraOpen"
       purpose="Proof"
+      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"

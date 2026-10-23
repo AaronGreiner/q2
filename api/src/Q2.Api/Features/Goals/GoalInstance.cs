@@ -218,7 +218,8 @@ public sealed class GoalInstance
         Guid proofId,
         Guid uploaderPersonId,
         Guid imageId,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        ProofParts? parts = null)
     {
         var check = _spotChecks.FirstOrDefault(candidate => candidate.Id == checkId);
 
@@ -227,7 +228,7 @@ public sealed class GoalInstance
             return null;
         }
 
-        var proof = ProofPhoto.Create(proofId, Id, uploaderPersonId, imageId, ProofVoting.MaxAttempts, ProofSource.Live, now);
+        var proof = ProofPhoto.Create(proofId, Id, uploaderPersonId, imageId, ProofVoting.MaxAttempts, ProofSource.Live, now, parts);
         check.Answer(proof.Id, now);
         _proofs.Add(proof);
         return proof;
@@ -339,14 +340,15 @@ public sealed class GoalInstance
         Guid uploaderPersonId,
         Guid imageId,
         ProofSource source,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        ProofParts? parts = null)
     {
         if (!AcceptsProof)
         {
             return null;
         }
 
-        var proof = ProofPhoto.Create(id, Id, uploaderPersonId, imageId, NextAttempt, source, now);
+        var proof = ProofPhoto.Create(id, Id, uploaderPersonId, imageId, NextAttempt, source, now, parts);
         _proofs.Add(proof);
         return proof;
     }

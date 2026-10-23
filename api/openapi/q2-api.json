@@ -1815,7 +1815,7 @@
         "tags": [
           "Images"
         ],
-        "summary": "Stores an image. The body is the raw file; its media type must be image/jpeg or image/png.",
+        "summary": "Stores an image, or a proof's video clip. The body is the raw file; its media type must be image/jpeg, image/png or video/mp4.",
         "operationId": "UploadImage",
         "parameters": [
           {
@@ -1835,6 +1835,12 @@
               }
             },
             "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "byte"
+              }
+            },
+            "video/mp4": {
               "schema": {
                 "type": "string",
                 "format": "byte"
@@ -1929,8 +1935,16 @@
                 "schema": {
                   "$ref": "#/components/schemas/IResult"
                 }
+              },
+              "video/mp4": {
+                "schema": {
+                  "$ref": "#/components/schemas/IResult"
+                }
               }
             }
+          },
+          "206": {
+            "description": "Partial Content"
           },
           "404": {
             "description": "Not Found",
@@ -4099,6 +4113,16 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -4593,6 +4617,19 @@
                 "$ref": "#/components/schemas/ProofSource"
               }
             ]
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },
@@ -6304,7 +6341,11 @@
           "bytesUsed",
           "byteLimit",
           "imageCount",
-          "imageLimit"
+          "imageLimit",
+          "videoBytesUsed",
+          "videoByteLimit",
+          "videoMaxBytes",
+          "videoMaxSeconds"
         ],
         "type": "object",
         "properties": {
@@ -6323,6 +6364,22 @@
           "imageLimit": {
             "type": "integer",
             "format": "int32"
+          },
+          "videoBytesUsed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "videoByteLimit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "videoMaxBytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "videoMaxSeconds": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -6333,7 +6390,9 @@
           "width",
           "height",
           "byteSize",
-          "createdAt"
+          "createdAt",
+          "kind",
+          "durationMilliseconds"
         ],
         "type": "object",
         "properties": {
@@ -6359,6 +6418,14 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "durationMilliseconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         }
       },
@@ -6451,6 +6518,12 @@
             "nullable": true
           }
         }
+      },
+      "MediaKind": {
+        "enum": [
+          "Photo",
+          "Video"
+        ]
       },
       "MessageReactionResponse": {
         "required": [
@@ -6685,6 +6758,9 @@
         "required": [
           "id",
           "imageId",
+          "media",
+          "posterImageId",
+          "insetImageId",
           "status",
           "source",
           "createdAt",
@@ -6701,6 +6777,19 @@
           "imageId": {
             "type": "string",
             "format": "uuid"
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "status": {
             "$ref": "#/components/schemas/ProofStatus"
@@ -7004,6 +7093,9 @@
           "goalInstanceId",
           "uploader",
           "imageId",
+          "media",
+          "posterImageId",
+          "insetImageId",
           "status",
           "attempt",
           "attemptsLeft",
@@ -7033,6 +7125,19 @@
           "imageId": {
             "type": "string",
             "format": "uuid"
+          },
+          "media": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           },
           "status": {
             "$ref": "#/components/schemas/ProofStatus"
@@ -7520,6 +7625,16 @@
                 "$ref": "#/components/schemas/ProofSource"
               }
             ]
+          },
+          "posterImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "insetImageId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         }
       },

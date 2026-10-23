@@ -1,4 +1,5 @@
 using Q2.Api.Features.Chats;
+using Q2.Api.Features.Images;
 using Q2.Api.Infrastructure.Errors;
 
 namespace Q2.Api.Features.Proofs;
@@ -41,6 +42,13 @@ public enum ProofStatus
 /// outright would lock out every commitment that only shows on a screen, and
 /// every phone whose camera permission was once denied
 /// (docs/adr/0036-live-or-screenshot.md).
+///
+/// It is still called a photograph, but since #124 and #125 it may be more
+/// than one: the main picture can be a short clip (<see cref="Media"/>, with a
+/// still to show before it plays), and beside it there can be the front
+/// camera's picture of whoever took it (<see cref="InsetImageId"/>). Both only
+/// ever come from the app's camera, which is why either one requires
+/// <see cref="ProofSource.Live"/> (docs/adr/0060-video-and-both-cameras.md).
 /// </remarks>
 public sealed class ProofPhoto
 {
@@ -59,6 +67,7 @@ public sealed class ProofPhoto
         Guid imageId,
         int attempt,
         ProofSource source,
+        ProofParts parts,
         DateTimeOffset createdAt,
         DateTimeOffset votingDeadline)
     {
@@ -68,6 +77,9 @@ public sealed class ProofPhoto
         ImageId = imageId;
         Attempt = attempt;
         Source = source;
+        Media = parts.Media;
+        PosterImageId = parts.PosterImageId;
+        InsetImageId = parts.InsetImageId;
         CreatedAt = createdAt;
         VotingDeadline = votingDeadline;
     }
@@ -80,8 +92,27 @@ public sealed class ProofPhoto
     /// <summary>Who delivered it. Always the goal's owner, and never a voter.</summary>
     public Guid UploaderPersonId { get; private set; }
 
-    /// <summary>The stored image. Its bytes are reached through the image endpoint, never from here.</summary>
+    /// <summary>
+    /// The stored picture or clip. Its bytes are reached through the image
+    /// endpoint, never from here.
+    /// </summary>
     public Guid ImageId { get; private set; }
+
+    /// <summary>Whether <see cref="ImageId"/> is a photograph or a clip. Set once, at upload.</summary>
+    public MediaKind Media { get; private set; }
+
+    /// <summary>
+    /// For a clip: a still from it, shown before it plays and wherever a clip
+    /// cannot play — a tile in a grid. Taken by the phone while recording,
+    /// because the server never decodes video. Null for a photograph.
+    /// </summary>
+    public Guid? PosterImageId { get; private set; }
+
+    /// <summary>
+    /// The front camera's picture, taken with the main one: who was there
+    /// (#125). Null when only one camera was used.
+    /// </summary>
+    public Guid? InsetImageId { get; private set; }
 
     public ProofStatus Status { get; private set; } = ProofStatus.Voting;
 
@@ -120,7 +151,14 @@ public sealed class ProofPhoto
     /// Records a delivery. <paramref name="attempt"/> is 1 for the first and 2
     /// for the one allowed after a dispute.
     /// </summary>
-    /// <exception cref="DomainValidationException">The attempt is outside what the rules allow.</exception>
+    /// <param name="parts">
+    /// Whether the main picture is a clip, its still, and the front camera's
+    /// picture. Left out, it is a single photograph.
+    /// </param>
+    /// <exception cref="DomainValidationException">
+    /// The attempt is outside what the rules allow, or the parts do not fit
+    /// together.
+    /// </exception>
     public static ProofPhoto Create(
         Guid id,
         Guid goalInstanceId,
@@ -128,8 +166,11 @@ public sealed class ProofPhoto
         Guid imageId,
         int attempt,
         ProofSource source,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        ProofParts? parts = null)
     {
+        parts ??= ProofParts.Photo;
+
         if (attempt < 1 || attempt > ProofVoting.MaxAttempts)
         {
             throw new DomainValidationException(
@@ -147,6 +188,8 @@ public sealed class ProofPhoto
             throw new DomainValidationException(nameof(Source), "That is not a way a picture can arrive.");
         }
 
+        parts.Validate(imageId, source);
+
         return new ProofPhoto(
             id,
             goalInstanceId,
@@ -154,6 +197,7 @@ public sealed class ProofPhoto
             imageId,
             attempt,
             source,
+            parts,
             createdAt,
             createdAt.AddHours(ProofVoting.VotingWindowHours));
     }

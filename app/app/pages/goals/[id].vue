@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { EditGoalRequest, Image } from '~/api/types'
-import type { PhotoOrigin } from '~/utils/proofSource'
+import type { EditGoalRequest } from '~/api/types'
+import type { Captured } from '~/utils/captured'
 import { pauseLimits } from '~/api/types'
 import type { PauseRequestValue } from '~/components/goals/GoalPauseSheet.vue'
 
@@ -50,11 +50,11 @@ const capturingUse = ref(false)
 /** The live-only camera for an open spot check (docs/adr/0038-spot-checks.md). */
 const answering = ref<string | null>(null)
 
-async function handInCheck(image: Image) {
+async function handInCheck(captured: Captured) {
   const checkId = answering.value
   if (!checkId) return null
 
-  const result = await answerSpotCheck(id.value, checkId, image)
+  const result = await answerSpotCheck(id.value, checkId, captured)
   await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -68,8 +68,8 @@ const editing = ref(false)
 const { friends } = useFriends()
 
 /** Moves on to the goal's conversation when it has one — see useProofDelivery. */
-async function handIn(image: Image, origin: PhotoOrigin) {
-  const result = await deliver(id.value, image, origin)
+async function handIn(captured: Captured) {
+  const result = await deliver(id.value, captured)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -80,8 +80,8 @@ async function onLog() {
 }
 
 /** A use with its photograph: logged once the picture is up, refused on the camera's screen. */
-async function handInUse(image: Image) {
-  const logged = await dontUse.logUse(id.value, image.id)
+async function handInUse(captured: Captured) {
+  const logged = await dontUse.logUse(id.value, captured.image.id)
   if (!logged) return t.value.proof.refusedFailed
 
   await refresh()
@@ -660,6 +660,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
     <PhotoCapture
       v-model:open="capturing"
       purpose="Proof"
+      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
@@ -669,6 +670,7 @@ useHead({ title: () => goal.value?.title ?? t.value.goals.detailHeading })
       v-if="goal?.kind === 'Dont'"
       :open="answering !== null"
       purpose="Proof"
+      proof-modes
       live-only
       :max-edge="maxEdge"
       :hand-in="handInCheck"

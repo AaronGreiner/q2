@@ -32,6 +32,22 @@ public static class ProofFlow
         return (await response.ReadAsync<UploadedImage>()).Id;
     }
 
+    /// <summary>Uploads a clip as a proof and returns its id.</summary>
+    public static async Task<Guid> UploadProofVideoAsync(this HttpClient client)
+    {
+        var content = new ByteArrayContent(TestVideos.Mp4());
+        content.Headers.ContentType = new MediaTypeHeaderValue(ImageFormatReader.Mp4);
+
+        var response = await client.PostAsync(
+            $"/api/images?purpose={ImagePurpose.Proof}",
+            content,
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        return (await response.ReadAsync<UploadedImage>()).Id;
+    }
+
     /// <summary>
     /// Delivers a fresh photograph against a goal. The response is the caller's
     /// to assert on, because "this was refused" is what half of these tests are
@@ -77,6 +93,9 @@ public sealed record ProofDocument(
     Guid GoalInstanceId,
     ProofPersonDocument Uploader,
     Guid ImageId,
+    MediaKind Media,
+    Guid? PosterImageId,
+    Guid? InsetImageId,
     ProofStatus Status,
     int Attempt,
     int AttemptsLeft,

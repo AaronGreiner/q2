@@ -17,10 +17,38 @@
  * its challenge prompt is unplaceable, and full screen is exactly where the
  * card around it has gone; the bar at the bottom gives that back, and steps
  * aside while somebody is zoomed in on detail.
+ *
+ * A proof can be more than one picture (#124, #125). A clip plays here with
+ * the player's own controls, starting without sound, and takes no gestures —
+ * they would be the player's. The front camera's picture sits in the top
+ * corner; a tap makes it the large one, zoomable like any photograph, and puts
+ * the main one in the corner instead.
  */
 const t = useMessages()
 const { current, close } = usePhotoViewer()
-const picture = useImageSource(() => current.value?.imageId)
+
+/** The front camera's picture is the large one. */
+const swapped = ref(false)
+
+const isVideo = computed(() => current.value?.media === 'Video')
+
+/** The clip is playing large, rather than a picture being drawn there. */
+const playsClip = computed(() => isVideo.value && !swapped.value)
+
+const picture = useImageSource(() => {
+  const item = current.value
+  if (!item) return null
+  if (swapped.value) return item.insetImageId ?? null
+  return isVideo.value ? null : item.imageId
+})
+const clip = useImageSource(() => (playsClip.value ? current.value?.imageId : null))
+const poster = useImageSource(() => (isVideo.value ? current.value?.posterImageId : null))
+const corner = useImageSource(() => {
+  const item = current.value
+  if (!item?.insetImageId) return null
+  if (!swapped.value) return item.insetImageId
+  return isVideo.value ? item.posterImageId : item.imageId
+})
 
 const MIN_SCALE = 1
 const MAX_SCALE = 4
@@ -67,6 +95,7 @@ watch(() => route.fullPath, () => close())
 watch(current, async (item, previous) => {
   reset()
   failed.value = false
+  swapped.value = false
 
   if (item && !previous) {
     returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -123,8 +152,19 @@ function beginFromPointers() {
   }
 }
 
+/** Swaps the front camera's picture with the main one, back at normal size. */
+function swap() {
+  swapped.value = !swapped.value
+  failed.value = false
+  reset()
+}
+
 function onPointerDown(event: PointerEvent) {
-  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  // A playing clip's gestures are its player's.
+  if (playsClip.value) return
+
+  const surface = event.currentTarget as HTMLElement
+  surface.setPointerCapture(event.pointerId)
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
   isTracking.value = true
   beginFromPointers()
@@ -211,10 +251,16 @@ function onKeydown(event: KeyboardEvent) {
     close()
   }
   else if (event.key === 'Tab') {
-    // The close button is the only control, so focus stays on it rather than
-    // wandering onto the screen hidden behind the picture.
+    // Focus goes round the controls on this view — the close button, the
+    // corner picture, a clip's player — and never wanders onto the screen
+    // hidden behind it.
     event.preventDefault()
-    closeButton.value?.focus()
+
+    const controls = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('button, video[controls]')]
+    const at = controls.indexOf(document.activeElement as HTMLElement)
+    const next = controls[(at + (event.shiftKey ? controls.length - 1 : 1)) % controls.length] ?? closeButton.value
+
+    next?.focus()
   }
 }
 </script>
@@ -244,15 +290,32 @@ function onKeydown(event: KeyboardEvent) {
       <!-- Somebody's photograph, at its largest: replaced as a whole in Session
            Replay, like every other element that draws one (#126). -->
       <div
-        class="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
+        class="relative min-h-0 flex-1 overflow-hidden select-none"
+        :class="playsClip ? 'pb-28' : 'touch-none'"
         data-q2-block
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
       >
+        <!-- Sound off until somebody turns it on with the player (#124). -->
+        <video
+          v-if="playsClip && clip && !failed"
+          crossorigin="use-credentials"
+          :src="clip"
+          :poster="poster ?? undefined"
+          controls
+          autoplay
+          muted
+          loop
+          playsinline
+          class="size-full object-contain"
+          data-testid="photo-viewer-video"
+          @error="failed = true"
+        />
+
         <img
-          v-if="source"
+          v-else-if="source && !playsClip"
           crossorigin="use-credentials"
           :src="source"
           :alt="current.title ?? t.viewer.label"
@@ -275,6 +338,26 @@ function onKeydown(event: KeyboardEvent) {
           />
         </div>
       </div>
+
+      <!-- The other picture of a proof taken with both cameras; a tap swaps them. -->
+      <button
+        v-if="corner"
+        type="button"
+        class="absolute start-3 top-[max(0.75rem,env(safe-area-inset-top))] aspect-[3/4] w-24 overflow-hidden rounded-(--q2-radius-sm) bg-black shadow-lg ring-2 ring-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        :aria-label="swapped ? t.proof.media.showMain : t.proof.media.showFront"
+        data-q2-block
+        data-testid="photo-viewer-inset"
+        @click="swap()"
+      >
+        <img
+          crossorigin="use-credentials"
+          :src="corner"
+          alt=""
+          decoding="async"
+          draggable="false"
+          class="size-full object-cover"
+        >
+      </button>
 
       <button
         ref="closeButton"

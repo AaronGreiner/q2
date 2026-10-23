@@ -648,7 +648,7 @@ public sealed class ChatService(
                     && database.Images.Any(image => image.Id == proof.ImageId))
                 .OrderByDescending(proof => proof.CreatedAt)
                 .Take(MaxPhotos)
-                .Select(proof => new { proof.Id, proof.ImageId, Author = proof.UploaderPersonId, At = proof.CreatedAt, proof.Source })
+                .Select(proof => new { proof.Id, proof.ImageId, Author = proof.UploaderPersonId, At = proof.CreatedAt, proof.Source, proof.Media, proof.PosterImageId, proof.InsetImageId })
                 .ToListAsync(cancellationToken)
             : [];
 
@@ -658,7 +658,16 @@ public sealed class ChatService(
         return
         [
             .. sent.Select(photo => new ChatPhotoResponse(photo.Id, photo.ImageId, IsProof: false, NameOf(photo.Author), photo.At, Source: null))
-                .Concat(delivered.Select(photo => new ChatPhotoResponse(photo.Id, photo.ImageId, IsProof: true, NameOf(photo.Author), photo.At, photo.Source)))
+                .Concat(delivered.Select(photo => new ChatPhotoResponse(
+                    photo.Id,
+                    photo.ImageId,
+                    IsProof: true,
+                    NameOf(photo.Author),
+                    photo.At,
+                    photo.Source,
+                    photo.Media,
+                    photo.PosterImageId,
+                    photo.InsetImageId)))
                 .OrderByDescending(photo => photo.At)
                 .Take(MaxPhotos),
         ];

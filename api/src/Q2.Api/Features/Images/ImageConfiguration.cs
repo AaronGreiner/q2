@@ -25,6 +25,9 @@ public sealed class StoredImageConfiguration : IEntityTypeConfiguration<StoredIm
         builder.Property(image => image.Width).IsRequired();
         builder.Property(image => image.Height).IsRequired();
 
+        // Null for every picture, and for every row from before clips existed.
+        builder.Property(image => image.DurationMilliseconds);
+
         builder.Property(image => image.CreatedAt)
             .IsRequired()
             .HasConversion(InstantConversion.Required);

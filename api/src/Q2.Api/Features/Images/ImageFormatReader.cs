@@ -3,11 +3,16 @@ using System.Buffers.Binary;
 namespace Q2.Api.Features.Images;
 
 /// <summary>
-/// What an upload actually is: its media type and its pixel dimensions, read
-/// out of the bytes themselves.
+/// What an upload actually is: its media type, its pixel dimensions and, for a
+/// clip, how long it runs — read out of the bytes themselves.
 /// </summary>
 /// <param name="ContentType">The media type, as it will be served back.</param>
-public sealed record ImageContent(string ContentType, int Width, int Height, int ByteSize);
+/// <param name="DurationMilliseconds">How long a clip runs. Null for a picture.</param>
+public sealed record ImageContent(string ContentType, int Width, int Height, int ByteSize, int? DurationMilliseconds = null)
+{
+    /// <summary>Whether this is a clip rather than a still picture.</summary>
+    public bool IsVideo => ContentType == ImageFormatReader.Mp4;
+}
 
 /// <summary>
 /// Reads the format and the dimensions of an upload from its first bytes.
@@ -18,11 +23,16 @@ public sealed record ImageContent(string ContentType, int Width, int Height, int
 /// know what it just stored, and it has to know it without trusting the
 /// <c>Content-Type</c> header or the file name, both of which the caller wrote.
 ///
-/// Two formats, deliberately. Every upload q2 makes goes through a canvas and
-/// comes out as JPEG (<c>app/app/utils/images.ts</c>), so JPEG is the one that
-/// matters; PNG is accepted because a screenshot picked from disk is often one.
-/// A third parser — WebP has three different headers of its own — would be code
-/// nothing in the product produces.
+/// Two picture formats, deliberately. Every picture q2 uploads goes through a
+/// canvas and comes out as JPEG (<c>app/app/utils/images.ts</c>), so JPEG is
+/// the one that matters; PNG is accepted because a screenshot picked from disk
+/// is often one. A third parser — WebP has three different headers of its own —
+/// would be code nothing in the product produces.
+///
+/// And one clip format, MP4, for a proof recorded in the app's camera. Its
+/// boxes are read by <see cref="Mp4Reader"/>, which is a different walk over a
+/// different structure, kept apart so this file stays about pictures
+/// (docs/adr/0060-video-and-both-cameras.md).
 ///
 /// It is a header reader, not a decoder. Nothing here allocates per pixel, so a
 /// "decompression bomb" is a rejected width, not a stalled server. The trade is
@@ -34,21 +44,28 @@ public static class ImageFormatReader
 {
     public const string Jpeg = "image/jpeg";
     public const string Png = "image/png";
+    public const string Mp4 = "video/mp4";
 
     /// <summary>The media types an upload may be, for the client to send.</summary>
-    public static readonly IReadOnlyList<string> AcceptedContentTypes = [Jpeg, Png];
+    public static readonly IReadOnlyList<string> AcceptedContentTypes = [Jpeg, Png, Mp4];
 
     private static ReadOnlySpan<byte> PngSignature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>
-    /// Returns what these bytes are, or null when they are not an image q2
-    /// accepts.
+    /// Returns what these bytes are, or null when they are not an image or a
+    /// clip q2 accepts.
     /// </summary>
     public static ImageContent? Read(ReadOnlySpan<byte> bytes)
     {
         if (bytes.StartsWith(PngSignature))
         {
             return ReadPng(bytes);
+        }
+
+        // An MP4 file's first box is its file type, four bytes in.
+        if (bytes.Length >= 8 && bytes.Slice(4, 4).SequenceEqual("ftyp"u8))
+        {
+            return Mp4Reader.Read(bytes);
         }
 
         // FF D8 is the start-of-image marker; every JPEG begins with it.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Image } from '~/api/types'
+import type { Captured } from '~/utils/captured'
 import type { PhotoOrigin } from '~/utils/proofSource'
 
 /**
@@ -24,11 +25,11 @@ const { isLogging, logUse } = useDontUse(() => refresh())
 const spotChecks = computed(() => due.value.filter(goal => goal.spotCheck))
 const answering = ref<{ goalId: string, checkId: string } | null>(null)
 
-async function handInCheck(image: Image) {
+async function handInCheck(captured: Captured) {
   const check = answering.value
   if (!check) return null
 
-  const result = await answerSpotCheck(check.goalId, check.checkId, image)
+  const result = await answerSpotCheck(check.goalId, check.checkId, captured)
   await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -93,11 +94,11 @@ const deliveringFor = ref<string | null>(null)
  * (see useProofDelivery). A shared goal moves on to its conversation; anything
  * else stays here and reads the screen again, because the row has changed.
  */
-async function handIn(image: Image, origin: PhotoOrigin) {
+async function handIn(captured: Captured) {
   const goalId = deliveringFor.value
   if (!goalId) return null
 
-  const result = await deliver(goalId, image, origin)
+  const result = await deliver(goalId, captured)
   if (result.status !== 'moved') await refresh()
 
   return result.status === 'refused' ? result.message : null
@@ -473,6 +474,7 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="deliveringFor !== null"
       purpose="Proof"
+      proof-modes
       labels-source
       :max-edge="maxEdge"
       :hand-in="handIn"
@@ -482,6 +484,7 @@ useHead({ title: () => t.value.nav.home })
     <PhotoCapture
       :open="answering !== null"
       purpose="Proof"
+      proof-modes
       live-only
       :max-edge="maxEdge"
       :hand-in="handInCheck"

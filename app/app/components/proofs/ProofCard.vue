@@ -2,6 +2,7 @@
 import { hapticTap } from '~/utils/haptics'
 import type { DoubtReason, Proof, ProofVoteValue } from '~/api/types'
 import { doubtReasons } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * Somebody's photograph, and the verdict on it.
@@ -33,7 +34,10 @@ import { doubtReasons } from '~/api/types'
  * exception, and the card should not look undecided once you have decided.
  *
  * The picture opens full screen on a tap, because a proof is judged on detail
- * and a square in a feed is not enough to see it.
+ * and a square in a feed is not enough to see it. A clip is judged exactly
+ * like a photograph (#124), and plays here without sound until somebody asks
+ * for it; the front camera's picture, when both cameras were used, sits in the
+ * corner and swaps with the main one on a tap (#125).
  *
  * A doubt can say what was missing (#111): "Anzweifeln" asks which of three
  * fixed answers, or none, and a doubt already cast can be given one or have
@@ -64,15 +68,7 @@ const emit = defineEmits<{ vote: [value: ProofVoteValue, reason: DoubtReason | n
 
 const t = useMessages()
 const now = useNow()
-const picture = useImageSource(() => props.proof.imageId)
-
-const failed = ref(false)
-
-watch(() => props.proof.imageId, () => {
-  failed.value = false
-})
-
-const source = computed(() => (failed.value ? null : picture.value))
+const media = computed(() => proofMediaOf(props.proof))
 
 /** Whole hours left, floored — "noch 2 Stunden" must never read as more than there is. */
 const hoursLeft = computed(() => {
@@ -93,7 +89,7 @@ const viewer = usePhotoViewer()
 
 function enlarge() {
   viewer.open({
-    imageId: props.proof.imageId,
+    ...media.value,
     title: props.goalTitle ?? props.context,
     subtitle: props.proof.uploader.displayName,
     meta: formatRelativeTime(props.proof.createdAt, now.value, t.value),
@@ -184,37 +180,16 @@ const reasonsText = computed(() => props.proof.votes.doubtReasons
       a feed somebody votes on by accident.
     -->
     <div class="relative aspect-square w-full bg-(--ui-bg-elevated)">
-      <button
-        v-if="source"
-        type="button"
-        class="block size-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ui-primary)"
-        :aria-label="t.proof.enlarge"
-        data-testid="proof-enlarge"
-        @click="enlarge()"
-      >
-        <img
-          crossorigin="use-credentials"
-          :src="source"
-          alt=""
-          decoding="async"
-          draggable="false"
-          class="size-full"
-          :class="proof.source === 'Screenshot' ? 'object-contain' : 'object-cover'"
-          data-testid="proof-image"
-          @error="failed = true"
-        >
-      </button>
-
-      <div
-        v-else
-        class="flex size-full items-center justify-center"
-      >
-        <UIcon
-          name="i-lucide-image-off"
-          class="size-8 text-(--ui-text-dimmed)"
-          aria-hidden="true"
-        />
-      </div>
+      <!-- A clip plays here without sound while it is on screen, and the front
+           camera's picture sits in the corner, swapped with a tap (#124, #125). -->
+      <ProofMedia
+        :parts="media"
+        :fit="proof.source === 'Screenshot' ? 'contain' : 'cover'"
+        mode="inline"
+        openable
+        :open-label="t.proof.enlarge"
+        @open="enlarge()"
+      />
 
       <ProofSourceBadge
         :source="proof.source"

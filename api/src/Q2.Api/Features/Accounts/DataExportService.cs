@@ -104,7 +104,12 @@ public sealed class DataExportService(
     private sealed record Collected(Dictionary<string, object?> Document, IReadOnlyList<StoredImage> Images);
 
     private static string FileOf(StoredImage image) =>
-        $"images/{image.Id:N}{(image.ContentType == "image/png" ? ".png" : ".jpg")}";
+        $"images/{image.Id:N}{image.ContentType switch
+        {
+            ImageFormatReader.Png => ".png",
+            ImageFormatReader.Mp4 => ".mp4",
+            _ => ".jpg",
+        }}";
 
     private async Task<Collected> CollectAsync(Person me, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -432,10 +437,13 @@ public sealed class DataExportService(
                     proof.Id,
                     proof.CreatedAt,
                     proof.Source,
+                    proof.Media,
                     proof.Attempt,
                     proof.Status,
                     proof.ResolvedAt,
                     Image = fileFor(proof.ImageId),
+                    Still = fileFor(proof.PosterImageId),
+                    FrontCamera = fileFor(proof.InsetImageId),
 
                     // Counted, never who: as the owner's own screen shows it.
                     Believed = proof.Votes.Count(vote => vote.Value == VoteValue.Confirm),

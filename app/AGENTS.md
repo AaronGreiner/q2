@@ -141,6 +141,7 @@ Current components, by folder:
 | `ChatMissedRun` `ChatKeptRun` | a run of missed windows, or of kept ones, as one dated line; photographs stay in place inside a kept run (#100) |
 | `ChatEventLine` | a line between the messages of a goal's conversation — created, kept, missed, paused, ended — worded by `goalEventText` in `utils/chatTimeline.ts` |
 | `ProofCard` | somebody's photograph and the vote on it, in the stack and in a goal's conversation — where a vote can be changed until it is decided |
+| `ProofMedia` `ProofMediaFrame` | what a proof shows wherever it is drawn: a photograph or a clip (without sound until asked, its still on a tile), and the front camera's picture in a corner, swapped with a tap; `ProofMediaFrame` takes addresses — the camera's preview uses it too — and `ProofMedia` resolves a stored proof's ids ([0060](../docs/adr/0060-video-and-both-cameras.md)) |
 | `ProofSwipeStack` | the photographs waiting for your verdict, swiped right to confirm and left to doubt, on the start screen — first, after an open spot check — and `/vote` |
 | `AppPhotoViewer` | the one full-screen photograph, mounted in `app.vue` and opened through `usePhotoViewer`; draws its own pinch-zoom |
 | `ProofSourceBadge` | "Live", "Screenshot" or "Ohne Angabe" on every proof, wherever it is shown ([0036](../docs/adr/0036-live-or-screenshot.md)) |
@@ -536,7 +537,7 @@ other (../AGENTS.md section 6); the WebView does most things already.
 `capacitor.config.json` are not. `CapApp-SPM/Package.swift` points into bun's
 package store and is rewritten by every `cap sync`, which is why Xcode is opened
 through the script. The icon and launch screen are drawn by
-`bun run app:icons`; the camera and photo-library texts are in
+`bun run app:icons`; the camera, microphone and photo-library texts are in
 `ios/App/App/Info.plist`.
 
 Unit tests cover the token path with stubs (`sessionTokens`, `nativePlugin`,

@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import AppAvatar from '~/components/ui/AppAvatar.vue'
 import PhotoCapture from '~/components/ui/PhotoCapture.vue'
 import ProfileEditSheet from '~/components/profile/ProfileEditSheet.vue'
@@ -385,5 +385,177 @@ describe('PhotoCapture, when the sheet opens', () => {
     expect(document.querySelector('[data-testid="photo-choose"]')).not.toBeNull()
 
     wrapper.unmount()
+  })
+})
+
+/**
+ * A proof's own camera: a clip as well as a photograph, and both cameras at
+ * once (#124, #125).
+ *
+ * As above, only what changing state can reach: which modes are offered on
+ * which device, and what is on screen once the cameras are open. Recording,
+ * the front picture taken in turn and delivering are pressed in a real
+ * browser, in `tests/e2e/videoAndBothCameras.spec.ts`.
+ */
+describe('PhotoCapture, for a proof', () => {
+  let mounted: Array<{ unmount: () => void }> = []
+
+  afterEach(() => {
+    mounted.forEach(wrapper => wrapper.unmount())
+    mounted = []
+    document.body.replaceChildren()
+    localStorage.removeItem('q2-camera-both-at-once')
+    localStorage.removeItem('q2-camera-facing')
+    vi.unstubAllGlobals()
+  })
+
+  function videoTrack(deviceId: string) {
+    return { stop: vi.fn(), readyState: 'live', muted: false, getSettings: () => ({ deviceId }) }
+  }
+
+  function cameraStream(deviceId: string) {
+    const track = videoTrack(deviceId)
+    return { getTracks: () => [track], getVideoTracks: () => [track], track }
+  }
+
+  /**
+   * A phone with `cameras` cameras whose `getUserMedia` answers with the
+   * rear camera first and the front one after it. `recordsMp4` is what the
+   * browser's recorder can write.
+   */
+  function installDevice({ cameras = 2, recordsMp4 = true, frontBeside = true } = {}) {
+    const rear = cameraStream('rear')
+    const front = cameraStream('front')
+    // The rear camera by facing; the front one by exact facing or by device,
+    // which is how a second camera beside the first is asked for.
+    const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+      const video = constraints.video as { facingMode?: unknown, deviceId?: unknown }
+      if (typeof video?.facingMode === 'object' || video?.deviceId) {
+        if (!frontBeside) throw new Error('NotReadableError')
+        return front
+      }
+      return rear
+    })
+
+    Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia,
+        enumerateDevices: vi.fn().mockResolvedValue([
+          { kind: 'videoinput', deviceId: 'rear' },
+          ...(cameras > 1 ? [{ kind: 'videoinput', deviceId: 'front' }] : []),
+        ]),
+      },
+    })
+    Object.defineProperty(globalThis.HTMLMediaElement.prototype, 'srcObject', { configurable: true, writable: true, value: null })
+    Object.defineProperty(globalThis.HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) })
+
+    vi.stubGlobal('MediaRecorder', { isTypeSupported: (type: string) => recordsMp4 && type.startsWith('video/mp4') })
+    localStorage.removeItem('q2-camera-both-at-once')
+
+    return { getUserMedia, rear, front }
+  }
+
+  async function openProofCamera(props: Record<string, unknown> = {}) {
+    const wrapper = await mountSuspended(PhotoCapture, { props: { purpose: 'Proof', labelsSource: true, proofModes: true, open: false, ...props } })
+    mounted.push(wrapper)
+    await wrapper.setProps({ open: true })
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="photo-shutter"]')).not.toBeNull())
+    return wrapper
+  }
+
+  function query(id: string) {
+    return document.querySelector(`[data-testid="${id}"]`)
+  }
+
+  it('offers a clip beside a photograph where the browser records MP4', async () => {
+    installDevice()
+
+    await openProofCamera()
+
+    expect(query('photo-modes')?.textContent).toContain('Foto')
+    expect(query('photo-modes')?.textContent).toContain('Video')
+  })
+
+  /** A WebM some iPhones cannot play is worse than no video mode at all. */
+  it('offers no clip where the browser cannot record MP4, and none for anything but a proof', async () => {
+    installDevice({ recordsMp4: false })
+    const proof = await openProofCamera()
+    expect(query('photo-modes')).toBeNull()
+    proof.unmount()
+    mounted = []
+    document.body.replaceChildren()
+
+    installDevice()
+    const avatar = await mountSuspended(PhotoCapture, { props: { purpose: 'Avatar', open: false } })
+    mounted.push(avatar)
+    await avatar.setProps({ open: true })
+    await vi.waitFor(() => expect(query('photo-shutter')).not.toBeNull())
+    expect(query('photo-modes')).toBeNull()
+    expect(query('photo-both')).toBeNull()
+  })
+
+  /**
+   * Both cameras is on at every opening, wherever there are two — the rear
+   * one large, the front one in the corner, mirrored while live — and is a
+   * switch somebody can turn off.
+   */
+  it('opens with both cameras on, the front one beside the rear one where both can run', async () => {
+    const { getUserMedia } = installDevice()
+    localStorage.setItem('q2-camera-facing', 'user')
+
+    await openProofCamera()
+
+    // The rear camera large, whatever was used last for a single picture.
+    expect(getUserMedia).toHaveBeenNthCalledWith(1, expect.objectContaining({ video: { facingMode: 'environment' } }))
+
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ video: { facingMode: { exact: 'user' } } })))
+
+    const both = query('photo-both')
+    expect(both?.getAttribute('aria-pressed')).toBe('true')
+    expect(both?.getAttribute('aria-label')).toBe('Beide Kameras')
+
+    const front = query('photo-front-camera') as HTMLVideoElement
+    await vi.waitFor(() => expect(front.style.display).not.toBe('none'))
+    expect(front.className).toContain('-scale-x-100')
+    expect(front.closest('[data-q2-block]')).toBe(query('photo-frame'))
+
+    // A single picture has the other-camera switch; both cameras do not need it.
+    expect(query('photo-switch')).toBeNull()
+  })
+
+  /**
+   * Most phones cannot run both: the corner then says the second picture
+   * follows, and the device is remembered so it is not asked again.
+   */
+  it('says the front picture follows where both cannot run at once', async () => {
+    installDevice({ frontBeside: false })
+
+    await openProofCamera()
+
+    await vi.waitFor(() => expect(localStorage.getItem('q2-camera-both-at-once')).toBe('no'))
+    expect(query('photo-front-after')?.textContent).toContain('Danach du')
+    expect((query('photo-front-camera') as HTMLVideoElement).style.display).toBe('none')
+  })
+
+  it('offers no second camera where there is only one', async () => {
+    installDevice({ cameras: 1 })
+
+    await openProofCamera()
+
+    expect(query('photo-both')).toBeNull()
+    expect(query('photo-front-after')).toBeNull()
+  })
+
+  it('stops every camera when the screen closes', async () => {
+    const { rear, front } = installDevice()
+
+    const wrapper = await openProofCamera()
+    await vi.waitFor(() => expect((query('photo-front-camera') as HTMLVideoElement).style.display).not.toBe('none'))
+
+    await wrapper.setProps({ open: false })
+
+    expect(rear.track.stop).toHaveBeenCalled()
+    expect(front.track.stop).toHaveBeenCalled()
   })
 })

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OwnProof } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One of your own photographs, cropped square, in your profile's gallery.
@@ -14,22 +15,16 @@ import type { OwnProof } from '~/api/types'
  *
  * Live or screenshot is written on it, like on every proof (#61), and a
  * screenshot is fitted rather than cropped: a square cut out of a tall picture
- * full of text is the part that says nothing.
+ * full of text is the part that says nothing. A clip shows its still with a
+ * play mark, and the front camera's picture sits small in its corner (#124,
+ * #125).
  */
 const props = defineProps<{ proof: OwnProof }>()
 
 const emit = defineEmits<{ open: [] }>()
 
 const t = useMessages()
-const picture = useImageSource(() => props.proof.imageId)
-
-const failed = ref(false)
-
-watch(() => props.proof.imageId, () => {
-  failed.value = false
-})
-
-const source = computed(() => (failed.value ? null : picture.value))
+const media = computed(() => proofMediaOf(props.proof))
 
 const day = computed(() => formatInstantDate(props.proof.createdAt))
 const status = computed(() => proofStatusLabel(props.proof.status, t.value))
@@ -45,28 +40,13 @@ const status = computed(() => proofStatusLabel(props.proof.status, t.value))
     data-q2-block
     @click="emit('open')"
   >
-    <img
-      v-if="source"
-      crossorigin="use-credentials"
-      :src="source"
-      alt=""
-      decoding="async"
-      loading="lazy"
-      class="size-full"
-      :class="proof.source === 'Screenshot' ? 'object-contain' : 'object-cover'"
-      @error="failed = true"
-    >
-
-    <span
-      v-else
-      class="flex size-full items-center justify-center"
-    >
-      <UIcon
-        name="i-lucide-image-off"
-        class="size-6 text-(--ui-text-dimmed)"
-        aria-hidden="true"
-      />
-    </span>
+    <!-- A clip shows its still and a play mark; it plays once opened. -->
+    <ProofMedia
+      :parts="media"
+      :fit="proof.source === 'Screenshot' ? 'contain' : 'cover'"
+      mode="still"
+      inset-corner="bottom-end"
+    />
 
     <span
       v-if="proof.status !== 'Confirmed'"

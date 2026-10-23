@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ChatPhoto } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One photograph in a conversation's grid (#24), square, opening full size.
@@ -15,15 +16,14 @@ const props = defineProps<{
 }>()
 
 const t = useMessages()
-const picture = useImageSource(() => props.photo.imageId)
 const viewer = usePhotoViewer()
 
-const failed = ref(false)
-const source = computed(() => (failed.value ? null : picture.value))
+/** A proof may be a clip, with the front camera's picture beside it (#124, #125). */
+const media = computed(() => proofMediaOf(props.photo))
 
 function enlarge() {
   viewer.open({
-    imageId: props.photo.imageId,
+    ...media.value,
     title: props.context,
     subtitle: props.photo.authorName,
     meta: formatInstantDate(props.photo.at),
@@ -41,26 +41,9 @@ function enlarge() {
     data-q2-block
     @click="enlarge()"
   >
-    <img
-      v-if="source"
-      crossorigin="use-credentials"
-      :src="source"
-      alt=""
-      decoding="async"
-      loading="lazy"
-      class="size-full object-cover"
-      @error="failed = true"
-    >
-
-    <span
-      v-else
-      class="flex size-full items-center justify-center"
-    >
-      <UIcon
-        name="i-lucide-image-off"
-        class="size-5 text-(--ui-text-dimmed)"
-        aria-hidden="true"
-      />
-    </span>
+    <ProofMedia
+      :parts="media"
+      mode="still"
+    />
   </button>
 </template>

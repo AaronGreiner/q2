@@ -464,8 +464,9 @@ public sealed class Goal
     public SpotCheck? OpenSpotCheckAt(DateTimeOffset now) => CurrentInstance?.OpenSpotCheckAt(now);
 
     /// <summary>Answers an open check with a live photograph. Null when there is none to answer.</summary>
-    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now) =>
-        CurrentInstance?.AnswerSpotCheck(checkId, proofId, OwnerPersonId, imageId, now);
+    /// <param name="parts">A clip, or both cameras, when the check was answered with them.</param>
+    public ProofPhoto? AnswerSpotCheck(Guid checkId, Guid proofId, Guid imageId, DateTimeOffset now, ProofParts? parts = null) =>
+        CurrentInstance?.AnswerSpotCheck(checkId, proofId, OwnerPersonId, imageId, now, parts);
 
     /// <summary>
     /// The first local day of a Don't's current clean run: the day after its
@@ -556,12 +557,14 @@ public sealed class Goal
     /// what was delivered, which is the whole shape of the product: the person
     /// who made the promise does not get to mark their own homework.
     /// </remarks>
+    /// <param name="parts">A clip, or both cameras, when the proof was taken with them.</param>
     public ProofPhoto? SubmitProof(
         Guid id,
         Guid imageId,
         ProofSource source,
-        DateTimeOffset now) =>
-        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, source, now);
+        DateTimeOffset now,
+        ProofParts? parts = null) =>
+        CurrentInstance?.SubmitProof(id, OwnerPersonId, imageId, source, now, parts);
 
     /// <summary>
     /// Applies a decided vote, and completes a one-off goal when its only

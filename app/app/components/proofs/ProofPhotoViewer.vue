@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OwnProof } from '~/api/types'
+import { proofMediaOf } from '~/utils/proofMedia'
 
 /**
  * One of your photographs, as large as the phone allows.
@@ -18,16 +19,7 @@ const props = defineProps<{ proof: OwnProof | null }>()
 const open = defineModel<boolean>('open', { required: true })
 
 const t = useMessages()
-const picture = useImageSource(() => props.proof?.imageId)
-
-const failed = ref(false)
-
-watch(() => props.proof?.imageId, () => {
-  failed.value = false
-})
-
-const source = computed(() =>
-  (!props.proof || failed.value ? null : picture.value))
+const media = computed(() => (props.proof ? proofMediaOf(props.proof) : null))
 
 const description = computed(() => (props.proof
   ? [
@@ -85,15 +77,15 @@ const description = computed(() => (props.proof
         data-testid="proof-viewer"
         data-q2-block
       >
-        <img
-          v-if="source"
-          crossorigin="use-credentials"
-          :src="source"
+        <!-- A clip with the player's own controls, and the front camera's
+             picture in the corner, swapped with a tap (#124, #125). -->
+        <ProofMedia
+          v-if="media"
+          :parts="media"
+          fit="contain"
+          mode="controls"
           :alt="proof?.goalTitle ?? ''"
-          decoding="async"
-          class="size-full object-contain"
-          @error="failed = true"
-        >
+        />
 
         <ProofSourceBadge
           v-if="proof"

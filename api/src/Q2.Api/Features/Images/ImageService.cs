@@ -52,7 +52,8 @@ public sealed class ImageService(
         var quota = await GetQuotaAsync(me.Id, cancellationToken);
 
         if (quota.ImageCount >= StoredImage.MaxImagesPerPerson
-            || quota.BytesUsed + content.ByteSize > StoredImage.MaxBytesPerPerson)
+            || quota.BytesUsed + content.ByteSize > StoredImage.MaxBytesPerPerson
+            || (content.IsVideo && quota.VideoBytesUsed + content.ByteSize > StoredImage.MaxVideoBytesPerPerson))
         {
             throw new DomainValidationException(
                 "File",
@@ -287,10 +288,12 @@ public sealed class ImageService(
          */
         if (image.Purpose == ImagePurpose.Proof)
         {
+            // Every part of the proof has its audience: the photograph or clip,
+            // the front camera's picture beside it, and a clip's still.
             var asProof = await database.ProofPhotos
                 .AsNoTracking()
                 .AnyAsync(
-                    proof => proof.ImageId == image.Id
+                    proof => (proof.ImageId == image.Id || proof.InsetImageId == image.Id || proof.PosterImageId == image.Id)
                         && database.Goals.Any(goal =>
                             goal.Instances.Any(instance => instance.Id == proof.GoalInstanceId)
                             && (goal.OwnerPersonId == viewerId
@@ -391,13 +394,25 @@ public sealed class ImageService(
             .AsNoTracking()
             .Where(image => image.OwnerPersonId == personId)
             .GroupBy(_ => 1)
-            .Select(group => new { Bytes = group.Sum(image => (long)image.ByteSize), Count = group.Count() })
+            .Select(group => new
+            {
+                Bytes = group.Sum(image => (long)image.ByteSize),
+                Count = group.Count(),
+
+                // The media type, not `IsVideo`: a computed property is not a
+                // column, and this has to run in SQL.
+                VideoBytes = group.Sum(image => image.ContentType == ImageFormatReader.Mp4 ? (long)image.ByteSize : 0L),
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
         return new ImageQuotaResponse(
             used?.Bytes ?? 0,
             StoredImage.MaxBytesPerPerson,
             used?.Count ?? 0,
-            StoredImage.MaxImagesPerPerson);
+            StoredImage.MaxImagesPerPerson,
+            used?.VideoBytes ?? 0,
+            StoredImage.MaxVideoBytesPerPerson,
+            StoredImage.MaxVideoBytes,
+            StoredImage.MaxVideoSeconds);
     }
 }

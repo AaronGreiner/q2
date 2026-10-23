@@ -15,7 +15,8 @@ const loadingImage = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAAB
 const brokenImage = 'data:,'
 
 /**
- * The `src` for a stored picture, or null when there is none.
+ * The `src` for a stored picture — or a proof's clip, which is stored and
+ * fetched the same way — or null when there is none.
  *
  * In the browser this is `imageUrl` and nothing more: the `<img>` carries the
  * session cookie itself. In the iOS app an `<img>` cannot carry the bearer

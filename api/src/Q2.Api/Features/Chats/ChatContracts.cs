@@ -295,13 +295,22 @@ public sealed record PinChatRequest(bool? Pinned = null);
 /// because every proof says whether it was live (docs/adr/0036-live-or-screenshot.md).
 /// </param>
 /// <param name="AuthorName">Who sent or delivered it, for the full-screen view.</param>
+/// <param name="Media">
+/// A proof may be a short clip (#124); everything else in a conversation is a
+/// photograph.
+/// </param>
+/// <param name="PosterImageId">A clip's still, which is what its tile shows.</param>
+/// <param name="InsetImageId">A proof's front-camera picture, for the full-screen view (#125).</param>
 public sealed record ChatPhotoResponse(
     Guid Id,
     Guid ImageId,
     bool IsProof,
     string AuthorName,
     DateTimeOffset At,
-    ProofSource? Source);
+    ProofSource? Source,
+    MediaKind Media = MediaKind.Photo,
+    Guid? PosterImageId = null,
+    Guid? InsetImageId = null);
 
 /// <summary>Request body for opening a direct conversation with somebody.</summary>
 /// <remarks>

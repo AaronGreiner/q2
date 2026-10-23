@@ -895,6 +895,9 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("DurationMilliseconds")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Height")
                         .HasColumnType("INTEGER");
 
@@ -1244,6 +1247,17 @@ namespace Q2.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("ImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InsetImageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Media")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PosterImageId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("ResolvedAt")

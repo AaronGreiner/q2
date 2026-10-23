@@ -20,6 +20,11 @@ const failure = {
   reason: null,
 }
 
+/** What the camera hands over, as far as delivering reads it. */
+function captured(id: string, origin: 'camera' | 'library') {
+  return { image: { id }, origin, poster: null, inset: null } as never
+}
+
 function window(overrides: Record<string, unknown> = {}) {
   return {
     id: 'window-1',
@@ -918,15 +923,15 @@ describe('proof composables', () => {
     vi.stubGlobal('navigateTo', navigateTo)
     const delivery = useProofDelivery()
 
-    await expect(delivery.deliver('goal-1', { id: 'image-1' }, 'camera')).resolves.toEqual({ status: 'moved' })
-    expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', 'image-1', 'Live')
+    await expect(delivery.deliver('goal-1', captured('image-1', 'camera'))).resolves.toEqual({ status: 'moved' })
+    expect(api.proofs.submit).toHaveBeenCalledWith('goal-1', { imageId: 'image-1', posterImageId: null, insetImageId: null }, 'Live')
     expect(navigateTo).toHaveBeenCalledWith('/chats/chat-9')
 
     // A goal nobody shares and with no conversation has nobody to ask, so it
     // comes back believed — and a toast is the one place left to say so.
     api.proofs.submit.mockResolvedValueOnce({ proof: { id: 'proof-10', status: 'Confirmed' }, conversationId: null })
-    await expect(delivery.deliver('goal-1', { id: 'image-2' }, 'library')).resolves.toEqual({ status: 'stayed' })
-    expect(api.proofs.submit).toHaveBeenLastCalledWith('goal-1', 'image-2', 'Screenshot')
+    await expect(delivery.deliver('goal-1', captured('image-2', 'library'))).resolves.toEqual({ status: 'stayed' })
+    expect(api.proofs.submit).toHaveBeenLastCalledWith('goal-1', { imageId: 'image-2', posterImageId: null, insetImageId: null }, 'Screenshot')
     expect(show).toHaveBeenCalledWith(de.toast.proofCounted)
   })
 
@@ -939,7 +944,7 @@ describe('proof composables', () => {
 
     api.proofs.submit.mockRejectedValueOnce(new Error('window full'))
 
-    const result = await delivery.deliver('goal-1', { id: 'image-1' }, 'camera')
+    const result = await delivery.deliver('goal-1', captured('image-1', 'camera'))
     expect(result.status).toBe('refused')
     expect(report).toHaveBeenCalledWith(expect.any(Error), { feature: 'proofs', action: 'deliver' })
   })

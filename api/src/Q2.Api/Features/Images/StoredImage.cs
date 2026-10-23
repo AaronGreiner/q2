@@ -59,7 +59,8 @@ public enum ImagePurpose
 }
 
 /// <summary>
-/// One picture somebody uploaded: what it is, who it belongs to, and how big.
+/// One picture — or, for a proof, one short clip — somebody uploaded: what it
+/// is, who it belongs to, and how big.
 /// </summary>
 /// <remarks>
 /// The bytes are not here. They live behind <see cref="IImageStore"/>, and this
@@ -72,6 +73,12 @@ public enum ImagePurpose
 /// what <see cref="ImageFormatReader"/> found in the bytes, never what the
 /// upload claimed. A client that says "image/png" over a zip archive is not a
 /// hypothetical; it is the first thing anybody tries.
+///
+/// A clip is a row here too, with <see cref="ContentType"/> <c>video/mp4</c>
+/// and a <see cref="DurationMilliseconds"/>: the same seam, the same session
+/// check and the same erasure as a photograph, rather than a second store that
+/// would need all three again (docs/adr/0060-video-and-both-cameras.md). Only a
+/// proof may be one.
 ///
 /// There is no storage-key column. The key is derived from
 /// <see cref="Id"/> (<see cref="FileSystemImageStore"/>), and a second copy of
@@ -105,8 +112,36 @@ public sealed class StoredImage
     /// </remarks>
     public const int MinDimension = 32;
 
-    /// <summary>How much storage one person may use, in bytes.</summary>
-    public const long MaxBytesPerPerson = 100L * 1024 * 1024;
+    /// <summary>How much storage one person may use, in bytes, pictures and clips together.</summary>
+    /// <remarks>
+    /// It was 100 MB while everything was a photograph. Clips get a share of
+    /// their own on top (<see cref="MaxVideoBytesPerPerson"/>), so pictures keep
+    /// at least the 100 MB they always had however many clips somebody records.
+    /// </remarks>
+    public const long MaxBytesPerPerson = 300L * 1024 * 1024;
+
+    /// <summary>How much of <see cref="MaxBytesPerPerson"/> clips may take.</summary>
+    public const long MaxVideoBytesPerPerson = 200L * 1024 * 1024;
+
+    /// <summary>The largest single clip, in bytes.</summary>
+    /// <remarks>
+    /// The app records at 2.5 Mbit/s, which is about 3.5 MB for the longest
+    /// clip it allows. Twelve leaves room for a phone that ignores the bitrate it
+    /// was asked for, and is still a limit rather than a formality.
+    /// </remarks>
+    public const int MaxVideoBytes = 12 * 1024 * 1024;
+
+    /// <summary>The longest a clip may run, as the app records it.</summary>
+    public const int MaxVideoSeconds = 10;
+
+    /// <summary>The longest a clip may run as the server checks it, in milliseconds.</summary>
+    /// <remarks>
+    /// A second longer than <see cref="MaxVideoSeconds"/>: a recorder told to
+    /// stop at ten seconds finishes the frame it is on and writes the last
+    /// fragment afterwards, so a clip stopped exactly at the limit runs a moment
+    /// past it. What this refuses is a clip that was never stopped at all.
+    /// </remarks>
+    public const int MaxVideoMilliseconds = (MaxVideoSeconds + 1) * 1000;
 
     /// <summary>How many images one person may keep.</summary>
     /// <remarks>
@@ -130,6 +165,7 @@ public sealed class StoredImage
         int byteSize,
         int width,
         int height,
+        int? durationMilliseconds,
         DateTimeOffset createdAt)
     {
         Id = id;
@@ -139,6 +175,7 @@ public sealed class StoredImage
         ByteSize = byteSize;
         Width = width;
         Height = height;
+        DurationMilliseconds = durationMilliseconds;
         CreatedAt = createdAt;
     }
 
@@ -157,6 +194,12 @@ public sealed class StoredImage
     public int Width { get; private set; }
 
     public int Height { get; private set; }
+
+    /// <summary>How long a clip runs, read from its headers. Null for a picture.</summary>
+    public int? DurationMilliseconds { get; private set; }
+
+    /// <summary>Whether this is a clip rather than a still picture.</summary>
+    public bool IsVideo => ContentType == ImageFormatReader.Mp4;
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -182,7 +225,27 @@ public sealed class StoredImage
             errors[nameof(OwnerPersonId)] = ["An image needs somebody it belongs to."];
         }
 
-        if (content.ByteSize is <= 0 or > MaxBytes)
+        if (content.IsVideo)
+        {
+            // A clip is evidence of something happening, which is a proof's
+            // job and nobody else's: an avatar or a chat photograph that moves
+            // would be a different product (#124).
+            if (purpose != ImagePurpose.Proof)
+            {
+                errors[nameof(Purpose)] = ["Only a proof may be a video."];
+            }
+
+            if (content.ByteSize is <= 0 or > MaxVideoBytes)
+            {
+                errors[nameof(ByteSize)] = [$"A video may be at most {MaxVideoBytes} bytes."];
+            }
+
+            if (content.DurationMilliseconds is not (> 0 and <= MaxVideoMilliseconds))
+            {
+                errors[nameof(DurationMilliseconds)] = [$"A video may be at most {MaxVideoSeconds} seconds long."];
+            }
+        }
+        else if (content.ByteSize is <= 0 or > MaxBytes)
         {
             errors[nameof(ByteSize)] = [$"An image may be at most {MaxBytes} bytes."];
         }
@@ -210,6 +273,7 @@ public sealed class StoredImage
             content.ByteSize,
             content.Width,
             content.Height,
+            content.IsVideo ? content.DurationMilliseconds : null,
             createdAt);
     }
 }
